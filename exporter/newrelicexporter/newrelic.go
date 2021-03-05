@@ -140,15 +140,18 @@ func (e *exporter) extractInsertKeyFromHeader(ctx context.Context) string {
 	return values[0]
 }
 
-func (e exporter) pushTraceData(ctx context.Context, td pdata.Traces) (droppedSpans int, grpcErr error) {
+func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (droppedSpans int, grpcErr error) {
 	var (
 		errs      []error
 		goodSpans int
 	)
 
 	startTime := time.Now()
+	insertKey := e.extractInsertKeyFromHeader(ctx)
+
 	details := NewTraceDetails(ctx)
 	defer func() {
+		details.apiKey = sanitizeApiKeyForLogging(insertKey)
 		details.resourceSpanCount = td.ResourceSpans().Len()
 		details.processDuration = time.Now().Sub(startTime)
 		details.responseCode = status.Code(grpcErr)
@@ -183,8 +186,6 @@ func (e exporter) pushTraceData(ctx context.Context, td pdata.Traces) (droppedSp
 		}
 	}
 	batches := []telemetry.PayloadEntry{&batch}
-	insertKey := e.extractInsertKeyFromHeader(ctx)
-	details.apiKey = sanitizeApiKeyForLogging(insertKey)
 	var req *http.Request
 	var err error
 
@@ -226,7 +227,7 @@ func (e exporter) pushTraceData(ctx context.Context, td pdata.Traces) (droppedSp
 
 }
 
-func (e exporter) pushMetricData(ctx context.Context, md pdata.Metrics) (int, error) {
+func (e *exporter) pushMetricData(ctx context.Context, md pdata.Metrics) (int, error) {
 	var errs []error
 	goodMetrics := 0
 
@@ -262,7 +263,7 @@ func (e exporter) pushMetricData(ctx context.Context, md pdata.Metrics) (int, er
 	return md.MetricCount() - goodMetrics, componenterror.CombineErrors(errs)
 }
 
-func (e exporter) Shutdown(ctx context.Context) error {
+func (e *exporter) Shutdown(ctx context.Context) error {
 	e.harvester.HarvestNow(ctx)
 	return nil
 }
