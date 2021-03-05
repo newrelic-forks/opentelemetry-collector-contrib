@@ -74,14 +74,14 @@ type traceDetails struct {
 }
 
 func NewTraceDetails(ctx context.Context) *traceDetails {
-	userAgent := ""
+	userAgent := "not_present"
 	if md, ctxOk := metadata.FromIncomingContext(ctx); ctxOk {
 		if values, headerOk := md["user-agent"]; headerOk {
 			userAgent = values[0]
 		}
 	}
 
-	return &traceDetails{userAgent: userAgent}
+	return &traceDetails{userAgent: userAgent, apiKey: "not_present"}
 }
 
 func (d *traceDetails) RecordPushTraceData(ctx context.Context) error {
