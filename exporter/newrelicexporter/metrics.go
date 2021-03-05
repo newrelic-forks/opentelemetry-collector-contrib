@@ -84,20 +84,20 @@ func NewTraceDetails(ctx context.Context) *traceDetails {
 	return &traceDetails{userAgent: userAgent}
 }
 
-func recordPushTraceData(ctx context.Context, details *traceDetails) error {
+func (d *traceDetails) RecordPushTraceData(ctx context.Context) error {
 	tags := []tag.Mutator{
-		tag.Insert(tagResponseCode, details.responseCode.String()),
-		tag.Insert(tagTraceHTTPStatusCode, strconv.Itoa(details.traceHTTPStatusCode)),
-		tag.Insert(tagRequestUserAgent, details.userAgent),
-		tag.Insert(tagApiKey, details.apiKey),
+		tag.Insert(tagResponseCode, d.responseCode.String()),
+		tag.Insert(tagTraceHTTPStatusCode, strconv.Itoa(d.traceHTTPStatusCode)),
+		tag.Insert(tagRequestUserAgent, d.userAgent),
+		tag.Insert(tagApiKey, d.apiKey),
 	}
 
 	return stats.RecordWithTags(ctx, tags,
 		statTraceRequests.M(1),
-		statTraceResourceSpans.M(int64(details.resourceSpanCount)),
-		statTraceExternalSpans.M(int64(details.traceSpanCount)),
-		statTraceProcessSeconds.M(details.processDuration.Seconds()),
-		statTraceExternalSeconds.M(details.externalDuration.Seconds()),
+		statTraceResourceSpans.M(int64(d.resourceSpanCount)),
+		statTraceExternalSpans.M(int64(d.traceSpanCount)),
+		statTraceProcessSeconds.M(d.processDuration.Seconds()),
+		statTraceExternalSeconds.M(d.externalDuration.Seconds()),
 	)
 }
 
