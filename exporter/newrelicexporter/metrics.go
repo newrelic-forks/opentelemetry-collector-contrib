@@ -61,11 +61,11 @@ func buildView(tagKeys []tag.Key, m stats.Measure, a *view.Aggregation) *view.Vi
 }
 
 type traceDetails struct {
-	ctx context.Context // The context
 	// Metric tags
 	responseCode        codes.Code // The gRPC response code
 	traceHTTPStatusCode int        // The HTTP response status code form the trace API
 	apiKey              string     // The API key from the request
+	userAgent           string     // The User-Agent from the request
 	// Metric values
 	resourceSpanCount int           // Number of resource spans in the request
 	processDuration   time.Duration // Total time spent in the newrelic exporter
@@ -73,27 +73,26 @@ type traceDetails struct {
 	externalDuration  time.Duration // Time spent sending to the trace API
 }
 
-func recordPushTraceData(details traceDetails) error {
-	userAgent := "not_present"
-	if md, ctxOk := metadata.FromIncomingContext(details.ctx); ctxOk {
+func NewTraceDetails(ctx context.Context) *traceDetails {
+	userAgent := ""
+	if md, ctxOk := metadata.FromIncomingContext(ctx); ctxOk {
 		if values, headerOk := md["user-agent"]; headerOk {
 			userAgent = values[0]
 		}
 	}
 
-	apiKey := "not_present"
-	if details.apiKey != "" {
-		apiKey = details.apiKey
-	}
+	return &traceDetails{userAgent: userAgent}
+}
 
+func recordPushTraceData(ctx context.Context, details *traceDetails) error {
 	tags := []tag.Mutator{
 		tag.Insert(tagResponseCode, details.responseCode.String()),
 		tag.Insert(tagTraceHTTPStatusCode, strconv.Itoa(details.traceHTTPStatusCode)),
-		tag.Insert(tagRequestUserAgent, userAgent),
-		tag.Insert(tagApiKey, apiKey),
+		tag.Insert(tagRequestUserAgent, details.userAgent),
+		tag.Insert(tagApiKey, details.apiKey),
 	}
 
-	return stats.RecordWithTags(details.ctx, tags,
+	return stats.RecordWithTags(ctx, tags,
 		statTraceRequests.M(1),
 		statTraceResourceSpans.M(int64(details.resourceSpanCount)),
 		statTraceExternalSpans.M(int64(details.traceSpanCount)),
