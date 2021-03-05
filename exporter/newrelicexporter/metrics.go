@@ -29,7 +29,7 @@ var (
 	tagResponseCode, _        = tag.NewKey("grpc_response_code")
 	tagTraceHTTPStatusCode, _ = tag.NewKey("trace_http_status_code")
 	tagRequestUserAgent, _    = tag.NewKey("user_agent")
-	tagApiKey, _    		  = tag.NewKey("api_key")
+	tagApiKey, _              = tag.NewKey("api_key")
 	tagKeys                   = []tag.Key{tagResponseCode, tagTraceHTTPStatusCode, tagRequestUserAgent, tagApiKey}
 
 	statTraceRequests        = stats.Int64("newrelicexporter_trace_requests", "Number of trace requests processed", stats.UnitDimensionless)
@@ -61,11 +61,11 @@ func buildView(tagKeys []tag.Key, m stats.Measure, a *view.Aggregation) *view.Vi
 }
 
 type traceDetails struct {
-	ctx                   context.Context // The context
+	ctx context.Context // The context
 	// Metric tags
-	responseCode          codes.Code // The gRPC response code
-	traceHTTPStatusCode   int        // The HTTP response status code form the trace API
-	apiKey				  string	 // The API key from the request
+	responseCode        codes.Code // The gRPC response code
+	traceHTTPStatusCode int        // The HTTP response status code form the trace API
+	apiKey              string     // The API key from the request
 	// Metric values
 	resourceSpanCount int           // Number of resource spans in the request
 	processDuration   time.Duration // Total time spent in the newrelic exporter
@@ -73,7 +73,7 @@ type traceDetails struct {
 	externalDuration  time.Duration // Time spent sending to the trace API
 }
 
-func recordPushTraceData (details traceDetails) error {
+func recordPushTraceData(details traceDetails) error {
 	userAgent := "not_present"
 	if md, ctxOk := metadata.FromIncomingContext(details.ctx); ctxOk {
 		if values, headerOk := md["user-agent"]; headerOk {
@@ -83,7 +83,7 @@ func recordPushTraceData (details traceDetails) error {
 
 	apiKey := "not_present"
 	if details.apiKey != "" {
-		apiKey = sanitizeApiKeyForLogging(details.apiKey)
+		apiKey = details.apiKey
 	}
 
 	tags := []tag.Mutator{

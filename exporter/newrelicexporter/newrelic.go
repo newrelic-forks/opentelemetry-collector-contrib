@@ -144,7 +144,7 @@ func (e exporter) pushTraceData(ctx context.Context, td pdata.Traces) (droppedSp
 	var (
 		errs      []error
 		goodSpans int
-		details traceDetails
+		details   traceDetails
 	)
 
 	startTime := time.Now()
@@ -155,7 +155,7 @@ func (e exporter) pushTraceData(ctx context.Context, td pdata.Traces) (droppedSp
 		details.traceSpanCount = goodSpans
 		err := recordPushTraceData(details)
 		if err != nil {
-			e.logger.Error("An error occurred recording metrics.", zap.Error(err));
+			e.logger.Error("An error occurred recording metrics.", zap.Error(err))
 		}
 	}()
 
@@ -184,7 +184,7 @@ func (e exporter) pushTraceData(ctx context.Context, td pdata.Traces) (droppedSp
 	}
 	batches := []telemetry.PayloadEntry{&batch}
 	insertKey := e.extractInsertKeyFromHeader(ctx)
-	details.apiKey = insertKey
+	details.apiKey = sanitizeApiKeyForLogging(insertKey)
 	var req *http.Request
 	var err error
 
