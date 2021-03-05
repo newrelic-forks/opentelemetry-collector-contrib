@@ -151,7 +151,10 @@ func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (droppedS
 
 	details := newTraceDetails(ctx)
 	defer func() {
-		details.apiKey = sanitizeApiKeyForLogging(insertKey)
+		apiKey := sanitizeApiKeyForLogging(insertKey)
+		if apiKey != "" {
+			details.apiKey = apiKey
+		}
 		details.resourceSpanCount = td.ResourceSpans().Len()
 		details.processDuration = time.Now().Sub(startTime)
 		details.responseCode = status.Code(grpcErr)
