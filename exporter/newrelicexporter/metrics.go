@@ -73,7 +73,7 @@ type traceDetails struct {
 	externalDuration  time.Duration // Time spent sending to the trace API
 }
 
-func NewTraceDetails(ctx context.Context) *traceDetails {
+func newTraceDetails(ctx context.Context) *traceDetails {
 	userAgent := "not_present"
 	if md, ctxOk := metadata.FromIncomingContext(ctx); ctxOk {
 		if values, headerOk := md["user-agent"]; headerOk {
@@ -84,7 +84,7 @@ func NewTraceDetails(ctx context.Context) *traceDetails {
 	return &traceDetails{userAgent: userAgent, apiKey: "not_present"}
 }
 
-func (d *traceDetails) RecordPushTraceData(ctx context.Context) error {
+func (d *traceDetails) recordPushTraceData(ctx context.Context) error {
 	tags := []tag.Mutator{
 		tag.Insert(tagResponseCode, d.responseCode.String()),
 		tag.Insert(tagTraceHTTPStatusCode, strconv.Itoa(d.traceHTTPStatusCode)),

@@ -149,14 +149,14 @@ func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (droppedS
 	startTime := time.Now()
 	insertKey := e.extractInsertKeyFromHeader(ctx)
 
-	details := NewTraceDetails(ctx)
+	details := newTraceDetails(ctx)
 	defer func() {
 		details.apiKey = sanitizeApiKeyForLogging(insertKey)
 		details.resourceSpanCount = td.ResourceSpans().Len()
 		details.processDuration = time.Now().Sub(startTime)
 		details.responseCode = status.Code(grpcErr)
 		details.traceSpanCount = goodSpans
-		err := details.RecordPushTraceData(ctx)
+		err := details.recordPushTraceData(ctx)
 		if err != nil {
 			e.logger.Error("An error occurred recording metrics.", zap.Error(err))
 		}
