@@ -140,22 +140,28 @@ func (e *exporter) extractInsertKeyFromHeader(ctx context.Context) string {
 	return values[0]
 }
 
-func (e exporter) pushTraceData(ctx context.Context, td pdata.Traces) (droppedSpans int, grpcErr error) {
+func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (droppedSpans int, grpcErr error) {
 	var (
 		errs      []error
 		goodSpans int
-		details traceDetails
 	)
 
 	startTime := time.Now()
-	details = traceDetails{ctx: ctx, resourceSpanCount: td.ResourceSpans().Len()}
+	insertKey := e.extractInsertKeyFromHeader(ctx)
+
+	details := newTraceDetails(ctx)
 	defer func() {
+		apiKey := sanitizeApiKeyForLogging(insertKey)
+		if apiKey != "" {
+			details.apiKey = apiKey
+		}
+		details.resourceSpanCount = td.ResourceSpans().Len()
 		details.processDuration = time.Now().Sub(startTime)
 		details.responseCode = status.Code(grpcErr)
 		details.traceSpanCount = goodSpans
-		err := recordPushTraceData(details)
+		err := details.recordPushTraceData(ctx)
 		if err != nil {
-			e.logger.Error("An error occurred recording metrics.", zap.Error(err));
+			e.logger.Error("An error occurred recording metrics.", zap.Error(err))
 		}
 	}()
 
@@ -183,7 +189,6 @@ func (e exporter) pushTraceData(ctx context.Context, td pdata.Traces) (droppedSp
 		}
 	}
 	batches := []telemetry.PayloadEntry{&batch}
-	insertKey := e.extractInsertKeyFromHeader(ctx)
 	var req *http.Request
 	var err error
 
@@ -225,7 +230,7 @@ func (e exporter) pushTraceData(ctx context.Context, td pdata.Traces) (droppedSp
 
 }
 
-func (e exporter) pushMetricData(ctx context.Context, md pdata.Metrics) (int, error) {
+func (e *exporter) pushMetricData(ctx context.Context, md pdata.Metrics) (int, error) {
 	var errs []error
 	goodMetrics := 0
 
@@ -261,7 +266,7 @@ func (e exporter) pushMetricData(ctx context.Context, md pdata.Metrics) (int, er
 	return md.MetricCount() - goodMetrics, componenterror.CombineErrors(errs)
 }
 
-func (e exporter) Shutdown(ctx context.Context) error {
+func (e *exporter) Shutdown(ctx context.Context) error {
 	e.harvester.HarvestNow(ctx)
 	return nil
 }

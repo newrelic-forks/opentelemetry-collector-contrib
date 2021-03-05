@@ -29,7 +29,8 @@ var (
 	tagResponseCode, _        = tag.NewKey("grpc_response_code")
 	tagTraceHTTPStatusCode, _ = tag.NewKey("trace_http_status_code")
 	tagRequestUserAgent, _    = tag.NewKey("user_agent")
-	tagKeys                   = []tag.Key{tagResponseCode, tagTraceHTTPStatusCode, tagRequestUserAgent}
+	tagApiKey, _              = tag.NewKey("api_key")
+	tagKeys                   = []tag.Key{tagResponseCode, tagTraceHTTPStatusCode, tagRequestUserAgent, tagApiKey}
 
 	statTraceRequests        = stats.Int64("newrelicexporter_trace_requests", "Number of trace requests processed", stats.UnitDimensionless)
 	statTraceResourceSpans   = stats.Int64("newrelicexporter_trace_resource_spans", "Number of resource spans processed", stats.UnitDimensionless)
@@ -60,10 +61,11 @@ func buildView(tagKeys []tag.Key, m stats.Measure, a *view.Aggregation) *view.Vi
 }
 
 type traceDetails struct {
-	ctx                   context.Context // The context
 	// Metric tags
-	responseCode          codes.Code // The gRPC response code
-	traceHTTPStatusCode   int        // The HTTP response status code form the trace API
+	responseCode        codes.Code // The gRPC response code
+	traceHTTPStatusCode int        // The HTTP response status code form the trace API
+	apiKey              string     // The API key from the request
+	userAgent           string     // The User-Agent from the request
 	// Metric values
 	resourceSpanCount int           // Number of resource spans in the request
 	processDuration   time.Duration // Total time spent in the newrelic exporter
@@ -71,25 +73,37 @@ type traceDetails struct {
 	externalDuration  time.Duration // Time spent sending to the trace API
 }
 
-func recordPushTraceData (details traceDetails) error {
+func newTraceDetails(ctx context.Context) *traceDetails {
 	userAgent := "not_present"
-	if md, ctxOk := metadata.FromIncomingContext(details.ctx); ctxOk {
+	if md, ctxOk := metadata.FromIncomingContext(ctx); ctxOk {
 		if values, headerOk := md["user-agent"]; headerOk {
 			userAgent = values[0]
 		}
 	}
 
+	return &traceDetails{userAgent: userAgent, apiKey: "not_present"}
+}
+
+func (d *traceDetails) recordPushTraceData(ctx context.Context) error {
 	tags := []tag.Mutator{
-		tag.Insert(tagResponseCode, details.responseCode.String()),
-		tag.Insert(tagTraceHTTPStatusCode, strconv.Itoa(details.traceHTTPStatusCode)),
-		tag.Insert(tagRequestUserAgent, userAgent),
+		tag.Insert(tagResponseCode, d.responseCode.String()),
+		tag.Insert(tagTraceHTTPStatusCode, strconv.Itoa(d.traceHTTPStatusCode)),
+		tag.Insert(tagRequestUserAgent, d.userAgent),
+		tag.Insert(tagApiKey, d.apiKey),
 	}
 
-	return stats.RecordWithTags(details.ctx, tags,
+	return stats.RecordWithTags(ctx, tags,
 		statTraceRequests.M(1),
-		statTraceResourceSpans.M(int64(details.resourceSpanCount)),
-		statTraceExternalSpans.M(int64(details.traceSpanCount)),
-		statTraceProcessSeconds.M(details.processDuration.Seconds()),
-		statTraceExternalSeconds.M(details.externalDuration.Seconds()),
+		statTraceResourceSpans.M(int64(d.resourceSpanCount)),
+		statTraceExternalSpans.M(int64(d.traceSpanCount)),
+		statTraceProcessSeconds.M(d.processDuration.Seconds()),
+		statTraceExternalSeconds.M(d.externalDuration.Seconds()),
 	)
+}
+
+func sanitizeApiKeyForLogging(apiKey string) string {
+	if len(apiKey) <= 8 {
+		return apiKey
+	}
+	return apiKey[:8]
 }

@@ -43,9 +43,9 @@ func TestRecordPushTraceData(t *testing.T) {
 		t.Fail()
 	}
 
-	userAgentCtx := metadata.NewIncomingContext(context.Background(), map[string][]string { "user-agent": {"grpc-dummy-agent-1"} })
+	userAgentCtx := metadata.NewIncomingContext(context.Background(), map[string][]string{"user-agent": {"grpc-dummy-agent-1"}})
 	noUserAgentCtx := metadata.NewIncomingContext(context.Background(), make(map[string][]string))
-	details := []traceDetails {
+	details := []traceDetails{
 		// A request that completes normally
 		{
 			ctx:                 userAgentCtx,
@@ -88,13 +88,13 @@ func TestRecordPushTraceData(t *testing.T) {
 		},
 	}
 
-	for _, traceDetails := range(details) {
+	for _, traceDetails := range details {
 		if err := recordPushTraceData(traceDetails); err != nil {
 			t.Fail()
 		}
 	}
 
-	measurements := []stats.Measure {
+	measurements := []stats.Measure{
 		statTraceRequests,
 		statTraceResourceSpans,
 		statTraceExternalSpans,
@@ -102,20 +102,26 @@ func TestRecordPushTraceData(t *testing.T) {
 		statTraceExternalSeconds,
 	}
 
-	for _, measurement := range(measurements) {
+	for _, measurement := range measurements {
 		rows, err := view.RetrieveData(measurement.Name())
 		if err != nil {
 			t.Fail()
 		}
 		// Check that each measurement has a number of rows corresponding to the tag set produced by the interactions
 		assert.Equal(t, 4, len(rows))
-		for _, row := range(rows) {
+		for _, row := range rows {
 			// Confirm each row has data and has the required tag keys
 			assert.True(t, row.Data != nil)
 			assert.Equal(t, len(tagKeys), len(row.Tags))
-			for _, rowTag := range(row.Tags) {
+			for _, rowTag := range row.Tags {
 				assert.Contains(t, tagKeys, rowTag.Key)
 			}
 		}
 	}
+}
+
+func TestSanitizeApiKeyForLogging(t *testing.T) {
+	assert.Equal(t, "", sanitizeApiKeyForLogging(""))
+	assert.Equal(t, "foo", sanitizeApiKeyForLogging("foo"))
+	assert.Equal(t, "foobarba", sanitizeApiKeyForLogging("foobarbazqux"))
 }
