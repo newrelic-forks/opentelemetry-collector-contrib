@@ -119,3 +119,9 @@ func TestRecordPushTraceData(t *testing.T) {
 		}
 	}
 }
+
+func TestSanitizeApiKeyForLogging(t *testing.T) {
+	assert.Equal(t, "", sanitizeApiKeyForLogging(""))
+	assert.Equal(t, "foo", sanitizeApiKeyForLogging("foo"))
+	assert.Equal(t, "foobarba", sanitizeApiKeyForLogging("foobarbazqux"))
+}

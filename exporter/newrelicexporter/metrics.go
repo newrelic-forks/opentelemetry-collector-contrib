@@ -29,7 +29,8 @@ var (
 	tagResponseCode, _        = tag.NewKey("grpc_response_code")
 	tagTraceHTTPStatusCode, _ = tag.NewKey("trace_http_status_code")
 	tagRequestUserAgent, _    = tag.NewKey("user_agent")
-	tagKeys                   = []tag.Key{tagResponseCode, tagTraceHTTPStatusCode, tagRequestUserAgent}
+	tagApiKey, _    		  = tag.NewKey("api_key")
+	tagKeys                   = []tag.Key{tagResponseCode, tagTraceHTTPStatusCode, tagRequestUserAgent, tagApiKey}
 
 	statTraceRequests        = stats.Int64("newrelicexporter_trace_requests", "Number of trace requests processed", stats.UnitDimensionless)
 	statTraceResourceSpans   = stats.Int64("newrelicexporter_trace_resource_spans", "Number of resource spans processed", stats.UnitDimensionless)
@@ -64,6 +65,7 @@ type traceDetails struct {
 	// Metric tags
 	responseCode          codes.Code // The gRPC response code
 	traceHTTPStatusCode   int        // The HTTP response status code form the trace API
+	apiKey				  string	 // The API key from the request
 	// Metric values
 	resourceSpanCount int           // Number of resource spans in the request
 	processDuration   time.Duration // Total time spent in the newrelic exporter
@@ -79,10 +81,16 @@ func recordPushTraceData (details traceDetails) error {
 		}
 	}
 
+	apiKey := "not_present"
+	if details.apiKey != "" {
+		apiKey = sanitizeApiKeyForLogging(details.apiKey)
+	}
+
 	tags := []tag.Mutator{
 		tag.Insert(tagResponseCode, details.responseCode.String()),
 		tag.Insert(tagTraceHTTPStatusCode, strconv.Itoa(details.traceHTTPStatusCode)),
 		tag.Insert(tagRequestUserAgent, userAgent),
+		tag.Insert(tagApiKey, apiKey),
 	}
 
 	return stats.RecordWithTags(details.ctx, tags,
@@ -92,4 +100,14 @@ func recordPushTraceData (details traceDetails) error {
 		statTraceProcessSeconds.M(details.processDuration.Seconds()),
 		statTraceExternalSeconds.M(details.externalDuration.Seconds()),
 	)
+}
+
+func sanitizeApiKeyForLogging(apiKey string) string {
+	runes := []rune(apiKey)
+	end := 8
+	length := len(runes)
+	if length < 8 {
+		end = length
+	}
+	return string(runes[0:end])
 }

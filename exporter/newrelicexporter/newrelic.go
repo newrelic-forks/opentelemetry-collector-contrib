@@ -184,6 +184,7 @@ func (e exporter) pushTraceData(ctx context.Context, td pdata.Traces) (droppedSp
 	}
 	batches := []telemetry.PayloadEntry{&batch}
 	insertKey := e.extractInsertKeyFromHeader(ctx)
+	details.apiKey = insertKey
 	var req *http.Request
 	var err error
 
