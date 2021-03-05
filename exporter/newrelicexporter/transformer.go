@@ -77,7 +77,7 @@ var (
 	errInvalidTraceID = errors.New("TraceID is invalid")
 )
 
-func (t *traceTransformer) Span(span *pdata.Span) (telemetry.Span, error) {
+func (t *traceTransformer) Span(span pdata.Span) (telemetry.Span, error) {
 	startTime := span.StartTime().AsTime()
 	sp := telemetry.Span{
 		// HexString validates the IDs, it will be an empty string if invalid.
@@ -119,7 +119,7 @@ type Log struct {
 	Attributes map[string]interface{} `json:"attributes"`
 }
 
-func (t *traceTransformer) SpanAttributes(span *pdata.Span) map[string]interface{} {
+func (t *traceTransformer) SpanAttributes(span pdata.Span) map[string]interface{} {
 
 	length := 2 + len(t.ResourceAttributes) + span.Attributes().Len()
 
@@ -172,7 +172,7 @@ func (t *traceTransformer) SpanAttributes(span *pdata.Span) map[string]interface
 }
 
 // LogEvents transforms the recorded events of span into New Relic tracing events.
-func (t *traceTransformer) LogEvents(span *pdata.Span) []Log {
+func (t *traceTransformer) LogEvents(span pdata.Span) []Log {
 	length := span.Events().Len()
 	if length == 0 {
 		return nil

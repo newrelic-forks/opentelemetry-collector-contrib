@@ -184,12 +184,12 @@ func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (droppedS
 			spans := make([]telemetry.Span, 0, ispans.Spans().Len())
 			for k := 0; k < ispans.Spans().Len(); k++ {
 				span := ispans.Spans().At(k)
-				nrSpan, err := transform.Span(&span)
+				nrSpan, err := transform.Span(span)
 				if err != nil {
 					errs = append(errs, err)
 					continue
 				}
-				nrLogs := transform.LogEvents(&span)
+				nrLogs := transform.LogEvents(span)
 
 				spans = append(spans, nrSpan)
 				logBatch.Logs = append(logBatch.Logs, nrLogs...)
