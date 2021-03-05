@@ -103,11 +103,8 @@ func recordPushTraceData(details traceDetails) error {
 }
 
 func sanitizeApiKeyForLogging(apiKey string) string {
-	runes := []rune(apiKey)
-	end := 8
-	length := len(runes)
-	if length < 8 {
-		end = length
+	if len(apiKey) <= 8 {
+		return apiKey
 	}
-	return string(runes[0:end])
+	return apiKey[:8]
 }
