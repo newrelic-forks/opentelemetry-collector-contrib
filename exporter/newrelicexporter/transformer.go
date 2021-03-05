@@ -15,6 +15,7 @@
 package newrelicexporter
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -76,7 +77,7 @@ var (
 	errInvalidTraceID = errors.New("TraceID is invalid")
 )
 
-func (t *traceTransformer) Span(span pdata.Span) (telemetry.Span, error) {
+func (t *traceTransformer) Span(span *pdata.Span) (telemetry.Span, error) {
 	startTime := span.StartTime().AsTime()
 	sp := telemetry.Span{
 		// HexString validates the IDs, it will be an empty string if invalid.
@@ -87,7 +88,6 @@ func (t *traceTransformer) Span(span pdata.Span) (telemetry.Span, error) {
 		Timestamp:  startTime,
 		Duration:   span.EndTime().AsTime().Sub(startTime),
 		Attributes: t.SpanAttributes(span),
-		Events:     t.SpanEvents(span),
 	}
 
 	if sp.ID == "" {
@@ -100,7 +100,26 @@ func (t *traceTransformer) Span(span pdata.Span) (telemetry.Span, error) {
 	return sp, nil
 }
 
-func (t *traceTransformer) SpanAttributes(span pdata.Span) map[string]interface{} {
+type LogBatch struct {
+	Logs []Log
+}
+
+func (l *LogBatch) Type() string {
+	return "logs"
+}
+
+func (l *LogBatch) Bytes() []byte {
+	b, _ := json.Marshal(l.Logs)
+	return b
+}
+
+type Log struct {
+	Timestamp  int64                  `json:"timestamp"`
+	Message    string                 `json:"message"`
+	Attributes map[string]interface{} `json:"attributes"`
+}
+
+func (t *traceTransformer) SpanAttributes(span *pdata.Span) map[string]interface{} {
 
 	length := 2 + len(t.ResourceAttributes) + span.Attributes().Len()
 
@@ -152,24 +171,27 @@ func (t *traceTransformer) SpanAttributes(span pdata.Span) map[string]interface{
 	return attrs
 }
 
-// SpanEvents transforms the recorded events of span into New Relic tracing events.
-func (t *traceTransformer) SpanEvents(span pdata.Span) []telemetry.Event {
+// LogEvents transforms the recorded events of span into New Relic tracing events.
+func (t *traceTransformer) LogEvents(span *pdata.Span) []Log {
 	length := span.Events().Len()
 	if length == 0 {
 		return nil
 	}
 
-	events := make([]telemetry.Event, length)
+	logs := make([]Log, length)
 
 	for i := 0; i < length; i++ {
 		event := span.Events().At(i)
-		events[i] = telemetry.Event{
-			EventType:  event.Name(),
-			Timestamp:  event.Timestamp().AsTime(),
+		log := Log{
+			Timestamp:  event.Timestamp().AsTime().UnixNano() / 1e6,
+			Message:    event.Name(),
 			Attributes: tracetranslator.AttributeMapToMap(event.Attributes()),
 		}
+		log.Attributes["span.id"] = span.SpanID().HexString()
+		log.Attributes["trace.id"] = span.TraceID().HexString()
+		logs[i] = log
 	}
-	return events
+	return logs
 }
 
 func (t *metricTransformer) Timestamp(ts *timestamppb.Timestamp) time.Time {

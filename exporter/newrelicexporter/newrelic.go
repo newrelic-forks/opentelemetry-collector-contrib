@@ -59,6 +59,7 @@ type exporter struct {
 	deltaCalculator    *cumulative.DeltaCalculator
 	harvester          *telemetry.Harvester
 	spanRequestFactory telemetry.RequestFactory
+	logRequestFactory  telemetry.RequestFactory
 	apiKeyHeader       string
 	logger             *zap.Logger
 }
@@ -111,9 +112,15 @@ func newTraceExporter(l *zap.Logger, c configmodels.Exporter) (*exporter, error)
 	if nil != err {
 		return nil, err
 	}
+	// FIXME: add config options
+	logFactory, err := telemetry.NewLogRequestFactory(telemetry.WithEndpoint("staging-log-api.newrelic.com"), telemetry.WithNoDefaultKey())
+	if nil != err {
+		return nil, err
+	}
 
 	return &exporter{
 		spanRequestFactory: s,
+		logRequestFactory:  logFactory,
 		apiKeyHeader:       strings.ToLower(nrConfig.APIKeyHeader),
 		logger:             l,
 	}, nil
@@ -165,7 +172,8 @@ func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (droppedS
 		}
 	}()
 
-	var batch telemetry.SpanBatch
+	var spanBatch telemetry.SpanBatch
+	var logBatch LogBatch
 
 	for i := 0; i < td.ResourceSpans().Len(); i++ {
 		rspans := td.ResourceSpans().At(i)
@@ -176,41 +184,64 @@ func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (droppedS
 			spans := make([]telemetry.Span, 0, ispans.Spans().Len())
 			for k := 0; k < ispans.Spans().Len(); k++ {
 				span := ispans.Spans().At(k)
-				nrSpan, err := transform.Span(span)
+				nrSpan, err := transform.Span(&span)
 				if err != nil {
 					errs = append(errs, err)
 					continue
 				}
+				nrLogs := transform.LogEvents(&span)
 
 				spans = append(spans, nrSpan)
+				logBatch.Logs = append(logBatch.Logs, nrLogs...)
 				goodSpans++
 			}
-			batch.Spans = append(batch.Spans, spans...)
+
+			// Combine the resources together for now...
+			spanBatch.Spans = append(spanBatch.Spans, spans...)
 		}
 	}
-	batches := []telemetry.PayloadEntry{&batch}
+	spanBatches := []telemetry.PayloadEntry{&spanBatch}
 	var req *http.Request
 	var err error
 
-	if insertKey != "" {
-		req, err = e.spanRequestFactory.BuildRequest(batches, telemetry.WithInsertKey(insertKey))
-	} else {
-		req, err = e.spanRequestFactory.BuildRequest(batches)
-	}
+	req, err = e.spanRequestFactory.BuildRequest(spanBatches, clientOptions(insertKey)...)
 	if err != nil {
-		e.logger.Error("Failed to build batch", zap.Error(err))
+		e.logger.Error("Failed to build spanBatch", zap.Error(err))
+		return 0, err
+	}
+	if err := e.doRequest(req); err != nil {
 		return 0, err
 	}
 
+	if len(logBatch.Logs) > 0 {
+		logBatches := []telemetry.PayloadEntry{&logBatch}
+		req, err = e.logRequestFactory.BuildRequest(logBatches, clientOptions(insertKey)...)
+		if err != nil {
+			e.logger.Error("Failed to build logBatch", zap.Error(err))
+			return 0, err
+		}
+		if err := e.doRequest(req); err != nil {
+			return 0, err
+		}
+	}
+	return td.SpanCount() - goodSpans, componenterror.CombineErrors(errs)
+}
+
+func clientOptions(insertKey string) []telemetry.ClientOption {
+	if insertKey != "" {
+		return []telemetry.ClientOption{telemetry.WithInsertKey(insertKey)}
+	}
+	return nil
+}
+
+func (e *exporter) doRequest(req *http.Request) error {
+
 	// Execute the http request and handle the response
-	externalStart := time.Now()
 	response, err := http.DefaultClient.Do(req)
-	details.externalDuration = time.Now().Sub(externalStart)
 	if err != nil {
 		e.logger.Error("Error making HTTP request.", zap.Error(err))
-		return 0, &urlError{Err: err}
+		return &urlError{Err: err}
 	}
-	details.traceHTTPStatusCode = response.StatusCode
 	defer response.Body.Close()
 	io.Copy(ioutil.Discard, response.Body)
 
@@ -223,11 +254,10 @@ func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (droppedS
 			e.logger.Debug("Error on HTTP response.", zap.String("Status", response.Status))
 		}
 
-		return 0, &httpError{Response: response}
+		return &httpError{Response: response}
 	}
 
-	return td.SpanCount() - goodSpans, componenterror.CombineErrors(errs)
-
+	return nil
 }
 
 func (e *exporter) pushMetricData(ctx context.Context, md pdata.Metrics) (int, error) {
