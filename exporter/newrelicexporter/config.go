@@ -46,11 +46,17 @@ type Config struct {
 	// SpansHostOverride overrides the spans endpoint.
 	SpansHostOverride string `mapstructure:"spans_host_override"`
 
-	// MetricsInsecure disables TLS on the metrics endpoint.
+	// LogsHostOverride overrides the logs endpoint.
+	LogsHostOverride string `mapstructure:"logs_host_override"`
+
+	// metricsInsecure disables TLS on the metrics endpoint.
 	metricsInsecure bool
 
-	// SpansInsecure disables TLS on the spans endpoint.
+	// spansInsecure disables TLS on the spans endpoint.
 	spansInsecure bool
+
+	// logsInsecure disables TLS on the logs endpoint.
+	logsInsecure bool
 }
 
 // HarvestOption sets all relevant Config values when instantiating a New

@@ -94,26 +94,14 @@ func newTraceExporter(l *zap.Logger, c configmodels.Exporter) (*exporter, error)
 		return nil, fmt.Errorf("invalid config: %#v", c)
 	}
 
-	options := []telemetry.ClientOption{telemetry.WithUserAgent(product + "/" + version)}
-	if nrConfig.APIKey != "" {
-		options = append(options, telemetry.WithInsertKey(nrConfig.APIKey))
-	} else if nrConfig.APIKeyHeader != "" {
-		options = append(options, telemetry.WithNoDefaultKey())
-	}
-
-	if nrConfig.SpansHostOverride != "" {
-		options = append(options, telemetry.WithEndpoint(nrConfig.SpansHostOverride))
-	}
-
-	if nrConfig.spansInsecure {
-		options = append(options, telemetry.WithInsecure())
-	}
-	s, err := telemetry.NewSpanRequestFactory(options...)
+	spanOptions := getConfig(nrConfig, nrConfig.SpansHostOverride, nrConfig.spansInsecure)
+	s, err := telemetry.NewSpanRequestFactory(spanOptions...)
 	if nil != err {
 		return nil, err
 	}
-	// FIXME: add config options
-	logFactory, err := telemetry.NewLogRequestFactory(telemetry.WithEndpoint("staging-log-api.newrelic.com"), telemetry.WithNoDefaultKey())
+
+	logOptions := getConfig(nrConfig, nrConfig.LogsHostOverride, nrConfig.logsInsecure)
+	logFactory, err := telemetry.NewLogRequestFactory(logOptions...)
 	if nil != err {
 		return nil, err
 	}
@@ -124,6 +112,24 @@ func newTraceExporter(l *zap.Logger, c configmodels.Exporter) (*exporter, error)
 		apiKeyHeader:       strings.ToLower(nrConfig.APIKeyHeader),
 		logger:             l,
 	}, nil
+}
+
+func getConfig(nrConfig *Config, hostOverride string, insecure bool) []telemetry.ClientOption {
+	options := []telemetry.ClientOption{telemetry.WithUserAgent(product + "/" + version)}
+	if nrConfig.APIKey != "" {
+		options = append(options, telemetry.WithInsertKey(nrConfig.APIKey))
+	} else if nrConfig.APIKeyHeader != "" {
+		options = append(options, telemetry.WithNoDefaultKey())
+	}
+
+	if hostOverride != "" {
+		options = append(options, telemetry.WithEndpoint(hostOverride))
+	}
+
+	if insecure {
+		options = append(options, telemetry.WithInsecure())
+	}
+	return options
 }
 
 func (e *exporter) extractInsertKeyFromHeader(ctx context.Context) string {
