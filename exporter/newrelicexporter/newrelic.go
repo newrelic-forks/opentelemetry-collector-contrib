@@ -59,8 +59,27 @@ type exporter struct {
 	deltaCalculator    *cumulative.DeltaCalculator
 	harvester          *telemetry.Harvester
 	spanRequestFactory telemetry.RequestFactory
+	logRequestFactory  telemetry.RequestFactory
 	apiKeyHeader       string
 	logger             *zap.Logger
+}
+
+func clientOptions(apiKey string, apiKeyHeader string, hostOverride string, insecure bool) []telemetry.ClientOption {
+	options := []telemetry.ClientOption{telemetry.WithUserAgent(product + "/" + version)}
+	if apiKey != "" {
+		options = append(options, telemetry.WithInsertKey(apiKey))
+	} else if apiKeyHeader != "" {
+		options = append(options, telemetry.WithNoDefaultKey())
+	}
+
+	if hostOverride != "" {
+		options = append(options, telemetry.WithEndpoint(hostOverride))
+	}
+
+	if insecure {
+		options = append(options, telemetry.WithInsecure())
+	}
+	return options
 }
 
 func newMetricsExporter(l *zap.Logger, c configmodels.Exporter) (*exporter, error) {
@@ -93,20 +112,12 @@ func newTraceExporter(l *zap.Logger, c configmodels.Exporter) (*exporter, error)
 		return nil, fmt.Errorf("invalid config: %#v", c)
 	}
 
-	options := []telemetry.ClientOption{telemetry.WithUserAgent(product + "/" + version)}
-	if nrConfig.APIKey != "" {
-		options = append(options, telemetry.WithInsertKey(nrConfig.APIKey))
-	} else if nrConfig.APIKeyHeader != "" {
-		options = append(options, telemetry.WithNoDefaultKey())
-	}
-
-	if nrConfig.SpansHostOverride != "" {
-		options = append(options, telemetry.WithEndpoint(nrConfig.SpansHostOverride))
-	}
-
-	if nrConfig.spansInsecure {
-		options = append(options, telemetry.WithInsecure())
-	}
+	options := clientOptions(
+		nrConfig.APIKey,
+		nrConfig.APIKeyHeader,
+		nrConfig.SpansHostOverride,
+		nrConfig.spansInsecure,
+	)
 	s, err := telemetry.NewSpanRequestFactory(options...)
 	if nil != err {
 		return nil, err
@@ -116,6 +127,30 @@ func newTraceExporter(l *zap.Logger, c configmodels.Exporter) (*exporter, error)
 		spanRequestFactory: s,
 		apiKeyHeader:       strings.ToLower(nrConfig.APIKeyHeader),
 		logger:             l,
+	}, nil
+}
+
+func newLogsExporter(logger *zap.Logger, c configmodels.Exporter) (*exporter, error) {
+	nrConfig, ok := c.(*Config)
+	if !ok {
+		return nil, fmt.Errorf("invalid config: %#v", c)
+	}
+
+	options := clientOptions(
+		nrConfig.APIKey,
+		nrConfig.APIKeyHeader,
+		nrConfig.LogsHostOverride,
+		nrConfig.logsInsecure,
+	)
+	logRequestFactory, err := telemetry.NewLogRequestFactory(options...)
+	if err != nil {
+		return nil, err
+	}
+
+	return &exporter{
+		logRequestFactory: logRequestFactory,
+		apiKeyHeader:      strings.ToLower(nrConfig.APIKeyHeader),
+		logger:            logger,
 	}, nil
 }
 
@@ -264,6 +299,10 @@ func (e *exporter) pushMetricData(ctx context.Context, md pdata.Metrics) (int, e
 	e.harvester.HarvestNow(ctx)
 
 	return md.MetricCount() - goodMetrics, componenterror.CombineErrors(errs)
+}
+
+func (e *exporter) pushLogData(ctx context.Context, ld pdata.Logs) (droppedTimeSeries int, err error) {
+	return 0, nil
 }
 
 func (e *exporter) Shutdown(ctx context.Context) error {
