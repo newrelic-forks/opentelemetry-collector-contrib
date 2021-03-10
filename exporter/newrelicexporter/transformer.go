@@ -55,6 +55,10 @@ type traceTransformer struct {
 	ResourceAttributes map[string]interface{}
 }
 
+type logTransformer struct {
+	ResourceAttributes map[string]interface{}
+}
+
 func newTraceTransformer(resource pdata.Resource, lib pdata.InstrumentationLibrary) *traceTransformer {
 	t := &traceTransformer{
 		ResourceAttributes: tracetranslator.AttributeMapToMap(
@@ -69,6 +73,22 @@ func newTraceTransformer(resource pdata.Resource, lib pdata.InstrumentationLibra
 		}
 	}
 	return t
+}
+
+func newLogTransformer(resource pdata.Resource, instrumentationLibrary pdata.InstrumentationLibrary) *logTransformer {
+	l := &logTransformer{
+		ResourceAttributes: tracetranslator.AttributeMapToMap(
+			resource.Attributes(),
+		),
+	}
+
+	if n := instrumentationLibrary.Name(); n != "" {
+		l.ResourceAttributes[instrumentationNameKey] = n
+		if v := instrumentationLibrary.Version(); v != "" {
+			l.ResourceAttributes[instrumentationVersionKey] = v
+		}
+	}
+	return l
 }
 
 var (
@@ -98,6 +118,25 @@ func (t *traceTransformer) Span(span pdata.Span) (telemetry.Span, error) {
 	}
 
 	return sp, nil
+}
+
+func (t *logTransformer) Log(log pdata.LogRecord) (telemetry.Log, error) {
+	var message string
+
+	if bodyString := log.Body().StringVal(); bodyString != "" {
+		message = bodyString
+	} else {
+		message = log.Name()
+	}
+
+	attributes := tracetranslator.AttributeMapToMap(log.Attributes())
+	attributes["name"] = log.Name()
+
+	return telemetry.Log{
+		Message:    message,
+		Timestamp:  log.Timestamp().AsTime(),
+		Attributes: attributes,
+	}, nil
 }
 
 func (t *traceTransformer) SpanAttributes(span pdata.Span) map[string]interface{} {

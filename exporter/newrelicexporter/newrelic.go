@@ -175,7 +175,7 @@ func (e *exporter) extractInsertKeyFromHeader(ctx context.Context) string {
 	return values[0]
 }
 
-func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (droppedSpans int, grpcErr error) {
+func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (droppedSpans int, outputErr error) {
 	var (
 		errs      []error
 		goodSpans int
@@ -192,7 +192,7 @@ func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (droppedS
 		}
 		details.resourceSpanCount = td.ResourceSpans().Len()
 		details.processDuration = time.Now().Sub(startTime)
-		details.responseCode = status.Code(grpcErr)
+		details.responseCode = status.Code(outputErr)
 		details.traceSpanCount = goodSpans
 		err := details.recordPushTraceData(ctx)
 		if err != nil {
@@ -238,31 +238,61 @@ func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (droppedS
 	}
 
 	// Execute the http request and handle the response
-	externalStart := time.Now()
-	response, err := http.DefaultClient.Do(req)
-	details.externalDuration = time.Now().Sub(externalStart)
-	if err != nil {
-		e.logger.Error("Error making HTTP request.", zap.Error(err))
-		return 0, &urlError{Err: err}
-	}
-	details.traceHTTPStatusCode = response.StatusCode
-	defer response.Body.Close()
-	io.Copy(ioutil.Discard, response.Body)
-
-	// Check if the http payload has been accepted, if not record an error
-	if response.StatusCode != http.StatusAccepted {
-		// Log the error at an appropriate level based on the status code
-		if response.StatusCode >= 500 {
-			e.logger.Error("Error on HTTP response.", zap.String("Status", response.Status))
-		} else {
-			e.logger.Debug("Error on HTTP response.", zap.String("Status", response.Status))
-		}
-
-		return 0, &httpError{Response: response}
+	if err := e.doRequest(req); err != nil {
+		return 0, err
 	}
 
 	return td.SpanCount() - goodSpans, componenterror.CombineErrors(errs)
 
+}
+
+func (e *exporter) pushLogData(ctx context.Context, ld pdata.Logs) (droppedLogs int, err error) {
+	var (
+		errs     []error
+		goodLogs int
+		batch    telemetry.LogBatch
+	)
+
+	insertKey := e.extractInsertKeyFromHeader(ctx)
+
+	for i := 0; i < ld.ResourceLogs().Len(); i++ {
+		resourceLogs := ld.ResourceLogs().At(i)
+		resource := resourceLogs.Resource()
+
+		for j := 0; j < resourceLogs.InstrumentationLibraryLogs().Len(); j++ {
+			instrumentationLibraryLogs := resourceLogs.InstrumentationLibraryLogs().At(j)
+
+			transformer := newLogTransformer(resource, instrumentationLibraryLogs.InstrumentationLibrary())
+			for k := 0; k < instrumentationLibraryLogs.Logs().Len(); k++ {
+				log := instrumentationLibraryLogs.Logs().At(k)
+				nrLog, err := transformer.Log(log)
+				if err != nil {
+					errs = append(errs, err)
+					continue
+				}
+
+				batch.Logs = append(batch.Logs, nrLog)
+				goodLogs++
+			}
+		}
+	}
+
+	batches := []telemetry.PayloadEntry{&batch}
+	var options []telemetry.ClientOption
+	if insertKey != "" {
+		options = append(options, telemetry.WithInsertKey(insertKey))
+	}
+	req, err := e.logRequestFactory.BuildRequest(batches, options...)
+	if err != nil {
+		e.logger.Error("Failed to build batch", zap.Error(err))
+		return 0, err
+	}
+
+	if err := e.doRequest(req); err != nil {
+		return 0, err
+	}
+
+	return ld.LogRecordCount() - goodLogs, nil
 }
 
 func (e *exporter) pushMetricData(ctx context.Context, md pdata.Metrics) (int, error) {
@@ -301,8 +331,30 @@ func (e *exporter) pushMetricData(ctx context.Context, md pdata.Metrics) (int, e
 	return md.MetricCount() - goodMetrics, componenterror.CombineErrors(errs)
 }
 
-func (e *exporter) pushLogData(ctx context.Context, ld pdata.Logs) (droppedTimeSeries int, err error) {
-	return 0, nil
+func (e *exporter) doRequest(req *http.Request) error {
+
+	// Execute the http request and handle the response
+	response, err := http.DefaultClient.Do(req)
+	if err != nil {
+		e.logger.Error("Error making HTTP request.", zap.Error(err))
+		return &urlError{Err: err}
+	}
+	defer response.Body.Close()
+	io.Copy(ioutil.Discard, response.Body)
+
+	// Check if the http payload has been accepted, if not record an error
+	if response.StatusCode != http.StatusAccepted {
+		// Log the error at an appropriate level based on the status code
+		if response.StatusCode >= 500 {
+			e.logger.Error("Error on HTTP response.", zap.String("Status", response.Status))
+		} else {
+			e.logger.Debug("Error on HTTP response.", zap.String("Status", response.Status))
+		}
+
+		return &httpError{Response: response}
+	}
+
+	return nil
 }
 
 func (e *exporter) Shutdown(ctx context.Context) error {
