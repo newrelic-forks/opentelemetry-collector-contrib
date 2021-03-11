@@ -43,53 +43,40 @@ func TestRecordPushTraceData(t *testing.T) {
 		t.Fail()
 	}
 
+	generator := func (ctx context.Context, mutator func (details *traceDetails)) *traceDetails {
+		td := newTraceDetails(ctx)
+		td.responseCode 		= codes.OK
+		td.traceHTTPStatusCode 	= 200
+		td.resourceSpanCount 	= 2
+		td.processDuration 		= 100
+		td.traceSpanCount 		= 20
+		td.externalDuration 	= 50
+		td.apiKey 				= "foo"
+		mutator(td)
+		return td
+	}
+
 	userAgentCtx := metadata.NewIncomingContext(context.Background(), map[string][]string{"user-agent": {"grpc-dummy-agent-1"}})
 	noUserAgentCtx := metadata.NewIncomingContext(context.Background(), make(map[string][]string))
 	details := []traceDetails{
 		// A request that completes normally
-		{
-			ctx:                 userAgentCtx,
-			responseCode:        codes.OK,
-			traceHTTPStatusCode: 200,
-			resourceSpanCount:   2,
-			processDuration:     100,
-			traceSpanCount:      20,
-			externalDuration:    50,
-		},
+		*generator(userAgentCtx, func(td *traceDetails) {}),
 		// A request that completes normally, but without a user-agent header
-		{
-			ctx:                 noUserAgentCtx,
-			responseCode:        codes.OK,
-			traceHTTPStatusCode: 200,
-			resourceSpanCount:   2,
-			processDuration:     100,
-			traceSpanCount:      20,
-			externalDuration:    50,
-		},
+		*generator(noUserAgentCtx, func(td *traceDetails) {}),
 		// A request that receives 403 status code from trace API
-		{
-			ctx:                 userAgentCtx,
-			responseCode:        codes.Unauthenticated,
-			traceHTTPStatusCode: 403,
-			resourceSpanCount:   2,
-			processDuration:     100,
-			traceSpanCount:      20,
-			externalDuration:    50,
-		},
+		*generator(userAgentCtx, func(td *traceDetails) {
+			td.responseCode 		= codes.Unauthenticated
+			td.traceHTTPStatusCode 	= 403
+		}),
 		// A request experiences a url.Error while sending to trace API
-		{
-			ctx:                 userAgentCtx,
-			responseCode:        codes.DataLoss,
-			traceHTTPStatusCode: 0,
-			resourceSpanCount:   2,
-			processDuration:     100,
-			traceSpanCount:      20,
-			externalDuration:    50,
-		},
+		*generator(userAgentCtx, func(td *traceDetails) {
+			td.responseCode 		= codes.DataLoss
+			td.traceHTTPStatusCode 	= 0
+		}),
 	}
 
 	for _, traceDetails := range details {
-		if err := recordPushTraceData(traceDetails); err != nil {
+		if err := traceDetails.recordPushTraceData(userAgentCtx); err != nil {
 			t.Fail()
 		}
 	}

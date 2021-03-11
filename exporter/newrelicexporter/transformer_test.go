@@ -32,42 +32,24 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func TestNewTraceTransformerInstrumentation(t *testing.T) {
+func TestTransformSpanCommonBlock(t *testing.T) {
 	ilm := pdata.NewInstrumentationLibrary()
 	ilm.SetName("test name")
 	ilm.SetVersion("test version")
 
-	transform := newTraceTransformer(pdata.NewResource(), ilm)
-	require.Contains(t, transform.ResourceAttributes, instrumentationNameKey)
-	require.Contains(t, transform.ResourceAttributes, instrumentationVersionKey)
-	assert.Equal(t, transform.ResourceAttributes[instrumentationNameKey], "test name")
-	assert.Equal(t, transform.ResourceAttributes[instrumentationVersionKey], "test version")
-}
+	resource := pdata.NewResource()
+	resource.Attributes().Insert("foo", pdata.NewAttributeValueString("bar"))
 
-func defaultAttrFunc(res map[string]interface{}) func(map[string]interface{}) map[string]interface{} {
-	return func(add map[string]interface{}) map[string]interface{} {
-		full := make(map[string]interface{}, 2+len(res)+len(add))
-		full[collectorNameKey] = name
-		full[collectorVersionKey] = version
-		for k, v := range res {
-			full[k] = v
-		}
-		for k, v := range add {
-			full[k] = v
-		}
-		return full
+	spanCommonBlock, err := TransformSpanCommonBlock(resource, ilm)
+	if err != nil {
+		t.Fail()
 	}
+	expectedAttrs := `{"attributes":{"collector.name":"opentelemetry-collector","collector.version":"0.0.0","foo":"bar","instrumentation.name":"test name","instrumentation.version":"test version"}}`
+	assert.Equal(t, expectedAttrs, string(spanCommonBlock.Bytes()))
 }
 
 func TestTransformSpan(t *testing.T) {
 	now := time.Unix(100, 0)
-	rattr := map[string]interface{}{
-		serviceNameKey: "test-service",
-		"resource":     "R1",
-	}
-	transform := &traceTransformer{ResourceAttributes: rattr}
-	withDefaults := defaultAttrFunc(rattr)
-
 	tests := []struct {
 		name     string
 		err      error
@@ -87,7 +69,7 @@ func TestTransformSpan(t *testing.T) {
 				ID:         "0000000000000001",
 				Name:       "invalid TraceID",
 				Timestamp:  time.Unix(0, 0).UTC(),
-				Attributes: withDefaults(nil),
+				Attributes: map[string]interface{}{},
 			},
 		},
 		{
@@ -103,7 +85,7 @@ func TestTransformSpan(t *testing.T) {
 				TraceID:    "01010101010101010101010101010101",
 				Name:       "invalid SpanID",
 				Timestamp:  time.Unix(0, 0).UTC(),
-				Attributes: withDefaults(nil),
+				Attributes: map[string]interface{}{},
 			},
 		},
 		{
@@ -120,7 +102,7 @@ func TestTransformSpan(t *testing.T) {
 				TraceID:    "01010101010101010101010101010101",
 				Name:       "root",
 				Timestamp:  time.Unix(0, 0).UTC(),
-				Attributes: withDefaults(nil),
+				Attributes: map[string]interface{}{},
 				Events:     nil,
 			},
 		},
@@ -140,7 +122,7 @@ func TestTransformSpan(t *testing.T) {
 				Name:       "client",
 				ParentID:   "0000000000000001",
 				Timestamp:  time.Unix(0, 0).UTC(),
-				Attributes: withDefaults(nil),
+				Attributes: map[string]interface{}{},
 				Events:     nil,
 			},
 		},
@@ -163,9 +145,9 @@ func TestTransformSpan(t *testing.T) {
 				TraceID:   "01010101010101010101010101010101",
 				Name:      "error code",
 				Timestamp: time.Unix(0, 0).UTC(),
-				Attributes: withDefaults(map[string]interface{}{
+				Attributes: map[string]interface{}{
 					statusCodeKey: "ERROR",
-				}),
+				},
 				Events: nil,
 			},
 		},
@@ -188,10 +170,10 @@ func TestTransformSpan(t *testing.T) {
 				TraceID:   "01010101010101010101010101010101",
 				Name:      "error message",
 				Timestamp: time.Unix(0, 0).UTC(),
-				Attributes: withDefaults(map[string]interface{}{
+				Attributes: map[string]interface{}{
 					statusCodeKey:        "ERROR",
 					statusDescriptionKey: "error message",
-				}),
+				},
 				Events: nil,
 			},
 		},
@@ -238,12 +220,12 @@ func TestTransformSpan(t *testing.T) {
 				TraceID:   "01010101010101010101010101010101",
 				Name:      "attrs",
 				Timestamp: time.Unix(0, 0).UTC(),
-				Attributes: withDefaults(map[string]interface{}{
+				Attributes: map[string]interface{}{
 					"prod":   true,
 					"weight": int64(10),
 					"score":  99.8,
 					"user":   "alice",
-				}),
+				},
 				Events: nil,
 			},
 		},
@@ -264,7 +246,7 @@ func TestTransformSpan(t *testing.T) {
 				Name:       "with time",
 				Timestamp:  now.UTC(),
 				Duration:   time.Second * 5,
-				Attributes: withDefaults(nil),
+				Attributes: map[string]interface{}{},
 				Events:     nil,
 			},
 		},
@@ -283,9 +265,9 @@ func TestTransformSpan(t *testing.T) {
 				TraceID:   "01010101010101010101010101010101",
 				Name:      "span kind server",
 				Timestamp: time.Unix(0, 0).UTC(),
-				Attributes: withDefaults(map[string]interface{}{
+				Attributes: map[string]interface{}{
 					spanKindKey: "server",
-				}),
+				},
 				Events: nil,
 			},
 		},
@@ -310,7 +292,7 @@ func TestTransformSpan(t *testing.T) {
 				TraceID:    "01010101010101010101010101010101",
 				Name:       "with events",
 				Timestamp:  time.Unix(0, 0).UTC(),
-				Attributes: withDefaults(nil),
+				Attributes: map[string]interface{}{},
 				Events: []telemetry.Event{
 					{
 						EventType:  "this is the event name",
@@ -324,7 +306,7 @@ func TestTransformSpan(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			got, err := transform.Span(test.spanFunc())
+			got, err := TransformSpan(test.spanFunc())
 			if test.err != nil {
 				assert.True(t, errors.Is(err, test.err))
 			} else {

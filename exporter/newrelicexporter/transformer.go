@@ -51,24 +51,29 @@ type metricTransformer struct {
 	Resource        *resourcepb.Resource
 }
 
-type traceTransformer struct {
-	ResourceAttributes map[string]interface{}
-}
+func TransformSpanCommonBlock(resource pdata.Resource, lib pdata.InstrumentationLibrary) (telemetry.SpanCommonBlock, error) {
+	spanCommonBlock := telemetry.SpanCommonBlock{}
 
-func newTraceTransformer(resource pdata.Resource, lib pdata.InstrumentationLibrary) *traceTransformer {
-	t := &traceTransformer{
-		ResourceAttributes: tracetranslator.AttributeMapToMap(
-			resource.Attributes(),
-		),
-	}
+	attrs := tracetranslator.AttributeMapToMap(resource.Attributes())
 
 	if n := lib.Name(); n != "" {
-		t.ResourceAttributes[instrumentationNameKey] = n
+		attrs[instrumentationNameKey] = n
 		if v := lib.Version(); v != "" {
-			t.ResourceAttributes[instrumentationVersionKey] = v
+			attrs[instrumentationVersionKey] = v
 		}
 	}
-	return t
+
+	// Default attributes to tell New Relic about this collector.
+	// (overrides any existing)
+	attrs[collectorNameKey] = name
+	attrs[collectorVersionKey] = version
+
+	commonAttributes, err := telemetry.NewCommonAttributes(attrs)
+	if err != nil {
+		return spanCommonBlock, err
+	}
+	spanCommonBlock.Attributes = commonAttributes
+	return spanCommonBlock, nil
 }
 
 var (
@@ -76,7 +81,7 @@ var (
 	errInvalidTraceID = errors.New("TraceID is invalid")
 )
 
-func (t *traceTransformer) Span(span pdata.Span) (telemetry.Span, error) {
+func TransformSpan(span pdata.Span) (telemetry.Span, error) {
 	startTime := span.StartTime().AsTime()
 	sp := telemetry.Span{
 		// HexString validates the IDs, it will be an empty string if invalid.
@@ -86,8 +91,8 @@ func (t *traceTransformer) Span(span pdata.Span) (telemetry.Span, error) {
 		Name:       span.Name(),
 		Timestamp:  startTime,
 		Duration:   span.EndTime().AsTime().Sub(startTime),
-		Attributes: t.SpanAttributes(span),
-		Events:     t.SpanEvents(span),
+		Attributes: TransformSpanAttributes(span),
+		Events:     TransformSpanEvents(span),
 	}
 
 	if sp.ID == "" {
@@ -100,9 +105,8 @@ func (t *traceTransformer) Span(span pdata.Span) (telemetry.Span, error) {
 	return sp, nil
 }
 
-func (t *traceTransformer) SpanAttributes(span pdata.Span) map[string]interface{} {
-
-	length := 2 + len(t.ResourceAttributes) + span.Attributes().Len()
+func TransformSpanAttributes(span pdata.Span) map[string]interface{} {
+	length := span.Attributes().Len()
 
 	var hasStatusCode, hasStatusDesc bool
 	s := span.Status()
@@ -136,24 +140,15 @@ func (t *traceTransformer) SpanAttributes(span pdata.Span) map[string]interface{
 		attrs[spanKindKey] = strings.ToLower(kind)
 	}
 
-	for k, v := range t.ResourceAttributes {
-		attrs[k] = v
-	}
-
 	for k, v := range tracetranslator.AttributeMapToMap(span.Attributes()) {
 		attrs[k] = v
 	}
 
-	// Default attributes to tell New Relic about this collector.
-	// (overrides any existing)
-	attrs[collectorNameKey] = name
-	attrs[collectorVersionKey] = version
-
 	return attrs
 }
 
-// SpanEvents transforms the recorded events of span into New Relic tracing events.
-func (t *traceTransformer) SpanEvents(span pdata.Span) []telemetry.Event {
+// TransformSpanEvents transforms the recorded events of span into New Relic tracing events.
+func TransformSpanEvents(span pdata.Span) []telemetry.Event {
 	length := span.Events().Len()
 	if length == 0 {
 		return nil

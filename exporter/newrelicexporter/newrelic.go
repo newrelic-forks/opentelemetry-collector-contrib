@@ -165,18 +165,23 @@ func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (droppedS
 		}
 	}()
 
-	var batch telemetry.SpanBatch
-
+	var batches []telemetry.PayloadEntry
 	for i := 0; i < td.ResourceSpans().Len(); i++ {
 		rspans := td.ResourceSpans().At(i)
 		resource := rspans.Resource()
 		for j := 0; j < rspans.InstrumentationLibrarySpans().Len(); j++ {
 			ispans := rspans.InstrumentationLibrarySpans().At(j)
-			transform := newTraceTransformer(resource, ispans.InstrumentationLibrary())
+			spanCommonBlock, err := TransformSpanCommonBlock(resource, ispans.InstrumentationLibrary())
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			batch := telemetry.SpanBatch{Common: &spanCommonBlock}
+			batches = append(batches, &batch)
 			spans := make([]telemetry.Span, 0, ispans.Spans().Len())
 			for k := 0; k < ispans.Spans().Len(); k++ {
 				span := ispans.Spans().At(k)
-				nrSpan, err := transform.Span(span)
+				nrSpan, err := TransformSpan(span)
 				if err != nil {
 					errs = append(errs, err)
 					continue
@@ -188,7 +193,6 @@ func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (droppedS
 			batch.Spans = append(batch.Spans, spans...)
 		}
 	}
-	batches := []telemetry.PayloadEntry{&batch}
 	var req *http.Request
 	var err error
 

@@ -113,6 +113,16 @@ func testTraceData(t *testing.T, expected []Span, resource *resourcepb.Resource,
 	m, err := runMock(ctx, internaldata.OCToTraces(nil, resource, spans), mockConfig{useAPIKeyHeader: useAPIKeyHeader})
 	require.NoError(t, err)
 	assert.Equal(t, expected, m.Spans())
+
+	expectedCommonAttrs := make(map[string]string)
+	for k, v := range resource.Labels {
+		expectedCommonAttrs[k] = v
+	}
+	expectedCommonAttrs[collectorNameKey] = name
+	expectedCommonAttrs[collectorVersionKey] = version
+	for _, data := range m.Data {
+		assert.Equal(t, expectedCommonAttrs, data.Common.Attributes)
+	}
 }
 
 func TestExportTraceWithBadURL(t *testing.T) {
@@ -201,6 +211,13 @@ func TestExportTracePartialData(t *testing.T) {
 }
 
 func TestExportTraceDataMinimum(t *testing.T) {
+	resource := &resourcepb.Resource{
+		Labels: map[string]string{
+			serviceNameKey: "test-service",
+			"resource":     "R1",
+		},
+	}
+
 	spans := []*tracepb.Span{
 		{
 			TraceId: []byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
@@ -214,15 +231,13 @@ func TestExportTraceDataMinimum(t *testing.T) {
 			ID:      "0000000000000001",
 			TraceID: "01010101010101010101010101010101",
 			Attributes: map[string]interface{}{
-				"collector.name":    name,
-				"collector.version": version,
 				"name":              "root",
 			},
 		},
 	}
 
-	testTraceData(t, expected, nil, spans, false)
-	testTraceData(t, expected, nil, spans, true)
+	testTraceData(t, expected, resource, spans, false)
+	testTraceData(t, expected, resource, spans, true)
 }
 
 func TestExportTraceDataFullTrace(t *testing.T) {
@@ -261,35 +276,23 @@ func TestExportTraceDataFullTrace(t *testing.T) {
 			ID:      "0000000000000001",
 			TraceID: "01010101010101010101010101010101",
 			Attributes: map[string]interface{}{
-				"collector.name":    name,
-				"collector.version": version,
 				"name":              "root",
-				"resource":          "R1",
-				"service.name":      "test-service",
 			},
 		},
 		{
 			ID:      "0000000000000002",
 			TraceID: "01010101010101010101010101010101",
 			Attributes: map[string]interface{}{
-				"collector.name":    name,
-				"collector.version": version,
 				"name":              "client",
 				"parent.id":         "0000000000000001",
-				"resource":          "R1",
-				"service.name":      "test-service",
 			},
 		},
 		{
 			ID:      "0000000000000003",
 			TraceID: "01010101010101010101010101010101",
 			Attributes: map[string]interface{}{
-				"collector.name":    name,
-				"collector.version": version,
 				"name":              "server",
 				"parent.id":         "0000000000000002",
-				"resource":          "R1",
-				"service.name":      "test-service",
 			},
 		},
 	}
