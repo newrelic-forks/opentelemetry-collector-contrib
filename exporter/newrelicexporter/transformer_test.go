@@ -648,3 +648,152 @@ func TestTransformCumulativeSummary(t *testing.T) {
 	}
 	t.Run("Distribution", func(t *testing.T) { testTransformMetric(t, cd, expected) })
 }
+
+func TestLogTransformer_Log(t *testing.T) {
+	emptyResource := pdata.NewResource()
+	emptyInstrumentationLibrary := pdata.NewInstrumentationLibrary()
+
+	attributeResource := pdata.NewResource()
+	attributeResource.Attributes().InitFromMap(map[string]pdata.AttributeValue{
+		"str":    pdata.NewAttributeValueString("str"),
+		"bool":   pdata.NewAttributeValueBool(true),
+		"double": pdata.NewAttributeValueDouble(8.2),
+		"int":    pdata.NewAttributeValueInt(42),
+		"map":    pdata.NewAttributeValueMap(),
+		"array":  pdata.NewAttributeValueArray(),
+		"null":   pdata.NewAttributeValueNull(),
+	})
+	withResourceAttributes := func(attributes map[string]interface{}) map[string]interface{} {
+		expectedResourceAttributes := map[string]interface{}{
+			"str":    "str",
+			"bool":   true,
+			"double": 8.2,
+			"int":    int64(42),
+			"map":    map[string]interface{}{},
+			"array":  []interface{}{},
+			"null":   nil,
+		}
+		for k, v := range attributes {
+			expectedResourceAttributes[k] = v
+		}
+		return expectedResourceAttributes
+	}
+
+	namedInstrumentationLibrary := pdata.NewInstrumentationLibrary()
+	namedInstrumentationLibrary.SetName("bleepbloop")
+
+	versionedInstrumentationLibrary := pdata.NewInstrumentationLibrary()
+	versionedInstrumentationLibrary.SetName("bleepbloop")
+	versionedInstrumentationLibrary.SetVersion("1.2.3")
+
+	withNamedLibraryAttributes := func(attributes map[string]interface{}) map[string]interface{} {
+		expected := map[string]interface{}{
+			"instrumentation.name": "bleepbloop",
+		}
+		for k, v := range attributes {
+			expected[k] = v
+		}
+		return expected
+	}
+	withVersionedLibraryAttributes := func(attributes map[string]interface{}) map[string]interface{} {
+		expected := map[string]interface{}{
+			"instrumentation.name":    "bleepbloop",
+			"instrumentation.version": "1.2.3",
+		}
+		for k, v := range attributes {
+			expected[k] = v
+		}
+		return expected
+	}
+
+	tests := []struct {
+		Resource               pdata.Resource
+		InstrumentationLibrary pdata.InstrumentationLibrary
+		name                   string
+		logFunc                func() pdata.LogRecord
+		want                   telemetry.Log
+	}{
+		{
+			Resource:               emptyResource,
+			InstrumentationLibrary: emptyInstrumentationLibrary,
+			name:                   "Basic Conversion",
+			logFunc: func() pdata.LogRecord {
+				log := pdata.NewLogRecord()
+				timestamp := pdata.TimestampFromTime(time.Unix(0, 0).UTC())
+				log.SetTimestamp(timestamp)
+				return log
+			},
+			want: telemetry.Log{
+				Message:    "",
+				Timestamp:  time.Unix(0, 0).UTC(),
+				Attributes: map[string]interface{}{"name": ""},
+			},
+		},
+		{
+			Resource:               attributeResource,
+			InstrumentationLibrary: emptyInstrumentationLibrary,
+			name:                   "Resource Attributes",
+			logFunc: func() pdata.LogRecord {
+				log := pdata.NewLogRecord()
+				timestamp := pdata.TimestampFromTime(time.Unix(0, 0).UTC())
+				log.SetTimestamp(timestamp)
+				return log
+			},
+			want: telemetry.Log{
+				Message:    "",
+				Timestamp:  time.Unix(0, 0).UTC(),
+				Attributes: withResourceAttributes(map[string]interface{}{"name": ""}),
+			},
+		},
+		{
+			Resource:               emptyResource,
+			InstrumentationLibrary: namedInstrumentationLibrary,
+			name:                   "Named Library",
+			logFunc: func() pdata.LogRecord {
+				return pdata.NewLogRecord()
+			},
+			want: telemetry.Log{
+				Message:    "",
+				Timestamp:  time.Unix(0, 0).UTC(),
+				Attributes: withNamedLibraryAttributes(map[string]interface{}{"name": ""}),
+			},
+		},
+		{
+			Resource:               emptyResource,
+			InstrumentationLibrary: versionedInstrumentationLibrary,
+			name:                   "Versioned Library",
+			logFunc: func() pdata.LogRecord {
+				return pdata.NewLogRecord()
+			},
+			want: telemetry.Log{
+				Message:    "",
+				Timestamp:  time.Unix(0, 0).UTC(),
+				Attributes: withVersionedLibraryAttributes(map[string]interface{}{"name": ""}),
+			},
+		},
+		{
+			Resource:               emptyResource,
+			InstrumentationLibrary: emptyInstrumentationLibrary,
+			name:                   "With Log Attributes",
+			logFunc: func() pdata.LogRecord {
+				log := pdata.NewLogRecord()
+				log.SetName("bloopbleep")
+				log.Attributes().InsertString("foo", "bar")
+				log.Body().SetStringVal("Hello World")
+				return log
+			},
+			want: telemetry.Log{
+				Message:    "Hello World",
+				Timestamp:  time.Unix(0, 0).UTC(),
+				Attributes: nil,
+			},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			transform := newLogTransformer(test.Resource, test.InstrumentationLibrary)
+			got, _ := transform.Log(test.logFunc())
+			assert.EqualValues(t, test.want, got)
+		})
+	}
+}
