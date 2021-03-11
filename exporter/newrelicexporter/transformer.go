@@ -51,6 +51,7 @@ type metricTransformer struct {
 	Resource        *resourcepb.Resource
 }
 
+// TransformSpanCommonBlock constructs the SpanCommonBlock for the spans associated with the resource and lib.
 func TransformSpanCommonBlock(resource pdata.Resource, lib pdata.InstrumentationLibrary) (telemetry.SpanCommonBlock, error) {
 	spanCommonBlock := telemetry.SpanCommonBlock{}
 
@@ -81,6 +82,7 @@ var (
 	errInvalidTraceID = errors.New("TraceID is invalid")
 )
 
+// TransformSpan transforms the span into a New Relic span.
 func TransformSpan(span pdata.Span) (telemetry.Span, error) {
 	startTime := span.StartTime().AsTime()
 	sp := telemetry.Span{
@@ -105,6 +107,7 @@ func TransformSpan(span pdata.Span) (telemetry.Span, error) {
 	return sp, nil
 }
 
+// TransformSpanAttributes extracts and transforms the span attributes to a map.
 func TransformSpanAttributes(span pdata.Span) map[string]interface{} {
 	length := span.Attributes().Len()
 

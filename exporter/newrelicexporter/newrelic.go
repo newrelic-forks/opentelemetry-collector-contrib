@@ -151,7 +151,7 @@ func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (droppedS
 
 	details := newTraceDetails(ctx)
 	defer func() {
-		apiKey := sanitizeApiKeyForLogging(insertKey)
+		apiKey := sanitizeAPIKeyForLogging(insertKey)
 		if apiKey != "" {
 			details.apiKey = apiKey
 		}

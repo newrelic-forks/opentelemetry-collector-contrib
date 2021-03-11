@@ -43,15 +43,15 @@ func TestRecordPushTraceData(t *testing.T) {
 		t.Fail()
 	}
 
-	generator := func (ctx context.Context, mutator func (details *traceDetails)) *traceDetails {
+	generator := func(ctx context.Context, mutator func(details *traceDetails)) *traceDetails {
 		td := newTraceDetails(ctx)
-		td.responseCode 		= codes.OK
-		td.traceHTTPStatusCode 	= 200
-		td.resourceSpanCount 	= 2
-		td.processDuration 		= 100
-		td.traceSpanCount 		= 20
-		td.externalDuration 	= 50
-		td.apiKey 				= "foo"
+		td.responseCode = codes.OK
+		td.traceHTTPStatusCode = 200
+		td.resourceSpanCount = 2
+		td.processDuration = 100
+		td.traceSpanCount = 20
+		td.externalDuration = 50
+		td.apiKey = "foo"
 		mutator(td)
 		return td
 	}
@@ -65,13 +65,13 @@ func TestRecordPushTraceData(t *testing.T) {
 		*generator(noUserAgentCtx, func(td *traceDetails) {}),
 		// A request that receives 403 status code from trace API
 		*generator(userAgentCtx, func(td *traceDetails) {
-			td.responseCode 		= codes.Unauthenticated
-			td.traceHTTPStatusCode 	= 403
+			td.responseCode = codes.Unauthenticated
+			td.traceHTTPStatusCode = 403
 		}),
 		// A request experiences a url.Error while sending to trace API
 		*generator(userAgentCtx, func(td *traceDetails) {
-			td.responseCode 		= codes.DataLoss
-			td.traceHTTPStatusCode 	= 0
+			td.responseCode = codes.DataLoss
+			td.traceHTTPStatusCode = 0
 		}),
 	}
 
@@ -108,7 +108,7 @@ func TestRecordPushTraceData(t *testing.T) {
 }
 
 func TestSanitizeApiKeyForLogging(t *testing.T) {
-	assert.Equal(t, "", sanitizeApiKeyForLogging(""))
-	assert.Equal(t, "foo", sanitizeApiKeyForLogging("foo"))
-	assert.Equal(t, "foobarba", sanitizeApiKeyForLogging("foobarbazqux"))
+	assert.Equal(t, "", sanitizeAPIKeyForLogging(""))
+	assert.Equal(t, "foo", sanitizeAPIKeyForLogging("foo"))
+	assert.Equal(t, "foobarba", sanitizeAPIKeyForLogging("foobarbazqux"))
 }

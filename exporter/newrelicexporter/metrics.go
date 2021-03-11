@@ -29,8 +29,8 @@ var (
 	tagResponseCode, _        = tag.NewKey("grpc_response_code")
 	tagTraceHTTPStatusCode, _ = tag.NewKey("trace_http_status_code")
 	tagRequestUserAgent, _    = tag.NewKey("user_agent")
-	tagApiKey, _              = tag.NewKey("api_key")
-	tagKeys                   = []tag.Key{tagResponseCode, tagTraceHTTPStatusCode, tagRequestUserAgent, tagApiKey}
+	tagAPIKey, _              = tag.NewKey("api_key")
+	tagKeys                   = []tag.Key{tagResponseCode, tagTraceHTTPStatusCode, tagRequestUserAgent, tagAPIKey}
 
 	statTraceRequests        = stats.Int64("newrelicexporter_trace_requests", "Number of trace requests processed", stats.UnitDimensionless)
 	statTraceResourceSpans   = stats.Int64("newrelicexporter_trace_resource_spans", "Number of resource spans processed", stats.UnitDimensionless)
@@ -89,7 +89,7 @@ func (d *traceDetails) recordPushTraceData(ctx context.Context) error {
 		tag.Insert(tagResponseCode, d.responseCode.String()),
 		tag.Insert(tagTraceHTTPStatusCode, strconv.Itoa(d.traceHTTPStatusCode)),
 		tag.Insert(tagRequestUserAgent, d.userAgent),
-		tag.Insert(tagApiKey, d.apiKey),
+		tag.Insert(tagAPIKey, d.apiKey),
 	}
 
 	return stats.RecordWithTags(ctx, tags,
@@ -101,7 +101,7 @@ func (d *traceDetails) recordPushTraceData(ctx context.Context) error {
 	)
 }
 
-func sanitizeApiKeyForLogging(apiKey string) string {
+func sanitizeAPIKeyForLogging(apiKey string) string {
 	if len(apiKey) <= 8 {
 		return apiKey
 	}

@@ -231,7 +231,7 @@ func TestExportTraceDataMinimum(t *testing.T) {
 			ID:      "0000000000000001",
 			TraceID: "01010101010101010101010101010101",
 			Attributes: map[string]interface{}{
-				"name":              "root",
+				"name": "root",
 			},
 		},
 	}
@@ -276,23 +276,23 @@ func TestExportTraceDataFullTrace(t *testing.T) {
 			ID:      "0000000000000001",
 			TraceID: "01010101010101010101010101010101",
 			Attributes: map[string]interface{}{
-				"name":              "root",
+				"name": "root",
 			},
 		},
 		{
 			ID:      "0000000000000002",
 			TraceID: "01010101010101010101010101010101",
 			Attributes: map[string]interface{}{
-				"name":              "client",
-				"parent.id":         "0000000000000001",
+				"name":      "client",
+				"parent.id": "0000000000000001",
 			},
 		},
 		{
 			ID:      "0000000000000003",
 			TraceID: "01010101010101010101010101010101",
 			Attributes: map[string]interface{}{
-				"name":              "server",
-				"parent.id":         "0000000000000002",
+				"name":      "server",
+				"parent.id": "0000000000000002",
 			},
 		},
 	}
