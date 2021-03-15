@@ -28,7 +28,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/component"
-	"go.opentelemetry.io/collector/consumer/consumerdata"
 	"go.opentelemetry.io/collector/consumer/pdata"
 	"go.opentelemetry.io/collector/translator/internaldata"
 	"go.uber.org/zap"
@@ -298,7 +297,7 @@ func TestExportTraceDataFullTrace(t *testing.T) {
 	testTraceData(t, expected, resource, spans, true)
 }
 
-func testExportMetricData(t *testing.T, expected []Metric, md consumerdata.MetricsData) {
+func testExportMetricData(t *testing.T, expected []Metric, md internaldata.MetricsData) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -324,7 +323,7 @@ func testExportMetricData(t *testing.T, expected []Metric, md consumerdata.Metri
 func TestExportMetricDataMinimal(t *testing.T) {
 	desc := "physical property of matter that quantitatively expresses hot and cold"
 	unit := "K"
-	md := consumerdata.MetricsData{
+	md := internaldata.MetricsData{
 		Metrics: []*metricspb.Metric{
 			{
 				MetricDescriptor: &metricspb.MetricDescriptor{
@@ -382,7 +381,7 @@ func TestExportMetricDataMinimal(t *testing.T) {
 func TestExportMetricDataFull(t *testing.T) {
 	desc := "physical property of matter that quantitatively expresses hot and cold"
 	unit := "K"
-	md := consumerdata.MetricsData{
+	md := internaldata.MetricsData{
 		Node: &commonpb.Node{
 			ServiceInfo: &commonpb.ServiceInfo{Name: "test-service"},
 		},

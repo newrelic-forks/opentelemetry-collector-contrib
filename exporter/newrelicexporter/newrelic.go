@@ -26,8 +26,8 @@ import (
 
 	"github.com/newrelic/newrelic-telemetry-sdk-go/cumulative"
 	"github.com/newrelic/newrelic-telemetry-sdk-go/telemetry"
-	"go.opentelemetry.io/collector/component/componenterror"
 	"go.opentelemetry.io/collector/config/configmodels"
+	"go.opentelemetry.io/collector/consumer/consumererror"
 	"go.opentelemetry.io/collector/consumer/pdata"
 	"go.opentelemetry.io/collector/translator/internaldata"
 	"go.uber.org/zap"
@@ -175,7 +175,7 @@ func (e *exporter) extractInsertKeyFromHeader(ctx context.Context) string {
 	return values[0]
 }
 
-func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (droppedSpans int, outputErr error) {
+func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (outputErr error) {
 	var (
 		errs      []error
 		goodSpans int
@@ -234,23 +234,22 @@ func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (droppedS
 	}
 	if err != nil {
 		e.logger.Error("Failed to build batch", zap.Error(err))
-		return 0, err
+		return err
 	}
 
 	// Execute the http request and handle the response
 	if err := e.doRequest(req); err != nil {
-		return 0, err
+		return err
 	}
 
-	return td.SpanCount() - goodSpans, componenterror.CombineErrors(errs)
+	return consumererror.CombineErrors(errs)
 
 }
 
-func (e *exporter) pushLogData(ctx context.Context, ld pdata.Logs) (droppedLogs int, err error) {
+func (e *exporter) pushLogData(ctx context.Context, ld pdata.Logs) (err error) {
 	var (
-		errs     []error
-		goodLogs int
-		batch    telemetry.LogBatch
+		errs  []error
+		batch telemetry.LogBatch
 	)
 
 	insertKey := e.extractInsertKeyFromHeader(ctx)
@@ -272,7 +271,6 @@ func (e *exporter) pushLogData(ctx context.Context, ld pdata.Logs) (droppedLogs 
 				}
 
 				batch.Logs = append(batch.Logs, nrLog)
-				goodLogs++
 			}
 		}
 	}
@@ -285,19 +283,18 @@ func (e *exporter) pushLogData(ctx context.Context, ld pdata.Logs) (droppedLogs 
 	req, err := e.logRequestFactory.BuildRequest(batches, options...)
 	if err != nil {
 		e.logger.Error("Failed to build batch", zap.Error(err))
-		return 0, err
+		return err
 	}
 
 	if err := e.doRequest(req); err != nil {
-		return 0, err
+		return err
 	}
 
-	return ld.LogRecordCount() - goodLogs, nil
+	return nil
 }
 
-func (e *exporter) pushMetricData(ctx context.Context, md pdata.Metrics) (int, error) {
+func (e *exporter) pushMetricData(ctx context.Context, md pdata.Metrics) error {
 	var errs []error
-	goodMetrics := 0
 
 	ocmds := internaldata.MetricsToOC(md)
 	for _, ocmd := range ocmds {
@@ -322,13 +319,12 @@ func (e *exporter) pushMetricData(ctx context.Context, md pdata.Metrics) (int, e
 			for _, m := range nrMetrics {
 				e.harvester.RecordMetric(m)
 			}
-			goodMetrics++
 		}
 	}
 
 	e.harvester.HarvestNow(ctx)
 
-	return md.MetricCount() - goodMetrics, componenterror.CombineErrors(errs)
+	return consumererror.CombineErrors(errs)
 }
 
 func (e *exporter) doRequest(req *http.Request) error {
