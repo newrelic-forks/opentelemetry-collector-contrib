@@ -184,17 +184,17 @@ func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (outputEr
 	startTime := time.Now()
 	insertKey := e.extractInsertKeyFromHeader(ctx)
 
-	details := newTraceDetails(ctx)
+	details := newTraceMetadata(ctx)
 	defer func() {
 		apiKey := sanitizeApiKeyForLogging(insertKey)
 		if apiKey != "" {
 			details.apiKey = apiKey
 		}
-		details.resourceSpanCount = td.ResourceSpans().Len()
-		details.processDuration = time.Now().Sub(startTime)
-		details.responseCode = status.Code(outputErr)
-		details.traceSpanCount = goodSpans
-		err := details.recordPushTraceData(ctx)
+		details.dataInputCount = td.ResourceSpans().Len()
+		details.dataOutputCount = goodSpans
+		details.exporterTime = time.Now().Sub(startTime)
+		details.grpcResponseCode = status.Code(outputErr)
+		err := details.recordMetrics(ctx)
 		if err != nil {
 			e.logger.Error("An error occurred recording metrics.", zap.Error(err))
 		}
@@ -238,7 +238,9 @@ func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (outputEr
 	}
 
 	// Execute the http request and handle the response
-	if err := e.doRequest(req); err != nil {
+	httpStatusCode, err := e.doRequest(req)
+	details.httpStatusCode = httpStatusCode
+	if err != nil {
 		return err
 	}
 
@@ -246,13 +248,31 @@ func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (outputEr
 
 }
 
-func (e *exporter) pushLogData(ctx context.Context, ld pdata.Logs) (err error) {
+func (e *exporter) pushLogData(ctx context.Context, ld pdata.Logs) (outputErr error) {
 	var (
-		errs  []error
-		batch telemetry.LogBatch
+		errs     []error
+		goodLogs int
+		batch    telemetry.LogBatch
 	)
 
+	startTime := time.Now()
 	insertKey := e.extractInsertKeyFromHeader(ctx)
+
+	details := newLogMetadata(ctx)
+	defer func() {
+		apiKey := sanitizeApiKeyForLogging(insertKey)
+		if apiKey != "" {
+			details.apiKey = apiKey
+		}
+		details.dataInputCount = ld.ResourceLogs().Len()
+		details.dataOutputCount = goodLogs
+		details.exporterTime = time.Now().Sub(startTime)
+		details.grpcResponseCode = status.Code(outputErr)
+		err := details.recordMetrics(ctx)
+		if err != nil {
+			e.logger.Error("An error occurred recording metrics.", zap.Error(err))
+		}
+	}()
 
 	for i := 0; i < ld.ResourceLogs().Len(); i++ {
 		resourceLogs := ld.ResourceLogs().At(i)
@@ -270,6 +290,7 @@ func (e *exporter) pushLogData(ctx context.Context, ld pdata.Logs) (err error) {
 					continue
 				}
 
+				goodLogs++
 				batch.Logs = append(batch.Logs, nrLog)
 			}
 		}
@@ -286,7 +307,9 @@ func (e *exporter) pushLogData(ctx context.Context, ld pdata.Logs) (err error) {
 		return err
 	}
 
-	if err := e.doRequest(req); err != nil {
+	httpStatusCode, err := e.doRequest(req)
+	details.httpStatusCode = httpStatusCode
+	if err != nil {
 		return err
 	}
 
@@ -327,13 +350,13 @@ func (e *exporter) pushMetricData(ctx context.Context, md pdata.Metrics) error {
 	return consumererror.CombineErrors(errs)
 }
 
-func (e *exporter) doRequest(req *http.Request) error {
+func (e *exporter) doRequest(req *http.Request) (statusCode int, err error) {
 
 	// Execute the http request and handle the response
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
 		e.logger.Error("Error making HTTP request.", zap.Error(err))
-		return &urlError{Err: err}
+		return 0, &urlError{Err: err}
 	}
 	defer response.Body.Close()
 	io.Copy(ioutil.Discard, response.Body)
@@ -347,10 +370,10 @@ func (e *exporter) doRequest(req *http.Request) error {
 			e.logger.Debug("Error on HTTP response.", zap.String("Status", response.Status))
 		}
 
-		return &httpError{Response: response}
+		return 0, &httpError{Response: response}
 	}
 
-	return nil
+	return response.StatusCode, nil
 }
 
 func (e *exporter) Shutdown(ctx context.Context) error {

@@ -26,27 +26,28 @@ import (
 )
 
 var (
-	tagResponseCode, _        = tag.NewKey("grpc_response_code")
-	tagTraceHTTPStatusCode, _ = tag.NewKey("trace_http_status_code")
-	tagRequestUserAgent, _    = tag.NewKey("user_agent")
-	tagApiKey, _              = tag.NewKey("api_key")
-	tagKeys                   = []tag.Key{tagResponseCode, tagTraceHTTPStatusCode, tagRequestUserAgent, tagApiKey}
+	tagGrpcStatusCode, _   = tag.NewKey("grpc_response_code")
+	tagHttpStatusCode, _   = tag.NewKey("http_status_code")
+	tagRequestUserAgent, _ = tag.NewKey("user_agent")
+	tagApiKey, _           = tag.NewKey("api_key")
+	tagDataType, _         = tag.NewKey("data_type")
+	tagKeys                = []tag.Key{tagGrpcStatusCode, tagHttpStatusCode, tagRequestUserAgent, tagApiKey, tagDataType}
 
-	statTraceRequests        = stats.Int64("newrelicexporter_trace_requests", "Number of trace requests processed", stats.UnitDimensionless)
-	statTraceResourceSpans   = stats.Int64("newrelicexporter_trace_resource_spans", "Number of resource spans processed", stats.UnitDimensionless)
-	statTraceExternalSpans   = stats.Int64("newrelicexporter_trace_external_spans", "Number of spans sent to trace API", stats.UnitDimensionless)
-	statTraceProcessSeconds  = stats.Float64("newrelicexporter_trace_process_duration_seconds", "Seconds spent processing requests", stats.UnitSeconds)
-	statTraceExternalSeconds = stats.Float64("newrelicexporter_trace_external_duration_seconds", "Seconds spent sending data to the trace API", stats.UnitSeconds)
+	statRequestCount         = stats.Int64("newrelicexporter_request_count", "Number of requests processed", stats.UnitDimensionless)
+	statInputDatapointCount  = stats.Int64("newrelicexporter_input_datapoint_count", "Number of data points sent to the exporter", stats.UnitDimensionless)
+	statOutputDatapointCount = stats.Int64("newrelicexporter_output_datapoint_count", "Number of data points sent to the HTTP API", stats.UnitDimensionless)
+	statExporterTime         = stats.Float64("newrelicexporter_exporter_time", "Wall clock time (seconds) spent in the exporter", stats.UnitSeconds)
+	statExternalTime         = stats.Float64("newrelicexporter_external_time", "Wall clock time (seconds) spent sending data to the HTTP API", stats.UnitSeconds)
 )
 
 // MetricViews return metric views for Kafka receiver.
 func MetricViews() []*view.View {
 	return []*view.View{
-		buildView(tagKeys, statTraceRequests, view.Sum()),
-		buildView(tagKeys, statTraceResourceSpans, view.Sum()),
-		buildView(tagKeys, statTraceExternalSpans, view.Sum()),
-		buildView(tagKeys, statTraceProcessSeconds, view.Sum()),
-		buildView(tagKeys, statTraceExternalSeconds, view.Sum()),
+		buildView(tagKeys, statRequestCount, view.Sum()),
+		buildView(tagKeys, statInputDatapointCount, view.Sum()),
+		buildView(tagKeys, statOutputDatapointCount, view.Sum()),
+		buildView(tagKeys, statExporterTime, view.Sum()),
+		buildView(tagKeys, statExternalTime, view.Sum()),
 	}
 }
 
@@ -60,20 +61,30 @@ func buildView(tagKeys []tag.Key, m stats.Measure, a *view.Aggregation) *view.Vi
 	}
 }
 
-type traceDetails struct {
+type exportMetadata struct {
 	// Metric tags
-	responseCode        codes.Code // The gRPC response code
-	traceHTTPStatusCode int        // The HTTP response status code form the trace API
-	apiKey              string     // The API key from the request
-	userAgent           string     // The User-Agent from the request
+	grpcResponseCode codes.Code // The gRPC response code
+	httpStatusCode   int        // The HTTP response status code form the HTTP API
+	apiKey           string     // The API key from the request
+	userAgent        string     // The User-Agent from the request
+	dataType         string     // The type of data being recorded
+
 	// Metric values
-	resourceSpanCount int           // Number of resource spans in the request
-	processDuration   time.Duration // Total time spent in the newrelic exporter
-	traceSpanCount    int           // Number of spans sent to the trace API
-	externalDuration  time.Duration // Time spent sending to the trace API
+	dataInputCount   int           // Number of resource spans in the request
+	dataOutputCount  int           // Number of spans sent to the trace API
+	exporterTime     time.Duration // Total time spent in the newrelic exporter
+	externalDuration time.Duration // Time spent sending to the trace API
 }
 
-func newTraceDetails(ctx context.Context) *traceDetails {
+func newTraceMetadata(ctx context.Context) *exportMetadata {
+	return initMetadata(ctx, "trace")
+}
+
+func newLogMetadata(ctx context.Context) *exportMetadata {
+	return initMetadata(ctx, "log")
+}
+
+func initMetadata(ctx context.Context, dataType string) *exportMetadata {
 	userAgent := "not_present"
 	if md, ctxOk := metadata.FromIncomingContext(ctx); ctxOk {
 		if values, headerOk := md["user-agent"]; headerOk {
@@ -81,23 +92,24 @@ func newTraceDetails(ctx context.Context) *traceDetails {
 		}
 	}
 
-	return &traceDetails{userAgent: userAgent, apiKey: "not_present"}
+	return &exportMetadata{userAgent: userAgent, apiKey: "not_present", dataType: dataType}
 }
 
-func (d *traceDetails) recordPushTraceData(ctx context.Context) error {
+func (d *exportMetadata) recordMetrics(ctx context.Context) error {
 	tags := []tag.Mutator{
-		tag.Insert(tagResponseCode, d.responseCode.String()),
-		tag.Insert(tagTraceHTTPStatusCode, strconv.Itoa(d.traceHTTPStatusCode)),
+		tag.Insert(tagGrpcStatusCode, d.grpcResponseCode.String()),
+		tag.Insert(tagHttpStatusCode, strconv.Itoa(d.httpStatusCode)),
 		tag.Insert(tagRequestUserAgent, d.userAgent),
 		tag.Insert(tagApiKey, d.apiKey),
+		tag.Insert(tagDataType, d.dataType),
 	}
 
 	return stats.RecordWithTags(ctx, tags,
-		statTraceRequests.M(1),
-		statTraceResourceSpans.M(int64(d.resourceSpanCount)),
-		statTraceExternalSpans.M(int64(d.traceSpanCount)),
-		statTraceProcessSeconds.M(d.processDuration.Seconds()),
-		statTraceExternalSeconds.M(d.externalDuration.Seconds()),
+		statRequestCount.M(1),
+		statInputDatapointCount.M(int64(d.dataInputCount)),
+		statOutputDatapointCount.M(int64(d.dataOutputCount)),
+		statExporterTime.M(d.exporterTime.Seconds()),
+		statExternalTime.M(d.externalDuration.Seconds()),
 	)
 }
 
