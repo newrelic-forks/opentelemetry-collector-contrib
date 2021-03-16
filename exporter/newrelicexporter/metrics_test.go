@@ -95,11 +95,11 @@ func TestRecordPushTraceData(t *testing.T) {
 	}
 
 	measurements := []stats.Measure{
-		statTraceRequests,
-		statTraceResourceSpans,
-		statTraceExternalSpans,
-		statTraceProcessSeconds,
-		statTraceExternalSeconds,
+		statRequestCount,
+		statInputDatapointCount,
+		statOutputDatapointCount,
+		statExporterTime,
+		statExternalTime,
 	}
 
 	for _, measurement := range measurements {
