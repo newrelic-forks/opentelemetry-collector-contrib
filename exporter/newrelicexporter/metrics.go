@@ -34,7 +34,6 @@ var (
 	tagKeys                = []tag.Key{tagGrpcStatusCode, tagHttpStatusCode, tagRequestUserAgent, tagApiKey, tagDataType}
 
 	statRequestCount         = stats.Int64("newrelicexporter_request_count", "Number of requests processed", stats.UnitDimensionless)
-	statInputDatapointCount  = stats.Int64("newrelicexporter_input_datapoint_count", "Number of data points sent to the exporter", stats.UnitDimensionless)
 	statOutputDatapointCount = stats.Int64("newrelicexporter_output_datapoint_count", "Number of data points sent to the HTTP API", stats.UnitDimensionless)
 	statExporterTime         = stats.Float64("newrelicexporter_exporter_time", "Wall clock time (seconds) spent in the exporter", stats.UnitSeconds)
 	statExternalTime         = stats.Float64("newrelicexporter_external_time", "Wall clock time (seconds) spent sending data to the HTTP API", stats.UnitSeconds)
@@ -44,7 +43,6 @@ var (
 func MetricViews() []*view.View {
 	return []*view.View{
 		buildView(tagKeys, statRequestCount, view.Sum()),
-		buildView(tagKeys, statInputDatapointCount, view.Sum()),
 		buildView(tagKeys, statOutputDatapointCount, view.Sum()),
 		buildView(tagKeys, statExporterTime, view.Sum()),
 		buildView(tagKeys, statExternalTime, view.Sum()),
@@ -106,7 +104,6 @@ func (d *exportMetadata) recordMetrics(ctx context.Context) error {
 
 	return stats.RecordWithTags(ctx, tags,
 		statRequestCount.M(1),
-		statInputDatapointCount.M(int64(d.dataInputCount)),
 		statOutputDatapointCount.M(int64(d.dataOutputCount)),
 		statExporterTime.M(d.exporterTime.Seconds()),
 		statExternalTime.M(d.externalDuration.Seconds()),

@@ -190,7 +190,6 @@ func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (outputEr
 		if apiKey != "" {
 			details.apiKey = apiKey
 		}
-		details.dataInputCount = td.ResourceSpans().Len()
 		details.dataOutputCount = sentCount
 		details.exporterTime = time.Now().Sub(startTime)
 		details.grpcResponseCode = status.Code(outputErr)

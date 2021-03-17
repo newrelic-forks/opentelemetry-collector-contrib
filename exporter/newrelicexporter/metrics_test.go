@@ -89,7 +89,6 @@ func TestRecordMetrics(t *testing.T) {
 
 	measurements := []stats.Measure{
 		statRequestCount,
-		statInputDatapointCount,
 		statOutputDatapointCount,
 		statExporterTime,
 		statExternalTime,
