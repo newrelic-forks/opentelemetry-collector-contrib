@@ -178,7 +178,7 @@ func (e *exporter) extractInsertKeyFromHeader(ctx context.Context) string {
 func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (outputErr error) {
 	var (
 		errs      []error
-		goodSpans int
+		sentCount int
 	)
 
 	startTime := time.Now()
@@ -191,7 +191,7 @@ func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (outputEr
 			details.apiKey = apiKey
 		}
 		details.dataInputCount = td.ResourceSpans().Len()
-		details.dataOutputCount = goodSpans
+		details.dataOutputCount = sentCount
 		details.exporterTime = time.Now().Sub(startTime)
 		details.grpcResponseCode = status.Code(outputErr)
 		err := details.recordMetrics(ctx)
@@ -218,7 +218,7 @@ func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (outputEr
 				}
 
 				spans = append(spans, nrSpan)
-				goodSpans++
+				sentCount++
 			}
 			batch.Spans = append(batch.Spans, spans...)
 		}
@@ -233,6 +233,7 @@ func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (outputEr
 		req, err = e.spanRequestFactory.BuildRequest(batches)
 	}
 	if err != nil {
+		sentCount = 0
 		e.logger.Error("Failed to build batch", zap.Error(err))
 		return err
 	}
@@ -241,6 +242,7 @@ func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (outputEr
 	httpStatusCode, err := e.doRequest(req)
 	details.httpStatusCode = httpStatusCode
 	if err != nil {
+		sentCount = 0
 		return err
 	}
 
@@ -250,9 +252,9 @@ func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (outputEr
 
 func (e *exporter) pushLogData(ctx context.Context, ld pdata.Logs) (outputErr error) {
 	var (
-		errs     []error
-		goodLogs int
-		batch    telemetry.LogBatch
+		errs      []error
+		sentCount int
+		batch     telemetry.LogBatch
 	)
 
 	startTime := time.Now()
@@ -265,7 +267,7 @@ func (e *exporter) pushLogData(ctx context.Context, ld pdata.Logs) (outputErr er
 			details.apiKey = apiKey
 		}
 		details.dataInputCount = ld.ResourceLogs().Len()
-		details.dataOutputCount = goodLogs
+		details.dataOutputCount = sentCount
 		details.exporterTime = time.Now().Sub(startTime)
 		details.grpcResponseCode = status.Code(outputErr)
 		err := details.recordMetrics(ctx)
@@ -290,7 +292,7 @@ func (e *exporter) pushLogData(ctx context.Context, ld pdata.Logs) (outputErr er
 					continue
 				}
 
-				goodLogs++
+				sentCount++
 				batch.Logs = append(batch.Logs, nrLog)
 			}
 		}
@@ -303,6 +305,7 @@ func (e *exporter) pushLogData(ctx context.Context, ld pdata.Logs) (outputErr er
 	}
 	req, err := e.logRequestFactory.BuildRequest(batches, options...)
 	if err != nil {
+		sentCount = 0
 		e.logger.Error("Failed to build batch", zap.Error(err))
 		return err
 	}
@@ -310,6 +313,7 @@ func (e *exporter) pushLogData(ctx context.Context, ld pdata.Logs) (outputErr er
 	httpStatusCode, err := e.doRequest(req)
 	details.httpStatusCode = httpStatusCode
 	if err != nil {
+		sentCount = 0
 		return err
 	}
 
