@@ -20,7 +20,6 @@ import (
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	"strings"
 	"testing"
 )
@@ -38,58 +37,52 @@ func TestMetricViews(t *testing.T) {
 	}
 }
 
-func TestRecordPushTraceData(t *testing.T) {
+func TestRecordMetrics(t *testing.T) {
 	if err := view.Register(MetricViews()...); err != nil {
 		t.Fail()
 	}
 
-	userAgentCtx := metadata.NewIncomingContext(context.Background(), map[string][]string{"user-agent": {"grpc-dummy-agent-1"}})
-	noUserAgentCtx := metadata.NewIncomingContext(context.Background(), make(map[string][]string))
-	details := []traceDetails{
+	details := []exportMetadata{
 		// A request that completes normally
 		{
-			ctx:                 userAgentCtx,
-			responseCode:        codes.OK,
-			traceHTTPStatusCode: 200,
-			resourceSpanCount:   2,
-			processDuration:     100,
-			traceSpanCount:      20,
-			externalDuration:    50,
+			grpcResponseCode: codes.OK,
+			httpStatusCode:   200,
+			apiKey:           "shhh",
+			userAgent:        "secret agent",
+			dataType:         "data",
+			dataInputCount:   2,
+			exporterTime:     100,
+			dataOutputCount:  20,
+			externalDuration: 50,
 		},
-		// A request that completes normally, but without a user-agent header
+		// A request that receives 403 status code from the HTTP API
 		{
-			ctx:                 noUserAgentCtx,
-			responseCode:        codes.OK,
-			traceHTTPStatusCode: 200,
-			resourceSpanCount:   2,
-			processDuration:     100,
-			traceSpanCount:      20,
-			externalDuration:    50,
+			grpcResponseCode: codes.Unauthenticated,
+			httpStatusCode:   403,
+			apiKey:           "shhh",
+			userAgent:        "secret agent",
+			dataType:         "data",
+			dataInputCount:   2,
+			exporterTime:     100,
+			dataOutputCount:  20,
+			externalDuration: 50,
 		},
-		// A request that receives 403 status code from trace API
+		// A request experiences a url.Error while sending to the HTTP API
 		{
-			ctx:                 userAgentCtx,
-			responseCode:        codes.Unauthenticated,
-			traceHTTPStatusCode: 403,
-			resourceSpanCount:   2,
-			processDuration:     100,
-			traceSpanCount:      20,
-			externalDuration:    50,
-		},
-		// A request experiences a url.Error while sending to trace API
-		{
-			ctx:                 userAgentCtx,
-			responseCode:        codes.DataLoss,
-			traceHTTPStatusCode: 0,
-			resourceSpanCount:   2,
-			processDuration:     100,
-			traceSpanCount:      20,
-			externalDuration:    50,
+			grpcResponseCode: codes.DataLoss,
+			httpStatusCode:   0,
+			apiKey:           "shhh",
+			userAgent:        "secret agent",
+			dataType:         "data",
+			dataInputCount:   2,
+			exporterTime:     100,
+			dataOutputCount:  20,
+			externalDuration: 50,
 		},
 	}
 
 	for _, traceDetails := range details {
-		if err := recordPushTraceData(traceDetails); err != nil {
+		if err := traceDetails.recordMetrics(context.TODO()); err != nil {
 			t.Fail()
 		}
 	}
@@ -108,7 +101,7 @@ func TestRecordPushTraceData(t *testing.T) {
 			t.Fail()
 		}
 		// Check that each measurement has a number of rows corresponding to the tag set produced by the interactions
-		assert.Equal(t, 4, len(rows))
+		assert.Equal(t, len(details), len(rows))
 		for _, row := range rows {
 			// Confirm each row has data and has the required tag keys
 			assert.True(t, row.Data != nil)
