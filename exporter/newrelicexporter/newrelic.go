@@ -242,7 +242,10 @@ func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (outputEr
 	httpStatusCode, err := e.doRequest(req)
 	details.httpStatusCode = httpStatusCode
 	if err != nil {
-		sentCount = 0
+		// We treat data that is sent with an incorrect API key as successful for our purposes
+		if httpStatusCode != http.StatusForbidden {
+			sentCount = 0
+		}
 		return err
 	}
 
@@ -313,7 +316,10 @@ func (e *exporter) pushLogData(ctx context.Context, ld pdata.Logs) (outputErr er
 	httpStatusCode, err := e.doRequest(req)
 	details.httpStatusCode = httpStatusCode
 	if err != nil {
-		sentCount = 0
+		// We treat data that is sent with an incorrect API key as successful for our purposes
+		if httpStatusCode != http.StatusForbidden {
+			sentCount = 0
+		}
 		return err
 	}
 
@@ -374,7 +380,7 @@ func (e *exporter) doRequest(req *http.Request) (statusCode int, err error) {
 			e.logger.Debug("Error on HTTP response.", zap.String("Status", response.Status))
 		}
 
-		return 0, &httpError{Response: response}
+		return response.StatusCode, &httpError{Response: response}
 	}
 
 	return response.StatusCode, nil
