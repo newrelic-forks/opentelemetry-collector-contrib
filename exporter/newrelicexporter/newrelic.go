@@ -238,8 +238,7 @@ func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (outputEr
 	}
 
 	// Execute the http request and handle the response
-	httpStatusCode, err := e.doRequest(req)
-	details.httpStatusCode = httpStatusCode
+	httpStatusCode, err := e.doRequest(details, req)
 	if err != nil {
 		// We treat data that is sent with an incorrect API key as successful for our purposes
 		if httpStatusCode != http.StatusForbidden {
@@ -312,8 +311,7 @@ func (e *exporter) pushLogData(ctx context.Context, ld pdata.Logs) (outputErr er
 		return err
 	}
 
-	httpStatusCode, err := e.doRequest(req)
-	details.httpStatusCode = httpStatusCode
+	httpStatusCode, err := e.doRequest(details, req)
 	if err != nil {
 		// We treat data that is sent with an incorrect API key as successful for our purposes
 		if httpStatusCode != http.StatusForbidden {
@@ -359,8 +357,9 @@ func (e *exporter) pushMetricData(ctx context.Context, md pdata.Metrics) error {
 	return consumererror.CombineErrors(errs)
 }
 
-func (e *exporter) doRequest(req *http.Request) (statusCode int, err error) {
+func (e *exporter) doRequest(details *exportMetadata, req *http.Request) (statusCode int, err error) {
 
+	startTime := time.Now()
 	// Execute the http request and handle the response
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -369,6 +368,8 @@ func (e *exporter) doRequest(req *http.Request) (statusCode int, err error) {
 	}
 	defer response.Body.Close()
 	io.Copy(ioutil.Discard, response.Body)
+	details.externalDuration = time.Now().Sub(startTime)
+	details.httpStatusCode = response.StatusCode
 
 	// Check if the http payload has been accepted, if not record an error
 	if response.StatusCode != http.StatusAccepted {
