@@ -367,6 +367,62 @@ func testTransformMetric(t *testing.T, metric *metricspb.Metric, want []telemetr
 	assert.Equal(t, want, got)
 }
 
+func TestTransformMetricRequiredAttributes(t *testing.T) {
+	ts := &timestamppb.Timestamp{Seconds: 1}
+	expected := []telemetry.Metric{
+		telemetry.Gauge{
+			Name:      "gauge",
+			Value:     42.0,
+			Timestamp: time.Unix(1, 0),
+			Attributes: map[string]interface{}{
+				collectorNameKey:           name,
+				collectorVersionKey:        version,
+				serviceNameKey:             "test-service",
+				instrumentationNameKey:     "opentelemetry",
+				instrumentationVersionKey:  "1.0.1",
+				instrumentationLanguageKey: "java",
+			},
+		},
+	}
+
+	metric := &metricspb.Metric{
+		MetricDescriptor: &metricspb.MetricDescriptor{
+			Name: "gauge",
+			Type: metricspb.MetricDescriptor_GAUGE_DOUBLE,
+		},
+		Timeseries: []*metricspb.TimeSeries{
+			{
+				Points: []*metricspb.Point{
+					{
+						Timestamp: ts,
+						Value: &metricspb.Point_DoubleValue{
+							DoubleValue: 42.0,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	transform := &metricTransformer{
+		DeltaCalculator: cumulative.NewDeltaCalculator(),
+		ServiceName:     "test-service",
+		Language:        "java",
+		Resource: &resourcepb.Resource{
+			Labels: map[string]string{
+				collectorNameKey:          name,
+				collectorVersionKey:       version,
+				serviceNameKey:            "test-service",
+				instrumentationNameKey:    "opentelemetry",
+				instrumentationVersionKey: "1.0.1",
+			},
+		},
+	}
+	got, err := transform.Metric(metric)
+	require.NoError(t, err)
+	assert.Equal(t, expected, got)
+}
+
 func TestTransformGuage(t *testing.T) {
 	ts := &timestamppb.Timestamp{Seconds: 1}
 	expected := []telemetry.Metric{
