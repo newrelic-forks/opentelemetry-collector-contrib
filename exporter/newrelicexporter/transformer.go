@@ -31,16 +31,17 @@ import (
 )
 
 const (
-	unitAttrKey               = "unit"
-	descriptionAttrKey        = "description"
-	collectorNameKey          = "collector.name"
-	collectorVersionKey       = "collector.version"
-	instrumentationNameKey    = "instrumentation.name"
-	instrumentationVersionKey = "instrumentation.version"
-	statusCodeKey             = "otel.status_code"
-	statusDescriptionKey      = "otel.status_description"
-	spanKindKey               = "span.kind"
-	serviceNameKey            = "service.name"
+	unitAttrKey                = "unit"
+	descriptionAttrKey         = "description"
+	collectorNameKey           = "collector.name"
+	collectorVersionKey        = "collector.version"
+	instrumentationNameKey     = "instrumentation.name"
+	instrumentationVersionKey  = "instrumentation.version"
+	instrumentationLanguageKey = "telemetry.sdk.language"
+	statusCodeKey              = "otel.status_code"
+	statusDescriptionKey       = "otel.status_description"
+	spanKindKey                = "span.kind"
+	serviceNameKey             = "service.name"
 )
 
 // TODO (MrAlias): unify this with the traceTransformer when the metric data
@@ -49,6 +50,7 @@ type metricTransformer struct {
 	DeltaCalculator *cumulative.DeltaCalculator
 	ServiceName     string
 	Resource        *resourcepb.Resource
+	Language        string
 }
 
 type traceTransformer struct {
@@ -295,8 +297,13 @@ func (t *metricTransformer) MetricAttributes(metric *metricspb.Metric) map[strin
 
 	attrs[collectorNameKey] = name
 	attrs[collectorVersionKey] = version
+
 	if t.ServiceName != "" {
 		attrs[serviceNameKey] = t.ServiceName
+	}
+
+	if t.Language != "" {
+		attrs[instrumentationLanguageKey] = t.Language
 	}
 
 	return attrs

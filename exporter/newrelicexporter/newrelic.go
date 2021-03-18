@@ -17,12 +17,13 @@ package newrelicexporter
 import (
 	"context"
 	"fmt"
-	"google.golang.org/grpc/status"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
+
+	"google.golang.org/grpc/status"
 
 	"github.com/newrelic/newrelic-telemetry-sdk-go/cumulative"
 	"github.com/newrelic/newrelic-telemetry-sdk-go/telemetry"
@@ -327,16 +328,20 @@ func (e *exporter) pushMetricData(ctx context.Context, md pdata.Metrics) error {
 	var errs []error
 
 	ocmds := internaldata.MetricsToOC(md)
-	for _, ocmd := range ocmds {
+	for index, ocmd := range ocmds {
 		var srv string
+
 		if ocmd.Node != nil && ocmd.Node.ServiceInfo != nil {
 			srv = ocmd.Node.ServiceInfo.Name
 		}
+
+		language, _ := md.ResourceMetrics().At(index).Resource().Attributes().Get(instrumentationLanguageKey)
 
 		transform := &metricTransformer{
 			DeltaCalculator: e.deltaCalculator,
 			ServiceName:     srv,
 			Resource:        ocmd.Resource,
+			Language:        language.StringVal(),
 		}
 
 		for _, metric := range ocmd.Metrics {
