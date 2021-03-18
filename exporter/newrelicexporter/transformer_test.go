@@ -841,7 +841,7 @@ func TestLogTransformer_Log(t *testing.T) {
 			want: telemetry.Log{
 				Message:    "Hello World",
 				Timestamp:  time.Unix(0, 0).UTC(),
-				Attributes: nil,
+				Attributes: map[string]interface{}{"foo": "bar", "name": "bloopbleep"},
 			},
 		},
 	}

@@ -132,7 +132,24 @@ func (t *logTransformer) Log(log pdata.LogRecord) (telemetry.Log, error) {
 	}
 
 	attributes := tracetranslator.AttributeMapToMap(log.Attributes())
+
+	for k, v := range t.ResourceAttributes {
+		attributes[k] = v
+	}
+
 	attributes["name"] = log.Name()
+
+	if !log.TraceID().IsEmpty() {
+		attributes["trace.id"] = log.TraceID().HexString()
+	}
+
+	if !log.SpanID().IsEmpty() {
+		attributes["span.id"] = log.SpanID().HexString()
+	}
+
+	if log.SeverityText() != "" {
+		attributes["log.level"] = log.SeverityText()
+	}
 
 	return telemetry.Log{
 		Message:    message,

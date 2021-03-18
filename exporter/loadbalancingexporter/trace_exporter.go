@@ -48,7 +48,7 @@ type traceExporterImp struct {
 	shutdownWg sync.WaitGroup
 }
 
-// Crete new traces exporter
+// Create new traces exporter
 func newTracesExporter(params component.ExporterCreateParams, cfg configmodels.Exporter) (*traceExporterImp, error) {
 	exporterFactory := otlpexporter.NewFactory()
 

@@ -213,6 +213,7 @@ func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (outputEr
 				span := ispans.Spans().At(k)
 				nrSpan, err := transform.Span(span)
 				if err != nil {
+					e.logger.Error("Transform of span failed.", zap.Error(err))
 					errs = append(errs, err)
 					continue
 				}
@@ -241,8 +242,8 @@ func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (outputEr
 	// Execute the http request and handle the response
 	httpStatusCode, err := e.doRequest(details, req)
 	if err != nil {
-		// We treat data that is sent with an incorrect API key as successful for our purposes
-		if httpStatusCode != http.StatusForbidden {
+		// We also treat downstream service unavailability as successful for our purposes
+		if httpStatusCode != http.StatusForbidden && httpStatusCode != http.StatusServiceUnavailable {
 			sentCount = 0
 		}
 		return err
@@ -290,6 +291,7 @@ func (e *exporter) pushLogData(ctx context.Context, ld pdata.Logs) (outputErr er
 				log := instrumentationLibraryLogs.Logs().At(k)
 				nrLog, err := transformer.Log(log)
 				if err != nil {
+					e.logger.Error("Transform of log failed.", zap.Error(err))
 					errs = append(errs, err)
 					continue
 				}
@@ -315,7 +317,8 @@ func (e *exporter) pushLogData(ctx context.Context, ld pdata.Logs) (outputErr er
 	httpStatusCode, err := e.doRequest(details, req)
 	if err != nil {
 		// We treat data that is sent with an incorrect API key as successful for our purposes
-		if httpStatusCode != http.StatusForbidden {
+		// We also treat downstream service unavailability as successful for our purposes
+		if httpStatusCode != http.StatusForbidden && httpStatusCode != http.StatusServiceUnavailable {
 			sentCount = 0
 		}
 		return err

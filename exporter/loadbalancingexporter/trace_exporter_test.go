@@ -182,7 +182,7 @@ func TestConsumeTraces(t *testing.T) {
 	assert.Nil(t, res)
 }
 
-func TestExporterNotFound(t *testing.T) {
+func TestConsumeTracesExporterNotFound(t *testing.T) {
 	// prepare
 	config := simpleConfig()
 	params := component.ExporterCreateParams{
@@ -219,7 +219,7 @@ func TestExporterNotFound(t *testing.T) {
 	assert.EqualError(t, res, fmt.Sprintf("couldn't find the exporter for the endpoint %q", "endpoint-1"))
 }
 
-func TestUnexpectedExporterType(t *testing.T) {
+func TestConsumeTracesUnexpectedExporterType(t *testing.T) {
 	// prepare
 	config := simpleConfig()
 	params := component.ExporterCreateParams{
