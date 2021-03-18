@@ -77,6 +77,6 @@ func TestLoadConfig(t *testing.T) {
 		},
 		MetricsURLOverride: "https://alt.metrics.newrelic.com",
 		Product:            product,
-		ProductVersion:     version,
+		ProductVersion:     "",
 	})
 }

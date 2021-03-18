@@ -67,7 +67,7 @@ func (c Config) HarvestOption(cfg *telemetry.Config) {
 	cfg.HarvestTimeout = c.Timeout
 	cfg.CommonAttributes = c.CommonAttributes
 	cfg.Product = product
-	cfg.ProductVersion = version
+	cfg.ProductVersion = ""
 	var prefix string
 	if c.metricsInsecure {
 		prefix = "http://"

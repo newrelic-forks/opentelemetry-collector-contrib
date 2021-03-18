@@ -17,6 +17,7 @@ package newrelicexporter
 import (
 	"errors"
 	"fmt"
+	"go.opentelemetry.io/collector/component"
 	"strings"
 	"time"
 
@@ -52,15 +53,18 @@ type metricTransformer struct {
 }
 
 type traceTransformer struct {
+	StartInfo          *component.ApplicationStartInfo
 	ResourceAttributes map[string]interface{}
 }
 
 type logTransformer struct {
+	StartInfo          *component.ApplicationStartInfo
 	ResourceAttributes map[string]interface{}
 }
 
-func newTraceTransformer(resource pdata.Resource, lib pdata.InstrumentationLibrary) *traceTransformer {
+func newTraceTransformer(startInfo *component.ApplicationStartInfo, resource pdata.Resource, lib pdata.InstrumentationLibrary) *traceTransformer {
 	t := &traceTransformer{
+		StartInfo: startInfo,
 		ResourceAttributes: tracetranslator.AttributeMapToMap(
 			resource.Attributes(),
 		),
@@ -75,8 +79,9 @@ func newTraceTransformer(resource pdata.Resource, lib pdata.InstrumentationLibra
 	return t
 }
 
-func newLogTransformer(resource pdata.Resource, instrumentationLibrary pdata.InstrumentationLibrary) *logTransformer {
+func newLogTransformer(startInfo *component.ApplicationStartInfo, resource pdata.Resource, instrumentationLibrary pdata.InstrumentationLibrary) *logTransformer {
 	l := &logTransformer{
+		StartInfo: startInfo,
 		ResourceAttributes: tracetranslator.AttributeMapToMap(
 			resource.Attributes(),
 		),
@@ -149,6 +154,9 @@ func (t *logTransformer) Log(log pdata.LogRecord) (telemetry.Log, error) {
 		attributes["log.level"] = log.SeverityText()
 	}
 
+	attributes[collectorNameKey] = t.StartInfo.ExeName
+	attributes[collectorVersionKey] = t.StartInfo.Version
+
 	return telemetry.Log{
 		Message:    message,
 		Timestamp:  log.Timestamp().AsTime(),
@@ -202,8 +210,8 @@ func (t *traceTransformer) SpanAttributes(span pdata.Span) map[string]interface{
 
 	// Default attributes to tell New Relic about this collector.
 	// (overrides any existing)
-	attrs[collectorNameKey] = name
-	attrs[collectorVersionKey] = version
+	attrs[collectorNameKey] = t.StartInfo.ExeName
+	attrs[collectorVersionKey] = t.StartInfo.Version
 
 	return attrs
 }
@@ -310,8 +318,8 @@ func (t *metricTransformer) MetricAttributes(metric *metricspb.Metric) map[strin
 		attrs[descriptionAttrKey] = metric.MetricDescriptor.Description
 	}
 
-	attrs[collectorNameKey] = name
-	attrs[collectorVersionKey] = version
+	// TODO: this key should come from startup info
+	attrs[collectorNameKey] = "otelcol"
 	if t.ServiceName != "" {
 		attrs[serviceNameKey] = t.ServiceName
 	}

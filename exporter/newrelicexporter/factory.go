@@ -45,7 +45,7 @@ func createLogsExporter(
 	params component.ExporterCreateParams,
 	cfg configmodels.Exporter,
 ) (component.LogsExporter, error) {
-	exp, err := newLogsExporter(params.Logger, cfg)
+	exp, err := newLogsExporter(params.Logger, params.ApplicationStartInfo, cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func createTraceExporter(
 	params component.ExporterCreateParams,
 	cfg configmodels.Exporter,
 ) (component.TracesExporter, error) {
-	exp, err := newTraceExporter(params.Logger, cfg)
+	exp, err := newTraceExporter(params.Logger, params.ApplicationStartInfo, cfg)
 	if err != nil {
 		return nil, err
 	}

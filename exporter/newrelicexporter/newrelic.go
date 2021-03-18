@@ -26,6 +26,7 @@ import (
 
 	"github.com/newrelic/newrelic-telemetry-sdk-go/cumulative"
 	"github.com/newrelic/newrelic-telemetry-sdk-go/telemetry"
+	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config/configmodels"
 	"go.opentelemetry.io/collector/consumer/consumererror"
 	"go.opentelemetry.io/collector/consumer/pdata"
@@ -36,8 +37,6 @@ import (
 )
 
 const (
-	name    = "opentelemetry-collector"
-	version = "0.0.0"
 	product = "NewRelic-Collector-OpenTelemetry"
 )
 
@@ -56,6 +55,7 @@ func (w logWriter) Write(p []byte) (n int, err error) {
 
 // exporter exporters OpenTelemetry Collector data to New Relic.
 type exporter struct {
+	startInfo          *component.ApplicationStartInfo
 	deltaCalculator    *cumulative.DeltaCalculator
 	harvester          *telemetry.Harvester
 	spanRequestFactory telemetry.RequestFactory
@@ -64,8 +64,8 @@ type exporter struct {
 	logger             *zap.Logger
 }
 
-func clientOptions(apiKey string, apiKeyHeader string, hostOverride string, insecure bool) []telemetry.ClientOption {
-	options := []telemetry.ClientOption{telemetry.WithUserAgent(product + "/" + version)}
+func clientOptions(info component.ApplicationStartInfo, apiKey string, apiKeyHeader string, hostOverride string, insecure bool) []telemetry.ClientOption {
+	options := []telemetry.ClientOption{telemetry.WithUserAgent(product + "/" + info.Version)}
 	if apiKey != "" {
 		options = append(options, telemetry.WithInsertKey(apiKey))
 	} else if apiKeyHeader != "" {
@@ -106,13 +106,14 @@ func newMetricsExporter(l *zap.Logger, c configmodels.Exporter) (*exporter, erro
 	}, nil
 }
 
-func newTraceExporter(l *zap.Logger, c configmodels.Exporter) (*exporter, error) {
+func newTraceExporter(l *zap.Logger, startInfo component.ApplicationStartInfo, c configmodels.Exporter) (*exporter, error) {
 	nrConfig, ok := c.(*Config)
 	if !ok {
 		return nil, fmt.Errorf("invalid config: %#v", c)
 	}
 
 	options := clientOptions(
+		startInfo,
 		nrConfig.APIKey,
 		nrConfig.APIKeyHeader,
 		nrConfig.SpansHostOverride,
@@ -124,19 +125,21 @@ func newTraceExporter(l *zap.Logger, c configmodels.Exporter) (*exporter, error)
 	}
 
 	return &exporter{
+		startInfo:          &startInfo,
 		spanRequestFactory: s,
 		apiKeyHeader:       strings.ToLower(nrConfig.APIKeyHeader),
 		logger:             l,
 	}, nil
 }
 
-func newLogsExporter(logger *zap.Logger, c configmodels.Exporter) (*exporter, error) {
+func newLogsExporter(logger *zap.Logger, startInfo component.ApplicationStartInfo, c configmodels.Exporter) (*exporter, error) {
 	nrConfig, ok := c.(*Config)
 	if !ok {
 		return nil, fmt.Errorf("invalid config: %#v", c)
 	}
 
 	options := clientOptions(
+		startInfo,
 		nrConfig.APIKey,
 		nrConfig.APIKeyHeader,
 		nrConfig.LogsHostOverride,
@@ -148,6 +151,7 @@ func newLogsExporter(logger *zap.Logger, c configmodels.Exporter) (*exporter, er
 	}
 
 	return &exporter{
+		startInfo:         &startInfo,
 		logRequestFactory: logRequestFactory,
 		apiKeyHeader:      strings.ToLower(nrConfig.APIKeyHeader),
 		logger:            logger,
@@ -206,7 +210,7 @@ func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (outputEr
 		resource := rspans.Resource()
 		for j := 0; j < rspans.InstrumentationLibrarySpans().Len(); j++ {
 			ispans := rspans.InstrumentationLibrarySpans().At(j)
-			transform := newTraceTransformer(resource, ispans.InstrumentationLibrary())
+			transform := newTraceTransformer(e.startInfo, resource, ispans.InstrumentationLibrary())
 			spans := make([]telemetry.Span, 0, ispans.Spans().Len())
 			for k := 0; k < ispans.Spans().Len(); k++ {
 				span := ispans.Spans().At(k)
@@ -285,7 +289,7 @@ func (e *exporter) pushLogData(ctx context.Context, ld pdata.Logs) (outputErr er
 		for j := 0; j < resourceLogs.InstrumentationLibraryLogs().Len(); j++ {
 			instrumentationLibraryLogs := resourceLogs.InstrumentationLibraryLogs().At(j)
 
-			transformer := newLogTransformer(resource, instrumentationLibraryLogs.InstrumentationLibrary())
+			transformer := newLogTransformer(e.startInfo, resource, instrumentationLibraryLogs.InstrumentationLibrary())
 			for k := 0; k < instrumentationLibraryLogs.Logs().Len(); k++ {
 				log := instrumentationLibraryLogs.Logs().At(k)
 				nrLog, err := transformer.Log(log)
