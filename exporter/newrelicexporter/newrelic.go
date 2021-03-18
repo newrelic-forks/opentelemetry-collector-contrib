@@ -20,6 +20,7 @@ import (
 	"google.golang.org/grpc/status"
 	"io"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"strings"
 	"time"
@@ -56,12 +57,13 @@ func (w logWriter) Write(p []byte) (n int, err error) {
 
 // exporter exporters OpenTelemetry Collector data to New Relic.
 type exporter struct {
-	deltaCalculator    *cumulative.DeltaCalculator
-	harvester          *telemetry.Harvester
-	spanRequestFactory telemetry.RequestFactory
-	logRequestFactory  telemetry.RequestFactory
-	apiKeyHeader       string
-	logger             *zap.Logger
+	deltaCalculator      *cumulative.DeltaCalculator
+	harvester            *telemetry.Harvester
+	spanRequestFactory   telemetry.RequestFactory
+	metricRequestFactory telemetry.RequestFactory
+	logRequestFactory    telemetry.RequestFactory
+	apiKeyHeader         string
+	logger               *zap.Logger
 }
 
 func clientOptions(apiKey string, apiKeyHeader string, hostOverride string, insecure bool) []telemetry.ClientOption {
@@ -82,7 +84,7 @@ func clientOptions(apiKey string, apiKeyHeader string, hostOverride string, inse
 	return options
 }
 
-func newMetricsExporter(l *zap.Logger, c configmodels.Exporter) (*exporter, error) {
+func oldMetricsExporter(l *zap.Logger, c configmodels.Exporter) (*exporter, error) {
 	nrConfig, ok := c.(*Config)
 	if !ok {
 		return nil, fmt.Errorf("invalid config: %#v", c)
@@ -151,6 +153,30 @@ func newLogsExporter(logger *zap.Logger, c configmodels.Exporter) (*exporter, er
 		logRequestFactory: logRequestFactory,
 		apiKeyHeader:      strings.ToLower(nrConfig.APIKeyHeader),
 		logger:            logger,
+	}, nil
+}
+
+func newMetricsExporter(logger *zap.Logger, c configmodels.Exporter) (*exporter, error) {
+	nrConfig, ok := c.(*Config)
+	if !ok {
+		return nil, fmt.Errorf("invalid config: %#v", c)
+	}
+
+	options := clientOptions(
+		nrConfig.APIKey,
+		nrConfig.APIKeyHeader,
+		nrConfig.LogsHostOverride,
+		nrConfig.logsInsecure,
+	)
+	metricRequestFactory, err := telemetry.NewMetricRequestFactory(options...)
+	if err != nil {
+		return nil, err
+	}
+
+	return &exporter{
+		metricRequestFactory: metricRequestFactory,
+		apiKeyHeader:         strings.ToLower(nrConfig.APIKeyHeader),
+		logger:               logger,
 	}, nil
 }
 
@@ -326,7 +352,108 @@ func (e *exporter) pushLogData(ctx context.Context, ld pdata.Logs) (outputErr er
 	return nil
 }
 
-func (e *exporter) pushMetricData(ctx context.Context, md pdata.Metrics) error {
+func (e *exporter) pushMetricData(ctx context.Context, md pdata.Metrics) (outputErr error) {
+	rms := md.ResourceMetrics()
+	_, dpCount := md.MetricAndDataPointCount()
+	var batch telemetry.MetricBatch
+	batch.Metrics = make([]telemetry.Metric, 0, dpCount)
+	for i := 0; i < rms.Len(); i++ {
+		rm := rms.At(i)
+		ilms := rm.InstrumentationLibraryMetrics()
+		for j := 0; j < ilms.Len(); j++ {
+			ilm := ilms.At(j)
+			ms := ilm.Metrics()
+			for k := 0; k < ms.Len(); k++ {
+				m := ms.At(k)
+				switch m.DataType() {
+				case pdata.MetricDataTypeIntGauge:
+					// "StartTimeUnixNano" is ignored for all data points.
+					break
+				case pdata.MetricDataTypeDoubleGauge:
+					// "StartTimeUnixNano" is ignored for all data points.
+					break
+				case pdata.MetricDataTypeIntSum:
+					// aggregation_temporality describes if the aggregator reports delta changes
+					// since last report time, or cumulative changes since a fixed start time.
+					break
+				case pdata.MetricDataTypeDoubleSum:
+					break
+				case pdata.MetricDataTypeIntHistogram:
+					break
+				case pdata.MetricDataTypeDoubleHistogram:
+					break
+				case pdata.MetricDataTypeDoubleSummary:
+					summary := m.DoubleSummary()
+					points := summary.DataPoints()
+					name := m.Name()
+					for l := 0; l < points.Len(); l++ {
+						point := points.At(l)
+						quantiles := point.QuantileValues()
+						minQuantile := math.NaN()
+						maxQuantile := math.NaN()
+
+						if quantiles.Len() > 0 {
+							quantileA := quantiles.At(0)
+							if quantileA.Quantile() == 0 {
+								minQuantile = quantileA.Value()
+							}
+							if quantiles.Len() > 1 {
+								quantileB := quantiles.At(quantiles.Len() - 1)
+								if quantileB.Quantile() == 1 {
+									maxQuantile = quantileB.Value()
+								}
+							} else if quantileA.Quantile() == 1 {
+								maxQuantile = quantileA.Value()
+							}
+						}
+
+						attributes := stringMapToMap(point.LabelsMap())
+						s := telemetry.Summary{
+							Name:       name,
+							Attributes: attributes,
+							Count:      float64(point.Count()),
+							Sum:        point.Sum(),
+							Min:        minQuantile,
+							Max:        maxQuantile,
+							Timestamp:  point.StartTime().AsTime(),
+							Interval:   time.Duration(point.Timestamp() - point.StartTime()),
+						}
+
+						batch.Metrics = append(batch.Metrics, s)
+					}
+				}
+			}
+		}
+	}
+
+	payloadEntries := []telemetry.PayloadEntry{&batch}
+
+	var options []telemetry.ClientOption
+	insertKey := e.extractInsertKeyFromHeader(ctx)
+	if insertKey != "" {
+		options = append(options, telemetry.WithInsertKey(insertKey))
+	}
+	req, err := e.metricRequestFactory.BuildRequest(payloadEntries, options...)
+	if err != nil {
+		e.logger.Error("Failed to build batch", zap.Error(err))
+		return err
+	}
+
+	if _, err := e.doRequest(nil, req); err != nil {
+		return err
+	}
+	return nil
+}
+
+func stringMapToMap(attrMap pdata.StringMap) map[string]interface{} {
+	rawMap := make(map[string]interface{}, attrMap.Len())
+	attrMap.ForEach(func(k string, v string) {
+		rawMap[k] = v
+	})
+	return rawMap
+}
+
+func (e *exporter) oldPushMetricData(ctx context.Context, md pdata.Metrics) error {
 	var errs []error
 
 	ocmds := internaldata.MetricsToOC(md)
@@ -371,8 +498,10 @@ func (e *exporter) doRequest(details *exportMetadata, req *http.Request) (status
 	}
 	defer response.Body.Close()
 	io.Copy(ioutil.Discard, response.Body)
-	details.externalDuration = time.Now().Sub(startTime)
-	details.httpStatusCode = response.StatusCode
+	if details != nil {
+		details.externalDuration = time.Now().Sub(startTime)
+		details.httpStatusCode = response.StatusCode
+	}
 
 	// Check if the http payload has been accepted, if not record an error
 	if response.StatusCode != http.StatusAccepted {
