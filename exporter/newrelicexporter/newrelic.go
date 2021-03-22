@@ -17,20 +17,17 @@ package newrelicexporter
 import (
 	"context"
 	"fmt"
+	"google.golang.org/grpc/status"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
 
-	"google.golang.org/grpc/status"
-
-	"github.com/newrelic/newrelic-telemetry-sdk-go/cumulative"
 	"github.com/newrelic/newrelic-telemetry-sdk-go/telemetry"
 	"go.opentelemetry.io/collector/config/configmodels"
 	"go.opentelemetry.io/collector/consumer/consumererror"
 	"go.opentelemetry.io/collector/consumer/pdata"
-	"go.opentelemetry.io/collector/translator/internaldata"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc/metadata"
@@ -57,12 +54,9 @@ func (w logWriter) Write(p []byte) (n int, err error) {
 
 // exporter exporters OpenTelemetry Collector data to New Relic.
 type exporter struct {
-	deltaCalculator    *cumulative.DeltaCalculator
-	harvester          *telemetry.Harvester
-	spanRequestFactory telemetry.RequestFactory
-	logRequestFactory  telemetry.RequestFactory
-	apiKeyHeader       string
-	logger             *zap.Logger
+	requestFactory telemetry.RequestFactory
+	apiKeyHeader   string
+	logger         *zap.Logger
 }
 
 func clientOptions(apiKey string, apiKeyHeader string, hostOverride string, insecure bool) []telemetry.ClientOption {
@@ -83,30 +77,6 @@ func clientOptions(apiKey string, apiKeyHeader string, hostOverride string, inse
 	return options
 }
 
-func newMetricsExporter(l *zap.Logger, c configmodels.Exporter) (*exporter, error) {
-	nrConfig, ok := c.(*Config)
-	if !ok {
-		return nil, fmt.Errorf("invalid config: %#v", c)
-	}
-
-	opts := []func(*telemetry.Config){
-		nrConfig.HarvestOption,
-		telemetry.ConfigBasicErrorLogger(logWriter{l.Error}),
-		telemetry.ConfigBasicDebugLogger(logWriter{l.Info}),
-		telemetry.ConfigBasicAuditLogger(logWriter{l.Debug}),
-	}
-
-	h, err := telemetry.NewHarvester(opts...)
-	if nil != err {
-		return nil, err
-	}
-
-	return &exporter{
-		deltaCalculator: cumulative.NewDeltaCalculator(),
-		harvester:       h,
-	}, nil
-}
-
 func newTraceExporter(l *zap.Logger, c configmodels.Exporter) (*exporter, error) {
 	nrConfig, ok := c.(*Config)
 	if !ok {
@@ -125,9 +95,9 @@ func newTraceExporter(l *zap.Logger, c configmodels.Exporter) (*exporter, error)
 	}
 
 	return &exporter{
-		spanRequestFactory: s,
-		apiKeyHeader:       strings.ToLower(nrConfig.APIKeyHeader),
-		logger:             l,
+		requestFactory: s,
+		apiKeyHeader:   strings.ToLower(nrConfig.APIKeyHeader),
+		logger:         l,
 	}, nil
 }
 
@@ -149,9 +119,33 @@ func newLogsExporter(logger *zap.Logger, c configmodels.Exporter) (*exporter, er
 	}
 
 	return &exporter{
-		logRequestFactory: logRequestFactory,
-		apiKeyHeader:      strings.ToLower(nrConfig.APIKeyHeader),
-		logger:            logger,
+		requestFactory: logRequestFactory,
+		apiKeyHeader:   strings.ToLower(nrConfig.APIKeyHeader),
+		logger:         logger,
+	}, nil
+}
+
+func newMetricsExporter(logger *zap.Logger, c configmodels.Exporter) (*exporter, error) {
+	nrConfig, ok := c.(*Config)
+	if !ok {
+		return nil, fmt.Errorf("invalid config: %#v", c)
+	}
+
+	options := clientOptions(
+		nrConfig.APIKey,
+		nrConfig.APIKeyHeader,
+		nrConfig.MetricsHostOverride,
+		nrConfig.metricsInsecure,
+	)
+	metricRequestFactory, err := telemetry.NewMetricRequestFactory(options...)
+	if err != nil {
+		return nil, err
+	}
+
+	return &exporter{
+		requestFactory: metricRequestFactory,
+		apiKeyHeader:   strings.ToLower(nrConfig.APIKeyHeader),
+		logger:         logger,
 	}, nil
 }
 
@@ -207,13 +201,13 @@ func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (outputEr
 		resource := rspans.Resource()
 		for j := 0; j < rspans.InstrumentationLibrarySpans().Len(); j++ {
 			ispans := rspans.InstrumentationLibrarySpans().At(j)
-			transform := newTraceTransformer(resource, ispans.InstrumentationLibrary())
+			transform := newTransformer(resource, ispans.InstrumentationLibrary())
 			spans := make([]telemetry.Span, 0, ispans.Spans().Len())
 			for k := 0; k < ispans.Spans().Len(); k++ {
 				span := ispans.Spans().At(k)
 				nrSpan, err := transform.Span(span)
 				if err != nil {
-					e.logger.Error("Transform of span failed.", zap.Error(err))
+					e.logger.Debug("Transform of span failed.", zap.Error(err))
 					errs = append(errs, err)
 					continue
 				}
@@ -229,9 +223,9 @@ func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (outputEr
 	var err error
 
 	if insertKey != "" {
-		req, err = e.spanRequestFactory.BuildRequest(batches, telemetry.WithInsertKey(insertKey))
+		req, err = e.requestFactory.BuildRequest(batches, telemetry.WithInsertKey(insertKey))
 	} else {
-		req, err = e.spanRequestFactory.BuildRequest(batches)
+		req, err = e.requestFactory.BuildRequest(batches)
 	}
 	if err != nil {
 		sentCount = 0
@@ -286,7 +280,7 @@ func (e *exporter) pushLogData(ctx context.Context, ld pdata.Logs) (outputErr er
 		for j := 0; j < resourceLogs.InstrumentationLibraryLogs().Len(); j++ {
 			instrumentationLibraryLogs := resourceLogs.InstrumentationLibraryLogs().At(j)
 
-			transformer := newLogTransformer(resource, instrumentationLibraryLogs.InstrumentationLibrary())
+			transformer := newTransformer(resource, instrumentationLibraryLogs.InstrumentationLibrary())
 			for k := 0; k < instrumentationLibraryLogs.Logs().Len(); k++ {
 				log := instrumentationLibraryLogs.Logs().At(k)
 				nrLog, err := transformer.Log(log)
@@ -307,7 +301,7 @@ func (e *exporter) pushLogData(ctx context.Context, ld pdata.Logs) (outputErr er
 	if insertKey != "" {
 		options = append(options, telemetry.WithInsertKey(insertKey))
 	}
-	req, err := e.logRequestFactory.BuildRequest(batches, options...)
+	req, err := e.requestFactory.BuildRequest(batches, options...)
 	if err != nil {
 		sentCount = 0
 		e.logger.Error("Failed to build batch", zap.Error(err))
@@ -324,44 +318,53 @@ func (e *exporter) pushLogData(ctx context.Context, ld pdata.Logs) (outputErr er
 		return err
 	}
 
-	return nil
+	return consumererror.CombineErrors(errs)
 }
 
-func (e *exporter) pushMetricData(ctx context.Context, md pdata.Metrics) error {
-	var errs []error
-
-	ocmds := internaldata.MetricsToOC(md)
-	for index, ocmd := range ocmds {
-		var srv string
-
-		if ocmd.Node != nil && ocmd.Node.ServiceInfo != nil {
-			srv = ocmd.Node.ServiceInfo.Name
-		}
-
-		language, _ := md.ResourceMetrics().At(index).Resource().Attributes().Get(instrumentationLanguageKey)
-
-		transform := &metricTransformer{
-			DeltaCalculator: e.deltaCalculator,
-			ServiceName:     srv,
-			Resource:        ocmd.Resource,
-			Language:        language.StringVal(),
-		}
-
-		for _, metric := range ocmd.Metrics {
-			nrMetrics, err := transform.Metric(metric)
-			if err != nil {
-				errs = append(errs, err)
-				continue
-			}
-			// TODO: optimize this, RecordMetric locks each call.
-			for _, m := range nrMetrics {
-				e.harvester.RecordMetric(m)
+func (e *exporter) pushMetricData(ctx context.Context, md pdata.Metrics) (outputErr error) {
+	var (
+		errs  []error
+		batch telemetry.MetricBatch
+	)
+	rms := md.ResourceMetrics()
+	_, dpCount := md.MetricAndDataPointCount()
+	batch.Metrics = make([]telemetry.Metric, 0, dpCount)
+	for i := 0; i < rms.Len(); i++ {
+		rm := rms.At(i)
+		ilms := rm.InstrumentationLibraryMetrics()
+		for j := 0; j < ilms.Len(); j++ {
+			ilm := ilms.At(j)
+			ms := ilm.Metrics()
+			transform := newTransformer(rm.Resource(), ilm.InstrumentationLibrary())
+			for k := 0; k < ms.Len(); k++ {
+				m := ms.At(k)
+				nrMetrics, err := transform.Metric(m)
+				if err != nil {
+					e.logger.Debug("Transform of metric failed.", zap.Error(err))
+					errs = append(errs, err)
+					continue
+				}
+				batch.Metrics = append(batch.Metrics, nrMetrics...)
 			}
 		}
 	}
 
-	e.harvester.HarvestNow(ctx)
+	payloadEntries := []telemetry.PayloadEntry{&batch}
 
+	var options []telemetry.ClientOption
+	insertKey := e.extractInsertKeyFromHeader(ctx)
+	if insertKey != "" {
+		options = append(options, telemetry.WithInsertKey(insertKey))
+	}
+	req, err := e.requestFactory.BuildRequest(payloadEntries, options...)
+	if err != nil {
+		e.logger.Error("Failed to build batch", zap.Error(err))
+		return err
+	}
+
+	if _, err := e.doRequest(nil, req); err != nil {
+		return err
+	}
 	return consumererror.CombineErrors(errs)
 }
 
@@ -376,8 +379,10 @@ func (e *exporter) doRequest(details *exportMetadata, req *http.Request) (status
 	}
 	defer response.Body.Close()
 	io.Copy(ioutil.Discard, response.Body)
-	details.externalDuration = time.Now().Sub(startTime)
-	details.httpStatusCode = response.StatusCode
+	if details != nil {
+		details.externalDuration = time.Now().Sub(startTime)
+		details.httpStatusCode = response.StatusCode
+	}
 
 	// Check if the http payload has been accepted, if not record an error
 	if response.StatusCode != http.StatusAccepted {
@@ -392,9 +397,4 @@ func (e *exporter) doRequest(details *exportMetadata, req *http.Request) (status
 	}
 
 	return response.StatusCode, nil
-}
-
-func (e *exporter) Shutdown(ctx context.Context) error {
-	e.harvester.HarvestNow(ctx)
-	return nil
 }

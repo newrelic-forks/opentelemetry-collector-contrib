@@ -59,7 +59,7 @@ type mockConfig struct {
 	statusCode      int
 }
 
-func runMock(initialContext context.Context, ptrace pdata.Traces, cfg mockConfig) (*Mock, error) {
+func runTraceMock(initialContext context.Context, ptrace pdata.Traces, cfg mockConfig) (*Mock, error) {
 	ctx, cancel := context.WithCancel(initialContext)
 	defer cancel()
 
@@ -103,15 +103,70 @@ func runMock(initialContext context.Context, ptrace pdata.Traces, cfg mockConfig
 	return m, nil
 }
 
+func runMetricMock(initialContext context.Context, pmetrics pdata.Metrics, cfg mockConfig) (*Mock, error) {
+	ctx, cancel := context.WithCancel(initialContext)
+	defer cancel()
+
+	m := &Mock{
+		Data:       make([]Data, 0, 1),
+		StatusCode: 202,
+	}
+
+	if cfg.statusCode > 0 {
+		m.StatusCode = cfg.statusCode
+	}
+
+	srv := m.Server()
+	defer srv.Close()
+
+	f := NewFactory()
+	c := f.CreateDefaultConfig().(*Config)
+	urlString := srv.URL
+	if cfg.serverURL != "" {
+		urlString = cfg.serverURL
+	}
+	u, _ := url.Parse(urlString)
+
+	if cfg.useAPIKeyHeader {
+		c.APIKeyHeader = "x-nr-key"
+	} else {
+		c.APIKey = "1"
+	}
+	c.metricsInsecure, c.MetricsHostOverride = true, u.Host
+	params := component.ExporterCreateParams{Logger: zap.NewNop()}
+	exp, err := f.CreateMetricsExporter(context.Background(), params, c)
+	if err != nil {
+		return m, err
+	}
+	if err := exp.ConsumeMetrics(ctx, pmetrics); err != nil {
+		return m, err
+	}
+	if err := exp.Shutdown(ctx); err != nil {
+		return m, err
+	}
+	return m, nil
+}
+
 func testTraceData(t *testing.T, expected []Span, resource *resourcepb.Resource, spans []*tracepb.Span, useAPIKeyHeader bool) {
 	ctx := context.Background()
 	if useAPIKeyHeader {
 		ctx = metadata.NewIncomingContext(ctx, metadata.MD{"x-nr-key": []string{"a1b2c3d4"}})
 	}
 
-	m, err := runMock(ctx, internaldata.OCToTraces(nil, resource, spans), mockConfig{useAPIKeyHeader: useAPIKeyHeader})
+	m, err := runTraceMock(ctx, internaldata.OCToTraces(nil, resource, spans), mockConfig{useAPIKeyHeader: useAPIKeyHeader})
 	require.NoError(t, err)
 	assert.Equal(t, expected, m.Spans())
+}
+
+func testMetricData(t *testing.T, expected []Metric, md internaldata.MetricsData, useAPIKeyHeader bool) {
+	ctx := context.Background()
+	if useAPIKeyHeader {
+		ctx = metadata.NewIncomingContext(ctx, metadata.MD{"x-nr-key": []string{"a1b2c3d4"}})
+	}
+
+	m, err := runMetricMock(ctx, internaldata.OCToMetrics(md), mockConfig{useAPIKeyHeader: useAPIKeyHeader})
+	require.NoError(t, err)
+	assert.Equal(t, expected, m.Metrics())
 }
 
 func TestExportTraceWithBadURL(t *testing.T) {
@@ -123,7 +178,7 @@ func TestExportTraceWithBadURL(t *testing.T) {
 			},
 		})
 
-	_, err := runMock(context.Background(), ptrace, mockConfig{serverURL: "http://badurl"})
+	_, err := runTraceMock(context.Background(), ptrace, mockConfig{serverURL: "http://badurl"})
 	require.Error(t, err)
 }
 
@@ -136,7 +191,7 @@ func TestExportTraceWithErrorStatusCode(t *testing.T) {
 			},
 		})
 
-	_, err := runMock(context.Background(), ptrace, mockConfig{statusCode: 500})
+	_, err := runTraceMock(context.Background(), ptrace, mockConfig{statusCode: 500})
 	require.Error(t, err)
 }
 
@@ -149,7 +204,7 @@ func TestExportTraceWithNot202StatusCode(t *testing.T) {
 			},
 		})
 
-	_, err := runMock(context.Background(), ptrace, mockConfig{statusCode: 403})
+	_, err := runTraceMock(context.Background(), ptrace, mockConfig{statusCode: 403})
 	require.Error(t, err)
 }
 
@@ -162,7 +217,7 @@ func TestExportTraceWithInvalidMetadata(t *testing.T) {
 			},
 		})
 
-	_, err := runMock(context.Background(), ptrace, mockConfig{useAPIKeyHeader: true})
+	_, err := runTraceMock(context.Background(), ptrace, mockConfig{useAPIKeyHeader: true})
 	require.Error(t, err)
 }
 
@@ -176,7 +231,7 @@ func TestExportTraceWithNoAPIKeyInMetadata(t *testing.T) {
 		})
 
 	ctx := metadata.NewIncomingContext(context.Background(), metadata.MD{})
-	_, err := runMock(ctx, ptrace, mockConfig{useAPIKeyHeader: true})
+	_, err := runTraceMock(ctx, ptrace, mockConfig{useAPIKeyHeader: true})
 	require.Error(t, err)
 }
 
@@ -193,7 +248,7 @@ func TestExportTracePartialData(t *testing.T) {
 			},
 		})
 
-	_, err := runMock(context.Background(), ptrace, mockConfig{useAPIKeyHeader: false})
+	_, err := runTraceMock(context.Background(), ptrace, mockConfig{useAPIKeyHeader: false})
 	require.Error(t, err)
 	assert.True(t, strings.Contains(err.Error(), errInvalidSpanID.Error()))
 	assert.True(t, strings.Contains(err.Error(), errInvalidTraceID.Error()))
@@ -227,7 +282,7 @@ func TestExportTraceDataMinimum(t *testing.T) {
 func TestExportTraceDataFullTrace(t *testing.T) {
 	resource := &resourcepb.Resource{
 		Labels: map[string]string{
-			serviceNameKey: "test-service",
+			"service.name": "test-service",
 			"resource":     "R1",
 		},
 	}
@@ -297,7 +352,7 @@ func TestExportTraceDataFullTrace(t *testing.T) {
 	testTraceData(t, expected, resource, spans, true)
 }
 
-func testExportMetricData(t *testing.T, expected []Metric, md internaldata.MetricsData) {
+func testExportMetricData(t *testing.T, expected []Metric, md internaldata.MetricsData, cfg mockConfig) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -312,6 +367,12 @@ func testExportMetricData(t *testing.T, expected []Metric, md internaldata.Metri
 	c := f.CreateDefaultConfig().(*Config)
 	u, _ := url.Parse(srv.URL)
 	c.APIKey, c.metricsInsecure, c.MetricsHostOverride = "1", true, u.Host
+
+	if cfg.useAPIKeyHeader {
+		c.APIKeyHeader = "x-nr-key"
+	} else {
+		c.APIKey = "1"
+	}
 	params := component.ExporterCreateParams{Logger: zap.NewNop()}
 	exp, err := f.CreateMetricsExporter(context.Background(), params, c)
 	require.NoError(t, err)
@@ -375,7 +436,8 @@ func TestExportMetricDataMinimal(t *testing.T) {
 		},
 	}
 
-	testExportMetricData(t, expected, md)
+	testMetricData(t, expected, md, true)
+	testMetricData(t, expected, md, false)
 }
 
 func TestExportMetricDataFull(t *testing.T) {
@@ -547,5 +609,6 @@ func TestExportMetricDataFull(t *testing.T) {
 		},
 	}
 
-	testExportMetricData(t, expected, md)
+	testMetricData(t, expected, md, false)
+	testMetricData(t, expected, md, true)
 }

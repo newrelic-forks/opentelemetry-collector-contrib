@@ -92,5 +92,5 @@ func createMetricsExporter(
 		return nil, err
 	}
 
-	return exporterhelper.NewMetricsExporter(cfg, params.Logger, exp.pushMetricData, exporterhelper.WithShutdown(exp.Shutdown))
+	return exporterhelper.NewMetricsExporter(cfg, params.Logger, exp.pushMetricData)
 }

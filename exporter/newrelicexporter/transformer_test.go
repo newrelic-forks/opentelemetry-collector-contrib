@@ -15,21 +15,16 @@
 package newrelicexporter
 
 import (
-	"encoding/json"
 	"errors"
 	"testing"
 	"time"
 
-	metricspb "github.com/census-instrumentation/opencensus-proto/gen-go/metrics/v1"
-	resourcepb "github.com/census-instrumentation/opencensus-proto/gen-go/resource/v1"
 	tracepb "github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1"
-	"github.com/newrelic/newrelic-telemetry-sdk-go/cumulative"
 	"github.com/newrelic/newrelic-telemetry-sdk-go/telemetry"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/consumer/pdata"
 	"go.opentelemetry.io/collector/translator/internaldata"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestNewTraceTransformerInstrumentation(t *testing.T) {
@@ -37,7 +32,7 @@ func TestNewTraceTransformerInstrumentation(t *testing.T) {
 	ilm.SetName("test name")
 	ilm.SetVersion("test version")
 
-	transform := newTraceTransformer(pdata.NewResource(), ilm)
+	transform := newTransformer(pdata.NewResource(), ilm)
 	require.Contains(t, transform.ResourceAttributes, instrumentationNameKey)
 	require.Contains(t, transform.ResourceAttributes, instrumentationVersionKey)
 	assert.Equal(t, transform.ResourceAttributes[instrumentationNameKey], "test name")
@@ -62,10 +57,10 @@ func defaultAttrFunc(res map[string]interface{}) func(map[string]interface{}) ma
 func TestTransformSpan(t *testing.T) {
 	now := time.Unix(100, 0)
 	rattr := map[string]interface{}{
-		serviceNameKey: "test-service",
+		"service.name": "test-service",
 		"resource":     "R1",
 	}
-	transform := &traceTransformer{ResourceAttributes: rattr}
+	transform := &transformer{ResourceAttributes: rattr}
 	withDefaults := defaultAttrFunc(rattr)
 
 	tests := []struct {
@@ -335,31 +330,11 @@ func TestTransformSpan(t *testing.T) {
 	}
 }
 
-func TestMergeAttributesIncompatibleLenghts(t *testing.T) {
-	transform := &metricTransformer{}
-	lk := make([]*metricspb.LabelKey, 2)
-	lv := make([]*metricspb.LabelValue, 3)
-	_, err := transform.MergeAttributes(nil, lk, lv)
-	require.Error(t, err)
-	assert.True(t, errors.Is(err, errIncompatibleLabels))
-}
-
-func TestTransformEmptyMetric(t *testing.T) {
-	transform := &metricTransformer{}
-	_, err := transform.Metric(nil)
-	assert.Error(t, err, "nil metric should return an error")
-	_, err = transform.Metric(&metricspb.Metric{})
-	assert.Error(t, err, "nil metric descriptor should return an error")
-}
-
-func testTransformMetric(t *testing.T, metric *metricspb.Metric, want []telemetry.Metric) {
-	transform := &metricTransformer{
-		DeltaCalculator: cumulative.NewDeltaCalculator(),
-		ServiceName:     "test-service",
-		Resource: &resourcepb.Resource{
-			Labels: map[string]string{
-				"resource": "R1",
-			},
+func testTransformMetric(t *testing.T, metric pdata.Metric, want []telemetry.Metric) {
+	transform := &transformer{
+		ResourceAttributes: map[string]interface{}{
+			"resource":     "R1",
+			"service.name": "test-service",
 		},
 	}
 	got, err := transform.Metric(metric)
@@ -367,342 +342,252 @@ func testTransformMetric(t *testing.T, metric *metricspb.Metric, want []telemetr
 	assert.Equal(t, want, got)
 }
 
-func TestTransformMetricRequiredAttributes(t *testing.T) {
-	ts := &timestamppb.Timestamp{Seconds: 1}
+func TestTransformGauge(t *testing.T) {
+	ts := pdata.TimestampFromTime(time.Unix(1, 0))
 	expected := []telemetry.Metric{
 		telemetry.Gauge{
 			Name:      "gauge",
 			Value:     42.0,
-			Timestamp: time.Unix(1, 0),
-			Attributes: map[string]interface{}{
-				collectorNameKey:           name,
-				collectorVersionKey:        version,
-				serviceNameKey:             "test-service",
-				instrumentationNameKey:     "opentelemetry",
-				instrumentationVersionKey:  "1.0.1",
-				instrumentationLanguageKey: "java",
-			},
-		},
-	}
-
-	metric := &metricspb.Metric{
-		MetricDescriptor: &metricspb.MetricDescriptor{
-			Name: "gauge",
-			Type: metricspb.MetricDescriptor_GAUGE_DOUBLE,
-		},
-		Timeseries: []*metricspb.TimeSeries{
-			{
-				Points: []*metricspb.Point{
-					{
-						Timestamp: ts,
-						Value: &metricspb.Point_DoubleValue{
-							DoubleValue: 42.0,
-						},
-					},
-				},
-			},
-		},
-	}
-
-	transform := &metricTransformer{
-		DeltaCalculator: cumulative.NewDeltaCalculator(),
-		ServiceName:     "test-service",
-		Language:        "java",
-		Resource: &resourcepb.Resource{
-			Labels: map[string]string{
-				collectorNameKey:          name,
-				collectorVersionKey:       version,
-				serviceNameKey:            "test-service",
-				instrumentationNameKey:    "opentelemetry",
-				instrumentationVersionKey: "1.0.1",
-			},
-		},
-	}
-	got, err := transform.Metric(metric)
-	require.NoError(t, err)
-	assert.Equal(t, expected, got)
-}
-
-func TestTransformGuage(t *testing.T) {
-	ts := &timestamppb.Timestamp{Seconds: 1}
-	expected := []telemetry.Metric{
-		telemetry.Gauge{
-			Name:      "gauge",
-			Value:     42.0,
-			Timestamp: time.Unix(1, 0),
+			Timestamp: ts.AsTime(),
 			Attributes: map[string]interface{}{
 				collectorNameKey:    name,
 				collectorVersionKey: version,
 				"resource":          "R1",
 				"service.name":      "test-service",
+				"unit":              "1",
+				"description":       "description",
 			},
 		},
 	}
 
-	gd := &metricspb.Metric{
-		MetricDescriptor: &metricspb.MetricDescriptor{
-			Name: "gauge",
-			Type: metricspb.MetricDescriptor_GAUGE_DOUBLE,
-		},
-		Timeseries: []*metricspb.TimeSeries{
-			{
-				Points: []*metricspb.Point{
-					{
-						Timestamp: ts,
-						Value: &metricspb.Point_DoubleValue{
-							DoubleValue: 42.0,
-						},
-					},
-				},
-			},
-		},
+	{
+		m := pdata.NewMetric()
+		m.SetName("gauge")
+		m.SetDescription("description")
+		m.SetUnit("1")
+		m.SetDataType(pdata.MetricDataTypeDoubleGauge)
+		gd := m.DoubleGauge()
+		dp := pdata.NewDoubleDataPoint()
+		dp.SetTimestamp(ts)
+		dp.SetValue(42.0)
+		gd.DataPoints().Append(dp)
+		t.Run("Double", func(t *testing.T) { testTransformMetric(t, m, expected) })
 	}
-	t.Run("Double", func(t *testing.T) { testTransformMetric(t, gd, expected) })
+	{
+		m := pdata.NewMetric()
+		m.SetName("gauge")
+		m.SetDescription("description")
+		m.SetUnit("1")
+		m.SetDataType(pdata.MetricDataTypeIntGauge)
+		gi := m.IntGauge()
+		dp := pdata.NewIntDataPoint()
+		dp.SetTimestamp(ts)
+		dp.SetValue(42)
+		gi.DataPoints().Append(dp)
+		t.Run("Int64", func(t *testing.T) { testTransformMetric(t, m, expected) })
+	}
+}
 
-	gi := &metricspb.Metric{
-		MetricDescriptor: &metricspb.MetricDescriptor{
-			Name: "gauge",
-			Type: metricspb.MetricDescriptor_GAUGE_INT64,
+func TestTransformSum(t *testing.T) {
+	start := pdata.TimestampFromTime(time.Unix(1, 0))
+	end := pdata.TimestampFromTime(time.Unix(3, 0))
+	transform := &transformer{
+		ResourceAttributes: map[string]interface{}{
+			"resource":     "R1",
+			"service.name": "test-service",
 		},
-		Timeseries: []*metricspb.TimeSeries{
-			{
-				Points: []*metricspb.Point{
-					{
-						Timestamp: ts,
-						Value: &metricspb.Point_Int64Value{
-							Int64Value: 42,
-						},
-					},
-				},
+	}
+
+	expected := []telemetry.Metric{
+		telemetry.Count{
+			Name:      "sum",
+			Value:     42.0,
+			Timestamp: start.AsTime(),
+			Interval:  time.Second * 2,
+			Attributes: map[string]interface{}{
+				collectorNameKey:    name,
+				collectorVersionKey: version,
+				"resource":          "R1",
+				"service.name":      "test-service",
+				"unit":              "1",
+				"description":       "description",
 			},
 		},
 	}
-	t.Run("Int64", func(t *testing.T) { testTransformMetric(t, gi, expected) })
+
+	{
+		m := pdata.NewMetric()
+		m.SetName("sum")
+		m.SetDescription("description")
+		m.SetUnit("1")
+		m.SetDataType(pdata.MetricDataTypeDoubleSum)
+		d := m.DoubleSum()
+		d.SetAggregationTemporality(pdata.AggregationTemporalityDelta)
+		dp := pdata.NewDoubleDataPoint()
+		dp.SetStartTime(start)
+		dp.SetTimestamp(end)
+		dp.SetValue(42.0)
+		d.DataPoints().Append(dp)
+		t.Run("DoubleSum-Delta", func(t *testing.T) { testTransformMetric(t, m, expected) })
+	}
+	{
+		m := pdata.NewMetric()
+		m.SetName("sum")
+		m.SetDescription("description")
+		m.SetUnit("1")
+		m.SetDataType(pdata.MetricDataTypeDoubleSum)
+		d := m.DoubleSum()
+		d.SetAggregationTemporality(pdata.AggregationTemporalityCumulative)
+		dp := pdata.NewDoubleDataPoint()
+		dp.SetStartTime(start)
+		dp.SetTimestamp(end)
+		dp.SetValue(42.0)
+		d.DataPoints().Append(dp)
+		t.Run("DoubleSum-Cumulative", func(t *testing.T) {
+			_, err := transform.Metric(m)
+			assert.True(t, errors.Is(err, unsupportedMetricType))
+		})
+	}
+	{
+		m := pdata.NewMetric()
+		m.SetName("sum")
+		m.SetDescription("description")
+		m.SetUnit("1")
+		m.SetDataType(pdata.MetricDataTypeIntSum)
+		d := m.IntSum()
+		d.SetAggregationTemporality(pdata.AggregationTemporalityDelta)
+		dp := pdata.NewIntDataPoint()
+		dp.SetStartTime(start)
+		dp.SetTimestamp(end)
+		dp.SetValue(42.0)
+		d.DataPoints().Append(dp)
+		t.Run("IntSum-Delta", func(t *testing.T) { testTransformMetric(t, m, expected) })
+	}
+	{
+		m := pdata.NewMetric()
+		m.SetName("sum")
+		m.SetDescription("description")
+		m.SetUnit("1")
+		m.SetDataType(pdata.MetricDataTypeIntSum)
+		d := m.IntSum()
+		d.SetAggregationTemporality(pdata.AggregationTemporalityCumulative)
+		dp := pdata.NewIntDataPoint()
+		dp.SetStartTime(start)
+		dp.SetTimestamp(end)
+		dp.SetValue(42.0)
+		d.DataPoints().Append(dp)
+		t.Run("IntSum-Cumulative", func(t *testing.T) {
+			_, err := transform.Metric(m)
+			assert.True(t, errors.Is(err, unsupportedMetricType))
+		})
+	}
 }
 
 func TestTransformDeltaSummary(t *testing.T) {
-	start := &timestamppb.Timestamp{Seconds: 1}
-	ts := &timestamppb.Timestamp{Seconds: 2}
+	start := pdata.TimestampFromTime(time.Unix(1, 0))
+	end := pdata.TimestampFromTime(time.Unix(3, 0))
+
 	expected := []telemetry.Metric{
 		telemetry.Summary{
 			Name:      "summary",
 			Count:     2.0,
 			Sum:       7.0,
-			Timestamp: time.Unix(1, 0),
-			Interval:  time.Second,
+			Min:       1,
+			Max:       6,
+			Timestamp: time.Unix(1, 0).UTC(),
+			Interval:  2 * time.Second,
 			Attributes: map[string]interface{}{
 				collectorNameKey:    name,
 				collectorVersionKey: version,
 				"resource":          "R1",
+				"description":       "description",
 				"service.name":      "test-service",
+				"unit":              "s",
+				"foo":               "bar",
 			},
 		},
 	}
 
-	gd := &metricspb.Metric{
-		MetricDescriptor: &metricspb.MetricDescriptor{
-			Name: "summary",
-			Type: metricspb.MetricDescriptor_GAUGE_DISTRIBUTION,
-		},
-		Timeseries: []*metricspb.TimeSeries{
-			{
-				StartTimestamp: start,
-				Points: []*metricspb.Point{
-					{
-						Timestamp: ts,
-						Value: &metricspb.Point_DistributionValue{
-							DistributionValue: &metricspb.DistributionValue{
-								Count: 2,
-								Sum:   7,
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	t.Run("Distribution", func(t *testing.T) {
-		testTransformMetric(t, gd, expected)
-		// Should be a delta, running twice should not change state.
-		testTransformMetric(t, gd, expected)
-	})
+	m := pdata.NewMetric()
+	m.SetName("summary")
+	m.SetDescription("description")
+	m.SetUnit("s")
+	m.SetDataType(pdata.MetricDataTypeDoubleSummary)
+	ds := m.DoubleSummary()
+	dp := pdata.NewDoubleSummaryDataPoint()
+	dp.SetStartTime(start)
+	dp.SetTimestamp(end)
+	dp.SetSum(7)
+	dp.SetCount(2)
+	dp.LabelsMap().Insert("foo", "bar")
+	q := dp.QuantileValues()
+	min := pdata.NewValueAtQuantile()
+	min.SetQuantile(0)
+	min.SetValue(1)
+	max := pdata.NewValueAtQuantile()
+	max.SetQuantile(1)
+	max.SetValue(6)
+	q.Append(min)
+	q.Append(max)
+	ds.DataPoints().Append(dp)
 
-	/* Remove only dependency on wrapperspb.
-	s := &metricspb.Metric{
-		MetricDescriptor: &metricspb.MetricDescriptor{
-			Name: "summary",
-			Type: metricspb.MetricDescriptor_SUMMARY,
-		},
-		Timeseries: []*metricspb.TimeSeries{
-			{
-				StartTimestamp: start,
-				Points: []*metricspb.Point{
-					{
-						Timestamp: ts,
-						Value: &metricspb.Point_SummaryValue{
-							SummaryValue: &metricspb.SummaryValue{
-								Count: &wrapperspb.Int64Value{Value: 2},
-								Sum:   &wrapperspb.DoubleValue{Value: 7},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	t.Run("Summary", func(t *testing.T) {
-		testTransformMetric(t, s, expected)
-		// Should be a delta, running twice should not change state.
-		testTransformMetric(t, s, expected)
-	})
-	*/
+	t.Run("Double", func(t *testing.T) { testTransformMetric(t, m, expected) })
 }
 
-func TestTransformCumulativeCount(t *testing.T) {
-	start := &timestamppb.Timestamp{Seconds: 1}
-	ts1 := &timestamppb.Timestamp{Seconds: 2}
-	ts2 := &timestamppb.Timestamp{Seconds: 3}
-	attrs := map[string]interface{}{
-		collectorNameKey:    name,
-		collectorVersionKey: version,
-		"resource":          "R1",
-		"service.name":      "test-service",
-	}
-	jsonAttrs, err := json.Marshal(attrs)
-	require.NoError(t, err)
-	expected := []telemetry.Metric{
-		telemetry.Count{
-			Name:       "count",
-			Value:      5.0,
-			Timestamp:  time.Unix(1, 0),
-			Interval:   time.Second,
-			Attributes: attrs,
-		},
-		telemetry.Count{
-			Name:           "count",
-			Value:          2.0,
-			Timestamp:      time.Unix(2, 0),
-			Interval:       time.Second,
-			AttributesJSON: jsonAttrs,
+func TestUnsupportedMetricTypes(t *testing.T) {
+	start := pdata.TimestampFromTime(time.Unix(1, 0))
+	end := pdata.TimestampFromTime(time.Unix(3, 0))
+	transform := &transformer{
+		ResourceAttributes: map[string]interface{}{
+			"resource":     "R1",
+			"service.name": "test-service",
 		},
 	}
 
-	cd := &metricspb.Metric{
-		MetricDescriptor: &metricspb.MetricDescriptor{
-			Name: "count",
-			Type: metricspb.MetricDescriptor_CUMULATIVE_DOUBLE,
-		},
-		Timeseries: []*metricspb.TimeSeries{
-			{
-				StartTimestamp: start,
-				Points: []*metricspb.Point{
-					{
-						Timestamp: ts1,
-						Value: &metricspb.Point_DoubleValue{
-							DoubleValue: 5.0,
-						},
-					},
-					{
-						Timestamp: ts2,
-						Value: &metricspb.Point_DoubleValue{
-							DoubleValue: 7.0,
-						},
-					},
-				},
-			},
-		},
-	}
-	t.Run("Double", func(t *testing.T) { testTransformMetric(t, cd, expected) })
+	{
+		m := pdata.NewMetric()
+		m.SetName("no")
+		m.SetDescription("no")
+		m.SetUnit("1")
+		m.SetDataType(pdata.MetricDataTypeIntHistogram)
+		h := m.IntHistogram()
+		dp := pdata.NewIntHistogramDataPoint()
+		dp.SetStartTime(start)
+		dp.SetTimestamp(end)
+		dp.SetCount(2)
+		dp.SetSum(8)
+		dp.SetExplicitBounds([]float64{3, 7, 11})
+		dp.SetBucketCounts([]uint64{1, 1, 0, 0})
+		h.SetAggregationTemporality(pdata.AggregationTemporalityDelta)
+		h.DataPoints().Append(dp)
 
-	ci := &metricspb.Metric{
-		MetricDescriptor: &metricspb.MetricDescriptor{
-			Name: "count",
-			Type: metricspb.MetricDescriptor_CUMULATIVE_INT64,
-		},
-		Timeseries: []*metricspb.TimeSeries{
-			{
-				StartTimestamp: start,
-				Points: []*metricspb.Point{
-					{
-						Timestamp: ts1,
-						Value: &metricspb.Point_Int64Value{
-							Int64Value: 5,
-						},
-					},
-					{
-						Timestamp: ts2,
-						Value: &metricspb.Point_Int64Value{
-							Int64Value: 7,
-						},
-					},
-				},
-			},
-		},
+		t.Run("IntHistogram", func(t *testing.T) {
+			_, err := transform.Metric(m)
+			assert.True(t, errors.Is(err, unsupportedMetricType))
+		})
 	}
-	t.Run("Int64", func(t *testing.T) { testTransformMetric(t, ci, expected) })
-}
+	{
+		m := pdata.NewMetric()
+		m.SetName("no")
+		m.SetDescription("no")
+		m.SetUnit("1")
+		m.SetDataType(pdata.MetricDataTypeDoubleHistogram)
+		h := m.DoubleHistogram()
+		dp := pdata.NewDoubleHistogramDataPoint()
+		dp.SetStartTime(start)
+		dp.SetTimestamp(end)
+		dp.SetCount(2)
+		dp.SetSum(8.0)
+		dp.SetExplicitBounds([]float64{3, 7, 11})
+		dp.SetBucketCounts([]uint64{1, 1, 0, 0})
+		h.SetAggregationTemporality(pdata.AggregationTemporalityDelta)
+		h.DataPoints().Append(dp)
 
-func TestTransformCumulativeSummary(t *testing.T) {
-	start := &timestamppb.Timestamp{Seconds: 1}
-	ts1 := &timestamppb.Timestamp{Seconds: 2}
-	ts2 := &timestamppb.Timestamp{Seconds: 3}
-	attrs := map[string]interface{}{
-		collectorNameKey:    name,
-		collectorVersionKey: version,
-		"resource":          "R1",
-		"service.name":      "test-service",
+		t.Run("DoubleHistogram", func(t *testing.T) {
+			_, err := transform.Metric(m)
+			assert.True(t, errors.Is(err, unsupportedMetricType))
+		})
 	}
-	expected := []telemetry.Metric{
-		telemetry.Summary{
-			Name:       "summary",
-			Sum:        5.0,
-			Count:      53.0,
-			Timestamp:  time.Unix(1, 0),
-			Interval:   time.Second,
-			Attributes: attrs,
-		},
-		telemetry.Summary{
-			Name:       "summary",
-			Sum:        3.0,
-			Count:      3.0,
-			Timestamp:  time.Unix(2, 0),
-			Interval:   time.Second,
-			Attributes: attrs,
-		},
-	}
-
-	cd := &metricspb.Metric{
-		MetricDescriptor: &metricspb.MetricDescriptor{
-			Name: "summary",
-			Type: metricspb.MetricDescriptor_CUMULATIVE_DISTRIBUTION,
-		},
-		Timeseries: []*metricspb.TimeSeries{
-			{
-				StartTimestamp: start,
-				Points: []*metricspb.Point{
-					{
-						Timestamp: ts1,
-						Value: &metricspb.Point_DistributionValue{
-							DistributionValue: &metricspb.DistributionValue{
-								Count: 53,
-								Sum:   5,
-							},
-						},
-					},
-					{
-						Timestamp: ts2,
-						Value: &metricspb.Point_DistributionValue{
-							DistributionValue: &metricspb.DistributionValue{
-								Count: 56,
-								Sum:   8,
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	t.Run("Distribution", func(t *testing.T) { testTransformMetric(t, cd, expected) })
 }
 
 func TestLogTransformer_Log(t *testing.T) {
@@ -847,7 +732,7 @@ func TestLogTransformer_Log(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			transform := newLogTransformer(test.Resource, test.InstrumentationLibrary)
+			transform := newTransformer(test.Resource, test.InstrumentationLibrary)
 			got, _ := transform.Log(test.logFunc())
 			assert.EqualValues(t, test.want, got)
 		})

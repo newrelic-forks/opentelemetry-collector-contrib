@@ -17,7 +17,6 @@ package newrelicexporter
 import (
 	"time"
 
-	"github.com/newrelic/newrelic-telemetry-sdk-go/telemetry"
 	"go.opentelemetry.io/collector/config/configmodels"
 )
 
@@ -57,24 +56,4 @@ type Config struct {
 
 	// logsInsecure disables TLS on the logs endpoint.
 	logsInsecure bool
-}
-
-// HarvestOption sets all relevant Config values when instantiating a New
-// Relic Harvester.
-func (c Config) HarvestOption(cfg *telemetry.Config) {
-	cfg.APIKey = c.APIKey
-	cfg.HarvestPeriod = 0 // use collector harvest period.
-	cfg.HarvestTimeout = c.Timeout
-	cfg.CommonAttributes = c.CommonAttributes
-	cfg.Product = product
-	cfg.ProductVersion = version
-	var prefix string
-	if c.MetricsHostOverride != "" {
-		if c.metricsInsecure {
-			prefix = "http://"
-		} else {
-			prefix = "https://"
-		}
-		cfg.MetricsURLOverride = prefix + c.MetricsHostOverride
-	}
 }

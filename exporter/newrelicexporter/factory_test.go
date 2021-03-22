@@ -62,8 +62,8 @@ func TestCreateExporterWithAPIKeyHeader(t *testing.T) {
 	assert.NotNil(t, te, "failed to create trace exporter")
 
 	me, err := createMetricsExporter(context.Background(), params, nrConfig)
-	assert.NotNil(t, err)
-	assert.Nil(t, me, "created metrics exporter")
+	assert.Nil(t, err)
+	assert.NotNil(t, me, "failed to create metrics exporter")
 }
 
 func TestCreateExporterWithAPIKeyAndAPIKeyHeader(t *testing.T) {
