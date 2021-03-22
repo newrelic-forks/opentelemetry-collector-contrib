@@ -24,7 +24,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/newrelic/newrelic-telemetry-sdk-go/cumulative"
 	"github.com/newrelic/newrelic-telemetry-sdk-go/telemetry"
 	"go.opentelemetry.io/collector/config/configmodels"
 	"go.opentelemetry.io/collector/consumer/consumererror"
@@ -55,13 +54,9 @@ func (w logWriter) Write(p []byte) (n int, err error) {
 
 // exporter exporters OpenTelemetry Collector data to New Relic.
 type exporter struct {
-	deltaCalculator      *cumulative.DeltaCalculator
-	harvester            *telemetry.Harvester
-	spanRequestFactory   telemetry.RequestFactory
-	metricRequestFactory telemetry.RequestFactory
-	logRequestFactory    telemetry.RequestFactory
-	apiKeyHeader         string
-	logger               *zap.Logger
+	requestFactory telemetry.RequestFactory
+	apiKeyHeader   string
+	logger         *zap.Logger
 }
 
 func clientOptions(apiKey string, apiKeyHeader string, hostOverride string, insecure bool) []telemetry.ClientOption {
@@ -100,9 +95,9 @@ func newTraceExporter(l *zap.Logger, c configmodels.Exporter) (*exporter, error)
 	}
 
 	return &exporter{
-		spanRequestFactory: s,
-		apiKeyHeader:       strings.ToLower(nrConfig.APIKeyHeader),
-		logger:             l,
+		requestFactory: s,
+		apiKeyHeader:   strings.ToLower(nrConfig.APIKeyHeader),
+		logger:         l,
 	}, nil
 }
 
@@ -124,9 +119,9 @@ func newLogsExporter(logger *zap.Logger, c configmodels.Exporter) (*exporter, er
 	}
 
 	return &exporter{
-		logRequestFactory: logRequestFactory,
-		apiKeyHeader:      strings.ToLower(nrConfig.APIKeyHeader),
-		logger:            logger,
+		requestFactory: logRequestFactory,
+		apiKeyHeader:   strings.ToLower(nrConfig.APIKeyHeader),
+		logger:         logger,
 	}, nil
 }
 
@@ -148,9 +143,9 @@ func newMetricsExporter(logger *zap.Logger, c configmodels.Exporter) (*exporter,
 	}
 
 	return &exporter{
-		metricRequestFactory: metricRequestFactory,
-		apiKeyHeader:         strings.ToLower(nrConfig.APIKeyHeader),
-		logger:               logger,
+		requestFactory: metricRequestFactory,
+		apiKeyHeader:   strings.ToLower(nrConfig.APIKeyHeader),
+		logger:         logger,
 	}, nil
 }
 
@@ -228,9 +223,9 @@ func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (outputEr
 	var err error
 
 	if insertKey != "" {
-		req, err = e.spanRequestFactory.BuildRequest(batches, telemetry.WithInsertKey(insertKey))
+		req, err = e.requestFactory.BuildRequest(batches, telemetry.WithInsertKey(insertKey))
 	} else {
-		req, err = e.spanRequestFactory.BuildRequest(batches)
+		req, err = e.requestFactory.BuildRequest(batches)
 	}
 	if err != nil {
 		sentCount = 0
@@ -306,7 +301,7 @@ func (e *exporter) pushLogData(ctx context.Context, ld pdata.Logs) (outputErr er
 	if insertKey != "" {
 		options = append(options, telemetry.WithInsertKey(insertKey))
 	}
-	req, err := e.logRequestFactory.BuildRequest(batches, options...)
+	req, err := e.requestFactory.BuildRequest(batches, options...)
 	if err != nil {
 		sentCount = 0
 		e.logger.Error("Failed to build batch", zap.Error(err))
@@ -361,7 +356,7 @@ func (e *exporter) pushMetricData(ctx context.Context, md pdata.Metrics) (output
 	if insertKey != "" {
 		options = append(options, telemetry.WithInsertKey(insertKey))
 	}
-	req, err := e.metricRequestFactory.BuildRequest(payloadEntries, options...)
+	req, err := e.requestFactory.BuildRequest(payloadEntries, options...)
 	if err != nil {
 		e.logger.Error("Failed to build batch", zap.Error(err))
 		return err
