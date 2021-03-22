@@ -19,7 +19,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/newrelic/newrelic-telemetry-sdk-go/telemetry"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/component/componenttest"
@@ -60,22 +59,9 @@ func TestLoadConfig(t *testing.T) {
 		},
 		MetricsHostOverride: "alt.metrics.newrelic.com",
 		SpansHostOverride:   "alt.spans.newrelic.com",
+		LogsHostOverride:    "alt.logs.newrelic.com",
 		metricsInsecure:     false,
 		spansInsecure:       false,
-	})
-
-	nrConfig := new(telemetry.Config)
-
-	assert.Equal(t, nrConfig, &telemetry.Config{
-		APIKey:         "a1b2c3d4",
-		HarvestTimeout: time.Second * 30,
-		CommonAttributes: map[string]interface{}{
-			"server": "test-server",
-			"prod":   true,
-			"weight": 3,
-		},
-		MetricsURLOverride: "https://alt.metrics.newrelic.com",
-		Product:            product,
-		ProductVersion:     version,
+		logsInsecure:        false,
 	})
 }

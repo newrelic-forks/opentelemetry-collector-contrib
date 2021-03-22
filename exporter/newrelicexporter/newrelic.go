@@ -212,7 +212,7 @@ func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (outputEr
 				span := ispans.Spans().At(k)
 				nrSpan, err := transform.Span(span)
 				if err != nil {
-					e.logger.Error("Transform of span failed.", zap.Error(err))
+					e.logger.Debug("Transform of span failed.", zap.Error(err))
 					errs = append(errs, err)
 					continue
 				}
@@ -345,7 +345,7 @@ func (e *exporter) pushMetricData(ctx context.Context, md pdata.Metrics) (output
 				m := ms.At(k)
 				nrMetrics, err := transform.Metric(m)
 				if err != nil {
-					e.logger.Error("Transform of metric failed.", zap.Error(err))
+					e.logger.Debug("Transform of metric failed.", zap.Error(err))
 					errs = append(errs, err)
 					continue
 				}
