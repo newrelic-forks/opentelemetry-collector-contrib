@@ -37,7 +37,7 @@ func TestNewTraceTransformerInstrumentation(t *testing.T) {
 	ilm.SetName("test name")
 	ilm.SetVersion("test version")
 
-	transform := newTraceTransformer(pdata.NewResource(), ilm)
+	transform := newTransformer(pdata.NewResource(), ilm)
 	require.Contains(t, transform.ResourceAttributes, instrumentationNameKey)
 	require.Contains(t, transform.ResourceAttributes, instrumentationVersionKey)
 	assert.Equal(t, transform.ResourceAttributes[instrumentationNameKey], "test name")
@@ -65,7 +65,7 @@ func TestTransformSpan(t *testing.T) {
 		serviceNameKey: "test-service",
 		"resource":     "R1",
 	}
-	transform := &traceTransformer{ResourceAttributes: rattr}
+	transform := &transformer{ResourceAttributes: rattr}
 	withDefaults := defaultAttrFunc(rattr)
 
 	tests := []struct {
@@ -791,7 +791,7 @@ func TestLogTransformer_Log(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			transform := newLogTransformer(test.Resource, test.InstrumentationLibrary)
+			transform := newTransformer(test.Resource, test.InstrumentationLibrary)
 			got, _ := transform.Log(test.logFunc())
 			assert.EqualValues(t, test.want, got)
 		})

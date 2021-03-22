@@ -20,7 +20,6 @@ import (
 	"google.golang.org/grpc/status"
 	"io"
 	"io/ioutil"
-	"math"
 	"net/http"
 	"strings"
 	"time"
@@ -30,7 +29,6 @@ import (
 	"go.opentelemetry.io/collector/config/configmodels"
 	"go.opentelemetry.io/collector/consumer/consumererror"
 	"go.opentelemetry.io/collector/consumer/pdata"
-	"go.opentelemetry.io/collector/translator/internaldata"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc/metadata"
@@ -232,7 +230,7 @@ func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (outputEr
 		resource := rspans.Resource()
 		for j := 0; j < rspans.InstrumentationLibrarySpans().Len(); j++ {
 			ispans := rspans.InstrumentationLibrarySpans().At(j)
-			transform := newTraceTransformer(resource, ispans.InstrumentationLibrary())
+			transform := newTransformer(resource, ispans.InstrumentationLibrary())
 			spans := make([]telemetry.Span, 0, ispans.Spans().Len())
 			for k := 0; k < ispans.Spans().Len(); k++ {
 				span := ispans.Spans().At(k)
@@ -311,7 +309,7 @@ func (e *exporter) pushLogData(ctx context.Context, ld pdata.Logs) (outputErr er
 		for j := 0; j < resourceLogs.InstrumentationLibraryLogs().Len(); j++ {
 			instrumentationLibraryLogs := resourceLogs.InstrumentationLibraryLogs().At(j)
 
-			transformer := newLogTransformer(resource, instrumentationLibraryLogs.InstrumentationLibrary())
+			transformer := newTransformer(resource, instrumentationLibraryLogs.InstrumentationLibrary())
 			for k := 0; k < instrumentationLibraryLogs.Logs().Len(); k++ {
 				log := instrumentationLibraryLogs.Logs().At(k)
 				nrLog, err := transformer.Log(log)
@@ -349,13 +347,16 @@ func (e *exporter) pushLogData(ctx context.Context, ld pdata.Logs) (outputErr er
 		return err
 	}
 
-	return nil
+	return consumererror.CombineErrors(errs)
 }
 
 func (e *exporter) pushMetricData(ctx context.Context, md pdata.Metrics) (outputErr error) {
+	var (
+		errs  []error
+		batch telemetry.MetricBatch
+	)
 	rms := md.ResourceMetrics()
 	_, dpCount := md.MetricAndDataPointCount()
-	var batch telemetry.MetricBatch
 	batch.Metrics = make([]telemetry.Metric, 0, dpCount)
 	for i := 0; i < rms.Len(); i++ {
 		rm := rms.At(i)
@@ -363,65 +364,16 @@ func (e *exporter) pushMetricData(ctx context.Context, md pdata.Metrics) (output
 		for j := 0; j < ilms.Len(); j++ {
 			ilm := ilms.At(j)
 			ms := ilm.Metrics()
+			transform := newTransformer(rm.Resource(), ilm.InstrumentationLibrary())
 			for k := 0; k < ms.Len(); k++ {
 				m := ms.At(k)
-				switch m.DataType() {
-				case pdata.MetricDataTypeIntGauge:
-					// "StartTimeUnixNano" is ignored for all data points.
-					break
-				case pdata.MetricDataTypeDoubleGauge:
-					// "StartTimeUnixNano" is ignored for all data points.
-					break
-				case pdata.MetricDataTypeIntSum:
-					// aggregation_temporality describes if the aggregator reports delta changes
-					// since last report time, or cumulative changes since a fixed start time.
-					break
-				case pdata.MetricDataTypeDoubleSum:
-					break
-				case pdata.MetricDataTypeIntHistogram:
-					break
-				case pdata.MetricDataTypeDoubleHistogram:
-					break
-				case pdata.MetricDataTypeDoubleSummary:
-					summary := m.DoubleSummary()
-					points := summary.DataPoints()
-					name := m.Name()
-					for l := 0; l < points.Len(); l++ {
-						point := points.At(l)
-						quantiles := point.QuantileValues()
-						minQuantile := math.NaN()
-						maxQuantile := math.NaN()
-
-						if quantiles.Len() > 0 {
-							quantileA := quantiles.At(0)
-							if quantileA.Quantile() == 0 {
-								minQuantile = quantileA.Value()
-							}
-							if quantiles.Len() > 1 {
-								quantileB := quantiles.At(quantiles.Len() - 1)
-								if quantileB.Quantile() == 1 {
-									maxQuantile = quantileB.Value()
-								}
-							} else if quantileA.Quantile() == 1 {
-								maxQuantile = quantileA.Value()
-							}
-						}
-
-						attributes := stringMapToMap(point.LabelsMap())
-						s := telemetry.Summary{
-							Name:       name,
-							Attributes: attributes,
-							Count:      float64(point.Count()),
-							Sum:        point.Sum(),
-							Min:        minQuantile,
-							Max:        maxQuantile,
-							Timestamp:  point.StartTime().AsTime(),
-							Interval:   time.Duration(point.Timestamp() - point.StartTime()),
-						}
-
-						batch.Metrics = append(batch.Metrics, s)
-					}
+				nrMetrics, err := transform.Metric(m)
+				if err != nil {
+					e.logger.Error("Transform of metric failed.", zap.Error(err))
+					errs = append(errs, err)
+					continue
 				}
+				batch.Metrics = append(batch.Metrics, nrMetrics...)
 			}
 		}
 	}
@@ -442,48 +394,6 @@ func (e *exporter) pushMetricData(ctx context.Context, md pdata.Metrics) (output
 	if _, err := e.doRequest(nil, req); err != nil {
 		return err
 	}
-	return nil
-}
-
-func stringMapToMap(attrMap pdata.StringMap) map[string]interface{} {
-	rawMap := make(map[string]interface{}, attrMap.Len())
-	attrMap.ForEach(func(k string, v string) {
-		rawMap[k] = v
-	})
-	return rawMap
-}
-
-func (e *exporter) oldPushMetricData(ctx context.Context, md pdata.Metrics) error {
-	var errs []error
-
-	ocmds := internaldata.MetricsToOC(md)
-	for _, ocmd := range ocmds {
-		var srv string
-		if ocmd.Node != nil && ocmd.Node.ServiceInfo != nil {
-			srv = ocmd.Node.ServiceInfo.Name
-		}
-
-		transform := &metricTransformer{
-			DeltaCalculator: e.deltaCalculator,
-			ServiceName:     srv,
-			Resource:        ocmd.Resource,
-		}
-
-		for _, metric := range ocmd.Metrics {
-			nrMetrics, err := transform.Metric(metric)
-			if err != nil {
-				errs = append(errs, err)
-				continue
-			}
-			// TODO: optimize this, RecordMetric locks each call.
-			for _, m := range nrMetrics {
-				e.harvester.RecordMetric(m)
-			}
-		}
-	}
-
-	e.harvester.HarvestNow(ctx)
-
 	return consumererror.CombineErrors(errs)
 }
 
@@ -516,9 +426,4 @@ func (e *exporter) doRequest(details *exportMetadata, req *http.Request) (status
 	}
 
 	return response.StatusCode, nil
-}
-
-func (e *exporter) Shutdown(ctx context.Context) error {
-	e.harvester.HarvestNow(ctx)
-	return nil
 }
