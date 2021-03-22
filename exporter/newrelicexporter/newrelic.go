@@ -163,8 +163,8 @@ func newMetricsExporter(logger *zap.Logger, c configmodels.Exporter) (*exporter,
 	options := clientOptions(
 		nrConfig.APIKey,
 		nrConfig.APIKeyHeader,
-		nrConfig.LogsHostOverride,
-		nrConfig.logsInsecure,
+		nrConfig.MetricsHostOverride,
+		nrConfig.metricsInsecure,
 	)
 	metricRequestFactory, err := telemetry.NewMetricRequestFactory(options...)
 	if err != nil {
