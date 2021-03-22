@@ -388,6 +388,101 @@ func TestTransformGauge(t *testing.T) {
 	}
 }
 
+func TestTransformSum(t *testing.T) {
+	start := pdata.TimestampFromTime(time.Unix(1, 0))
+	end := pdata.TimestampFromTime(time.Unix(3, 0))
+	transform := &transformer{
+		ResourceAttributes: map[string]interface{}{
+			"resource":     "R1",
+			"service.name": "test-service",
+		},
+	}
+
+	expected := []telemetry.Metric{
+		telemetry.Count{
+			Name:      "sum",
+			Value:     42.0,
+			Timestamp: start.AsTime(),
+			Interval:  time.Second * 2,
+			Attributes: map[string]interface{}{
+				collectorNameKey:    name,
+				collectorVersionKey: version,
+				"resource":          "R1",
+				"service.name":      "test-service",
+				"unit":              "1",
+				"description":       "description",
+			},
+		},
+	}
+
+	{
+		m := pdata.NewMetric()
+		m.SetName("sum")
+		m.SetDescription("description")
+		m.SetUnit("1")
+		m.SetDataType(pdata.MetricDataTypeDoubleSum)
+		d := m.DoubleSum()
+		d.SetAggregationTemporality(pdata.AggregationTemporalityDelta)
+		dp := pdata.NewDoubleDataPoint()
+		dp.SetStartTime(start)
+		dp.SetTimestamp(end)
+		dp.SetValue(42.0)
+		d.DataPoints().Append(dp)
+		t.Run("DoubleSum-Delta", func(t *testing.T) { testTransformMetric(t, m, expected) })
+	}
+	{
+		m := pdata.NewMetric()
+		m.SetName("sum")
+		m.SetDescription("description")
+		m.SetUnit("1")
+		m.SetDataType(pdata.MetricDataTypeDoubleSum)
+		d := m.DoubleSum()
+		d.SetAggregationTemporality(pdata.AggregationTemporalityCumulative)
+		dp := pdata.NewDoubleDataPoint()
+		dp.SetStartTime(start)
+		dp.SetTimestamp(end)
+		dp.SetValue(42.0)
+		d.DataPoints().Append(dp)
+		t.Run("DoubleSum-Cumulative", func(t *testing.T) {
+			_, err := transform.Metric(m)
+			assert.True(t, errors.Is(err, unsupportedMetricType))
+		})
+	}
+	{
+		m := pdata.NewMetric()
+		m.SetName("sum")
+		m.SetDescription("description")
+		m.SetUnit("1")
+		m.SetDataType(pdata.MetricDataTypeIntSum)
+		d := m.IntSum()
+		d.SetAggregationTemporality(pdata.AggregationTemporalityDelta)
+		dp := pdata.NewIntDataPoint()
+		dp.SetStartTime(start)
+		dp.SetTimestamp(end)
+		dp.SetValue(42.0)
+		d.DataPoints().Append(dp)
+		t.Run("IntSum-Delta", func(t *testing.T) { testTransformMetric(t, m, expected) })
+	}
+	{
+		m := pdata.NewMetric()
+		m.SetName("sum")
+		m.SetDescription("description")
+		m.SetUnit("1")
+		m.SetDataType(pdata.MetricDataTypeIntSum)
+		d := m.IntSum()
+		d.SetAggregationTemporality(pdata.AggregationTemporalityCumulative)
+		dp := pdata.NewIntDataPoint()
+		dp.SetStartTime(start)
+		dp.SetTimestamp(end)
+		dp.SetValue(42.0)
+		d.DataPoints().Append(dp)
+		t.Run("IntSum-Cumulative", func(t *testing.T) {
+			_, err := transform.Metric(m)
+			assert.True(t, errors.Is(err, unsupportedMetricType))
+		})
+	}
+}
+
 func TestTransformDeltaSummary(t *testing.T) {
 	start := pdata.TimestampFromTime(time.Unix(1, 0))
 	end := pdata.TimestampFromTime(time.Unix(3, 0))
