@@ -82,30 +82,6 @@ func clientOptions(apiKey string, apiKeyHeader string, hostOverride string, inse
 	return options
 }
 
-func oldMetricsExporter(l *zap.Logger, c configmodels.Exporter) (*exporter, error) {
-	nrConfig, ok := c.(*Config)
-	if !ok {
-		return nil, fmt.Errorf("invalid config: %#v", c)
-	}
-
-	opts := []func(*telemetry.Config){
-		nrConfig.HarvestOption,
-		telemetry.ConfigBasicErrorLogger(logWriter{l.Error}),
-		telemetry.ConfigBasicDebugLogger(logWriter{l.Info}),
-		telemetry.ConfigBasicAuditLogger(logWriter{l.Debug}),
-	}
-
-	h, err := telemetry.NewHarvester(opts...)
-	if nil != err {
-		return nil, err
-	}
-
-	return &exporter{
-		deltaCalculator: cumulative.NewDeltaCalculator(),
-		harvester:       h,
-	}, nil
-}
-
 func newTraceExporter(l *zap.Logger, c configmodels.Exporter) (*exporter, error) {
 	nrConfig, ok := c.(*Config)
 	if !ok {

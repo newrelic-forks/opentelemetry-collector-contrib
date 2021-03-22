@@ -65,7 +65,6 @@ func TestLoadConfig(t *testing.T) {
 	})
 
 	nrConfig := new(telemetry.Config)
-	r1.HarvestOption(nrConfig)
 
 	assert.Equal(t, nrConfig, &telemetry.Config{
 		APIKey:         "a1b2c3d4",
