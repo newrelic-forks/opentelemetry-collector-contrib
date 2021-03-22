@@ -439,6 +439,62 @@ func TestTransformDeltaSummary(t *testing.T) {
 	t.Run("Double", func(t *testing.T) { testTransformMetric(t, m, expected) })
 }
 
+func TestUnsupportedMetricTypes(t *testing.T) {
+	start := pdata.TimestampFromTime(time.Unix(1, 0))
+	end := pdata.TimestampFromTime(time.Unix(3, 0))
+	transform := &transformer{
+		ResourceAttributes: map[string]interface{}{
+			"resource":     "R1",
+			"service.name": "test-service",
+		},
+	}
+
+	{
+		m := pdata.NewMetric()
+		m.SetName("no")
+		m.SetDescription("no")
+		m.SetUnit("1")
+		m.SetDataType(pdata.MetricDataTypeIntHistogram)
+		h := m.IntHistogram()
+		dp := pdata.NewIntHistogramDataPoint()
+		dp.SetStartTime(start)
+		dp.SetTimestamp(end)
+		dp.SetCount(2)
+		dp.SetSum(8)
+		dp.SetExplicitBounds([]float64{3, 7, 11})
+		dp.SetBucketCounts([]uint64{1, 1, 0, 0})
+		h.SetAggregationTemporality(pdata.AggregationTemporalityDelta)
+		h.DataPoints().Append(dp)
+
+		t.Run("IntHistogram", func(t *testing.T) {
+			_, err := transform.Metric(m)
+			assert.True(t, errors.Is(err, unsupportedMetricType))
+		})
+	}
+	{
+		m := pdata.NewMetric()
+		m.SetName("no")
+		m.SetDescription("no")
+		m.SetUnit("1")
+		m.SetDataType(pdata.MetricDataTypeDoubleHistogram)
+		h := m.DoubleHistogram()
+		dp := pdata.NewDoubleHistogramDataPoint()
+		dp.SetStartTime(start)
+		dp.SetTimestamp(end)
+		dp.SetCount(2)
+		dp.SetSum(8.0)
+		dp.SetExplicitBounds([]float64{3, 7, 11})
+		dp.SetBucketCounts([]uint64{1, 1, 0, 0})
+		h.SetAggregationTemporality(pdata.AggregationTemporalityDelta)
+		h.DataPoints().Append(dp)
+
+		t.Run("DoubleHistogram", func(t *testing.T) {
+			_, err := transform.Metric(m)
+			assert.True(t, errors.Is(err, unsupportedMetricType))
+		})
+	}
+}
+
 func TestLogTransformer_Log(t *testing.T) {
 	emptyResource := pdata.NewResource()
 	emptyInstrumentationLibrary := pdata.NewInstrumentationLibrary()
