@@ -54,7 +54,7 @@ func TestCreateExporterWithAPIKey(t *testing.T) {
 func TestCreateExporterWithAPIKeyHeader(t *testing.T) {
 	cfg := createDefaultConfig()
 	nrConfig := cfg.(*Config)
-	nrConfig.APIKeyHeader = "x-nr-key"
+	nrConfig.APIKeyHeader = "api-key"
 	params := component.ExporterCreateParams{Logger: zap.NewNop()}
 
 	te, err := createTraceExporter(context.Background(), params, nrConfig)
@@ -70,7 +70,7 @@ func TestCreateExporterWithAPIKeyAndAPIKeyHeader(t *testing.T) {
 	cfg := createDefaultConfig()
 	nrConfig := cfg.(*Config)
 	nrConfig.APIKey = "a1b2c3d4"
-	nrConfig.APIKeyHeader = "x-nr-key"
+	nrConfig.APIKeyHeader = "api-key"
 	params := component.ExporterCreateParams{Logger: zap.NewNop()}
 
 	te, err := createTraceExporter(context.Background(), params, nrConfig)

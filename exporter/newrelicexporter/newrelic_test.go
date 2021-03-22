@@ -84,7 +84,7 @@ func runTraceMock(initialContext context.Context, ptrace pdata.Traces, cfg mockC
 	u, _ := url.Parse(urlString)
 
 	if cfg.useAPIKeyHeader {
-		c.APIKeyHeader = "x-nr-key"
+		c.APIKeyHeader = "api-key"
 	} else {
 		c.APIKey = "1"
 	}
@@ -128,7 +128,7 @@ func runMetricMock(initialContext context.Context, pmetrics pdata.Metrics, cfg m
 	u, _ := url.Parse(urlString)
 
 	if cfg.useAPIKeyHeader {
-		c.APIKeyHeader = "x-nr-key"
+		c.APIKeyHeader = "api-key"
 	} else {
 		c.APIKey = "1"
 	}
@@ -150,7 +150,7 @@ func runMetricMock(initialContext context.Context, pmetrics pdata.Metrics, cfg m
 func testTraceData(t *testing.T, expected []Span, resource *resourcepb.Resource, spans []*tracepb.Span, useAPIKeyHeader bool) {
 	ctx := context.Background()
 	if useAPIKeyHeader {
-		ctx = metadata.NewIncomingContext(ctx, metadata.MD{"x-nr-key": []string{"a1b2c3d4"}})
+		ctx = metadata.NewIncomingContext(ctx, metadata.MD{"api-key": []string{"a1b2c3d4"}})
 	}
 
 	m, err := runTraceMock(ctx, internaldata.OCToTraces(nil, resource, spans), mockConfig{useAPIKeyHeader: useAPIKeyHeader})
@@ -161,7 +161,7 @@ func testTraceData(t *testing.T, expected []Span, resource *resourcepb.Resource,
 func testMetricData(t *testing.T, expected []Metric, md internaldata.MetricsData, useAPIKeyHeader bool) {
 	ctx := context.Background()
 	if useAPIKeyHeader {
-		ctx = metadata.NewIncomingContext(ctx, metadata.MD{"x-nr-key": []string{"a1b2c3d4"}})
+		ctx = metadata.NewIncomingContext(ctx, metadata.MD{"api-key": []string{"a1b2c3d4"}})
 	}
 
 	m, err := runMetricMock(ctx, internaldata.OCToMetrics(md), mockConfig{useAPIKeyHeader: useAPIKeyHeader})
@@ -369,7 +369,7 @@ func testExportMetricData(t *testing.T, expected []Metric, md internaldata.Metri
 	c.APIKey, c.metricsInsecure, c.MetricsHostOverride = "1", true, u.Host
 
 	if cfg.useAPIKeyHeader {
-		c.APIKeyHeader = "x-nr-key"
+		c.APIKeyHeader = "api-key"
 	} else {
 		c.APIKey = "1"
 	}
