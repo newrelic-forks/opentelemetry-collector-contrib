@@ -122,147 +122,6 @@ func (t *transformer) Log(log pdata.LogRecord) (telemetry.Log, error) {
 	}, nil
 }
 
-func (t *transformer) Metric(m pdata.Metric) ([]telemetry.Metric, error) {
-	var output []telemetry.Metric
-	baseAttributes := t.BaseMetricAttributes(m)
-
-	switch m.DataType() {
-	case pdata.MetricDataTypeIntGauge:
-		// "StartTimeUnixNano" is ignored for all data points.
-		gauge := m.IntGauge()
-		points := gauge.DataPoints()
-		output = make([]telemetry.Metric, 0, points.Len())
-		for l := 0; l < points.Len(); l++ {
-			point := points.At(l)
-			attributes := MetricAttributes(baseAttributes, point.LabelsMap())
-
-			nrMetric := telemetry.Gauge{
-				Name:       m.Name(),
-				Attributes: attributes,
-				Value:      float64(point.Value()),
-				Timestamp:  point.Timestamp().AsTime(),
-			}
-			output = append(output, nrMetric)
-		}
-	case pdata.MetricDataTypeDoubleGauge:
-		// "StartTimeUnixNano" is ignored for all data points.
-		gauge := m.DoubleGauge()
-		points := gauge.DataPoints()
-		output = make([]telemetry.Metric, 0, points.Len())
-		for l := 0; l < points.Len(); l++ {
-			point := points.At(l)
-			attributes := MetricAttributes(baseAttributes, point.LabelsMap())
-
-			nrMetric := telemetry.Gauge{
-				Name:       m.Name(),
-				Attributes: attributes,
-				Value:      point.Value(),
-				Timestamp:  point.Timestamp().AsTime(),
-			}
-			output = append(output, nrMetric)
-		}
-	case pdata.MetricDataTypeIntSum:
-		// aggregation_temporality describes if the aggregator reports delta changes
-		// since last report time, or cumulative changes since a fixed start time.
-		sum := m.IntSum()
-		if sum.AggregationTemporality() != pdata.AggregationTemporalityDelta {
-			// TODO: record error
-			break
-		}
-
-		points := sum.DataPoints()
-		output = make([]telemetry.Metric, 0, points.Len())
-		for l := 0; l < points.Len(); l++ {
-			point := points.At(l)
-			attributes := MetricAttributes(baseAttributes, point.LabelsMap())
-
-			nrMetric := telemetry.Count{
-				Name:       m.Name(),
-				Attributes: attributes,
-				Value:      float64(point.Value()),
-				Timestamp:  point.StartTime().AsTime(),
-				Interval:   time.Duration(point.Timestamp() - point.StartTime()),
-			}
-			output = append(output, nrMetric)
-		}
-	case pdata.MetricDataTypeDoubleSum:
-		sum := m.DoubleSum()
-		if sum.AggregationTemporality() != pdata.AggregationTemporalityDelta {
-			// TODO: record error
-			break
-		}
-
-		points := sum.DataPoints()
-		output = make([]telemetry.Metric, 0, points.Len())
-		for l := 0; l < points.Len(); l++ {
-			point := points.At(l)
-			attributes := MetricAttributes(baseAttributes, point.LabelsMap())
-
-			nrMetric := telemetry.Count{
-				Name:       m.Name(),
-				Attributes: attributes,
-				Value:      point.Value(),
-				Timestamp:  point.StartTime().AsTime(),
-				Interval:   time.Duration(point.Timestamp() - point.StartTime()),
-			}
-			output = append(output, nrMetric)
-		}
-	case pdata.MetricDataTypeIntHistogram:
-		histogram := m.IntHistogram()
-		if histogram.AggregationTemporality() != pdata.AggregationTemporalityDelta {
-			// TODO: record error
-			break
-		}
-	case pdata.MetricDataTypeDoubleHistogram:
-		histogram := m.DoubleHistogram()
-		if histogram.AggregationTemporality() != pdata.AggregationTemporalityDelta {
-			// TODO: record error
-			break
-		}
-	case pdata.MetricDataTypeDoubleSummary:
-		summary := m.DoubleSummary()
-		points := summary.DataPoints()
-		output = make([]telemetry.Metric, 0, points.Len())
-		name := m.Name()
-		for l := 0; l < points.Len(); l++ {
-			point := points.At(l)
-			quantiles := point.QuantileValues()
-			minQuantile := math.NaN()
-			maxQuantile := math.NaN()
-
-			if quantiles.Len() > 0 {
-				quantileA := quantiles.At(0)
-				if quantileA.Quantile() == 0 {
-					minQuantile = quantileA.Value()
-				}
-				if quantiles.Len() > 1 {
-					quantileB := quantiles.At(quantiles.Len() - 1)
-					if quantileB.Quantile() == 1 {
-						maxQuantile = quantileB.Value()
-					}
-				} else if quantileA.Quantile() == 1 {
-					maxQuantile = quantileA.Value()
-				}
-			}
-
-			attributes := MetricAttributes(baseAttributes, point.LabelsMap())
-			nrMetric := telemetry.Summary{
-				Name:       name,
-				Attributes: attributes,
-				Count:      float64(point.Count()),
-				Sum:        point.Sum(),
-				Min:        minQuantile,
-				Max:        maxQuantile,
-				Timestamp:  point.StartTime().AsTime(),
-				Interval:   time.Duration(point.Timestamp() - point.StartTime()),
-			}
-
-			output = append(output, nrMetric)
-		}
-	}
-	return output, nil
-}
-
 func (t *transformer) SpanAttributes(span pdata.Span) map[string]interface{} {
 
 	length := 2 + len(t.ResourceAttributes) + span.Attributes().Len()
@@ -333,6 +192,139 @@ func (t *transformer) SpanEvents(span pdata.Span) []telemetry.Event {
 		}
 	}
 	return events
+}
+
+var UnsupportedMetricType = errors.New("unsupported metric type")
+
+func (t *transformer) Metric(m pdata.Metric) ([]telemetry.Metric, error) {
+	var output []telemetry.Metric
+	baseAttributes := t.BaseMetricAttributes(m)
+
+	switch m.DataType() {
+	case pdata.MetricDataTypeIntGauge:
+		// "StartTimeUnixNano" is ignored for all data points.
+		gauge := m.IntGauge()
+		points := gauge.DataPoints()
+		output = make([]telemetry.Metric, 0, points.Len())
+		for l := 0; l < points.Len(); l++ {
+			point := points.At(l)
+			attributes := MetricAttributes(baseAttributes, point.LabelsMap())
+
+			nrMetric := telemetry.Gauge{
+				Name:       m.Name(),
+				Attributes: attributes,
+				Value:      float64(point.Value()),
+				Timestamp:  point.Timestamp().AsTime(),
+			}
+			output = append(output, nrMetric)
+		}
+	case pdata.MetricDataTypeDoubleGauge:
+		// "StartTimeUnixNano" is ignored for all data points.
+		gauge := m.DoubleGauge()
+		points := gauge.DataPoints()
+		output = make([]telemetry.Metric, 0, points.Len())
+		for l := 0; l < points.Len(); l++ {
+			point := points.At(l)
+			attributes := MetricAttributes(baseAttributes, point.LabelsMap())
+
+			nrMetric := telemetry.Gauge{
+				Name:       m.Name(),
+				Attributes: attributes,
+				Value:      point.Value(),
+				Timestamp:  point.Timestamp().AsTime(),
+			}
+			output = append(output, nrMetric)
+		}
+	case pdata.MetricDataTypeIntSum:
+		// aggregation_temporality describes if the aggregator reports delta changes
+		// since last report time, or cumulative changes since a fixed start time.
+		sum := m.IntSum()
+		if sum.AggregationTemporality() != pdata.AggregationTemporalityDelta {
+			return nil, UnsupportedMetricType
+		}
+
+		points := sum.DataPoints()
+		output = make([]telemetry.Metric, 0, points.Len())
+		for l := 0; l < points.Len(); l++ {
+			point := points.At(l)
+			attributes := MetricAttributes(baseAttributes, point.LabelsMap())
+
+			nrMetric := telemetry.Count{
+				Name:       m.Name(),
+				Attributes: attributes,
+				Value:      float64(point.Value()),
+				Timestamp:  point.StartTime().AsTime(),
+				Interval:   time.Duration(point.Timestamp() - point.StartTime()),
+			}
+			output = append(output, nrMetric)
+		}
+	case pdata.MetricDataTypeDoubleSum:
+		sum := m.DoubleSum()
+		if sum.AggregationTemporality() != pdata.AggregationTemporalityDelta {
+			return nil, UnsupportedMetricType
+		}
+
+		points := sum.DataPoints()
+		output = make([]telemetry.Metric, 0, points.Len())
+		for l := 0; l < points.Len(); l++ {
+			point := points.At(l)
+			attributes := MetricAttributes(baseAttributes, point.LabelsMap())
+
+			nrMetric := telemetry.Count{
+				Name:       m.Name(),
+				Attributes: attributes,
+				Value:      point.Value(),
+				Timestamp:  point.StartTime().AsTime(),
+				Interval:   time.Duration(point.Timestamp() - point.StartTime()),
+			}
+			output = append(output, nrMetric)
+		}
+	case pdata.MetricDataTypeIntHistogram:
+		return nil, UnsupportedMetricType
+	case pdata.MetricDataTypeDoubleHistogram:
+		return nil, UnsupportedMetricType
+	case pdata.MetricDataTypeDoubleSummary:
+		summary := m.DoubleSummary()
+		points := summary.DataPoints()
+		output = make([]telemetry.Metric, 0, points.Len())
+		name := m.Name()
+		for l := 0; l < points.Len(); l++ {
+			point := points.At(l)
+			quantiles := point.QuantileValues()
+			minQuantile := math.NaN()
+			maxQuantile := math.NaN()
+
+			if quantiles.Len() > 0 {
+				quantileA := quantiles.At(0)
+				if quantileA.Quantile() == 0 {
+					minQuantile = quantileA.Value()
+				}
+				if quantiles.Len() > 1 {
+					quantileB := quantiles.At(quantiles.Len() - 1)
+					if quantileB.Quantile() == 1 {
+						maxQuantile = quantileB.Value()
+					}
+				} else if quantileA.Quantile() == 1 {
+					maxQuantile = quantileA.Value()
+				}
+			}
+
+			attributes := MetricAttributes(baseAttributes, point.LabelsMap())
+			nrMetric := telemetry.Summary{
+				Name:       name,
+				Attributes: attributes,
+				Count:      float64(point.Count()),
+				Sum:        point.Sum(),
+				Min:        minQuantile,
+				Max:        maxQuantile,
+				Timestamp:  point.StartTime().AsTime(),
+				Interval:   time.Duration(point.Timestamp() - point.StartTime()),
+			}
+
+			output = append(output, nrMetric)
+		}
+	}
+	return output, nil
 }
 
 func (t *transformer) BaseMetricAttributes(metric pdata.Metric) map[string]interface{} {
