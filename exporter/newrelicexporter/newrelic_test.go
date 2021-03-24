@@ -334,35 +334,6 @@ func TestExportTraceDataFullTrace(t *testing.T) {
 	testTraceData(t, expected, resource, spans, true)
 }
 
-func testExportMetricData(t *testing.T, expected []Metric, md internaldata.MetricsData, cfg mockConfig) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	m := &Mock{
-		Data:       make([]Data, 0, 3),
-		StatusCode: 202,
-	}
-	srv := m.Server()
-	defer srv.Close()
-
-	f := NewFactory()
-	c := f.CreateDefaultConfig().(*Config)
-	u, _ := url.Parse(srv.URL)
-	c.APIKey, c.metricsInsecure, c.MetricsHostOverride = "1", true, u.Host
-
-	if cfg.useAPIKeyHeader {
-		c.APIKeyHeader = "api-key"
-	} else {
-		c.APIKey = "1"
-	}
-	params := component.ExporterCreateParams{Logger: zap.NewNop()}
-	exp, err := f.CreateMetricsExporter(context.Background(), params, c)
-	require.NoError(t, err)
-	require.NoError(t, exp.ConsumeMetrics(ctx, internaldata.OCToMetrics(md)))
-	require.NoError(t, exp.Shutdown(ctx))
-	assert.Equal(t, expected, m.Metrics())
-}
-
 func TestExportMetricDataMinimal(t *testing.T) {
 	desc := "physical property of matter that quantitatively expresses hot and cold"
 	unit := "K"

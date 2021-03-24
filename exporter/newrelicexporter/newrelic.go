@@ -108,7 +108,7 @@ func (e exporter) pushTraceData(ctx context.Context, td pdata.Traces) (outputErr
 	details := newTraceMetadata(ctx)
 	details.dataInputCount = td.SpanCount()
 	builder := func() (telemetry.PayloadEntry, error) { return e.buildTracePayload(&details, td) }
-	return e.export(&details, ctx, builder)
+	return e.export(ctx, &details, builder)
 
 }
 
@@ -147,7 +147,7 @@ func (e exporter) pushLogData(ctx context.Context, ld pdata.Logs) (outputErr err
 	details := newLogMetadata(ctx)
 	details.dataInputCount = ld.LogRecordCount()
 	builder := func() (telemetry.PayloadEntry, error) { return e.buildLogPayload(&details, ld) }
-	return e.export(&details, ctx, builder)
+	return e.export(ctx, &details, builder)
 }
 
 func (e exporter) buildLogPayload(details *exportMetadata, ld pdata.Logs) (telemetry.PayloadEntry, error) {
@@ -188,7 +188,7 @@ func (e exporter) pushMetricData(ctx context.Context, md pdata.Metrics) (outputE
 	details := newMetricMetadata(ctx)
 	_, details.dataInputCount = md.MetricAndDataPointCount()
 	builder := func() (telemetry.PayloadEntry, error) { return e.buildMetricPayload(&details, md) }
-	return e.export(&details, ctx, builder)
+	return e.export(ctx, &details, builder)
 }
 
 func (e exporter) buildMetricPayload(details *exportMetadata, md pdata.Metrics) (telemetry.PayloadEntry, error) {
@@ -224,12 +224,12 @@ func (e exporter) buildMetricPayload(details *exportMetadata, md pdata.Metrics) 
 	return &batch, consumererror.CombineErrors(errs)
 }
 
-func (e exporter) export(details *exportMetadata, ctx context.Context, buildBatch batchBuilder) (outputErr error) {
+func (e exporter) export(ctx context.Context, details *exportMetadata, buildBatch batchBuilder) (outputErr error) {
 	startTime := time.Now()
 	insertKey := e.extractInsertKeyFromHeader(ctx)
 	defer func() {
-		details.apiKey = sanitizeApiKeyForLogging(insertKey)
-		details.exporterTime = time.Now().Sub(startTime)
+		details.apiKey = sanitizeAPIKeyForLogging(insertKey)
+		details.exporterTime = time.Since(startTime)
 		details.grpcResponseCode = status.Code(outputErr)
 		err := details.recordMetrics(ctx)
 		if err != nil {
@@ -260,7 +260,7 @@ func (e exporter) export(details *exportMetadata, ctx context.Context, buildBatc
 
 func (e exporter) doRequest(details *exportMetadata, req *http.Request) error {
 	startTime := time.Now()
-	defer func() { details.externalDuration = time.Now().Sub(startTime) }()
+	defer func() { details.externalDuration = time.Since(startTime) }()
 	// Execute the http request and handle the response
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
