@@ -75,15 +75,19 @@ type exportMetadata struct {
 	externalDuration time.Duration // Time spent sending to the trace API
 }
 
-func newTraceMetadata(ctx context.Context) *exportMetadata {
+func newTraceMetadata(ctx context.Context) exportMetadata {
 	return initMetadata(ctx, "trace")
 }
 
-func newLogMetadata(ctx context.Context) *exportMetadata {
+func newLogMetadata(ctx context.Context) exportMetadata {
 	return initMetadata(ctx, "log")
 }
 
-func initMetadata(ctx context.Context, dataType string) *exportMetadata {
+func newMetricMetadata(ctx context.Context) exportMetadata {
+	return initMetadata(ctx, "metric")
+}
+
+func initMetadata(ctx context.Context, dataType string) exportMetadata {
 	userAgent := "not_present"
 	if md, ctxOk := metadata.FromIncomingContext(ctx); ctxOk {
 		if values, headerOk := md["user-agent"]; headerOk {
@@ -91,10 +95,10 @@ func initMetadata(ctx context.Context, dataType string) *exportMetadata {
 		}
 	}
 
-	return &exportMetadata{userAgent: userAgent, apiKey: "not_present", dataType: dataType}
+	return exportMetadata{userAgent: userAgent, apiKey: "not_present", dataType: dataType}
 }
 
-func (d *exportMetadata) recordMetrics(ctx context.Context) error {
+func (d exportMetadata) recordMetrics(ctx context.Context) error {
 	tags := []tag.Mutator{
 		tag.Insert(tagGrpcStatusCode, d.grpcResponseCode.String()),
 		tag.Insert(tagHTTPStatusCode, strconv.Itoa(d.httpStatusCode)),

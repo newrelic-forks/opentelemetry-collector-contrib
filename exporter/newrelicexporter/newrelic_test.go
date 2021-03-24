@@ -31,27 +31,9 @@ import (
 	"go.opentelemetry.io/collector/consumer/pdata"
 	"go.opentelemetry.io/collector/translator/internaldata"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
-
-func TestLogWriter(t *testing.T) {
-	var messages []string
-	l := logWriter{func(s string, _ ...zapcore.Field) {
-		messages = append(messages, s)
-	}}
-
-	n, err := l.Write([]byte("one"))
-	require.NoError(t, err)
-	assert.Equal(t, 3, n)
-	assert.Len(t, messages, 1)
-
-	n, err = l.Write([]byte("two"))
-	require.NoError(t, err)
-	assert.Equal(t, 3, n)
-	assert.Len(t, messages, 2)
-}
 
 type mockConfig struct {
 	useAPIKeyHeader bool
