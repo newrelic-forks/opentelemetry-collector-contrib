@@ -65,7 +65,7 @@ func clientOptions(apiKey string, apiKeyHeader string, hostOverride string, inse
 	return options
 }
 
-func newExporter(l *zap.Logger, nrConfig endpointConfig, createFactory factoryBuilder) (*exporter, error) {
+func newExporter(l *zap.Logger, nrConfig endpointConfig, createFactory factoryBuilder) (exporter, error) {
 	options := clientOptions(
 		nrConfig.APIKey,
 		nrConfig.APIKeyHeader,
@@ -74,9 +74,9 @@ func newExporter(l *zap.Logger, nrConfig endpointConfig, createFactory factoryBu
 	)
 	f, err := createFactory(options...)
 	if nil != err {
-		return nil, err
+		return exporter{}, err
 	}
-	return &exporter{
+	return exporter{
 		requestFactory: f,
 		apiKeyHeader:   strings.ToLower(nrConfig.APIKeyHeader),
 		logger:         l,
