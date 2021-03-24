@@ -1,0 +1,48 @@
+name: OpenTelemetry CI
+
+on:
+  push:
+    branches:
+      - newrelic-main
+    tags-ignore:
+      - '**'
+  pull_request:
+    branches:
+      - newrelic-main
+
+defaults:
+  run:
+    working-directory: exporter/newrelicexporter
+
+jobs:
+
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Set up Go
+      uses: actions/setup-go@v2
+      with:
+        go-version: 1.16
+
+    - uses: actions/cache@v2
+      with:
+        path: ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
+
+    - name: Install Deps
+      run: make dep
+
+    - name: Install Tools
+      run: make install-tools
+      working-directory: .
+
+    - name: Lint
+      run: make lint
+
+    - name: Test
+      run: make test
