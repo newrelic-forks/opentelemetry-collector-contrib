@@ -16,23 +16,22 @@ package newrelicexporter
 
 import (
 	"context"
-	"strconv"
-	"time"
-
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"strconv"
+	"time"
 )
 
 var (
 	tagGrpcStatusCode, _   = tag.NewKey("grpc_response_code")
-	tagHTTPStatusCode, _   = tag.NewKey("http_status_code")
+	tagHttpStatusCode, _   = tag.NewKey("http_status_code")
 	tagRequestUserAgent, _ = tag.NewKey("user_agent")
-	tagAPIKey, _           = tag.NewKey("api_key")
+	tagApiKey, _           = tag.NewKey("api_key")
 	tagDataType, _         = tag.NewKey("data_type")
-	tagKeys                = []tag.Key{tagGrpcStatusCode, tagHTTPStatusCode, tagRequestUserAgent, tagAPIKey, tagDataType}
+	tagKeys                = []tag.Key{tagGrpcStatusCode, tagHttpStatusCode, tagRequestUserAgent, tagApiKey, tagDataType}
 
 	statRequestCount         = stats.Int64("newrelicexporter_request_count", "Number of requests processed", stats.UnitDimensionless)
 	statOutputDatapointCount = stats.Int64("newrelicexporter_output_datapoint_count", "Number of data points sent to the HTTP API", stats.UnitDimensionless)
@@ -75,15 +74,19 @@ type exportMetadata struct {
 	externalDuration time.Duration // Time spent sending to the trace API
 }
 
-func newTraceMetadata(ctx context.Context) *exportMetadata {
+func newTraceMetadata(ctx context.Context) exportMetadata {
 	return initMetadata(ctx, "trace")
 }
 
-func newLogMetadata(ctx context.Context) *exportMetadata {
+func newLogMetadata(ctx context.Context) exportMetadata {
 	return initMetadata(ctx, "log")
 }
 
-func initMetadata(ctx context.Context, dataType string) *exportMetadata {
+func newMetricMetadata(ctx context.Context) exportMetadata {
+	return initMetadata(ctx, "metric")
+}
+
+func initMetadata(ctx context.Context, dataType string) exportMetadata {
 	userAgent := "not_present"
 	if md, ctxOk := metadata.FromIncomingContext(ctx); ctxOk {
 		if values, headerOk := md["user-agent"]; headerOk {
@@ -91,15 +94,15 @@ func initMetadata(ctx context.Context, dataType string) *exportMetadata {
 		}
 	}
 
-	return &exportMetadata{userAgent: userAgent, apiKey: "not_present", dataType: dataType}
+	return exportMetadata{userAgent: userAgent, apiKey: "not_present", dataType: dataType}
 }
 
-func (d *exportMetadata) recordMetrics(ctx context.Context) error {
+func (d exportMetadata) recordMetrics(ctx context.Context) error {
 	tags := []tag.Mutator{
 		tag.Insert(tagGrpcStatusCode, d.grpcResponseCode.String()),
-		tag.Insert(tagHTTPStatusCode, strconv.Itoa(d.httpStatusCode)),
+		tag.Insert(tagHttpStatusCode, strconv.Itoa(d.httpStatusCode)),
 		tag.Insert(tagRequestUserAgent, d.userAgent),
-		tag.Insert(tagAPIKey, d.apiKey),
+		tag.Insert(tagApiKey, d.apiKey),
 		tag.Insert(tagDataType, d.dataType),
 	}
 
@@ -111,7 +114,7 @@ func (d *exportMetadata) recordMetrics(ctx context.Context) error {
 	)
 }
 
-func sanitizeAPIKeyForLogging(apiKey string) string {
+func sanitizeApiKeyForLogging(apiKey string) string {
 	if len(apiKey) <= 8 {
 		return apiKey
 	}

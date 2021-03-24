@@ -16,9 +16,10 @@ package newrelicexporter
 
 import (
 	"context"
-	"time"
-
+	"fmt"
+	"github.com/newrelic/newrelic-telemetry-sdk-go/telemetry"
 	"go.opencensus.io/stats/view"
+	"time"
 
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config/configmodels"
@@ -41,18 +42,6 @@ func NewFactory() component.ExporterFactory {
 	)
 }
 
-func createLogsExporter(
-	_ context.Context,
-	params component.ExporterCreateParams,
-	cfg configmodels.Exporter,
-) (component.LogsExporter, error) {
-	exp, err := newLogsExporter(params.Logger, cfg)
-	if err != nil {
-		return nil, err
-	}
-	return exporterhelper.NewLogsExporter(cfg, zap.NewNop(), exp.pushLogData)
-}
-
 func createDefaultConfig() configmodels.Exporter {
 	return &Config{
 		ExporterSettings: configmodels.ExporterSettings{
@@ -63,13 +52,42 @@ func createDefaultConfig() configmodels.Exporter {
 	}
 }
 
+type endpointConfig struct {
+	// APIKey is the required authentication credentials for New Relic APIs. This field specifies the default key.
+	APIKey string `mapstructure:"apikey"`
+
+	// APIKeyHeader may be specified to instruct the exporter to extract the API key from the request context.
+	APIKeyHeader string `mapstructure:"api_key_header"`
+
+	// CommonAttributes are the attributes to be applied to all telemetry
+	// sent to New Relic.
+	CommonAttributes map[string]interface{} `mapstructure:"common_attributes"`
+
+	// HostOverride overrides the endpoint.
+	HostOverride string `mapstructure:"host_override"`
+
+	// Insecure disables TLS on the endpoint.
+	insecure bool
+}
+
 // CreateTracesExporter creates a New Relic trace exporter for this configuration.
 func createTraceExporter(
 	_ context.Context,
 	params component.ExporterCreateParams,
 	cfg configmodels.Exporter,
 ) (component.TracesExporter, error) {
-	exp, err := newTraceExporter(params.Logger, cfg)
+	nrConfig, ok := cfg.(*Config)
+	if !ok {
+		return nil, fmt.Errorf("invalid config: %#v", cfg)
+	}
+	internalConfig := endpointConfig{
+		APIKey:           nrConfig.APIKey,
+		APIKeyHeader:     nrConfig.APIKeyHeader,
+		CommonAttributes: nil, // FIXME: missing common attributes
+		HostOverride:     nrConfig.SpansHostOverride,
+		insecure:         nrConfig.spansInsecure,
+	}
+	exp, err := newExporter(params.Logger, internalConfig, telemetry.NewSpanRequestFactory)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +95,7 @@ func createTraceExporter(
 	// The logger is only used in a disabled queuedRetrySender, which noisily logs at
 	// the error level when it is disabled and errors occur.
 	return exporterhelper.NewTraceExporter(cfg, zap.NewNop(), exp.pushTraceData,
-		exporterhelper.WithTimeout(exporterhelper.TimeoutSettings{Timeout: cfg.(*Config).Timeout}),
+		exporterhelper.WithTimeout(exporterhelper.TimeoutSettings{Timeout: nrConfig.Timeout}),
 		exporterhelper.WithRetry(exporterhelper.RetrySettings{Enabled: false}),
 		exporterhelper.WithQueue(exporterhelper.QueueSettings{Enabled: false}))
 }
@@ -88,10 +106,48 @@ func createMetricsExporter(
 	params component.ExporterCreateParams,
 	cfg configmodels.Exporter,
 ) (component.MetricsExporter, error) {
-	exp, err := newMetricsExporter(params.Logger, cfg)
+	nrConfig, ok := cfg.(*Config)
+	if !ok {
+		return nil, fmt.Errorf("invalid config: %#v", cfg)
+	}
+
+	internalConfig := endpointConfig{
+		APIKey:           nrConfig.APIKey,
+		APIKeyHeader:     nrConfig.APIKeyHeader,
+		CommonAttributes: nil, // FIXME: missing common attributes
+		HostOverride:     nrConfig.MetricsHostOverride,
+		insecure:         nrConfig.metricsInsecure,
+	}
+
+	exp, err := newExporter(params.Logger, internalConfig, telemetry.NewMetricRequestFactory)
 	if err != nil {
 		return nil, err
 	}
 
-	return exporterhelper.NewMetricsExporter(cfg, params.Logger, exp.pushMetricData)
+	return exporterhelper.NewMetricsExporter(cfg, zap.NewNop(), exp.pushMetricData)
+}
+
+// CreateLogsExporter creates a New Relic logs exporter for this configuration.
+func createLogsExporter(
+	_ context.Context,
+	params component.ExporterCreateParams,
+	cfg configmodels.Exporter,
+) (component.LogsExporter, error) {
+	nrConfig, ok := cfg.(*Config)
+	if !ok {
+		return nil, fmt.Errorf("invalid config: %#v", cfg)
+	}
+
+	internalConfig := endpointConfig{
+		APIKey:           nrConfig.APIKey,
+		APIKeyHeader:     nrConfig.APIKeyHeader,
+		CommonAttributes: nil, // FIXME: missing common attributes
+		HostOverride:     nrConfig.LogsHostOverride,
+		insecure:         nrConfig.logsInsecure,
+	}
+	exp, err := newExporter(params.Logger, internalConfig, telemetry.NewLogRequestFactory)
+	if err != nil {
+		return nil, err
+	}
+	return exporterhelper.NewLogsExporter(cfg, zap.NewNop(), exp.pushLogData)
 }

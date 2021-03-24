@@ -16,13 +16,12 @@ package newrelicexporter
 
 import (
 	"context"
-	"strings"
-	"testing"
-
 	"github.com/stretchr/testify/assert"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"google.golang.org/grpc/codes"
+	"strings"
+	"testing"
 )
 
 func TestMetricViews(t *testing.T) {
@@ -114,7 +113,7 @@ func TestRecordMetrics(t *testing.T) {
 }
 
 func TestSanitizeApiKeyForLogging(t *testing.T) {
-	assert.Equal(t, "", sanitizeAPIKeyForLogging(""))
-	assert.Equal(t, "foo", sanitizeAPIKeyForLogging("foo"))
-	assert.Equal(t, "foobarba", sanitizeAPIKeyForLogging("foobarbazqux"))
+	assert.Equal(t, "", sanitizeApiKeyForLogging(""))
+	assert.Equal(t, "foo", sanitizeApiKeyForLogging("foo"))
+	assert.Equal(t, "foobarba", sanitizeApiKeyForLogging("foobarbazqux"))
 }

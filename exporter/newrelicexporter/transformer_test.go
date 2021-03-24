@@ -445,7 +445,7 @@ func TestTransformSum(t *testing.T) {
 		d.DataPoints().Append(dp)
 		t.Run("DoubleSum-Cumulative", func(t *testing.T) {
 			_, err := transform.Metric(m)
-			assert.True(t, errors.Is(err, errUnsupportedMetricType))
+			assert.True(t, errors.Is(err, unsupportedMetricType))
 		})
 	}
 	{
@@ -478,7 +478,7 @@ func TestTransformSum(t *testing.T) {
 		d.DataPoints().Append(dp)
 		t.Run("IntSum-Cumulative", func(t *testing.T) {
 			_, err := transform.Metric(m)
-			assert.True(t, errors.Is(err, errUnsupportedMetricType))
+			assert.True(t, errors.Is(err, unsupportedMetricType))
 		})
 	}
 }
@@ -563,7 +563,7 @@ func TestUnsupportedMetricTypes(t *testing.T) {
 
 		t.Run("IntHistogram", func(t *testing.T) {
 			_, err := transform.Metric(m)
-			assert.True(t, errors.Is(err, errUnsupportedMetricType))
+			assert.True(t, errors.Is(err, unsupportedMetricType))
 		})
 	}
 	{
@@ -585,7 +585,7 @@ func TestUnsupportedMetricTypes(t *testing.T) {
 
 		t.Run("DoubleHistogram", func(t *testing.T) {
 			_, err := transform.Metric(m)
-			assert.True(t, errors.Is(err, errUnsupportedMetricType))
+			assert.True(t, errors.Is(err, unsupportedMetricType))
 		})
 	}
 }

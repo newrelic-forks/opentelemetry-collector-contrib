@@ -194,7 +194,7 @@ func (t *transformer) SpanEvents(span pdata.Span) []telemetry.Event {
 	return events
 }
 
-var errUnsupportedMetricType = errors.New("unsupported metric type")
+var unsupportedMetricType = errors.New("unsupported metric type")
 
 func (t *transformer) Metric(m pdata.Metric) ([]telemetry.Metric, error) {
 	var output []telemetry.Metric
@@ -240,7 +240,7 @@ func (t *transformer) Metric(m pdata.Metric) ([]telemetry.Metric, error) {
 		// since last report time, or cumulative changes since a fixed start time.
 		sum := m.IntSum()
 		if sum.AggregationTemporality() != pdata.AggregationTemporalityDelta {
-			return nil, errUnsupportedMetricType
+			return nil, unsupportedMetricType
 		}
 
 		points := sum.DataPoints()
@@ -261,7 +261,7 @@ func (t *transformer) Metric(m pdata.Metric) ([]telemetry.Metric, error) {
 	case pdata.MetricDataTypeDoubleSum:
 		sum := m.DoubleSum()
 		if sum.AggregationTemporality() != pdata.AggregationTemporalityDelta {
-			return nil, errUnsupportedMetricType
+			return nil, unsupportedMetricType
 		}
 
 		points := sum.DataPoints()
@@ -280,9 +280,9 @@ func (t *transformer) Metric(m pdata.Metric) ([]telemetry.Metric, error) {
 			output = append(output, nrMetric)
 		}
 	case pdata.MetricDataTypeIntHistogram:
-		return nil, errUnsupportedMetricType
+		return nil, unsupportedMetricType
 	case pdata.MetricDataTypeDoubleHistogram:
-		return nil, errUnsupportedMetricType
+		return nil, unsupportedMetricType
 	case pdata.MetricDataTypeDoubleSummary:
 		summary := m.DoubleSummary()
 		points := summary.DataPoints()
