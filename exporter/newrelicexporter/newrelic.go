@@ -17,12 +17,13 @@ package newrelicexporter
 import (
 	"context"
 	"fmt"
-	"google.golang.org/grpc/status"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
+
+	"google.golang.org/grpc/status"
 
 	"github.com/newrelic/newrelic-telemetry-sdk-go/telemetry"
 	"go.opentelemetry.io/collector/config/configmodels"
@@ -181,12 +182,12 @@ func (e *exporter) pushTraceData(ctx context.Context, td pdata.Traces) (outputEr
 
 	details := newTraceMetadata(ctx)
 	defer func() {
-		apiKey := sanitizeApiKeyForLogging(insertKey)
+		apiKey := sanitizeAPIKeyForLogging(insertKey)
 		if apiKey != "" {
 			details.apiKey = apiKey
 		}
 		details.dataOutputCount = sentCount
-		details.exporterTime = time.Now().Sub(startTime)
+		details.exporterTime = time.Since(startTime)
 		details.grpcResponseCode = status.Code(outputErr)
 		err := details.recordMetrics(ctx)
 		if err != nil {
@@ -259,13 +260,13 @@ func (e *exporter) pushLogData(ctx context.Context, ld pdata.Logs) (outputErr er
 
 	details := newLogMetadata(ctx)
 	defer func() {
-		apiKey := sanitizeApiKeyForLogging(insertKey)
+		apiKey := sanitizeAPIKeyForLogging(insertKey)
 		if apiKey != "" {
 			details.apiKey = apiKey
 		}
 		details.dataInputCount = ld.ResourceLogs().Len()
 		details.dataOutputCount = sentCount
-		details.exporterTime = time.Now().Sub(startTime)
+		details.exporterTime = time.Since(startTime)
 		details.grpcResponseCode = status.Code(outputErr)
 		err := details.recordMetrics(ctx)
 		if err != nil {
@@ -380,7 +381,7 @@ func (e *exporter) doRequest(details *exportMetadata, req *http.Request) (status
 	defer response.Body.Close()
 	io.Copy(ioutil.Discard, response.Body)
 	if details != nil {
-		details.externalDuration = time.Now().Sub(startTime)
+		details.externalDuration = time.Since(startTime)
 		details.httpStatusCode = response.StatusCode
 	}
 

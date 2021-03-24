@@ -16,22 +16,23 @@ package newrelicexporter
 
 import (
 	"context"
+	"strconv"
+	"time"
+
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-	"strconv"
-	"time"
 )
 
 var (
 	tagGrpcStatusCode, _   = tag.NewKey("grpc_response_code")
-	tagHttpStatusCode, _   = tag.NewKey("http_status_code")
+	tagHTTPStatusCode, _   = tag.NewKey("http_status_code")
 	tagRequestUserAgent, _ = tag.NewKey("user_agent")
-	tagApiKey, _           = tag.NewKey("api_key")
+	tagAPIKey, _           = tag.NewKey("api_key")
 	tagDataType, _         = tag.NewKey("data_type")
-	tagKeys                = []tag.Key{tagGrpcStatusCode, tagHttpStatusCode, tagRequestUserAgent, tagApiKey, tagDataType}
+	tagKeys                = []tag.Key{tagGrpcStatusCode, tagHTTPStatusCode, tagRequestUserAgent, tagAPIKey, tagDataType}
 
 	statRequestCount         = stats.Int64("newrelicexporter_request_count", "Number of requests processed", stats.UnitDimensionless)
 	statOutputDatapointCount = stats.Int64("newrelicexporter_output_datapoint_count", "Number of data points sent to the HTTP API", stats.UnitDimensionless)
@@ -96,9 +97,9 @@ func initMetadata(ctx context.Context, dataType string) *exportMetadata {
 func (d *exportMetadata) recordMetrics(ctx context.Context) error {
 	tags := []tag.Mutator{
 		tag.Insert(tagGrpcStatusCode, d.grpcResponseCode.String()),
-		tag.Insert(tagHttpStatusCode, strconv.Itoa(d.httpStatusCode)),
+		tag.Insert(tagHTTPStatusCode, strconv.Itoa(d.httpStatusCode)),
 		tag.Insert(tagRequestUserAgent, d.userAgent),
-		tag.Insert(tagApiKey, d.apiKey),
+		tag.Insert(tagAPIKey, d.apiKey),
 		tag.Insert(tagDataType, d.dataType),
 	}
 
@@ -110,7 +111,7 @@ func (d *exportMetadata) recordMetrics(ctx context.Context) error {
 	)
 }
 
-func sanitizeApiKeyForLogging(apiKey string) string {
+func sanitizeAPIKeyForLogging(apiKey string) string {
 	if len(apiKey) <= 8 {
 		return apiKey
 	}
