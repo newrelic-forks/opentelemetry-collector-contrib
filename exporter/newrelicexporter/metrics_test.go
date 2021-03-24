@@ -16,12 +16,13 @@ package newrelicexporter
 
 import (
 	"context"
+	"strings"
+	"testing"
+
 	"github.com/stretchr/testify/assert"
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"google.golang.org/grpc/codes"
-	"strings"
-	"testing"
 )
 
 func TestMetricViews(t *testing.T) {

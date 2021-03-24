@@ -16,13 +16,14 @@ package newrelicexporter
 
 import (
 	"context"
+	"strconv"
+	"time"
+
 	"go.opencensus.io/stats"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/tag"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
-	"strconv"
-	"time"
 )
 
 var (

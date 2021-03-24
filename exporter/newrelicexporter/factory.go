@@ -17,9 +17,10 @@ package newrelicexporter
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/newrelic/newrelic-telemetry-sdk-go/telemetry"
 	"go.opencensus.io/stats/view"
-	"time"
 
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config/configmodels"

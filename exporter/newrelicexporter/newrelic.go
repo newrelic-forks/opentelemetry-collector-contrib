@@ -16,12 +16,13 @@ package newrelicexporter
 
 import (
 	"context"
-	"google.golang.org/grpc/status"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
+
+	"google.golang.org/grpc/status"
 
 	"github.com/newrelic/newrelic-telemetry-sdk-go/telemetry"
 	"go.opentelemetry.io/collector/consumer/consumererror"
