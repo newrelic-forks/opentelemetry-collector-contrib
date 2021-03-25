@@ -23,3 +23,5 @@ require (
 	google.golang.org/protobuf v1.26.0
 	gopkg.in/ini.v1 v1.57.0 // indirect
 )
+
+replace github.com/newrelic/newrelic-telemetry-sdk-go => github.com/newrelic/newrelic-telemetry-sdk-go v0.6.1-0.20210325161858-385f4a582096

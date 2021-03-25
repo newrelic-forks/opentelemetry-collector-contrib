@@ -45,7 +45,7 @@ type exporter struct {
 }
 
 type factoryBuilder func(options ...telemetry.ClientOption) (telemetry.RequestFactory, error)
-type batchBuilder func() (telemetry.PayloadEntry, error)
+type mapEntryBuilder func() (telemetry.MapEntry, error)
 
 func clientOptions(apiKey string, apiKeyHeader string, hostOverride string, insecure bool) []telemetry.ClientOption {
 	options := []telemetry.ClientOption{telemetry.WithUserAgent(product + "/" + version)}
@@ -107,12 +107,12 @@ func (e exporter) extractInsertKeyFromHeader(ctx context.Context) string {
 func (e exporter) pushTraceData(ctx context.Context, td pdata.Traces) (outputErr error) {
 	details := newTraceMetadata(ctx)
 	details.dataInputCount = td.SpanCount()
-	builder := func() (telemetry.PayloadEntry, error) { return e.buildTracePayload(&details, td) }
+	builder := func() (telemetry.MapEntry, error) { return e.buildTracePayload(&details, td) }
 	return e.export(ctx, &details, builder)
 
 }
 
-func (e exporter) buildTracePayload(details *exportMetadata, td pdata.Traces) (telemetry.PayloadEntry, error) {
+func (e exporter) buildTracePayload(details *exportMetadata, td pdata.Traces) (telemetry.MapEntry, error) {
 	var (
 		errs  []error
 		batch telemetry.SpanBatch
@@ -146,11 +146,11 @@ func (e exporter) buildTracePayload(details *exportMetadata, td pdata.Traces) (t
 func (e exporter) pushLogData(ctx context.Context, ld pdata.Logs) (outputErr error) {
 	details := newLogMetadata(ctx)
 	details.dataInputCount = ld.LogRecordCount()
-	builder := func() (telemetry.PayloadEntry, error) { return e.buildLogPayload(&details, ld) }
+	builder := func() (telemetry.MapEntry, error) { return e.buildLogPayload(&details, ld) }
 	return e.export(ctx, &details, builder)
 }
 
-func (e exporter) buildLogPayload(details *exportMetadata, ld pdata.Logs) (telemetry.PayloadEntry, error) {
+func (e exporter) buildLogPayload(details *exportMetadata, ld pdata.Logs) (telemetry.MapEntry, error) {
 	var (
 		errs  []error
 		batch telemetry.LogBatch
@@ -187,11 +187,11 @@ func (e exporter) buildLogPayload(details *exportMetadata, ld pdata.Logs) (telem
 func (e exporter) pushMetricData(ctx context.Context, md pdata.Metrics) (outputErr error) {
 	details := newMetricMetadata(ctx)
 	_, details.dataInputCount = md.MetricAndDataPointCount()
-	builder := func() (telemetry.PayloadEntry, error) { return e.buildMetricPayload(&details, md) }
+	builder := func() (telemetry.MapEntry, error) { return e.buildMetricPayload(&details, md) }
 	return e.export(ctx, &details, builder)
 }
 
-func (e exporter) buildMetricPayload(details *exportMetadata, md pdata.Metrics) (telemetry.PayloadEntry, error) {
+func (e exporter) buildMetricPayload(details *exportMetadata, md pdata.Metrics) (telemetry.MapEntry, error) {
 	var (
 		errs  []error
 		batch telemetry.MetricBatch
@@ -224,7 +224,7 @@ func (e exporter) buildMetricPayload(details *exportMetadata, md pdata.Metrics) 
 	return &batch, consumererror.CombineErrors(errs)
 }
 
-func (e exporter) export(ctx context.Context, details *exportMetadata, buildBatch batchBuilder) (outputErr error) {
+func (e exporter) export(ctx context.Context, details *exportMetadata, buildDataPointMapEntry mapEntryBuilder) (outputErr error) {
 	startTime := time.Now()
 	insertKey := e.extractInsertKeyFromHeader(ctx)
 	defer func() {
@@ -237,17 +237,18 @@ func (e exporter) export(ctx context.Context, details *exportMetadata, buildBatc
 		}
 	}()
 
-	batch, batchErrors := buildBatch()
+	mapEntry, mapEntryErrors := buildDataPointMapEntry()
 
-	payloadEntries := []telemetry.PayloadEntry{batch}
+	// Currently we only include 1 map
+	mapEntries := []telemetry.MapEntry{mapEntry}
 
 	var options []telemetry.ClientOption
 	if insertKey != "" {
 		options = append(options, telemetry.WithInsertKey(insertKey))
 	}
-	req, err := e.requestFactory.BuildRequest(payloadEntries, options...)
+	req, err := e.requestFactory.BuildRequest([]telemetry.Batch{mapEntries}, options...)
 	if err != nil {
-		e.logger.Error("Failed to build batch", zap.Error(err))
+		e.logger.Error("Failed to build data point list (map entry)", zap.Error(err))
 		return err
 	}
 
@@ -255,7 +256,7 @@ func (e exporter) export(ctx context.Context, details *exportMetadata, buildBatc
 		return err
 	}
 
-	return batchErrors
+	return mapEntryErrors
 }
 
 func (e exporter) doRequest(details *exportMetadata, req *http.Request) error {
