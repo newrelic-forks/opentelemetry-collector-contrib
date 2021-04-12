@@ -25,6 +25,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/newrelic/newrelic-telemetry-sdk-go/telemetry"
+	"go.opentelemetry.io/collector/config"
 	"go.opentelemetry.io/collector/consumer/consumererror"
 	"go.opentelemetry.io/collector/consumer/pdata"
 	"go.uber.org/zap"
@@ -39,13 +40,42 @@ const (
 
 // exporter exports OpenTelemetry Collector data to New Relic.
 type exporter struct {
-	requestFactory telemetry.RequestFactory
-	apiKeyHeader   string
-	logger         *zap.Logger
+	deltaCalculator    *cumulative.DeltaCalculator
+	harvester          *telemetry.Harvester
+	spanRequestFactory telemetry.RequestFactory
+	apiKeyHeader       string
+	logger             *zap.Logger
 }
 
-type factoryBuilder func(options ...telemetry.ClientOption) (telemetry.RequestFactory, error)
-type batchBuilder func() (telemetry.PayloadEntry, error)
+func newMetricsExporter(l *zap.Logger, c config.Exporter) (*exporter, error) {
+	nrConfig, ok := c.(*Config)
+	if !ok {
+		return nil, fmt.Errorf("invalid config: %#v", c)
+	}
+
+	opts := []func(*telemetry.Config){
+		nrConfig.HarvestOption,
+		telemetry.ConfigBasicErrorLogger(logWriter{l.Error}),
+		telemetry.ConfigBasicDebugLogger(logWriter{l.Info}),
+		telemetry.ConfigBasicAuditLogger(logWriter{l.Debug}),
+	}
+
+	h, err := telemetry.NewHarvester(opts...)
+	if nil != err {
+		return nil, err
+	}
+
+	return &exporter{
+		deltaCalculator: cumulative.NewDeltaCalculator(),
+		harvester:       h,
+	}, nil
+}
+
+func newTraceExporter(l *zap.Logger, c config.Exporter) (*exporter, error) {
+	nrConfig, ok := c.(*Config)
+	if !ok {
+		return nil, fmt.Errorf("invalid config: %#v", c)
+	}
 
 func clientOptions(apiKey string, apiKeyHeader string, hostOverride string, insecure bool) []telemetry.ClientOption {
 	options := []telemetry.ClientOption{telemetry.WithUserAgent(product + "/" + version)}
@@ -288,5 +318,46 @@ func (e exporter) doRequest(details *exportMetadata, req *http.Request) error {
 
 		return &httpError{Response: response}
 	}
+
+	return consumererror.Combine(errs)
+
+}
+
+func (e exporter) pushMetricData(ctx context.Context, md pdata.Metrics) error {
+	var errs []error
+
+	ocmds := internaldata.MetricsToOC(md)
+	for _, ocmd := range ocmds {
+		var srv string
+		if ocmd.Node != nil && ocmd.Node.ServiceInfo != nil {
+			srv = ocmd.Node.ServiceInfo.Name
+		}
+
+		transform := &metricTransformer{
+			DeltaCalculator: e.deltaCalculator,
+			ServiceName:     srv,
+			Resource:        ocmd.Resource,
+		}
+
+		for _, metric := range ocmd.Metrics {
+			nrMetrics, err := transform.Metric(metric)
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			// TODO: optimize this, RecordMetric locks each call.
+			for _, m := range nrMetrics {
+				e.harvester.RecordMetric(m)
+			}
+		}
+	}
+
+	e.harvester.HarvestNow(ctx)
+
+	return consumererror.Combine(errs)
+}
+
+func (e exporter) Shutdown(ctx context.Context) error {
+	e.harvester.HarvestNow(ctx)
 	return nil
 }

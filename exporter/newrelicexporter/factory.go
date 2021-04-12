@@ -23,7 +23,7 @@ import (
 	"go.opencensus.io/stats/view"
 
 	"go.opentelemetry.io/collector/component"
-	"go.opentelemetry.io/collector/config/configmodels"
+	"go.opentelemetry.io/collector/config"
 	"go.opentelemetry.io/collector/exporter/exporterhelper"
 	"go.uber.org/zap"
 )
@@ -43,13 +43,10 @@ func NewFactory() component.ExporterFactory {
 	)
 }
 
-func createDefaultConfig() configmodels.Exporter {
+func createDefaultConfig() config.Exporter {
 	return &Config{
-		ExporterSettings: configmodels.ExporterSettings{
-			TypeVal: configmodels.Type(typeStr),
-			NameVal: typeStr,
-		},
-		Timeout: time.Second * 15,
+		ExporterSettings: config.NewExporterSettings(typeStr),
+		Timeout:          time.Second * 15,
 	}
 }
 
@@ -75,7 +72,7 @@ type endpointConfig struct {
 func createTraceExporter(
 	_ context.Context,
 	params component.ExporterCreateParams,
-	cfg configmodels.Exporter,
+	cfg config.Exporter,
 ) (component.TracesExporter, error) {
 	nrConfig, ok := cfg.(*Config)
 	if !ok {
@@ -105,7 +102,7 @@ func createTraceExporter(
 func createMetricsExporter(
 	_ context.Context,
 	params component.ExporterCreateParams,
-	cfg configmodels.Exporter,
+	cfg config.Exporter,
 ) (component.MetricsExporter, error) {
 	nrConfig, ok := cfg.(*Config)
 	if !ok {
