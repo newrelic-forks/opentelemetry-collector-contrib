@@ -16,16 +16,18 @@ package newrelicexporter
 
 import (
 	"context"
+	"errors"
 	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
 
+	"go.opentelemetry.io/collector/component"
+
 	"google.golang.org/grpc/status"
 
 	"github.com/newrelic/newrelic-telemetry-sdk-go/telemetry"
-	"go.opentelemetry.io/collector/config"
 	"go.opentelemetry.io/collector/consumer/consumererror"
 	"go.opentelemetry.io/collector/consumer/pdata"
 	"go.uber.org/zap"
@@ -33,52 +35,29 @@ import (
 )
 
 const (
-	name    = "opentelemetry-collector"
-	version = "0.0.0"
-	product = "NewRelic-Collector-OpenTelemetry"
+	product = "NewRelic-OpenTelemetry-Collector"
 )
 
 // exporter exports OpenTelemetry Collector data to New Relic.
 type exporter struct {
-	deltaCalculator    *cumulative.DeltaCalculator
-	harvester          *telemetry.Harvester
-	spanRequestFactory telemetry.RequestFactory
-	apiKeyHeader       string
-	logger             *zap.Logger
+	startInfo      *component.ApplicationStartInfo
+	requestFactory telemetry.RequestFactory
+	apiKeyHeader   string
+	logger         *zap.Logger
 }
 
-func newMetricsExporter(l *zap.Logger, c config.Exporter) (*exporter, error) {
-	nrConfig, ok := c.(*Config)
-	if !ok {
-		return nil, fmt.Errorf("invalid config: %#v", c)
+type factoryBuilder func(options ...telemetry.ClientOption) (telemetry.RequestFactory, error)
+type batchBuilder func() ([]telemetry.Batch, error)
+
+func clientOptions(info *component.ApplicationStartInfo, apiKey string, apiKeyHeader string, hostOverride string, insecure bool) []telemetry.ClientOption {
+	userAgent := product
+	if info.Version != "" {
+		userAgent += "/" + info.Version
+	} else if info.GitHash != "" {
+		userAgent += "/" + info.GitHash
 	}
-
-	opts := []func(*telemetry.Config){
-		nrConfig.HarvestOption,
-		telemetry.ConfigBasicErrorLogger(logWriter{l.Error}),
-		telemetry.ConfigBasicDebugLogger(logWriter{l.Info}),
-		telemetry.ConfigBasicAuditLogger(logWriter{l.Debug}),
-	}
-
-	h, err := telemetry.NewHarvester(opts...)
-	if nil != err {
-		return nil, err
-	}
-
-	return &exporter{
-		deltaCalculator: cumulative.NewDeltaCalculator(),
-		harvester:       h,
-	}, nil
-}
-
-func newTraceExporter(l *zap.Logger, c config.Exporter) (*exporter, error) {
-	nrConfig, ok := c.(*Config)
-	if !ok {
-		return nil, fmt.Errorf("invalid config: %#v", c)
-	}
-
-func clientOptions(apiKey string, apiKeyHeader string, hostOverride string, insecure bool) []telemetry.ClientOption {
-	options := []telemetry.ClientOption{telemetry.WithUserAgent(product + "/" + version)}
+	userAgent += " " + info.ExeName
+	options := []telemetry.ClientOption{telemetry.WithUserAgent(userAgent)}
 	if apiKey != "" {
 		options = append(options, telemetry.WithInsertKey(apiKey))
 	} else if apiKeyHeader != "" {
@@ -95,8 +74,9 @@ func clientOptions(apiKey string, apiKeyHeader string, hostOverride string, inse
 	return options
 }
 
-func newExporter(l *zap.Logger, nrConfig endpointConfig, createFactory factoryBuilder) (exporter, error) {
+func newExporter(l *zap.Logger, startInfo *component.ApplicationStartInfo, nrConfig EndpointConfig, createFactory factoryBuilder) (exporter, error) {
 	options := clientOptions(
+		startInfo,
 		nrConfig.APIKey,
 		nrConfig.APIKeyHeader,
 		nrConfig.HostOverride,
@@ -107,13 +87,14 @@ func newExporter(l *zap.Logger, nrConfig endpointConfig, createFactory factoryBu
 		return exporter{}, err
 	}
 	return exporter{
+		startInfo:      startInfo,
 		requestFactory: f,
 		apiKeyHeader:   strings.ToLower(nrConfig.APIKeyHeader),
 		logger:         l,
 	}, nil
 }
 
-func (e exporter) extractInsertKeyFromHeader(ctx context.Context) string {
+func (e exporter) extractAPIKeyFromHeader(ctx context.Context) string {
 	if e.apiKeyHeader == "" {
 		return ""
 	}
@@ -137,25 +118,28 @@ func (e exporter) extractInsertKeyFromHeader(ctx context.Context) string {
 func (e exporter) pushTraceData(ctx context.Context, td pdata.Traces) (outputErr error) {
 	details := newTraceMetadata(ctx)
 	details.dataInputCount = td.SpanCount()
-	builder := func() (telemetry.PayloadEntry, error) { return e.buildTracePayload(&details, td) }
+	builder := func() ([]telemetry.Batch, error) { return e.buildTraceBatch(&details, td) }
 	return e.export(ctx, &details, builder)
-
 }
 
-func (e exporter) buildTracePayload(details *exportMetadata, td pdata.Traces) (telemetry.PayloadEntry, error) {
-	var (
-		errs  []error
-		batch telemetry.SpanBatch
-	)
+func (e exporter) buildTraceBatch(details *exportMetadata, td pdata.Traces) ([]telemetry.Batch, error) {
+	var errs []error
 
-	batch.Spans = make([]telemetry.Span, 0, details.dataInputCount)
+	transform := newTransformer(e.startInfo, details)
+	batches := make([]telemetry.Batch, 0, calcSpanBatches(td))
 
 	for i := 0; i < td.ResourceSpans().Len(); i++ {
 		rspans := td.ResourceSpans().At(i)
-		resource := rspans.Resource()
 		for j := 0; j < rspans.InstrumentationLibrarySpans().Len(); j++ {
 			ispans := rspans.InstrumentationLibrarySpans().At(j)
-			transform := newTransformer(resource, ispans.InstrumentationLibrary())
+			commonAttributes := transform.CommonAttributes(rspans.Resource(), ispans.InstrumentationLibrary())
+			spanCommon, err := telemetry.NewSpanCommonBlock(telemetry.WithSpanAttributes(commonAttributes))
+			if err != nil {
+				e.logger.Error("Transform of span common attributes failed.", zap.Error(err))
+				errs = append(errs, err)
+				continue
+			}
+			spans := make([]telemetry.Span, 0, ispans.Spans().Len())
 			for k := 0; k < ispans.Spans().Len(); k++ {
 				span := ispans.Spans().At(k)
 				nrSpan, err := transform.Span(span)
@@ -166,39 +150,52 @@ func (e exporter) buildTracePayload(details *exportMetadata, td pdata.Traces) (t
 				}
 
 				details.dataOutputCount++
-				batch.Spans = append(batch.Spans, nrSpan)
+				spans = append(spans, nrSpan)
 			}
+			batches = append(batches, telemetry.Batch{spanCommon, telemetry.NewSpanGroup(spans)})
 		}
 	}
-	return &batch, consumererror.CombineErrors(errs)
+
+	return batches, consumererror.Combine(errs)
+}
+
+func calcSpanBatches(td pdata.Traces) int {
+	rss := td.ResourceSpans()
+	batchCount := 0
+	for i := 0; i < rss.Len(); i++ {
+		batchCount += rss.At(i).InstrumentationLibrarySpans().Len()
+	}
+	return batchCount
 }
 
 func (e exporter) pushLogData(ctx context.Context, ld pdata.Logs) (outputErr error) {
 	details := newLogMetadata(ctx)
 	details.dataInputCount = ld.LogRecordCount()
-	builder := func() (telemetry.PayloadEntry, error) { return e.buildLogPayload(&details, ld) }
+	builder := func() ([]telemetry.Batch, error) { return e.buildLogBatch(&details, ld) }
 	return e.export(ctx, &details, builder)
 }
 
-func (e exporter) buildLogPayload(details *exportMetadata, ld pdata.Logs) (telemetry.PayloadEntry, error) {
-	var (
-		errs  []error
-		batch telemetry.LogBatch
-	)
+func (e exporter) buildLogBatch(details *exportMetadata, ld pdata.Logs) ([]telemetry.Batch, error) {
+	var errs []error
 
-	batch.Logs = make([]telemetry.Log, 0, details.dataInputCount)
+	transform := newTransformer(e.startInfo, details)
+	batches := make([]telemetry.Batch, 0, calcLogBatches(ld))
 
 	for i := 0; i < ld.ResourceLogs().Len(); i++ {
-		resourceLogs := ld.ResourceLogs().At(i)
-		resource := resourceLogs.Resource()
-
-		for j := 0; j < resourceLogs.InstrumentationLibraryLogs().Len(); j++ {
-			instrumentationLibraryLogs := resourceLogs.InstrumentationLibraryLogs().At(j)
-
-			transformer := newTransformer(resource, instrumentationLibraryLogs.InstrumentationLibrary())
-			for k := 0; k < instrumentationLibraryLogs.Logs().Len(); k++ {
-				log := instrumentationLibraryLogs.Logs().At(k)
-				nrLog, err := transformer.Log(log)
+		rlogs := ld.ResourceLogs().At(i)
+		for j := 0; j < rlogs.InstrumentationLibraryLogs().Len(); j++ {
+			ilogs := rlogs.InstrumentationLibraryLogs().At(j)
+			commonAttributes := transform.CommonAttributes(rlogs.Resource(), ilogs.InstrumentationLibrary())
+			logCommon, err := telemetry.NewLogCommonBlock(telemetry.WithLogAttributes(commonAttributes))
+			if err != nil {
+				e.logger.Error("Transform of log common attributes failed.", zap.Error(err))
+				errs = append(errs, err)
+				continue
+			}
+			logs := make([]telemetry.Log, 0, ilogs.Logs().Len())
+			for k := 0; k < ilogs.Logs().Len(); k++ {
+				log := ilogs.Logs().At(k)
+				nrLog, err := transform.Log(log)
 				if err != nil {
 					e.logger.Error("Transform of log failed.", zap.Error(err))
 					errs = append(errs, err)
@@ -206,59 +203,106 @@ func (e exporter) buildLogPayload(details *exportMetadata, ld pdata.Logs) (telem
 				}
 
 				details.dataOutputCount++
-				batch.Logs = append(batch.Logs, nrLog)
+				logs = append(logs, nrLog)
 			}
+			batches = append(batches, telemetry.Batch{logCommon, telemetry.NewLogGroup(logs)})
 		}
 	}
 
-	return &batch, consumererror.CombineErrors(errs)
+	return batches, consumererror.Combine(errs)
+}
+
+func calcLogBatches(ld pdata.Logs) int {
+	rss := ld.ResourceLogs()
+	batchCount := 0
+	for i := 0; i < rss.Len(); i++ {
+		batchCount += rss.At(i).InstrumentationLibraryLogs().Len()
+	}
+	return batchCount
 }
 
 func (e exporter) pushMetricData(ctx context.Context, md pdata.Metrics) (outputErr error) {
 	details := newMetricMetadata(ctx)
 	_, details.dataInputCount = md.MetricAndDataPointCount()
-	builder := func() (telemetry.PayloadEntry, error) { return e.buildMetricPayload(&details, md) }
+	builder := func() ([]telemetry.Batch, error) { return e.buildMetricBatch(&details, md) }
 	return e.export(ctx, &details, builder)
 }
 
-func (e exporter) buildMetricPayload(details *exportMetadata, md pdata.Metrics) (telemetry.PayloadEntry, error) {
-	var (
-		errs  []error
-		batch telemetry.MetricBatch
-	)
+func (e exporter) buildMetricBatch(details *exportMetadata, md pdata.Metrics) ([]telemetry.Batch, error) {
+	var errs []error
 
-	batch.Metrics = make([]telemetry.Metric, 0, details.dataInputCount)
+	transform := newTransformer(e.startInfo, details)
+	batches := make([]telemetry.Batch, 0, calcMetricBatches(md))
 
-	rms := md.ResourceMetrics()
-	for i := 0; i < rms.Len(); i++ {
-		rm := rms.At(i)
-		ilms := rm.InstrumentationLibraryMetrics()
-		for j := 0; j < ilms.Len(); j++ {
-			ilm := ilms.At(j)
-			ms := ilm.Metrics()
-			transform := newTransformer(rm.Resource(), ilm.InstrumentationLibrary())
-			for k := 0; k < ms.Len(); k++ {
-				m := ms.At(k)
-				nrMetrics, err := transform.Metric(m)
+	for i := 0; i < md.ResourceMetrics().Len(); i++ {
+		rmetrics := md.ResourceMetrics().At(i)
+		for j := 0; j < rmetrics.InstrumentationLibraryMetrics().Len(); j++ {
+			imetrics := rmetrics.InstrumentationLibraryMetrics().At(j)
+			commonAttributes := transform.CommonAttributes(rmetrics.Resource(), imetrics.InstrumentationLibrary())
+			metricCommon, err := telemetry.NewMetricCommonBlock(telemetry.WithMetricAttributes(commonAttributes))
+			if err != nil {
+				e.logger.Error("Transform of metric common attributes failed.", zap.Error(err))
+				errs = append(errs, err)
+				continue
+			}
+			metricSlices := make([][]telemetry.Metric, 0, imetrics.Metrics().Len())
+			for k := 0; k < imetrics.Metrics().Len(); k++ {
+				metric := imetrics.Metrics().At(k)
+				nrMetrics, err := transform.Metric(metric)
 				if err != nil {
+					{
+						var unsupportedErr *errUnsupportedMetricType
+						if ok := errors.As(err, &unsupportedErr); ok {
+							// Treat invalid metrics as a success
+							details.dataOutputCount += unsupportedErr.numDataPoints
+						}
+					}
 					e.logger.Debug("Transform of metric failed.", zap.Error(err))
 					errs = append(errs, err)
 					continue
 				}
 				details.dataOutputCount += len(nrMetrics)
-				batch.Metrics = append(batch.Metrics, nrMetrics...)
+				metricSlices = append(metricSlices, nrMetrics)
 			}
+			metrics := combineMetricSlices(metricSlices)
+			batches = append(batches, telemetry.Batch{metricCommon, telemetry.NewMetricGroup(metrics)})
 		}
 	}
 
-	return &batch, consumererror.CombineErrors(errs)
+	return batches, consumererror.Combine(errs)
 }
 
-func (e exporter) export(ctx context.Context, details *exportMetadata, buildBatch batchBuilder) (outputErr error) {
+func calcMetricBatches(md pdata.Metrics) int {
+	rss := md.ResourceMetrics()
+	batchCount := 0
+	for i := 0; i < rss.Len(); i++ {
+		batchCount += rss.At(i).InstrumentationLibraryMetrics().Len()
+	}
+	return batchCount
+}
+
+func combineMetricSlices(groups [][]telemetry.Metric) []telemetry.Metric {
+	var totalLen int
+	for _, group := range groups {
+		totalLen += len(group)
+	}
+	metrics := make([]telemetry.Metric, totalLen)
+	var i int
+	for _, group := range groups {
+		i += copy(metrics[i:], group)
+	}
+	return metrics
+}
+
+func (e exporter) export(
+	ctx context.Context,
+	details *exportMetadata,
+	buildBatches batchBuilder,
+) (outputErr error) {
 	startTime := time.Now()
-	insertKey := e.extractInsertKeyFromHeader(ctx)
+	apiKey := e.extractAPIKeyFromHeader(ctx)
 	defer func() {
-		details.apiKey = sanitizeAPIKeyForLogging(insertKey)
+		details.apiKey = sanitizeAPIKeyForLogging(apiKey)
 		details.exporterTime = time.Since(startTime)
 		details.grpcResponseCode = status.Code(outputErr)
 		err := details.recordMetrics(ctx)
@@ -267,17 +311,19 @@ func (e exporter) export(ctx context.Context, details *exportMetadata, buildBatc
 		}
 	}()
 
-	batch, batchErrors := buildBatch()
-
-	payloadEntries := []telemetry.PayloadEntry{batch}
+	batches, mapEntryErrors := buildBatches()
 
 	var options []telemetry.ClientOption
-	if insertKey != "" {
-		options = append(options, telemetry.WithInsertKey(insertKey))
+	if apiKey != "" {
+		if strings.HasPrefix(apiKey, "NRII-") {
+			options = append(options, telemetry.WithInsertKey(apiKey))
+		} else {
+			options = append(options, telemetry.WithLicenseKey(apiKey))
+		}
 	}
-	req, err := e.requestFactory.BuildRequest(payloadEntries, options...)
+	req, err := e.requestFactory.BuildRequest(batches, options...)
 	if err != nil {
-		e.logger.Error("Failed to build batch", zap.Error(err))
+		e.logger.Error("Failed to build data map", zap.Error(err))
 		return err
 	}
 
@@ -285,7 +331,7 @@ func (e exporter) export(ctx context.Context, details *exportMetadata, buildBatc
 		return err
 	}
 
-	return batchErrors
+	return mapEntryErrors
 }
 
 func (e exporter) doRequest(details *exportMetadata, req *http.Request) error {
@@ -318,46 +364,5 @@ func (e exporter) doRequest(details *exportMetadata, req *http.Request) error {
 
 		return &httpError{Response: response}
 	}
-
-	return consumererror.Combine(errs)
-
-}
-
-func (e exporter) pushMetricData(ctx context.Context, md pdata.Metrics) error {
-	var errs []error
-
-	ocmds := internaldata.MetricsToOC(md)
-	for _, ocmd := range ocmds {
-		var srv string
-		if ocmd.Node != nil && ocmd.Node.ServiceInfo != nil {
-			srv = ocmd.Node.ServiceInfo.Name
-		}
-
-		transform := &metricTransformer{
-			DeltaCalculator: e.deltaCalculator,
-			ServiceName:     srv,
-			Resource:        ocmd.Resource,
-		}
-
-		for _, metric := range ocmd.Metrics {
-			nrMetrics, err := transform.Metric(metric)
-			if err != nil {
-				errs = append(errs, err)
-				continue
-			}
-			// TODO: optimize this, RecordMetric locks each call.
-			for _, m := range nrMetrics {
-				e.harvester.RecordMetric(m)
-			}
-		}
-	}
-
-	e.harvester.HarvestNow(ctx)
-
-	return consumererror.Combine(errs)
-}
-
-func (e exporter) Shutdown(ctx context.Context) error {
-	e.harvester.HarvestNow(ctx)
 	return nil
 }

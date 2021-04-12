@@ -15,9 +15,12 @@
 package newrelicexporter
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
+
+	"go.opentelemetry.io/collector/component"
 
 	tracepb "github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1"
 	"github.com/newrelic/newrelic-telemetry-sdk-go/telemetry"
@@ -27,42 +30,105 @@ import (
 	"go.opentelemetry.io/collector/translator/internaldata"
 )
 
-func TestNewTraceTransformerInstrumentation(t *testing.T) {
+func TestCommonAttributes(t *testing.T) {
+	startInfo := &component.ApplicationStartInfo{
+		ExeName: "the-collector",
+		Version: "0.0.1",
+	}
+
+	resource := pdata.NewResource()
+	resource.Attributes().InsertString("resource", "R1")
+
 	ilm := pdata.NewInstrumentationLibrary()
 	ilm.SetName("test name")
 	ilm.SetVersion("test version")
 
-	transform := newTransformer(pdata.NewResource(), ilm)
-	require.Contains(t, transform.ResourceAttributes, instrumentationNameKey)
-	require.Contains(t, transform.ResourceAttributes, instrumentationVersionKey)
-	assert.Equal(t, transform.ResourceAttributes[instrumentationNameKey], "test name")
-	assert.Equal(t, transform.ResourceAttributes[instrumentationVersionKey], "test version")
+	commonAttrs := newTransformer(startInfo, nil).CommonAttributes(resource, ilm)
+	assert.Equal(t, "the-collector", commonAttrs[collectorNameKey])
+	assert.Equal(t, "0.0.1", commonAttrs[collectorVersionKey])
+	assert.Equal(t, "R1", commonAttrs["resource"])
+	assert.Equal(t, "test name", commonAttrs[instrumentationNameKey])
+	assert.Equal(t, "test version", commonAttrs[instrumentationVersionKey])
 }
 
-func defaultAttrFunc(res map[string]interface{}) func(map[string]interface{}) map[string]interface{} {
-	return func(add map[string]interface{}) map[string]interface{} {
-		full := make(map[string]interface{}, 2+len(res)+len(add))
-		full[collectorNameKey] = name
-		full[collectorVersionKey] = version
-		full[instrumentationProviderAttrKey] = "opentelemetry"
-		for k, v := range res {
-			full[k] = v
-		}
-		for k, v := range add {
-			full[k] = v
-		}
-		return full
+func TestCaptureSpanMetadata(t *testing.T) {
+	details := newTraceMetadata(context.TODO())
+	transform := newTransformer(nil, &details)
+
+	tests := []struct {
+		name     string
+		err      error
+		spanFunc func() pdata.Span
+		wantKey  spanStatsKey
+	}{
+		{
+			name: "no events or links",
+			spanFunc: func() pdata.Span {
+				s := pdata.NewSpan()
+				s.SetSpanID(pdata.NewSpanID([...]byte{0, 0, 0, 0, 0, 0, 0, 1}))
+				s.SetName("no events or links")
+				return s
+			},
+			err:     errInvalidTraceID,
+			wantKey: spanStatsKey{hasEvents: false, hasLinks: false},
+		},
+		{
+			name: "has events but no links",
+			spanFunc: func() pdata.Span {
+				s := pdata.NewSpan()
+				s.SetTraceID(pdata.NewTraceID([...]byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}))
+				s.SetName("invalid SpanID")
+				s.Events().Append(pdata.NewSpanEvent())
+				return s
+			},
+			err:     errInvalidSpanID,
+			wantKey: spanStatsKey{hasEvents: true, hasLinks: false},
+		},
+		{
+			name: "no events but has links",
+			spanFunc: func() pdata.Span {
+				s := pdata.NewSpan()
+				s.SetTraceID(pdata.NewTraceID([...]byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}))
+				s.SetSpanID(pdata.NewSpanID([...]byte{0, 0, 0, 0, 0, 0, 0, 1}))
+				s.SetName("no events but has links")
+				s.Links().Append(pdata.NewSpanLink())
+				return s
+			},
+			wantKey: spanStatsKey{hasEvents: false, hasLinks: true},
+		},
+		{
+			name: "has events and links",
+			spanFunc: func() pdata.Span {
+				s := pdata.NewSpan()
+				s.SetTraceID(pdata.NewTraceID([...]byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}))
+				s.SetSpanID(pdata.NewSpanID([...]byte{0, 0, 0, 0, 0, 0, 0, 2}))
+				s.SetParentSpanID(pdata.NewSpanID([...]byte{0, 0, 0, 0, 0, 0, 0, 1}))
+				s.SetName("has events and links")
+				s.Events().Append(pdata.NewSpanEvent())
+				s.Links().Append(pdata.NewSpanLink())
+				return s
+			},
+			wantKey: spanStatsKey{hasEvents: true, hasLinks: true},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := transform.Span(test.spanFunc())
+			if test.err != nil {
+				assert.True(t, errors.Is(err, test.err))
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Equal(t, 1, details.spanMetadataCount[test.wantKey])
+		})
 	}
 }
 
 func TestTransformSpan(t *testing.T) {
 	now := time.Unix(100, 0)
-	rattr := map[string]interface{}{
-		"service.name": "test-service",
-		"resource":     "R1",
-	}
-	transform := &transformer{ResourceAttributes: rattr}
-	withDefaults := defaultAttrFunc(rattr)
+	details := newTraceMetadata(context.TODO())
+	transform := newTransformer(nil, &details)
 
 	tests := []struct {
 		name     string
@@ -83,7 +149,7 @@ func TestTransformSpan(t *testing.T) {
 				ID:         "0000000000000001",
 				Name:       "invalid TraceID",
 				Timestamp:  time.Unix(0, 0).UTC(),
-				Attributes: withDefaults(nil),
+				Attributes: map[string]interface{}{},
 			},
 		},
 		{
@@ -99,7 +165,7 @@ func TestTransformSpan(t *testing.T) {
 				TraceID:    "01010101010101010101010101010101",
 				Name:       "invalid SpanID",
 				Timestamp:  time.Unix(0, 0).UTC(),
-				Attributes: withDefaults(nil),
+				Attributes: map[string]interface{}{},
 			},
 		},
 		{
@@ -116,7 +182,7 @@ func TestTransformSpan(t *testing.T) {
 				TraceID:    "01010101010101010101010101010101",
 				Name:       "root",
 				Timestamp:  time.Unix(0, 0).UTC(),
-				Attributes: withDefaults(nil),
+				Attributes: map[string]interface{}{},
 				Events:     nil,
 			},
 		},
@@ -136,7 +202,7 @@ func TestTransformSpan(t *testing.T) {
 				Name:       "client",
 				ParentID:   "0000000000000001",
 				Timestamp:  time.Unix(0, 0).UTC(),
-				Attributes: withDefaults(nil),
+				Attributes: map[string]interface{}{},
 				Events:     nil,
 			},
 		},
@@ -159,9 +225,9 @@ func TestTransformSpan(t *testing.T) {
 				TraceID:   "01010101010101010101010101010101",
 				Name:      "error code",
 				Timestamp: time.Unix(0, 0).UTC(),
-				Attributes: withDefaults(map[string]interface{}{
+				Attributes: map[string]interface{}{
 					statusCodeKey: "ERROR",
-				}),
+				},
 				Events: nil,
 			},
 		},
@@ -184,17 +250,17 @@ func TestTransformSpan(t *testing.T) {
 				TraceID:   "01010101010101010101010101010101",
 				Name:      "error message",
 				Timestamp: time.Unix(0, 0).UTC(),
-				Attributes: withDefaults(map[string]interface{}{
+				Attributes: map[string]interface{}{
 					statusCodeKey:        "ERROR",
 					statusDescriptionKey: "error message",
-				}),
+				},
 				Events: nil,
 			},
 		},
 		{
 			name: "attributes",
 			spanFunc: func() pdata.Span {
-				// There is no setter method for Attributes so convert instead.
+				// There is no setter method for attributes so convert instead.
 				return internaldata.OCToTraces(
 					nil, nil, []*tracepb.Span{
 						{
@@ -234,12 +300,12 @@ func TestTransformSpan(t *testing.T) {
 				TraceID:   "01010101010101010101010101010101",
 				Name:      "attrs",
 				Timestamp: time.Unix(0, 0).UTC(),
-				Attributes: withDefaults(map[string]interface{}{
+				Attributes: map[string]interface{}{
 					"prod":   true,
 					"weight": int64(10),
 					"score":  99.8,
 					"user":   "alice",
-				}),
+				},
 				Events: nil,
 			},
 		},
@@ -260,7 +326,7 @@ func TestTransformSpan(t *testing.T) {
 				Name:       "with time",
 				Timestamp:  now.UTC(),
 				Duration:   time.Second * 5,
-				Attributes: withDefaults(nil),
+				Attributes: map[string]interface{}{},
 				Events:     nil,
 			},
 		},
@@ -279,9 +345,9 @@ func TestTransformSpan(t *testing.T) {
 				TraceID:   "01010101010101010101010101010101",
 				Name:      "span kind server",
 				Timestamp: time.Unix(0, 0).UTC(),
-				Attributes: withDefaults(map[string]interface{}{
+				Attributes: map[string]interface{}{
 					spanKindKey: "server",
-				}),
+				},
 				Events: nil,
 			},
 		},
@@ -306,7 +372,7 @@ func TestTransformSpan(t *testing.T) {
 				TraceID:    "01010101010101010101010101010101",
 				Name:       "with events",
 				Timestamp:  time.Unix(0, 0).UTC(),
-				Attributes: withDefaults(nil),
+				Attributes: map[string]interface{}{},
 				Events: []telemetry.Event{
 					{
 						EventType:  "this is the event name",
@@ -332,15 +398,36 @@ func TestTransformSpan(t *testing.T) {
 }
 
 func testTransformMetric(t *testing.T, metric pdata.Metric, want []telemetry.Metric) {
-	transform := &transformer{
-		ResourceAttributes: map[string]interface{}{
-			"resource":     "R1",
-			"service.name": "test-service",
-		},
-	}
+	details := newMetricMetadata(context.Background())
+	transform := newTransformer(&component.ApplicationStartInfo{
+		ExeName: testCollectorName,
+		Version: testCollectorVersion,
+	}, &details)
 	got, err := transform.Metric(metric)
 	require.NoError(t, err)
 	assert.Equal(t, want, got)
+
+	assert.Equal(t, len(details.metricMetadataCount), 1)
+	for k, v := range details.metricMetadataCount {
+		assert.Equal(t, metric.DataType(), k.MetricType)
+		assert.Equal(t, 1, v)
+	}
+}
+
+func testTransformMetricWithError(t *testing.T, metric pdata.Metric, expectedErrorType interface{}) {
+	details := newMetricMetadata(context.Background())
+	transform := newTransformer(&component.ApplicationStartInfo{
+		ExeName: testCollectorName,
+		Version: testCollectorVersion,
+	}, &details)
+	_, err := transform.Metric(metric)
+	assert.IsType(t, expectedErrorType, err)
+
+	assert.Equal(t, len(details.metricMetadataCount), 1)
+	for k, v := range details.metricMetadataCount {
+		assert.Equal(t, metric.DataType(), k.MetricType)
+		assert.Equal(t, 1, v)
+	}
 }
 
 func TestTransformGauge(t *testing.T) {
@@ -351,16 +438,11 @@ func TestTransformGauge(t *testing.T) {
 			Value:     42.0,
 			Timestamp: ts.AsTime(),
 			Attributes: map[string]interface{}{
-				collectorNameKey:    name,
-				collectorVersionKey: version,
-				"resource":          "R1",
-				"service.name":      "test-service",
-				"unit":              "1",
-				"description":       "description",
+				"unit":        "1",
+				"description": "description",
 			},
 		},
 	}
-
 	{
 		m := pdata.NewMetric()
 		m.SetName("gauge")
@@ -392,12 +474,6 @@ func TestTransformGauge(t *testing.T) {
 func TestTransformSum(t *testing.T) {
 	start := pdata.TimestampFromTime(time.Unix(1, 0))
 	end := pdata.TimestampFromTime(time.Unix(3, 0))
-	transform := &transformer{
-		ResourceAttributes: map[string]interface{}{
-			"resource":     "R1",
-			"service.name": "test-service",
-		},
-	}
 
 	expected := []telemetry.Metric{
 		telemetry.Count{
@@ -406,12 +482,8 @@ func TestTransformSum(t *testing.T) {
 			Timestamp: start.AsTime(),
 			Interval:  time.Second * 2,
 			Attributes: map[string]interface{}{
-				collectorNameKey:    name,
-				collectorVersionKey: version,
-				"resource":          "R1",
-				"service.name":      "test-service",
-				"unit":              "1",
-				"description":       "description",
+				"unit":        "1",
+				"description": "description",
 			},
 		},
 	}
@@ -425,7 +497,7 @@ func TestTransformSum(t *testing.T) {
 		d := m.DoubleSum()
 		d.SetAggregationTemporality(pdata.AggregationTemporalityDelta)
 		dp := pdata.NewDoubleDataPoint()
-		dp.SetStartTime(start)
+		dp.SetStartTimestamp(start)
 		dp.SetTimestamp(end)
 		dp.SetValue(42.0)
 		d.DataPoints().Append(dp)
@@ -440,14 +512,11 @@ func TestTransformSum(t *testing.T) {
 		d := m.DoubleSum()
 		d.SetAggregationTemporality(pdata.AggregationTemporalityCumulative)
 		dp := pdata.NewDoubleDataPoint()
-		dp.SetStartTime(start)
+		dp.SetStartTimestamp(start)
 		dp.SetTimestamp(end)
 		dp.SetValue(42.0)
 		d.DataPoints().Append(dp)
-		t.Run("DoubleSum-Cumulative", func(t *testing.T) {
-			_, err := transform.Metric(m)
-			assert.True(t, errors.Is(err, errUnsupportedMetricType))
-		})
+		t.Run("DoubleSum-Cumulative", func(t *testing.T) { testTransformMetricWithError(t, m, &errUnsupportedMetricType{}) })
 	}
 	{
 		m := pdata.NewMetric()
@@ -458,7 +527,7 @@ func TestTransformSum(t *testing.T) {
 		d := m.IntSum()
 		d.SetAggregationTemporality(pdata.AggregationTemporalityDelta)
 		dp := pdata.NewIntDataPoint()
-		dp.SetStartTime(start)
+		dp.SetStartTimestamp(start)
 		dp.SetTimestamp(end)
 		dp.SetValue(42.0)
 		d.DataPoints().Append(dp)
@@ -473,14 +542,11 @@ func TestTransformSum(t *testing.T) {
 		d := m.IntSum()
 		d.SetAggregationTemporality(pdata.AggregationTemporalityCumulative)
 		dp := pdata.NewIntDataPoint()
-		dp.SetStartTime(start)
+		dp.SetStartTimestamp(start)
 		dp.SetTimestamp(end)
 		dp.SetValue(42.0)
 		d.DataPoints().Append(dp)
-		t.Run("IntSum-Cumulative", func(t *testing.T) {
-			_, err := transform.Metric(m)
-			assert.True(t, errors.Is(err, errUnsupportedMetricType))
-		})
+		t.Run("IntSum-Cumulative", func(t *testing.T) { testTransformMetricWithError(t, m, &errUnsupportedMetricType{}) })
 	}
 }
 
@@ -498,13 +564,9 @@ func TestTransformDeltaSummary(t *testing.T) {
 			Timestamp: time.Unix(1, 0).UTC(),
 			Interval:  2 * time.Second,
 			Attributes: map[string]interface{}{
-				collectorNameKey:    name,
-				collectorVersionKey: version,
-				"resource":          "R1",
-				"description":       "description",
-				"service.name":      "test-service",
-				"unit":              "s",
-				"foo":               "bar",
+				"description": "description",
+				"unit":        "s",
+				"foo":         "bar",
 			},
 		},
 	}
@@ -513,10 +575,10 @@ func TestTransformDeltaSummary(t *testing.T) {
 	m.SetName("summary")
 	m.SetDescription("description")
 	m.SetUnit("s")
-	m.SetDataType(pdata.MetricDataTypeDoubleSummary)
-	ds := m.DoubleSummary()
-	dp := pdata.NewDoubleSummaryDataPoint()
-	dp.SetStartTime(start)
+	m.SetDataType(pdata.MetricDataTypeSummary)
+	ds := m.Summary()
+	dp := pdata.NewSummaryDataPoint()
+	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(end)
 	dp.SetSum(7)
 	dp.SetCount(2)
@@ -538,12 +600,6 @@ func TestTransformDeltaSummary(t *testing.T) {
 func TestUnsupportedMetricTypes(t *testing.T) {
 	start := pdata.TimestampFromTime(time.Unix(1, 0))
 	end := pdata.TimestampFromTime(time.Unix(3, 0))
-	transform := &transformer{
-		ResourceAttributes: map[string]interface{}{
-			"resource":     "R1",
-			"service.name": "test-service",
-		},
-	}
 
 	{
 		m := pdata.NewMetric()
@@ -553,7 +609,7 @@ func TestUnsupportedMetricTypes(t *testing.T) {
 		m.SetDataType(pdata.MetricDataTypeIntHistogram)
 		h := m.IntHistogram()
 		dp := pdata.NewIntHistogramDataPoint()
-		dp.SetStartTime(start)
+		dp.SetStartTimestamp(start)
 		dp.SetTimestamp(end)
 		dp.SetCount(2)
 		dp.SetSum(8)
@@ -562,20 +618,17 @@ func TestUnsupportedMetricTypes(t *testing.T) {
 		h.SetAggregationTemporality(pdata.AggregationTemporalityDelta)
 		h.DataPoints().Append(dp)
 
-		t.Run("IntHistogram", func(t *testing.T) {
-			_, err := transform.Metric(m)
-			assert.True(t, errors.Is(err, errUnsupportedMetricType))
-		})
+		t.Run("IntHistogram", func(t *testing.T) { testTransformMetricWithError(t, m, &errUnsupportedMetricType{}) })
 	}
 	{
 		m := pdata.NewMetric()
 		m.SetName("no")
 		m.SetDescription("no")
 		m.SetUnit("1")
-		m.SetDataType(pdata.MetricDataTypeDoubleHistogram)
-		h := m.DoubleHistogram()
-		dp := pdata.NewDoubleHistogramDataPoint()
-		dp.SetStartTime(start)
+		m.SetDataType(pdata.MetricDataTypeHistogram)
+		h := m.Histogram()
+		dp := pdata.NewHistogramDataPoint()
+		dp.SetStartTimestamp(start)
 		dp.SetTimestamp(end)
 		dp.SetCount(2)
 		dp.SetSum(8.0)
@@ -584,81 +637,18 @@ func TestUnsupportedMetricTypes(t *testing.T) {
 		h.SetAggregationTemporality(pdata.AggregationTemporalityDelta)
 		h.DataPoints().Append(dp)
 
-		t.Run("DoubleHistogram", func(t *testing.T) {
-			_, err := transform.Metric(m)
-			assert.True(t, errors.Is(err, errUnsupportedMetricType))
-		})
+		t.Run("DoubleHistogram", func(t *testing.T) { testTransformMetricWithError(t, m, &errUnsupportedMetricType{}) })
 	}
 }
 
-func TestLogTransformer_Log(t *testing.T) {
-	emptyResource := pdata.NewResource()
-	emptyInstrumentationLibrary := pdata.NewInstrumentationLibrary()
-
-	attributeResource := pdata.NewResource()
-	attributeResource.Attributes().InitFromMap(map[string]pdata.AttributeValue{
-		"str":    pdata.NewAttributeValueString("str"),
-		"bool":   pdata.NewAttributeValueBool(true),
-		"double": pdata.NewAttributeValueDouble(8.2),
-		"int":    pdata.NewAttributeValueInt(42),
-		"map":    pdata.NewAttributeValueMap(),
-		"array":  pdata.NewAttributeValueArray(),
-		"null":   pdata.NewAttributeValueNull(),
-	})
-	withResourceAttributes := func(attributes map[string]interface{}) map[string]interface{} {
-		expectedResourceAttributes := map[string]interface{}{
-			"str":    "str",
-			"bool":   true,
-			"double": 8.2,
-			"int":    int64(42),
-			"map":    map[string]interface{}{},
-			"array":  []interface{}{},
-			"null":   nil,
-		}
-		for k, v := range attributes {
-			expectedResourceAttributes[k] = v
-		}
-		return expectedResourceAttributes
-	}
-
-	namedInstrumentationLibrary := pdata.NewInstrumentationLibrary()
-	namedInstrumentationLibrary.SetName("bleepbloop")
-
-	versionedInstrumentationLibrary := pdata.NewInstrumentationLibrary()
-	versionedInstrumentationLibrary.SetName("bleepbloop")
-	versionedInstrumentationLibrary.SetVersion("1.2.3")
-
-	withNamedLibraryAttributes := func(attributes map[string]interface{}) map[string]interface{} {
-		expected := map[string]interface{}{
-			"instrumentation.name": "bleepbloop",
-		}
-		for k, v := range attributes {
-			expected[k] = v
-		}
-		return expected
-	}
-	withVersionedLibraryAttributes := func(attributes map[string]interface{}) map[string]interface{} {
-		expected := map[string]interface{}{
-			"instrumentation.name":    "bleepbloop",
-			"instrumentation.version": "1.2.3",
-		}
-		for k, v := range attributes {
-			expected[k] = v
-		}
-		return expected
-	}
-
+func TestTransformer_Log(t *testing.T) {
 	tests := []struct {
-		Resource               pdata.Resource
-		InstrumentationLibrary pdata.InstrumentationLibrary
-		name                   string
-		logFunc                func() pdata.LogRecord
-		want                   telemetry.Log
+		name    string
+		logFunc func() pdata.LogRecord
+		want    telemetry.Log
 	}{
 		{
-			Resource:               emptyResource,
-			InstrumentationLibrary: emptyInstrumentationLibrary,
-			name:                   "Basic Conversion",
+			name: "Basic Conversion",
 			logFunc: func() pdata.LogRecord {
 				log := pdata.NewLogRecord()
 				timestamp := pdata.TimestampFromTime(time.Unix(0, 0).UTC())
@@ -672,51 +662,7 @@ func TestLogTransformer_Log(t *testing.T) {
 			},
 		},
 		{
-			Resource:               attributeResource,
-			InstrumentationLibrary: emptyInstrumentationLibrary,
-			name:                   "Resource Attributes",
-			logFunc: func() pdata.LogRecord {
-				log := pdata.NewLogRecord()
-				timestamp := pdata.TimestampFromTime(time.Unix(0, 0).UTC())
-				log.SetTimestamp(timestamp)
-				return log
-			},
-			want: telemetry.Log{
-				Message:    "",
-				Timestamp:  time.Unix(0, 0).UTC(),
-				Attributes: withResourceAttributes(map[string]interface{}{"name": ""}),
-			},
-		},
-		{
-			Resource:               emptyResource,
-			InstrumentationLibrary: namedInstrumentationLibrary,
-			name:                   "Named Library",
-			logFunc: func() pdata.LogRecord {
-				return pdata.NewLogRecord()
-			},
-			want: telemetry.Log{
-				Message:    "",
-				Timestamp:  time.Unix(0, 0).UTC(),
-				Attributes: withNamedLibraryAttributes(map[string]interface{}{"name": ""}),
-			},
-		},
-		{
-			Resource:               emptyResource,
-			InstrumentationLibrary: versionedInstrumentationLibrary,
-			name:                   "Versioned Library",
-			logFunc: func() pdata.LogRecord {
-				return pdata.NewLogRecord()
-			},
-			want: telemetry.Log{
-				Message:    "",
-				Timestamp:  time.Unix(0, 0).UTC(),
-				Attributes: withVersionedLibraryAttributes(map[string]interface{}{"name": ""}),
-			},
-		},
-		{
-			Resource:               emptyResource,
-			InstrumentationLibrary: emptyInstrumentationLibrary,
-			name:                   "With Log Attributes",
+			name: "With Log attributes",
 			logFunc: func() pdata.LogRecord {
 				log := pdata.NewLogRecord()
 				log.SetName("bloopbleep")
@@ -730,10 +676,38 @@ func TestLogTransformer_Log(t *testing.T) {
 				Attributes: map[string]interface{}{"foo": "bar", "name": "bloopbleep"},
 			},
 		},
+		{
+			name: "With severity number",
+			logFunc: func() pdata.LogRecord {
+				log := pdata.NewLogRecord()
+				log.SetName("bloopbleep")
+				log.SetSeverityNumber(pdata.SeverityNumberWARN)
+				return log
+			},
+			want: telemetry.Log{
+				Message:    "bloopbleep",
+				Timestamp:  time.Unix(0, 0).UTC(),
+				Attributes: map[string]interface{}{"name": "bloopbleep", "log.levelNum": int32(13)},
+			},
+		},
+		{
+			name: "With severity text",
+			logFunc: func() pdata.LogRecord {
+				log := pdata.NewLogRecord()
+				log.SetName("bloopbleep")
+				log.SetSeverityText("SEVERE")
+				return log
+			},
+			want: telemetry.Log{
+				Message:    "bloopbleep",
+				Timestamp:  time.Unix(0, 0).UTC(),
+				Attributes: map[string]interface{}{"name": "bloopbleep", "log.level": "SEVERE"},
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			transform := newTransformer(test.Resource, test.InstrumentationLibrary)
+			transform := newTransformer(nil, nil)
 			got, _ := transform.Log(test.logFunc())
 			assert.EqualValues(t, test.want, got)
 		})
