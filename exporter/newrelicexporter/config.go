@@ -17,44 +17,76 @@ package newrelicexporter
 import (
 	"time"
 
-	"github.com/newrelic/newrelic-telemetry-sdk-go/telemetry"
 	"go.opentelemetry.io/collector/config"
 )
 
-// Config defines configuration options for the New Relic exporter.
-type Config struct {
-	*config.ExporterSettings `mapstructure:"-"`
-
+// EndpointConfig defines configuration for a single endpoint in the New Relic exporter.
+type EndpointConfig struct {
 	// APIKey is the required authentication credentials for New Relic APIs. This field specifies the default key.
 	APIKey string `mapstructure:"apikey"`
 
 	// APIKeyHeader may be specified to instruct the exporter to extract the API key from the request context.
 	APIKeyHeader string `mapstructure:"api_key_header"`
 
+	// HostOverride overrides the endpoint.
+	HostOverride string `mapstructure:"host_override"`
+
 	// Timeout is the total amount of time spent attempting a request,
 	// including retries, before abandoning and dropping data. Default is 15
 	// seconds.
 	Timeout time.Duration `mapstructure:"timeout"`
 
-	// CommonAttributes are the attributes to be applied to all telemetry
-	// sent to New Relic.
-	CommonAttributes map[string]interface{} `mapstructure:"common_attributes"`
+	// Insecure disables TLS on the endpoint.
+	insecure bool
+}
 
-	// MetricsHostOverride overrides the metrics endpoint.
-	MetricsHostOverride string `mapstructure:"metrics_host_override"`
+// Config defines configuration options for the New Relic exporter.
+type Config struct {
+	*config.ExporterSettings `mapstructure:"-"`
 
-	// SpansHostOverride overrides the spans endpoint.
-	SpansHostOverride string `mapstructure:"spans_host_override"`
+	// CommonConfig stores the base configuration for each endpoint.
+	CommonConfig EndpointConfig `mapstructure:",squash"`
 
-	// LogsHostOverride overrides the logs endpoint.
-	LogsHostOverride string `mapstructure:"logs_host_override"`
+	// TracesConfig stores the configuration for the traces endpoint.
+	TracesConfig EndpointConfig `mapstructure:"traces"`
 
-	// metricsInsecure disables TLS on the metrics endpoint.
-	metricsInsecure bool
+	// MetricsConfig stores the configuration for the metrics endpoint.
+	MetricsConfig EndpointConfig `mapstructure:"metrics"`
 
-	// spansInsecure disables TLS on the spans endpoint.
-	spansInsecure bool
+	// LogsConfig stores the configuration for the logs endpoint.
+	LogsConfig EndpointConfig `mapstructure:"logs"`
+}
 
-	// logsInsecure disables TLS on the logs endpoint.
-	logsInsecure bool
+// GetTracesConfig merges the common configuration section with the traces specific section.
+func (c Config) GetTracesConfig() EndpointConfig {
+	return mergeConfig(c.CommonConfig, c.TracesConfig)
+}
+
+// GetMetricsConfig merges the common configuration section with the metrics specific section.
+func (c Config) GetMetricsConfig() EndpointConfig {
+	return mergeConfig(c.CommonConfig, c.MetricsConfig)
+}
+
+// GetLogsConfig merges the common configuration section with the logs specific section.
+func (c Config) GetLogsConfig() EndpointConfig {
+	return mergeConfig(c.CommonConfig, c.LogsConfig)
+}
+
+func mergeConfig(baseConfig EndpointConfig, config EndpointConfig) EndpointConfig {
+	if config.APIKey == "" {
+		config.APIKey = baseConfig.APIKey
+	}
+
+	if config.APIKeyHeader == "" {
+		config.APIKeyHeader = baseConfig.APIKeyHeader
+	}
+
+	if config.HostOverride == "" {
+		config.HostOverride = baseConfig.HostOverride
+	}
+
+	if config.Timeout == 0 {
+		config.Timeout = baseConfig.Timeout
+	}
+	return config
 }

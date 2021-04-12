@@ -35,6 +35,11 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+const (
+	testCollectorName    = "TestCollector"
+	testCollectorVersion = "v1.2.3"
+)
+
 type mockConfig struct {
 	useAPIKeyHeader bool
 	serverURL       string
@@ -46,7 +51,7 @@ func runTraceMock(initialContext context.Context, ptrace pdata.Traces, cfg mockC
 	defer cancel()
 
 	m := &Mock{
-		Data:       make([]Data, 0, 1),
+		Batches:    make([]Batch, 0, 1),
 		StatusCode: 202,
 	}
 
@@ -66,12 +71,15 @@ func runTraceMock(initialContext context.Context, ptrace pdata.Traces, cfg mockC
 	u, _ := url.Parse(urlString)
 
 	if cfg.useAPIKeyHeader {
-		c.APIKeyHeader = "api-key"
+		c.CommonConfig.APIKeyHeader = "api-key"
 	} else {
-		c.APIKey = "1"
+		c.CommonConfig.APIKey = "1"
 	}
-	c.spansInsecure, c.SpansHostOverride = true, u.Host
-	params := component.ExporterCreateParams{Logger: zap.NewNop()}
+	c.TracesConfig.insecure, c.TracesConfig.HostOverride = true, u.Host
+	params := component.ExporterCreateParams{Logger: zap.NewNop(), ApplicationStartInfo: component.ApplicationStartInfo{
+		ExeName: testCollectorName,
+		Version: testCollectorVersion,
+	}}
 	exp, err := f.CreateTracesExporter(context.Background(), params, c)
 	if err != nil {
 		return m, err
@@ -90,7 +98,7 @@ func runMetricMock(initialContext context.Context, pmetrics pdata.Metrics, cfg m
 	defer cancel()
 
 	m := &Mock{
-		Data:       make([]Data, 0, 1),
+		Batches:    make([]Batch, 0, 1),
 		StatusCode: 202,
 	}
 
@@ -110,12 +118,15 @@ func runMetricMock(initialContext context.Context, pmetrics pdata.Metrics, cfg m
 	u, _ := url.Parse(urlString)
 
 	if cfg.useAPIKeyHeader {
-		c.APIKeyHeader = "api-key"
+		c.CommonConfig.APIKeyHeader = "api-key"
 	} else {
-		c.APIKey = "1"
+		c.CommonConfig.APIKey = "1"
 	}
-	c.metricsInsecure, c.MetricsHostOverride = true, u.Host
-	params := component.ExporterCreateParams{Logger: zap.NewNop()}
+	c.MetricsConfig.insecure, c.MetricsConfig.HostOverride = true, u.Host
+	params := component.ExporterCreateParams{Logger: zap.NewNop(), ApplicationStartInfo: component.ApplicationStartInfo{
+		ExeName: testCollectorName,
+		Version: testCollectorVersion,
+	}}
 	exp, err := f.CreateMetricsExporter(context.Background(), params, c)
 	if err != nil {
 		return m, err
@@ -129,7 +140,54 @@ func runMetricMock(initialContext context.Context, pmetrics pdata.Metrics, cfg m
 	return m, nil
 }
 
-func testTraceData(t *testing.T, expected []Span, resource *resourcepb.Resource, spans []*tracepb.Span, useAPIKeyHeader bool) {
+func runLogMock(initialContext context.Context, plogs pdata.Logs, cfg mockConfig) (*Mock, error) {
+	ctx, cancel := context.WithCancel(initialContext)
+	defer cancel()
+
+	m := &Mock{
+		Batches:    make([]Batch, 0, 1),
+		StatusCode: 202,
+	}
+
+	if cfg.statusCode > 0 {
+		m.StatusCode = cfg.statusCode
+	}
+
+	srv := m.Server()
+	defer srv.Close()
+
+	f := NewFactory()
+	c := f.CreateDefaultConfig().(*Config)
+	urlString := srv.URL
+	if cfg.serverURL != "" {
+		urlString = cfg.serverURL
+	}
+	u, _ := url.Parse(urlString)
+
+	if cfg.useAPIKeyHeader {
+		c.CommonConfig.APIKeyHeader = "api-key"
+	} else {
+		c.CommonConfig.APIKey = "1"
+	}
+	c.LogsConfig.insecure, c.LogsConfig.HostOverride = true, u.Host
+	params := component.ExporterCreateParams{Logger: zap.NewNop(), ApplicationStartInfo: component.ApplicationStartInfo{
+		ExeName: testCollectorName,
+		Version: testCollectorVersion,
+	}}
+	exp, err := f.CreateLogsExporter(context.Background(), params, c)
+	if err != nil {
+		return m, err
+	}
+	if err := exp.ConsumeLogs(ctx, plogs); err != nil {
+		return m, err
+	}
+	if err := exp.Shutdown(ctx); err != nil {
+		return m, err
+	}
+	return m, nil
+}
+
+func testTraceData(t *testing.T, expected []Batch, resource *resourcepb.Resource, spans []*tracepb.Span, useAPIKeyHeader bool) {
 	ctx := context.Background()
 	if useAPIKeyHeader {
 		ctx = metadata.NewIncomingContext(ctx, metadata.MD{"api-key": []string{"a1b2c3d4"}})
@@ -137,10 +195,10 @@ func testTraceData(t *testing.T, expected []Span, resource *resourcepb.Resource,
 
 	m, err := runTraceMock(ctx, internaldata.OCToTraces(nil, resource, spans), mockConfig{useAPIKeyHeader: useAPIKeyHeader})
 	require.NoError(t, err)
-	assert.Equal(t, expected, m.Spans())
+	assert.Equal(t, expected, m.Batches)
 }
 
-func testMetricData(t *testing.T, expected []Metric, md internaldata.MetricsData, useAPIKeyHeader bool) {
+func testMetricData(t *testing.T, expected []Batch, md internaldata.MetricsData, useAPIKeyHeader bool) {
 	ctx := context.Background()
 	if useAPIKeyHeader {
 		ctx = metadata.NewIncomingContext(ctx, metadata.MD{"api-key": []string{"a1b2c3d4"}})
@@ -148,7 +206,18 @@ func testMetricData(t *testing.T, expected []Metric, md internaldata.MetricsData
 
 	m, err := runMetricMock(ctx, internaldata.OCToMetrics(md), mockConfig{useAPIKeyHeader: useAPIKeyHeader})
 	require.NoError(t, err)
-	assert.Equal(t, expected, m.Metrics())
+	assert.Equal(t, expected, m.Batches)
+}
+
+func testLogData(t *testing.T, expected []Batch, logs pdata.Logs, useAPIKeyHeader bool) {
+	ctx := context.Background()
+	if useAPIKeyHeader {
+		ctx = metadata.NewIncomingContext(ctx, metadata.MD{"api-key": []string{"a1b2c3d4"}})
+	}
+
+	l, err := runLogMock(ctx, logs, mockConfig{useAPIKeyHeader: useAPIKeyHeader})
+	require.NoError(t, err)
+	assert.Equal(t, expected, l.Batches)
 }
 
 func TestExportTraceWithBadURL(t *testing.T) {
@@ -245,15 +314,22 @@ func TestExportTraceDataMinimum(t *testing.T) {
 		},
 	}
 
-	expected := []Span{
+	expected := []Batch{
 		{
-			ID:      "0000000000000001",
-			TraceID: "01010101010101010101010101010101",
-			Attributes: map[string]interface{}{
-				"collector.name":           name,
-				"collector.version":        version,
-				"name":                     "root",
-				"instrumentation.provider": "opentelemetry",
+			Common: Common{
+				Attributes: map[string]string{
+					"collector.name":    testCollectorName,
+					"collector.version": testCollectorVersion,
+				},
+			},
+			Spans: []Span{
+				{
+					ID:      "0000000000000001",
+					TraceID: "01010101010101010101010101010101",
+					Attributes: map[string]interface{}{
+						"name": "root",
+					},
+				},
 			},
 		},
 	}
@@ -293,43 +369,40 @@ func TestExportTraceDataFullTrace(t *testing.T) {
 		},
 	}
 
-	expected := []Span{
+	expected := []Batch{
 		{
-			ID:      "0000000000000001",
-			TraceID: "01010101010101010101010101010101",
-			Attributes: map[string]interface{}{
-				"collector.name":           name,
-				"collector.version":        version,
-				"name":                     "root",
-				"resource":                 "R1",
-				"service.name":             "test-service",
-				"instrumentation.provider": "opentelemetry",
+			Common: Common{
+				Attributes: map[string]string{
+					"collector.name":    testCollectorName,
+					"collector.version": testCollectorVersion,
+					"resource":          "R1",
+					"service.name":      "test-service",
+				},
 			},
-		},
-		{
-			ID:      "0000000000000002",
-			TraceID: "01010101010101010101010101010101",
-			Attributes: map[string]interface{}{
-				"collector.name":           name,
-				"collector.version":        version,
-				"name":                     "client",
-				"parent.id":                "0000000000000001",
-				"resource":                 "R1",
-				"service.name":             "test-service",
-				"instrumentation.provider": "opentelemetry",
-			},
-		},
-		{
-			ID:      "0000000000000003",
-			TraceID: "01010101010101010101010101010101",
-			Attributes: map[string]interface{}{
-				"collector.name":           name,
-				"collector.version":        version,
-				"name":                     "server",
-				"parent.id":                "0000000000000002",
-				"resource":                 "R1",
-				"service.name":             "test-service",
-				"instrumentation.provider": "opentelemetry",
+			Spans: []Span{
+				{
+					ID:      "0000000000000001",
+					TraceID: "01010101010101010101010101010101",
+					Attributes: map[string]interface{}{
+						"name": "root",
+					},
+				},
+				{
+					ID:      "0000000000000002",
+					TraceID: "01010101010101010101010101010101",
+					Attributes: map[string]interface{}{
+						"name":      "client",
+						"parent.id": "0000000000000001",
+					},
+				},
+				{
+					ID:      "0000000000000003",
+					TraceID: "01010101010101010101010101010101",
+					Attributes: map[string]interface{}{
+						"name":      "server",
+						"parent.id": "0000000000000002",
+					},
+				},
 			},
 		},
 	}
@@ -376,19 +449,27 @@ func TestExportMetricDataMinimal(t *testing.T) {
 		},
 	}
 
-	expected := []Metric{
+	expected := []Batch{
 		{
-			Name:      "temperature",
-			Type:      "gauge",
-			Value:     293.15,
-			Timestamp: int64(100 * time.Microsecond),
-			Attributes: map[string]interface{}{
-				"collector.name":    name,
-				"collector.version": version,
-				"description":       desc,
-				"unit":              unit,
-				"location":          "Portland",
-				"elevation":         "0",
+			Common: Common{
+				Attributes: map[string]string{
+					"collector.name":    testCollectorName,
+					"collector.version": testCollectorVersion,
+				},
+			},
+			Metrics: []Metric{
+				{
+					Name:      "temperature",
+					Type:      "gauge",
+					Value:     293.15,
+					Timestamp: int64(100 * time.Microsecond),
+					Attributes: map[string]interface{}{
+						"description": desc,
+						"unit":        unit,
+						"location":    "Portland",
+						"elevation":   "0",
+					},
+				},
 			},
 		},
 	}
@@ -483,89 +564,125 @@ func TestExportMetricDataFull(t *testing.T) {
 		},
 	}
 
-	expected := []Metric{
+	expected := []Batch{
 		{
-			Name:      "temperature",
-			Type:      "gauge",
-			Value:     293.15,
-			Timestamp: int64(100 * time.Microsecond),
-			Attributes: map[string]interface{}{
-				"collector.name":    name,
-				"collector.version": version,
-				"description":       desc,
-				"unit":              unit,
-				"resource":          "R1",
-				"service.name":      "test-service",
-				"location":          "Portland",
-				"elevation":         "0",
+			Common: Common{
+				Attributes: map[string]string{
+					"collector.name":    testCollectorName,
+					"collector.version": testCollectorVersion,
+					"resource":          "R1",
+					"service.name":      "test-service",
+				},
 			},
-		},
-		{
-			Name:      "temperature",
-			Type:      "gauge",
-			Value:     293.15,
-			Timestamp: int64(101 * time.Microsecond),
-			Attributes: map[string]interface{}{
-				"collector.name":    name,
-				"collector.version": version,
-				"description":       desc,
-				"unit":              unit,
-				"resource":          "R1",
-				"service.name":      "test-service",
-				"location":          "Portland",
-				"elevation":         "0",
-			},
-		},
-		{
-			Name:      "temperature",
-			Type:      "gauge",
-			Value:     293.45,
-			Timestamp: int64(102 * time.Microsecond),
-			Attributes: map[string]interface{}{
-				"collector.name":    name,
-				"collector.version": version,
-				"description":       desc,
-				"unit":              unit,
-				"resource":          "R1",
-				"service.name":      "test-service",
-				"location":          "Portland",
-				"elevation":         "0",
-			},
-		},
-		{
-			Name:      "temperature",
-			Type:      "gauge",
-			Value:     290.05,
-			Timestamp: int64(99 * time.Microsecond),
-			Attributes: map[string]interface{}{
-				"collector.name":    name,
-				"collector.version": version,
-				"description":       desc,
-				"unit":              unit,
-				"resource":          "R1",
-				"service.name":      "test-service",
-				"location":          "Denver",
-				"elevation":         "5280",
-			},
-		},
-		{
-			Name:      "temperature",
-			Type:      "gauge",
-			Value:     293.15,
-			Timestamp: int64(106 * time.Microsecond),
-			Attributes: map[string]interface{}{
-				"collector.name":    name,
-				"collector.version": version,
-				"description":       desc,
-				"unit":              unit,
-				"resource":          "R1",
-				"service.name":      "test-service",
-				"location":          "Denver",
-				"elevation":         "5280",
+			Metrics: []Metric{
+				{
+					Name:      "temperature",
+					Type:      "gauge",
+					Value:     293.15,
+					Timestamp: int64(100 * time.Microsecond),
+					Attributes: map[string]interface{}{
+						"description": desc,
+						"unit":        unit,
+						"location":    "Portland",
+						"elevation":   "0",
+					},
+				},
+				{
+					Name:      "temperature",
+					Type:      "gauge",
+					Value:     293.15,
+					Timestamp: int64(101 * time.Microsecond),
+					Attributes: map[string]interface{}{
+						"description": desc,
+						"unit":        unit,
+						"location":    "Portland",
+						"elevation":   "0",
+					},
+				},
+				{
+					Name:      "temperature",
+					Type:      "gauge",
+					Value:     293.45,
+					Timestamp: int64(102 * time.Microsecond),
+					Attributes: map[string]interface{}{
+						"description": desc,
+						"unit":        unit,
+						"location":    "Portland",
+						"elevation":   "0",
+					},
+				},
+				{
+					Name:      "temperature",
+					Type:      "gauge",
+					Value:     290.05,
+					Timestamp: int64(99 * time.Microsecond),
+					Attributes: map[string]interface{}{
+						"description": desc,
+						"unit":        unit,
+						"location":    "Denver",
+						"elevation":   "5280",
+					},
+				},
+				{
+					Name:      "temperature",
+					Type:      "gauge",
+					Value:     293.15,
+					Timestamp: int64(106 * time.Microsecond),
+					Attributes: map[string]interface{}{
+						"description": desc,
+						"unit":        unit,
+						"location":    "Denver",
+						"elevation":   "5280",
+					},
+				},
 			},
 		},
 	}
 
 	testMetricData(t, expected, md, false)
 	testMetricData(t, expected, md, true)
+}
+
+func TestExportLogs(t *testing.T) {
+	timestamp := time.Now()
+	l := pdata.NewLogRecord()
+	l.SetName("logname")
+	l.SetTimestamp(pdata.TimestampFromTime(timestamp))
+	l.Body().SetStringVal("log body")
+	l.Attributes().InsertString("foo", "bar")
+
+	ilog := pdata.NewInstrumentationLibraryLogs()
+	ilog.Logs().Append(l)
+	rlog := pdata.NewResourceLogs()
+	rlog.InstrumentationLibraryLogs().Append(ilog)
+	rlog.Resource().Attributes().InsertString("resource", "R1")
+	rlog.Resource().Attributes().InsertString("service.name", "test-service")
+	logs := pdata.NewLogs()
+	logs.ResourceLogs().Append(rlog)
+
+	expected := []Batch{
+		{
+			Common: Common{
+				Attributes: map[string]string{
+					"collector.name":    testCollectorName,
+					"collector.version": testCollectorVersion,
+					"resource":          "R1",
+					"service.name":      "test-service",
+				},
+			},
+			Logs: []Log{
+				{
+					Message:   "log body",
+					Timestamp: timestamp.UnixNano() / (1000 * 1000),
+					Attributes: map[string]interface{}{
+						"foo":  "bar",
+						"name": "logname",
+					},
+				},
+			},
+		},
+	}
+
+	testLogData(t, expected, logs, false)
+	testLogData(t, expected, logs, true)
 }
