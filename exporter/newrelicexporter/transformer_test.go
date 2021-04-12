@@ -443,12 +443,6 @@ func TestTransformGauge(t *testing.T) {
 			},
 		},
 	}
-	r := pdata.NewResource()
-	r.Attributes().InitFromMap(map[string]pdata.AttributeValue{
-		"service.name": pdata.NewAttributeValueString("test-service"),
-		"resource":     pdata.NewAttributeValueString("R1"),
-	})
-
 	{
 		m := pdata.NewMetric()
 		m.SetName("gauge")
@@ -480,12 +474,6 @@ func TestTransformGauge(t *testing.T) {
 func TestTransformSum(t *testing.T) {
 	start := pdata.TimestampFromTime(time.Unix(1, 0))
 	end := pdata.TimestampFromTime(time.Unix(3, 0))
-
-	r := pdata.NewResource()
-	r.Attributes().InitFromMap(map[string]pdata.AttributeValue{
-		"service.name": pdata.NewAttributeValueString("test-service"),
-		"resource":     pdata.NewAttributeValueString("R1"),
-	})
 
 	expected := []telemetry.Metric{
 		telemetry.Count{
@@ -583,12 +571,6 @@ func TestTransformDeltaSummary(t *testing.T) {
 		},
 	}
 
-	r := pdata.NewResource()
-	r.Attributes().InitFromMap(map[string]pdata.AttributeValue{
-		"service.name": pdata.NewAttributeValueString("test-service"),
-		"resource":     pdata.NewAttributeValueString("R1"),
-	})
-
 	m := pdata.NewMetric()
 	m.SetName("summary")
 	m.SetDescription("description")
@@ -660,38 +642,13 @@ func TestUnsupportedMetricTypes(t *testing.T) {
 }
 
 func TestTransformer_Log(t *testing.T) {
-	emptyResource := pdata.NewResource()
-	emptyInstrumentationLibrary := pdata.NewInstrumentationLibrary()
-
-	attributeResource := pdata.NewResource()
-	attributeResource.Attributes().InitFromMap(map[string]pdata.AttributeValue{
-		"str":    pdata.NewAttributeValueString("str"),
-		"bool":   pdata.NewAttributeValueBool(true),
-		"double": pdata.NewAttributeValueDouble(8.2),
-		"int":    pdata.NewAttributeValueInt(42),
-		"map":    pdata.NewAttributeValueMap(),
-		"array":  pdata.NewAttributeValueArray(),
-		"null":   pdata.NewAttributeValueNull(),
-	})
-
-	namedInstrumentationLibrary := pdata.NewInstrumentationLibrary()
-	namedInstrumentationLibrary.SetName("bleepbloop")
-
-	versionedInstrumentationLibrary := pdata.NewInstrumentationLibrary()
-	versionedInstrumentationLibrary.SetName("bleepbloop")
-	versionedInstrumentationLibrary.SetVersion("1.2.3")
-
 	tests := []struct {
-		Resource               pdata.Resource
-		InstrumentationLibrary pdata.InstrumentationLibrary
-		name                   string
-		logFunc                func() pdata.LogRecord
-		want                   telemetry.Log
+		name    string
+		logFunc func() pdata.LogRecord
+		want    telemetry.Log
 	}{
 		{
-			Resource:               emptyResource,
-			InstrumentationLibrary: emptyInstrumentationLibrary,
-			name:                   "Basic Conversion",
+			name: "Basic Conversion",
 			logFunc: func() pdata.LogRecord {
 				log := pdata.NewLogRecord()
 				timestamp := pdata.TimestampFromTime(time.Unix(0, 0).UTC())
@@ -705,51 +662,7 @@ func TestTransformer_Log(t *testing.T) {
 			},
 		},
 		{
-			Resource:               attributeResource,
-			InstrumentationLibrary: emptyInstrumentationLibrary,
-			name:                   "Resource attributes",
-			logFunc: func() pdata.LogRecord {
-				log := pdata.NewLogRecord()
-				timestamp := pdata.TimestampFromTime(time.Unix(0, 0).UTC())
-				log.SetTimestamp(timestamp)
-				return log
-			},
-			want: telemetry.Log{
-				Message:    "",
-				Timestamp:  time.Unix(0, 0).UTC(),
-				Attributes: map[string]interface{}{"name": ""},
-			},
-		},
-		{
-			Resource:               emptyResource,
-			InstrumentationLibrary: namedInstrumentationLibrary,
-			name:                   "Named Library",
-			logFunc: func() pdata.LogRecord {
-				return pdata.NewLogRecord()
-			},
-			want: telemetry.Log{
-				Message:    "",
-				Timestamp:  time.Unix(0, 0).UTC(),
-				Attributes: map[string]interface{}{"name": ""},
-			},
-		},
-		{
-			Resource:               emptyResource,
-			InstrumentationLibrary: versionedInstrumentationLibrary,
-			name:                   "Versioned Library",
-			logFunc: func() pdata.LogRecord {
-				return pdata.NewLogRecord()
-			},
-			want: telemetry.Log{
-				Message:    "",
-				Timestamp:  time.Unix(0, 0).UTC(),
-				Attributes: map[string]interface{}{"name": ""},
-			},
-		},
-		{
-			Resource:               emptyResource,
-			InstrumentationLibrary: emptyInstrumentationLibrary,
-			name:                   "With Log attributes",
+			name: "With Log attributes",
 			logFunc: func() pdata.LogRecord {
 				log := pdata.NewLogRecord()
 				log.SetName("bloopbleep")
@@ -764,9 +677,7 @@ func TestTransformer_Log(t *testing.T) {
 			},
 		},
 		{
-			Resource:               emptyResource,
-			InstrumentationLibrary: emptyInstrumentationLibrary,
-			name:                   "With severity number",
+			name: "With severity number",
 			logFunc: func() pdata.LogRecord {
 				log := pdata.NewLogRecord()
 				log.SetName("bloopbleep")
@@ -780,9 +691,7 @@ func TestTransformer_Log(t *testing.T) {
 			},
 		},
 		{
-			Resource:               emptyResource,
-			InstrumentationLibrary: emptyInstrumentationLibrary,
-			name:                   "With severity text",
+			name: "With severity text",
 			logFunc: func() pdata.LogRecord {
 				log := pdata.NewLogRecord()
 				log.SetName("bloopbleep")
