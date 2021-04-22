@@ -290,22 +290,20 @@ func convertEntries(entries []*entry.Entry) pdata.Logs {
 	}
 
 	logs := out.ResourceLogs()
-	logs.Resize(1)
-	rls := logs.At(0)
+	rls := logs.AppendEmpty()
 
 	// NOTE: This assumes that passed in entries all come from the same Resource.
 	if len(entries[0].Resource) > 0 {
 		resource := rls.Resource()
 		resourceAtts := resource.Attributes()
+		resourceAtts.EnsureCapacity(len(entries[0].Resource))
 		for k, v := range entries[0].Resource {
 			resourceAtts.InsertString(k, v)
 		}
 	}
 
-	rls.InstrumentationLibraryLogs().Resize(1)
-	ills := rls.InstrumentationLibraryLogs().At(0)
+	ills := rls.InstrumentationLibraryLogs().AppendEmpty()
 	ills.Logs().Resize(len(entries))
-
 	for i := 0; i < len(entries); i++ {
 		ent := entries[i]
 		convertInto(ent, ills.Logs().At(i))
@@ -337,6 +335,25 @@ func convertInto(ent *entry.Entry, dest pdata.LogRecord) {
 	}
 
 	insertToAttributeVal(ent.Body, dest.Body())
+
+	if ent.TraceId != nil {
+		var buffer [16]byte
+		copy(buffer[0:16], ent.TraceId)
+		dest.SetTraceID(pdata.NewTraceID(buffer))
+	}
+	if ent.SpanId != nil {
+		var buffer [8]byte
+		copy(buffer[0:8], ent.SpanId)
+		dest.SetSpanID(pdata.NewSpanID(buffer))
+	}
+	if ent.TraceFlags != nil {
+		// The 8 least significant bits are the trace flags as defined in W3C Trace
+		// Context specification. Don't override the 24 reserved bits.
+		flags := dest.Flags()
+		flags = flags & 0xFFFFFF00
+		flags = flags | uint32(ent.TraceFlags[0])
+		dest.SetFlags(flags)
+	}
 }
 
 func insertToAttributeVal(value interface{}, dest pdata.AttributeValue) {
@@ -383,7 +400,7 @@ func insertToAttributeVal(value interface{}, dest pdata.AttributeValue) {
 func toAttributeMap(obsMap map[string]interface{}) pdata.AttributeValue {
 	attVal := pdata.NewAttributeValueMap()
 	attMap := attVal.MapVal()
-	attMap.InitEmptyWithCapacity(len(obsMap))
+	attMap.EnsureCapacity(len(obsMap))
 	for k, v := range obsMap {
 		switch t := v.(type) {
 		case bool:

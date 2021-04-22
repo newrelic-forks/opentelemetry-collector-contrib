@@ -67,9 +67,9 @@ func (d *Detector) Detect(context.Context) (pdata.Resource, error) {
 	attr := res.Attributes()
 	attr.InsertString(conventions.AttributeCloudProvider, conventions.AttributeCloudProviderAWS)
 	attr.InsertString(conventions.AttributeCloudPlatform, conventions.AttributeCloudPlatformAWSECS)
-	attr.InsertString("aws.ecs.task.arn", tmdeResp.TaskARN)
-	attr.InsertString("aws.ecs.task.family", tmdeResp.Family)
-	attr.InsertString("aws.ecs.task.revision", tmdeResp.Revision)
+	attr.InsertString(conventions.AttributeAWSECSTaskARN, tmdeResp.TaskARN)
+	attr.InsertString(conventions.AttributeAWSECSTaskFamily, tmdeResp.Family)
+	attr.InsertString(conventions.AttributeAWSECSTaskRevision, tmdeResp.Revision)
 
 	region, account := parseRegionAndAccount(tmdeResp.TaskARN)
 	if account != "" {
@@ -81,7 +81,7 @@ func (d *Detector) Detect(context.Context) (pdata.Resource, error) {
 	}
 
 	// TMDE returns the the cluster short name or ARN, so we need to construct the ARN if necessary
-	attr.InsertString("aws.ecs.cluster.arn", constructClusterArn(tmdeResp.Cluster, region, account))
+	attr.InsertString(conventions.AttributeAWSECSClusterARN, constructClusterArn(tmdeResp.Cluster, region, account))
 
 	// The Availability Zone is not available in all Fargate runtimes
 	if tmdeResp.AvailabilityZone != "" {
@@ -91,10 +91,10 @@ func (d *Detector) Detect(context.Context) (pdata.Resource, error) {
 	// The launch type and log data attributes are only available in TMDE v4
 	switch lt := strings.ToLower(tmdeResp.LaunchType); lt {
 	case "ec2":
-		attr.InsertString("aws.ecs.launchtype", "ec2")
+		attr.InsertString(conventions.AttributeAWSECSLaunchType, "ec2")
 
 	case "fargate":
-		attr.InsertString("aws.ecs.launchtype", "fargate")
+		attr.InsertString(conventions.AttributeAWSECSLaunchType, "fargate")
 	}
 
 	selfMetaData, err := d.provider.fetchContainerMetaData(tmde)
@@ -103,7 +103,12 @@ func (d *Detector) Detect(context.Context) (pdata.Resource, error) {
 		return res, err
 	}
 
-	logAttributes := [4]string{"aws.log.group.names", "aws.log.group.arns", "aws.log.stream.names", "aws.log.stream.arns"}
+	logAttributes := [4]string{
+		conventions.AttributeAWSLogGroupNames,
+		conventions.AttributeAWSLogGroupARNs,
+		conventions.AttributeAWSLogStreamNames,
+		conventions.AttributeAWSLogStreamARNs,
+	}
 
 	for i, attribVal := range getValidLogData(tmdeResp.Containers, selfMetaData, account) {
 		if attribVal.ArrayVal().Len() > 0 {
@@ -161,10 +166,10 @@ func getValidLogData(containers []Container, self *Container, account string) [4
 			self.DockerID != container.DockerID &&
 			logData != (LogData{}) {
 
-			logGroupNames.ArrayVal().Append(pdata.NewAttributeValueString(logData.LogGroup))
-			logGroupArns.ArrayVal().Append(pdata.NewAttributeValueString(constructLogGroupArn(logData.Region, account, logData.LogGroup)))
-			logStreamNames.ArrayVal().Append(pdata.NewAttributeValueString(logData.Stream))
-			logStreamArns.ArrayVal().Append(pdata.NewAttributeValueString(constructLogStreamArn(logData.Region, account, logData.LogGroup, logData.Stream)))
+			logGroupNames.ArrayVal().AppendEmpty().SetStringVal(logData.LogGroup)
+			logGroupArns.ArrayVal().AppendEmpty().SetStringVal(constructLogGroupArn(logData.Region, account, logData.LogGroup))
+			logStreamNames.ArrayVal().AppendEmpty().SetStringVal(logData.Stream)
+			logStreamArns.ArrayVal().AppendEmpty().SetStringVal(constructLogStreamArn(logData.Region, account, logData.LogGroup, logData.Stream))
 		}
 	}
 

@@ -179,7 +179,7 @@ func TestResourceProcessor(t *testing.T) {
 
 			// Test trace consuner
 			ttn := new(consumertest.TracesSink)
-			rtp, err := factory.createTraceProcessor(context.Background(), component.ProcessorCreateParams{Logger: zap.NewNop()}, cfg, ttn)
+			rtp, err := factory.createTracesProcessor(context.Background(), component.ProcessorCreateParams{Logger: zap.NewNop()}, cfg, ttn)
 
 			if tt.expectedNewError != "" {
 				assert.EqualError(t, err, tt.expectedNewError)
@@ -200,8 +200,7 @@ func TestResourceProcessor(t *testing.T) {
 			defer func() { assert.NoError(t, rtp.Shutdown(context.Background())) }()
 
 			td := pdata.NewTraces()
-			td.ResourceSpans().Resize(1)
-			tt.sourceResource.CopyTo(td.ResourceSpans().At(0).Resource())
+			tt.sourceResource.CopyTo(td.ResourceSpans().AppendEmpty().Resource())
 
 			err = rtp.ConsumeTraces(context.Background(), td)
 			require.NoError(t, err)
@@ -267,8 +266,7 @@ func TestResourceProcessor(t *testing.T) {
 			defer func() { assert.NoError(t, rlp.Shutdown(context.Background())) }()
 
 			ld := pdata.NewLogs()
-			ld.ResourceLogs().Resize(1)
-			tt.sourceResource.CopyTo(ld.ResourceLogs().At(0).Resource())
+			tt.sourceResource.CopyTo(ld.ResourceLogs().AppendEmpty().Resource())
 
 			err = rlp.ConsumeLogs(context.Background(), ld)
 			require.NoError(t, err)
@@ -287,8 +285,9 @@ func oCensusResource(res pdata.Resource) *resourcepb.Resource {
 	}
 
 	mp := make(map[string]string, res.Attributes().Len())
-	res.Attributes().ForEach(func(k string, v pdata.AttributeValue) {
+	res.Attributes().Range(func(k string, v pdata.AttributeValue) bool {
 		mp[k] = v.StringVal()
+		return true
 	})
 
 	return &resourcepb.Resource{Labels: mp}

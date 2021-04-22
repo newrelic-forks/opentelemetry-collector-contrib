@@ -21,7 +21,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/viper"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config"
 	"go.opentelemetry.io/collector/exporter/exporterhelper"
@@ -48,8 +47,7 @@ func NewFactory() component.ExporterFactory {
 		createDefaultConfig,
 		exporterhelper.WithMetrics(createMetricsExporter),
 		exporterhelper.WithLogs(createLogsExporter),
-		exporterhelper.WithTraces(createTraceExporter),
-		exporterhelper.WithCustomUnmarshaler(customUnmarshaler),
+		exporterhelper.WithTraces(createTracesExporter),
 	)
 }
 
@@ -68,28 +66,7 @@ func createDefaultConfig() config.Exporter {
 	}
 }
 
-func customUnmarshaler(componentViperSection *viper.Viper, intoCfg interface{}) (err error) {
-	if componentViperSection == nil {
-		// Nothing to do if there is no config given.
-		return nil
-	}
-
-	if err = componentViperSection.Unmarshal(intoCfg); err != nil {
-		return err
-	}
-
-	config := intoCfg.(*Config)
-
-	// If translations_config is not set in the config, set it to the defaults and return.
-	if !componentViperSection.IsSet(translationRulesConfigKey) {
-		config.TranslationRules, err = loadDefaultTranslationRules()
-		return err
-	}
-
-	return nil
-}
-
-func createTraceExporter(
+func createTracesExporter(
 	_ context.Context,
 	params component.ExporterCreateParams,
 	eCfg config.Exporter,
@@ -110,7 +87,7 @@ func createTraceExporter(
 	params.Logger.Info("Correlation tracking enabled", zap.String("endpoint", corrCfg.Endpoint))
 	tracker := correlation.NewTracker(corrCfg, cfg.AccessToken, params)
 
-	return exporterhelper.NewTraceExporter(
+	return exporterhelper.NewTracesExporter(
 		cfg,
 		params.Logger,
 		tracker.AddSpans,
@@ -166,11 +143,12 @@ func createMetricsExporter(
 func loadDefaultTranslationRules() ([]translation.Rule, error) {
 	cfg := Config{}
 
-	v := config.NewViper()
-	v.SetConfigType("yaml")
-	v.ReadConfig(strings.NewReader(translation.DefaultTranslationRulesYaml))
-	err := v.UnmarshalExact(&cfg)
+	cp, err := config.NewParserFromBuffer(strings.NewReader(translation.DefaultTranslationRulesYaml))
 	if err != nil {
+		return nil, err
+	}
+
+	if err = cp.UnmarshalExact(&cfg); err != nil {
 		return nil, fmt.Errorf("failed to load default translation rules: %v", err)
 	}
 
@@ -192,11 +170,12 @@ func setDefaultExcludes(cfg *Config) error {
 func loadDefaultExcludes() ([]dpfilters.MetricFilter, error) {
 	cfg := Config{}
 
-	v := config.NewViper()
-	v.SetConfigType("yaml")
-	v.ReadConfig(strings.NewReader(translation.DefaultExcludeMetricsYaml))
-	err := v.UnmarshalExact(&cfg)
+	v, err := config.NewParserFromBuffer(strings.NewReader(translation.DefaultExcludeMetricsYaml))
 	if err != nil {
+		return nil, err
+	}
+
+	if err = v.UnmarshalExact(&cfg); err != nil {
 		return nil, fmt.Errorf("failed to load default exclude metrics: %v", err)
 	}
 

@@ -44,7 +44,10 @@ func mapLogRecordToSplunkEvent(res pdata.Resource, lr pdata.LogRecord, config *C
 	sourcetype := config.SourceType
 	index := config.Index
 	fields := map[string]interface{}{}
-	res.Attributes().ForEach(func(k string, v pdata.AttributeValue) {
+	if lr.Name() != "" {
+		fields[splunk.NameLabel] = lr.Name()
+	}
+	res.Attributes().Range(func(k string, v pdata.AttributeValue) bool {
 		switch k {
 		case conventions.AttributeHostName:
 			host = v.StringVal()
@@ -59,8 +62,9 @@ func mapLogRecordToSplunkEvent(res pdata.Resource, lr pdata.LogRecord, config *C
 		default:
 			fields[k] = convertAttributeValue(v, logger)
 		}
+		return true
 	})
-	lr.Attributes().ForEach(func(k string, v pdata.AttributeValue) {
+	lr.Attributes().Range(func(k string, v pdata.AttributeValue) bool {
 		switch k {
 		case conventions.AttributeHostName:
 			host = v.StringVal()
@@ -75,6 +79,7 @@ func mapLogRecordToSplunkEvent(res pdata.Resource, lr pdata.LogRecord, config *C
 		default:
 			fields[k] = convertAttributeValue(v, logger)
 		}
+		return true
 	})
 
 	eventValue := convertAttributeValue(lr.Body(), logger)
@@ -101,8 +106,9 @@ func convertAttributeValue(value pdata.AttributeValue, logger *zap.Logger) inter
 		return value.StringVal()
 	case pdata.AttributeValueMAP:
 		values := map[string]interface{}{}
-		value.MapVal().ForEach(func(k string, v pdata.AttributeValue) {
+		value.MapVal().Range(func(k string, v pdata.AttributeValue) bool {
 			values[k] = convertAttributeValue(v, logger)
+			return true
 		})
 		return values
 	case pdata.AttributeValueARRAY:

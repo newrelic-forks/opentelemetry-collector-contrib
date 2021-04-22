@@ -17,15 +17,15 @@ package newrelicexporter
 import (
 	"context"
 	"errors"
+	"math"
 	"testing"
 	"time"
-
-	"go.opentelemetry.io/collector/component"
 
 	tracepb "github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1"
 	"github.com/newrelic/newrelic-telemetry-sdk-go/telemetry"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer/pdata"
 	"go.opentelemetry.io/collector/translator/internaldata"
 )
@@ -43,12 +43,35 @@ func TestCommonAttributes(t *testing.T) {
 	ilm.SetName("test name")
 	ilm.SetVersion("test version")
 
-	commonAttrs := newTransformer(startInfo, nil).CommonAttributes(resource, ilm)
+	details := newTraceMetadata(context.TODO())
+	commonAttrs := newTransformer(startInfo, &details).CommonAttributes(resource, ilm)
 	assert.Equal(t, "the-collector", commonAttrs[collectorNameKey])
 	assert.Equal(t, "0.0.1", commonAttrs[collectorVersionKey])
 	assert.Equal(t, "R1", commonAttrs["resource"])
 	assert.Equal(t, "test name", commonAttrs[instrumentationNameKey])
 	assert.Equal(t, "test version", commonAttrs[instrumentationVersionKey])
+
+	assert.Equal(t, 1, len(details.attributeMetadataCount))
+	assert.Equal(t, 1, details.attributeMetadataCount[attributeStatsKey{location: attributeLocationResource, attributeType: pdata.AttributeValueSTRING}])
+}
+
+func TestDoesNotCaptureResourceAttributeMetadata(t *testing.T) {
+	startInfo := &component.ApplicationStartInfo{
+		ExeName: "the-collector",
+		Version: "0.0.1",
+	}
+
+	resource := pdata.NewResource()
+
+	ilm := pdata.NewInstrumentationLibrary()
+	ilm.SetName("test name")
+	ilm.SetVersion("test version")
+
+	details := newTraceMetadata(context.TODO())
+	commonAttrs := newTransformer(startInfo, &details).CommonAttributes(resource, ilm)
+
+	assert.Greater(t, len(commonAttrs), 0)
+	assert.Equal(t, 0, len(details.attributeMetadataCount))
 }
 
 func TestCaptureSpanMetadata(t *testing.T) {
@@ -78,7 +101,7 @@ func TestCaptureSpanMetadata(t *testing.T) {
 				s := pdata.NewSpan()
 				s.SetTraceID(pdata.NewTraceID([...]byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}))
 				s.SetName("invalid SpanID")
-				s.Events().Append(pdata.NewSpanEvent())
+				s.Events().AppendEmpty()
 				return s
 			},
 			err:     errInvalidSpanID,
@@ -91,7 +114,7 @@ func TestCaptureSpanMetadata(t *testing.T) {
 				s.SetTraceID(pdata.NewTraceID([...]byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}))
 				s.SetSpanID(pdata.NewSpanID([...]byte{0, 0, 0, 0, 0, 0, 0, 1}))
 				s.SetName("no events but has links")
-				s.Links().Append(pdata.NewSpanLink())
+				s.Links().AppendEmpty()
 				return s
 			},
 			wantKey: spanStatsKey{hasEvents: false, hasLinks: true},
@@ -104,8 +127,8 @@ func TestCaptureSpanMetadata(t *testing.T) {
 				s.SetSpanID(pdata.NewSpanID([...]byte{0, 0, 0, 0, 0, 0, 0, 2}))
 				s.SetParentSpanID(pdata.NewSpanID([...]byte{0, 0, 0, 0, 0, 0, 0, 1}))
 				s.SetName("has events and links")
-				s.Events().Append(pdata.NewSpanEvent())
-				s.Links().Append(pdata.NewSpanLink())
+				s.Events().AppendEmpty()
+				s.Links().AppendEmpty()
 				return s
 			},
 			wantKey: spanStatsKey{hasEvents: true, hasLinks: true},
@@ -123,6 +146,46 @@ func TestCaptureSpanMetadata(t *testing.T) {
 			assert.Equal(t, 1, details.spanMetadataCount[test.wantKey])
 		})
 	}
+}
+
+func TestCaptureSpanAttributeMetadata(t *testing.T) {
+	details := newTraceMetadata(context.TODO())
+	transform := newTransformer(nil, &details)
+
+	s := pdata.NewSpan()
+	s.SetTraceID(pdata.NewTraceID([...]byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}))
+	s.SetSpanID(pdata.NewSpanID([...]byte{0, 0, 0, 0, 0, 0, 0, 2}))
+	s.SetParentSpanID(pdata.NewSpanID([...]byte{0, 0, 0, 0, 0, 0, 0, 1}))
+	s.SetName("test span")
+
+	se := s.Events().AppendEmpty()
+	se.Attributes().InsertBool("testattr", true)
+
+	s.Attributes().InsertInt("spanattr", 42)
+
+	_, err := transform.Span(s)
+
+	require.NoError(t, err)
+	assert.Equal(t, 2, len(details.attributeMetadataCount))
+	assert.Equal(t, 1, details.attributeMetadataCount[attributeStatsKey{location: attributeLocationSpan, attributeType: pdata.AttributeValueINT}])
+	assert.Equal(t, 1, details.attributeMetadataCount[attributeStatsKey{location: attributeLocationSpanEvent, attributeType: pdata.AttributeValueBOOL}])
+}
+
+func TestDoesNotCaptureSpanAttributeMetadata(t *testing.T) {
+	details := newTraceMetadata(context.TODO())
+	transform := newTransformer(nil, &details)
+
+	s := pdata.NewSpan()
+	s.SetTraceID(pdata.NewTraceID([...]byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}))
+	s.SetSpanID(pdata.NewSpanID([...]byte{0, 0, 0, 0, 0, 0, 0, 2}))
+	s.SetParentSpanID(pdata.NewSpanID([...]byte{0, 0, 0, 0, 0, 0, 0, 1}))
+	s.SetName("test span")
+	s.Events().AppendEmpty()
+
+	_, err := transform.Span(s)
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, len(details.attributeMetadataCount))
 }
 
 func TestTransformSpan(t *testing.T) {
@@ -359,12 +422,9 @@ func TestTransformSpan(t *testing.T) {
 				s.SetSpanID(pdata.NewSpanID([...]byte{0, 0, 0, 0, 0, 0, 0, 7}))
 				s.SetName("with events")
 
-				ev := pdata.NewSpanEventSlice()
-				ev.Resize(1)
-				event := ev.At(0)
+				event := s.Events().AppendEmpty()
 				event.SetName("this is the event name")
 				event.SetTimestamp(pdata.TimestampFromTime(now))
-				s.Events().Append(event)
 				return s
 			},
 			want: telemetry.Span{
@@ -398,6 +458,13 @@ func TestTransformSpan(t *testing.T) {
 }
 
 func testTransformMetric(t *testing.T, metric pdata.Metric, want []telemetry.Metric) {
+	comparer := func(t *testing.T, want []telemetry.Metric, got []telemetry.Metric) {
+		assert.Equal(t, want, got)
+	}
+	testTransformMetricWithComparer(t, metric, want, comparer)
+}
+
+func testTransformMetricWithComparer(t *testing.T, metric pdata.Metric, want []telemetry.Metric, compare func(t *testing.T, want []telemetry.Metric, got []telemetry.Metric)) {
 	details := newMetricMetadata(context.Background())
 	transform := newTransformer(&component.ApplicationStartInfo{
 		ExeName: testCollectorName,
@@ -405,7 +472,7 @@ func testTransformMetric(t *testing.T, metric pdata.Metric, want []telemetry.Met
 	}, &details)
 	got, err := transform.Metric(metric)
 	require.NoError(t, err)
-	assert.Equal(t, want, got)
+	compare(t, want, got)
 
 	assert.Equal(t, len(details.metricMetadataCount), 1)
 	for k, v := range details.metricMetadataCount {
@@ -450,10 +517,9 @@ func TestTransformGauge(t *testing.T) {
 		m.SetUnit("1")
 		m.SetDataType(pdata.MetricDataTypeDoubleGauge)
 		gd := m.DoubleGauge()
-		dp := pdata.NewDoubleDataPoint()
+		dp := gd.DataPoints().AppendEmpty()
 		dp.SetTimestamp(ts)
 		dp.SetValue(42.0)
-		gd.DataPoints().Append(dp)
 		t.Run("Double", func(t *testing.T) { testTransformMetric(t, m, expected) })
 	}
 	{
@@ -463,10 +529,9 @@ func TestTransformGauge(t *testing.T) {
 		m.SetUnit("1")
 		m.SetDataType(pdata.MetricDataTypeIntGauge)
 		gi := m.IntGauge()
-		dp := pdata.NewIntDataPoint()
+		dp := gi.DataPoints().AppendEmpty()
 		dp.SetTimestamp(ts)
 		dp.SetValue(42)
-		gi.DataPoints().Append(dp)
 		t.Run("Int64", func(t *testing.T) { testTransformMetric(t, m, expected) })
 	}
 }
@@ -496,11 +561,10 @@ func TestTransformSum(t *testing.T) {
 		m.SetDataType(pdata.MetricDataTypeDoubleSum)
 		d := m.DoubleSum()
 		d.SetAggregationTemporality(pdata.AggregationTemporalityDelta)
-		dp := pdata.NewDoubleDataPoint()
+		dp := d.DataPoints().AppendEmpty()
 		dp.SetStartTimestamp(start)
 		dp.SetTimestamp(end)
 		dp.SetValue(42.0)
-		d.DataPoints().Append(dp)
 		t.Run("DoubleSum-Delta", func(t *testing.T) { testTransformMetric(t, m, expected) })
 	}
 	{
@@ -511,11 +575,10 @@ func TestTransformSum(t *testing.T) {
 		m.SetDataType(pdata.MetricDataTypeDoubleSum)
 		d := m.DoubleSum()
 		d.SetAggregationTemporality(pdata.AggregationTemporalityCumulative)
-		dp := pdata.NewDoubleDataPoint()
+		dp := d.DataPoints().AppendEmpty()
 		dp.SetStartTimestamp(start)
 		dp.SetTimestamp(end)
 		dp.SetValue(42.0)
-		d.DataPoints().Append(dp)
 		t.Run("DoubleSum-Cumulative", func(t *testing.T) { testTransformMetricWithError(t, m, &errUnsupportedMetricType{}) })
 	}
 	{
@@ -526,11 +589,10 @@ func TestTransformSum(t *testing.T) {
 		m.SetDataType(pdata.MetricDataTypeIntSum)
 		d := m.IntSum()
 		d.SetAggregationTemporality(pdata.AggregationTemporalityDelta)
-		dp := pdata.NewIntDataPoint()
+		dp := d.DataPoints().AppendEmpty()
 		dp.SetStartTimestamp(start)
 		dp.SetTimestamp(end)
 		dp.SetValue(42.0)
-		d.DataPoints().Append(dp)
 		t.Run("IntSum-Delta", func(t *testing.T) { testTransformMetric(t, m, expected) })
 	}
 	{
@@ -541,26 +603,32 @@ func TestTransformSum(t *testing.T) {
 		m.SetDataType(pdata.MetricDataTypeIntSum)
 		d := m.IntSum()
 		d.SetAggregationTemporality(pdata.AggregationTemporalityCumulative)
-		dp := pdata.NewIntDataPoint()
+		dp := d.DataPoints().AppendEmpty()
 		dp.SetStartTimestamp(start)
 		dp.SetTimestamp(end)
 		dp.SetValue(42.0)
-		d.DataPoints().Append(dp)
 		t.Run("IntSum-Cumulative", func(t *testing.T) { testTransformMetricWithError(t, m, &errUnsupportedMetricType{}) })
 	}
 }
 
 func TestTransformDeltaSummary(t *testing.T) {
+	testTransformDeltaSummaryWithValues(t, "Double With Min and Max", 2, 7, 1, 6)
+	testTransformDeltaSummaryWithValues(t, "Double With Min and No Max", 1, 1, 1, math.NaN())
+	testTransformDeltaSummaryWithValues(t, "Double With Max and No Min", 1, 1, math.NaN(), 1)
+	testTransformDeltaSummaryWithValues(t, "Double With No Min and No Max", 0, 0, math.NaN(), math.NaN())
+}
+
+func testTransformDeltaSummaryWithValues(t *testing.T, testName string, count uint64, sum float64, min float64, max float64) {
 	start := pdata.TimestampFromTime(time.Unix(1, 0))
 	end := pdata.TimestampFromTime(time.Unix(3, 0))
 
 	expected := []telemetry.Metric{
 		telemetry.Summary{
 			Name:      "summary",
-			Count:     2.0,
-			Sum:       7.0,
-			Min:       1,
-			Max:       6,
+			Count:     float64(count),
+			Sum:       sum,
+			Min:       min,
+			Max:       max,
 			Timestamp: time.Unix(1, 0).UTC(),
 			Interval:  2 * time.Second,
 			Attributes: map[string]interface{}{
@@ -571,30 +639,58 @@ func TestTransformDeltaSummary(t *testing.T) {
 		},
 	}
 
+	comparer := func(t *testing.T, want []telemetry.Metric, got []telemetry.Metric) {
+		assert.Equal(t, len(want), len(got))
+
+		for i := 0; i < len(want); i++ {
+			wantedSummary, ok := want[i].(telemetry.Summary)
+			assert.True(t, ok)
+			gotSummary, ok := got[i].(telemetry.Summary)
+			assert.True(t, ok)
+			assert.Equal(t, wantedSummary.Name, gotSummary.Name)
+			assert.Equal(t, wantedSummary.Count, gotSummary.Count)
+			assert.Equal(t, wantedSummary.Sum, gotSummary.Sum)
+			assert.Equal(t, wantedSummary.Timestamp, gotSummary.Timestamp)
+			assert.Equal(t, wantedSummary.Interval, gotSummary.Interval)
+			assert.Equal(t, wantedSummary.Attributes, gotSummary.Attributes)
+			if math.IsNaN(wantedSummary.Min) {
+				assert.True(t, math.IsNaN(gotSummary.Min))
+			} else {
+				assert.Equal(t, wantedSummary.Min, gotSummary.Min)
+			}
+			if math.IsNaN(wantedSummary.Max) {
+				assert.True(t, math.IsNaN(gotSummary.Max))
+			} else {
+				assert.Equal(t, wantedSummary.Max, gotSummary.Max)
+			}
+		}
+	}
+
 	m := pdata.NewMetric()
 	m.SetName("summary")
 	m.SetDescription("description")
 	m.SetUnit("s")
 	m.SetDataType(pdata.MetricDataTypeSummary)
 	ds := m.Summary()
-	dp := pdata.NewSummaryDataPoint()
+	dp := ds.DataPoints().AppendEmpty()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(end)
-	dp.SetSum(7)
-	dp.SetCount(2)
+	dp.SetSum(sum)
+	dp.SetCount(count)
 	dp.LabelsMap().Insert("foo", "bar")
 	q := dp.QuantileValues()
-	min := pdata.NewValueAtQuantile()
-	min.SetQuantile(0)
-	min.SetValue(1)
-	max := pdata.NewValueAtQuantile()
-	max.SetQuantile(1)
-	max.SetValue(6)
-	q.Append(min)
-	q.Append(max)
-	ds.DataPoints().Append(dp)
+	if !math.IsNaN(min) {
+		minQuantile := q.AppendEmpty()
+		minQuantile.SetQuantile(0)
+		minQuantile.SetValue(min)
+	}
+	if !math.IsNaN(max) {
+		maxQuantile := q.AppendEmpty()
+		maxQuantile.SetQuantile(1)
+		maxQuantile.SetValue(max)
+	}
 
-	t.Run("Double", func(t *testing.T) { testTransformMetric(t, m, expected) })
+	t.Run(testName, func(t *testing.T) { testTransformMetricWithComparer(t, m, expected, comparer) })
 }
 
 func TestUnsupportedMetricTypes(t *testing.T) {
@@ -608,7 +704,7 @@ func TestUnsupportedMetricTypes(t *testing.T) {
 		m.SetUnit("1")
 		m.SetDataType(pdata.MetricDataTypeIntHistogram)
 		h := m.IntHistogram()
-		dp := pdata.NewIntHistogramDataPoint()
+		dp := h.DataPoints().AppendEmpty()
 		dp.SetStartTimestamp(start)
 		dp.SetTimestamp(end)
 		dp.SetCount(2)
@@ -616,7 +712,6 @@ func TestUnsupportedMetricTypes(t *testing.T) {
 		dp.SetExplicitBounds([]float64{3, 7, 11})
 		dp.SetBucketCounts([]uint64{1, 1, 0, 0})
 		h.SetAggregationTemporality(pdata.AggregationTemporalityDelta)
-		h.DataPoints().Append(dp)
 
 		t.Run("IntHistogram", func(t *testing.T) { testTransformMetricWithError(t, m, &errUnsupportedMetricType{}) })
 	}
@@ -627,7 +722,7 @@ func TestUnsupportedMetricTypes(t *testing.T) {
 		m.SetUnit("1")
 		m.SetDataType(pdata.MetricDataTypeHistogram)
 		h := m.Histogram()
-		dp := pdata.NewHistogramDataPoint()
+		dp := h.DataPoints().AppendEmpty()
 		dp.SetStartTimestamp(start)
 		dp.SetTimestamp(end)
 		dp.SetCount(2)
@@ -635,10 +730,24 @@ func TestUnsupportedMetricTypes(t *testing.T) {
 		dp.SetExplicitBounds([]float64{3, 7, 11})
 		dp.SetBucketCounts([]uint64{1, 1, 0, 0})
 		h.SetAggregationTemporality(pdata.AggregationTemporalityDelta)
-		h.DataPoints().Append(dp)
 
 		t.Run("DoubleHistogram", func(t *testing.T) { testTransformMetricWithError(t, m, &errUnsupportedMetricType{}) })
 	}
+}
+
+func TestTransformUnknownMetricType(t *testing.T) {
+	metric := pdata.NewMetric()
+	details := newMetricMetadata(context.Background())
+	transform := newTransformer(&component.ApplicationStartInfo{
+		ExeName: testCollectorName,
+		Version: testCollectorVersion,
+	}, &details)
+
+	got, err := transform.Metric(metric)
+
+	require.NoError(t, err)
+	assert.Nil(t, got)
+	assert.Equal(t, 1, details.metricMetadataCount[metricStatsKey{MetricType: pdata.MetricDataTypeNone}])
 }
 
 func TestTransformer_Log(t *testing.T) {
@@ -704,12 +813,73 @@ func TestTransformer_Log(t *testing.T) {
 				Attributes: map[string]interface{}{"name": "bloopbleep", "log.level": "SEVERE"},
 			},
 		},
+		{
+			name: "With traceID and spanID",
+			logFunc: func() pdata.LogRecord {
+				log := pdata.NewLogRecord()
+				timestamp := pdata.TimestampFromTime(time.Unix(0, 0).UTC())
+				log.SetTraceID(pdata.NewTraceID([...]byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}))
+				log.SetSpanID(pdata.NewSpanID([...]byte{0, 0, 0, 0, 0, 0, 0, 1}))
+				log.SetTimestamp(timestamp)
+				return log
+			},
+			want: telemetry.Log{
+				Message:   "",
+				Timestamp: time.Unix(0, 0).UTC(),
+				Attributes: map[string]interface{}{
+					"name":     "",
+					"trace.id": "01010101010101010101010101010101",
+					"span.id":  "0000000000000001",
+				},
+			},
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			transform := newTransformer(nil, nil)
+			details := newLogMetadata(context.TODO())
+			transform := newTransformer(nil, &details)
 			got, _ := transform.Log(test.logFunc())
 			assert.EqualValues(t, test.want, got)
 		})
 	}
+}
+
+func TestCaptureLogAttributeMetadata(t *testing.T) {
+	log := pdata.NewLogRecord()
+	log.SetName("bloopbleep")
+	log.Attributes().InsertString("foo", "bar")
+	log.Body().SetStringVal("Hello World")
+
+	details := newLogMetadata(context.TODO())
+	transform := newTransformer(nil, &details)
+	_, err := transform.Log(log)
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(details.attributeMetadataCount))
+	assert.Equal(t, 1, details.attributeMetadataCount[attributeStatsKey{location: attributeLocationLog, attributeType: pdata.AttributeValueSTRING}])
+}
+
+func TestDoesNotCaptureLogAttributeMetadata(t *testing.T) {
+	log := pdata.NewLogRecord()
+	log.SetName("bloopbleep")
+	log.Body().SetStringVal("Hello World")
+
+	details := newLogMetadata(context.TODO())
+	transform := newTransformer(nil, &details)
+	_, err := transform.Log(log)
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, len(details.attributeMetadataCount))
+}
+
+func TestUnsupportedMetricErrorCreation(t *testing.T) {
+	e := errUnsupportedMetricType{
+		metricType:    "testType",
+		metricName:    "testName",
+		numDataPoints: 1,
+	}
+
+	errorMessage := e.Error()
+
+	assert.Equal(t, "unsupported metric testName (testType)", errorMessage)
 }

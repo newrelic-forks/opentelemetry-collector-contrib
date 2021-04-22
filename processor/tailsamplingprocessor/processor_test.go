@@ -46,7 +46,7 @@ func TestSequentialTraceArrival(t *testing.T) {
 		ExpectedNewTracesPerSec: 64,
 		PolicyCfgs:              testPolicy,
 	}
-	sp, _ := newTraceProcessor(zap.NewNop(), consumertest.NewNop(), cfg)
+	sp, _ := newTracesProcessor(zap.NewNop(), consumertest.NewNop(), cfg)
 	tsp := sp.(*tailSamplingSpanProcessor)
 	for _, batch := range batches {
 		tsp.ConsumeTraces(context.Background(), batch)
@@ -70,7 +70,7 @@ func TestConcurrentTraceArrival(t *testing.T) {
 		ExpectedNewTracesPerSec: 64,
 		PolicyCfgs:              testPolicy,
 	}
-	sp, _ := newTraceProcessor(zap.NewNop(), consumertest.NewNop(), cfg)
+	sp, _ := newTracesProcessor(zap.NewNop(), consumertest.NewNop(), cfg)
 	tsp := sp.(*tailSamplingSpanProcessor)
 	for _, batch := range batches {
 		// Add the same traceId twice.
@@ -104,7 +104,7 @@ func TestSequentialTraceMapSize(t *testing.T) {
 		ExpectedNewTracesPerSec: 64,
 		PolicyCfgs:              testPolicy,
 	}
-	sp, _ := newTraceProcessor(zap.NewNop(), consumertest.NewNop(), cfg)
+	sp, _ := newTracesProcessor(zap.NewNop(), consumertest.NewNop(), cfg)
 	tsp := sp.(*tailSamplingSpanProcessor)
 	for _, batch := range batches {
 		tsp.ConsumeTraces(context.Background(), batch)
@@ -127,7 +127,7 @@ func TestConcurrentTraceMapSize(t *testing.T) {
 		ExpectedNewTracesPerSec: 64,
 		PolicyCfgs:              testPolicy,
 	}
-	sp, _ := newTraceProcessor(zap.NewNop(), consumertest.NewNop(), cfg)
+	sp, _ := newTracesProcessor(zap.NewNop(), consumertest.NewNop(), cfg)
 	tsp := sp.(*tailSamplingSpanProcessor)
 	for _, batch := range batches {
 		wg.Add(1)
@@ -521,11 +521,6 @@ func simpleTraces() pdata.Traces {
 
 func simpleTracesWithID(traceID pdata.TraceID) pdata.Traces {
 	traces := pdata.NewTraces()
-	traces.ResourceSpans().Resize(1)
-	rs := traces.ResourceSpans().At(0)
-	rs.InstrumentationLibrarySpans().Resize(1)
-	ils := rs.InstrumentationLibrarySpans().At(0)
-	ils.Spans().Resize(1)
-	ils.Spans().At(0).SetTraceID(traceID)
+	traces.ResourceSpans().AppendEmpty().InstrumentationLibrarySpans().AppendEmpty().Spans().AppendEmpty().SetTraceID(traceID)
 	return traces
 }

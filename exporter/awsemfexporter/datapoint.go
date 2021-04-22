@@ -20,7 +20,7 @@ import (
 	"go.opentelemetry.io/collector/consumer/pdata"
 	"go.uber.org/zap"
 
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws"
+	aws "github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/metrics"
 )
 
 var deltaMetricCalculator = aws.NewFloat64DeltaCalculator()
@@ -205,8 +205,9 @@ func (dps SummaryDataPointSlice) At(i int) DataPoint {
 // and optionally adds in the OTel instrumentation library name
 func createLabels(labelsMap pdata.StringMap, instrLibName string) map[string]string {
 	labels := make(map[string]string, labelsMap.Len()+1)
-	labelsMap.ForEach(func(k, v string) {
+	labelsMap.Range(func(k, v string) bool {
 		labels[k] = v
+		return true
 	})
 
 	// Add OTel instrumentation lib name as an additional label if it is defined

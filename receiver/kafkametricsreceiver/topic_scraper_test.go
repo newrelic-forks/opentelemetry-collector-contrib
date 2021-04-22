@@ -59,24 +59,46 @@ func TestTopicShutdown_closed(t *testing.T) {
 
 func TestTopicScraper_Name(t *testing.T) {
 	s := topicScraper{}
-	assert.Equal(t, s.Name(), "topics")
+	assert.Equal(t, s.Name(), topicsScraperName)
 }
 
 func TestTopicScraper_createsScraper(t *testing.T) {
 	sc := sarama.NewConfig()
 	newSaramaClient = mockNewSaramaClient
 	ms, err := createTopicsScraper(context.Background(), Config{}, sc, zap.NewNop())
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.NotNil(t, ms)
 }
 
-func TestTopicScraper_createScraperHandlesError(t *testing.T) {
+func TestTopicScraper_startScraperHandlesError(t *testing.T) {
 	newSaramaClient = func(addrs []string, conf *sarama.Config) (sarama.Client, error) {
 		return nil, fmt.Errorf("no scraper here")
 	}
 	sc := sarama.NewConfig()
 	ms, err := createTopicsScraper(context.Background(), Config{}, sc, zap.NewNop())
-	assert.NotNil(t, err)
+	assert.NotNil(t, ms)
+	assert.Nil(t, err)
+	err = ms.Start(context.Background(), nil)
+	assert.Error(t, err)
+}
+
+func TestTopicScraper_startScraperCreatesClient(t *testing.T) {
+	newSaramaClient = mockNewSaramaClient
+	sc := sarama.NewConfig()
+	ms, err := createTopicsScraper(context.Background(), Config{}, sc, zap.NewNop())
+	assert.NotNil(t, ms)
+	assert.NoError(t, err)
+	err = ms.Start(context.Background(), nil)
+	assert.NoError(t, err)
+}
+
+func TestTopicScraper_createScraperHandles_invalid_topicMatch(t *testing.T) {
+	newSaramaClient = mockNewSaramaClient
+	sc := sarama.NewConfig()
+	ms, err := createTopicsScraper(context.Background(), Config{
+		TopicMatch: "[",
+	}, sc, zap.NewNop())
+	assert.Error(t, err)
 	assert.Nil(t, ms)
 }
 
@@ -124,7 +146,7 @@ func TestTopicScraper_scrape_handlesTopicError(t *testing.T) {
 		topicFilter: match,
 	}
 	_, err := scraper.scrape(context.Background())
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 }
 
 func TestTopicScraper_scrape_handlesPartitionError(t *testing.T) {
@@ -138,7 +160,7 @@ func TestTopicScraper_scrape_handlesPartitionError(t *testing.T) {
 		topicFilter: match,
 	}
 	_, err := scraper.scrape(context.Background())
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 }
 
 func TestTopicScraper_scrape_handlesPartialScrapeErrors(t *testing.T) {
@@ -155,5 +177,5 @@ func TestTopicScraper_scrape_handlesPartialScrapeErrors(t *testing.T) {
 		topicFilter: match,
 	}
 	_, err := scraper.scrape(context.Background())
-	assert.NotNil(t, err)
+	assert.Error(t, err)
 }

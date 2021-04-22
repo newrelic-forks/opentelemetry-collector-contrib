@@ -1,6 +1,6 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/exporter/newrelicexporter
 
-go 1.14
+go 1.15
 
 require (
 	github.com/armon/go-metrics v0.3.3 // indirect
@@ -16,10 +16,10 @@ require (
 	github.com/pelletier/go-toml v1.8.0 // indirect
 	github.com/stretchr/testify v1.7.0
 	go.opencensus.io v0.23.0
-	go.opentelemetry.io/collector v0.24.0
+	go.opentelemetry.io/collector v0.25.1-0.20210421230708-d10b842f49eb
 	go.uber.org/zap v1.16.0
 	google.golang.org/genproto v0.0.0-20210302174412-5ede27ff9881
-	google.golang.org/grpc v1.36.1
+	google.golang.org/grpc v1.37.0
 	google.golang.org/protobuf v1.26.0
 	gopkg.in/ini.v1 v1.57.0 // indirect
 )

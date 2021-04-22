@@ -46,6 +46,7 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/httpforwarder"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/observer/hostobserver"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/observer/k8sobserver"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/storage/filestorage"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/groupbyattrsprocessor"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/groupbytraceprocessor"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/k8sprocessor"
@@ -64,6 +65,7 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/fluentforwardreceiver"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/jmxreceiver"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/k8sclusterreceiver"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/kafkametricsreceiver"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/kubeletstatsreceiver"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/prometheusexecreceiver"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/receivercreator"
@@ -90,6 +92,7 @@ func components() (component.Factories, error) {
 		hostobserver.NewFactory(),
 		httpforwarder.NewFactory(),
 		k8sobserver.NewFactory(),
+		filestorage.NewFactory(),
 	}
 
 	for _, ext := range factories.Extensions {
@@ -111,6 +114,7 @@ func components() (component.Factories, error) {
 		filelogreceiver.NewFactory(),
 		fluentforwardreceiver.NewFactory(),
 		jmxreceiver.NewFactory(),
+		kafkametricsreceiver.NewFactory(),
 		k8sclusterreceiver.NewFactory(),
 		kubeletstatsreceiver.NewFactory(),
 		prometheusexecreceiver.NewFactory(),

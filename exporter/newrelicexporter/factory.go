@@ -21,7 +21,6 @@ import (
 
 	"github.com/newrelic/newrelic-telemetry-sdk-go/telemetry"
 	"go.opencensus.io/stats/view"
-
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config"
 	"go.opentelemetry.io/collector/exporter/exporterhelper"
@@ -37,7 +36,7 @@ func NewFactory() component.ExporterFactory {
 	return exporterhelper.NewFactory(
 		typeStr,
 		createDefaultConfig,
-		exporterhelper.WithTraces(createTraceExporter),
+		exporterhelper.WithTraces(createTracesExporter),
 		exporterhelper.WithMetrics(createMetricsExporter),
 		exporterhelper.WithLogs(createLogsExporter),
 	)
@@ -54,7 +53,7 @@ func createDefaultConfig() config.Exporter {
 }
 
 // CreateTracesExporter creates a New Relic trace exporter for this configuration.
-func createTraceExporter(
+func createTracesExporter(
 	_ context.Context,
 	params component.ExporterCreateParams,
 	cfg config.Exporter,
@@ -71,7 +70,7 @@ func createTraceExporter(
 
 	// The logger is only used in a disabled queuedRetrySender, which noisily logs at
 	// the error level when it is disabled and errors occur.
-	return exporterhelper.NewTraceExporter(cfg, zap.NewNop(), exp.pushTraceData,
+	return exporterhelper.NewTracesExporter(cfg, zap.NewNop(), exp.pushTraceData,
 		exporterhelper.WithTimeout(exporterhelper.TimeoutSettings{Timeout: traceConfig.Timeout}),
 		exporterhelper.WithRetry(exporterhelper.RetrySettings{Enabled: false}),
 		exporterhelper.WithQueue(exporterhelper.QueueSettings{Enabled: false}),

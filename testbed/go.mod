@@ -1,6 +1,6 @@
 module github.com/open-telemetry/opentelemetry-collector-contrib/testbed
 
-go 1.14
+go 1.15
 
 require (
 	github.com/fluent/fluent-logger-golang v1.5.0
@@ -15,7 +15,7 @@ require (
 	github.com/open-telemetry/opentelemetry-collector-contrib/testbed/mockdatareceivers/mockawsxrayreceiver v0.0.0-00010101000000-000000000000
 	github.com/stretchr/testify v1.7.0
 	github.com/tinylib/msgp v1.1.5 // indirect
-	go.opentelemetry.io/collector v0.24.0
+	go.opentelemetry.io/collector v0.25.1-0.20210421230708-d10b842f49eb
 	go.uber.org/zap v1.16.0
 )
 
@@ -36,6 +36,8 @@ replace github.com/open-telemetry/opentelemetry-collector-contrib/pkg/batchperre
 replace github.com/open-telemetry/opentelemetry-collector-contrib/pkg/experimentalmetricmetadata => ../pkg/experimentalmetricmetadata
 
 replace github.com/open-telemetry/opentelemetry-collector-contrib/receiver/carbonreceiver => ../receiver/carbonreceiver
+
+replace github.com/open-telemetry/opentelemetry-collector-contrib/receiver/filelogreceiver => ../receiver/filelogreceiver
 
 replace github.com/open-telemetry/opentelemetry-collector-contrib/receiver/sapmreceiver => ../receiver/sapmreceiver
 

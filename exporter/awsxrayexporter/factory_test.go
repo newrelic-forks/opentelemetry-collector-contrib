@@ -27,28 +27,32 @@ import (
 	"go.opentelemetry.io/collector/config/configcheck"
 	"go.opentelemetry.io/collector/config/configtest"
 	"go.uber.org/zap"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/aws/awsutil"
 )
 
 func TestCreateDefaultConfig(t *testing.T) {
 	factory := NewFactory()
 	cfg := factory.CreateDefaultConfig()
 	assert.Equal(t, cfg, &Config{
-		ExporterSettings:      config.NewExporterSettings(typeStr),
-		NumberOfWorkers:       8,
-		Endpoint:              "",
-		RequestTimeoutSeconds: 30,
-		MaxRetries:            2,
-		NoVerifySSL:           false,
-		ProxyAddress:          "",
-		Region:                "",
-		LocalMode:             false,
-		ResourceARN:           "",
-		RoleARN:               "",
+		ExporterSettings: config.NewExporterSettings(typeStr),
+		AWSSessionSettings: awsutil.AWSSessionSettings{
+			NumberOfWorkers:       8,
+			Endpoint:              "",
+			RequestTimeoutSeconds: 30,
+			MaxRetries:            2,
+			NoVerifySSL:           false,
+			ProxyAddress:          "",
+			Region:                "",
+			LocalMode:             false,
+			ResourceARN:           "",
+			RoleARN:               "",
+		},
 	}, "failed to create default config")
 	assert.NoError(t, configcheck.ValidateConfig(cfg))
 }
 
-func TestCreateTraceExporter(t *testing.T) {
+func TestCreateTracesExporter(t *testing.T) {
 	logger := zap.NewNop()
 
 	factories, err := componenttest.NopFactories()

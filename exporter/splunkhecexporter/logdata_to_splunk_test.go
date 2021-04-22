@@ -61,6 +61,31 @@ func Test_mapLogRecordToSplunkEvent(t *testing.T) {
 			},
 		},
 		{
+			name: "with_name",
+			logRecordFn: func() pdata.LogRecord {
+				logRecord := pdata.NewLogRecord()
+				logRecord.SetName("my very own name")
+				logRecord.Body().SetStringVal("mylog")
+				logRecord.Attributes().InsertString(conventions.AttributeServiceName, "myapp")
+				logRecord.Attributes().InsertString(splunk.SourcetypeLabel, "myapp-type")
+				logRecord.Attributes().InsertString(conventions.AttributeHostName, "myhost")
+				logRecord.Attributes().InsertString("custom", "custom")
+				logRecord.SetTimestamp(ts)
+				return logRecord
+			},
+			logResourceFn: pdata.NewResource,
+			configDataFn: func() *Config {
+				return &Config{
+					Source:     "source",
+					SourceType: "sourcetype",
+				}
+			},
+			wantSplunkEvents: []*splunk.Event{
+				commonLogSplunkEvent("mylog", ts, map[string]interface{}{"custom": "custom", "service.name": "myapp", "host.name": "myhost", "otlp.log.name": "my very own name"},
+					"myhost", "myapp", "myapp-type"),
+			},
+		},
+		{
 			name: "non-string attribute",
 			logRecordFn: func() pdata.LogRecord {
 				logRecord := pdata.NewLogRecord()
@@ -247,7 +272,7 @@ func Test_mapLogRecordToSplunkEvent(t *testing.T) {
 				logRecord := pdata.NewLogRecord()
 				attVal := pdata.NewAttributeValueArray()
 				attArray := attVal.ArrayVal()
-				attArray.Append(pdata.NewAttributeValueString("foo"))
+				attArray.AppendEmpty().SetStringVal("foo")
 				attVal.CopyTo(logRecord.Body())
 				logRecord.Attributes().InsertString(conventions.AttributeServiceName, "myapp")
 				logRecord.Attributes().InsertString(splunk.SourcetypeLabel, "myapp-type")
@@ -314,10 +339,8 @@ func Test_mapLogRecordToSplunkEvent(t *testing.T) {
 
 func makeLog(record pdata.LogRecord) pdata.Logs {
 	logs := pdata.NewLogs()
-	logs.ResourceLogs().Resize(1)
-	rl := logs.ResourceLogs().At(0)
-	rl.InstrumentationLibraryLogs().Resize(1)
-	ill := rl.InstrumentationLibraryLogs().At(0)
+	rl := logs.ResourceLogs().AppendEmpty()
+	ill := rl.InstrumentationLibraryLogs().AppendEmpty()
 	ill.Logs().Append(record)
 	return logs
 }

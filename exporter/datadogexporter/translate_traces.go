@@ -283,8 +283,9 @@ func resourceToDatadogServiceNameAndAttributeMap(
 		return tracetranslator.ResourceNoServiceName, datadogTags
 	}
 
-	attrs.ForEach(func(k string, v pdata.AttributeValue) {
+	attrs.Range(func(k string, v pdata.AttributeValue) bool {
 		datadogTags[k] = tracetranslator.AttributeValueToString(v, false)
+		return true
 	})
 
 	serviceName = extractDatadogServiceName(datadogTags)
@@ -320,9 +321,9 @@ func aggregateSpanTags(span pdata.Span, datadogTags map[string]string) map[strin
 		spanTags[key] = val
 	}
 
-	span.Attributes().ForEach(func(k string, v pdata.AttributeValue) {
+	span.Attributes().Range(func(k string, v pdata.AttributeValue) bool {
 		spanTags[k] = tracetranslator.AttributeValueToString(v, false)
-
+		return true
 	})
 
 	spanTags[tagContainersTags] = buildDatadogContainerTags(spanTags)
@@ -534,7 +535,7 @@ func getSpanErrorAndSetTags(s pdata.Span, tags map[string]string) int32 {
 //  that escaped the scope of the span ("exception.escaped" == true) instead of the last exception event
 //  in the case that these events differ.
 //
-//  https://github.com/open-telemetry/opentelemetry-specification/blob/master/specification/trace/semantic_conventions/exceptions.md#attributes
+//  https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/semantic_conventions/exceptions.md#attributes
 func extractErrorTagsFromEvents(s pdata.Span, tags map[string]string) {
 	evts := s.Events()
 	for i := evts.Len() - 1; i >= 0; i-- {

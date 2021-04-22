@@ -32,6 +32,7 @@ type sumologicexporter struct {
 	client              *http.Client
 	filter              filter
 	prometheusFormatter prometheusFormatter
+	graphiteFormatter   graphiteFormatter
 }
 
 func initExporter(cfg *Config) (*sumologicexporter, error) {
@@ -77,6 +78,11 @@ func initExporter(cfg *Config) (*sumologicexporter, error) {
 		return nil, err
 	}
 
+	gf, err := newGraphiteFormatter(cfg.GraphiteTemplate)
+	if err != nil {
+		return nil, err
+	}
+
 	httpClient, err := cfg.HTTPClientSettings.ToClient()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP Client: %w", err)
@@ -88,6 +94,7 @@ func initExporter(cfg *Config) (*sumologicexporter, error) {
 		client:              httpClient,
 		filter:              f,
 		prometheusFormatter: pf,
+		graphiteFormatter:   gf,
 	}
 
 	return se, nil
@@ -151,7 +158,15 @@ func (se *sumologicexporter) pushLogsData(ctx context.Context, ld pdata.Logs) er
 	if err != nil {
 		return consumererror.NewLogs(fmt.Errorf("failed to initialize compressor: %w", err), ld)
 	}
-	sdr := newSender(se.config, se.client, se.filter, se.sources, c, se.prometheusFormatter)
+	sdr := newSender(
+		se.config,
+		se.client,
+		se.filter,
+		se.sources,
+		c,
+		se.prometheusFormatter,
+		se.graphiteFormatter,
+	)
 
 	// Iterate over ResourceLogs
 	rls := ld.ResourceLogs()
@@ -170,11 +185,10 @@ func (se *sumologicexporter) pushLogsData(ctx context.Context, ld pdata.Logs) er
 
 				// copy resource attributes into logs attributes
 				// log attributes have precedence over resource attributes
-				rl.Resource().Attributes().ForEach(
-					func(k string, v pdata.AttributeValue) {
-						log.Attributes().Insert(k, v)
-					},
-				)
+				rl.Resource().Attributes().Range(func(k string, v pdata.AttributeValue) bool {
+					log.Attributes().Insert(k, v)
+					return true
+				})
 
 				currentMetadata = sdr.filter.filterIn(log.Attributes())
 
@@ -214,11 +228,8 @@ func (se *sumologicexporter) pushLogsData(ctx context.Context, ld pdata.Logs) er
 		// Move all dropped records to Logs
 		droppedLogs := pdata.NewLogs()
 		rls = droppedLogs.ResourceLogs()
-		rls.Resize(1)
-
-		ills := rls.At(0).InstrumentationLibraryLogs()
-		ills.Resize(1)
-		logs := ills.At(0).Logs()
+		ills := rls.AppendEmpty().InstrumentationLibraryLogs()
+		logs := ills.AppendEmpty().Logs()
 
 		for _, log := range droppedRecords {
 			logs.Append(log)
@@ -246,7 +257,15 @@ func (se *sumologicexporter) pushMetricsData(ctx context.Context, md pdata.Metri
 	if err != nil {
 		return consumererror.NewMetrics(fmt.Errorf("failed to initialize compressor: %w", err), md)
 	}
-	sdr := newSender(se.config, se.client, se.filter, se.sources, c, se.prometheusFormatter)
+	sdr := newSender(
+		se.config,
+		se.client,
+		se.filter,
+		se.sources,
+		c,
+		se.prometheusFormatter,
+		se.graphiteFormatter,
+	)
 
 	// Iterate over ResourceMetrics
 	rms := md.ResourceMetrics()
@@ -312,8 +331,7 @@ func (se *sumologicexporter) pushMetricsData(ctx context.Context, md pdata.Metri
 			record.attributes.CopyTo(rm.Resource().Attributes())
 
 			ilms := rm.InstrumentationLibraryMetrics()
-			ilms.Resize(1)
-			ilms.At(0).Metrics().Append(record.metric)
+			ilms.AppendEmpty().Metrics().Append(record.metric)
 		}
 
 		return consumererror.NewMetrics(consumererror.Combine(errs), droppedMetrics)

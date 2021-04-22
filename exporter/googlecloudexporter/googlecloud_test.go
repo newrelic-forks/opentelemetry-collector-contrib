@@ -99,7 +99,7 @@ func TestGoogleCloudTraceExport(t *testing.T) {
 			go srv.Serve(lis)
 
 			createParams := component.ExporterCreateParams{Logger: zap.NewNop(), ApplicationStartInfo: component.ApplicationStartInfo{Version: "v0.0.1"}}
-			sde, err := newGoogleCloudTraceExporter(test.cfg, createParams)
+			sde, err := newGoogleCloudTracesExporter(test.cfg, createParams)
 			if test.expectedErr != "" {
 				assert.EqualError(t, err, test.expectedErr)
 				return
@@ -112,13 +112,10 @@ func TestGoogleCloudTraceExport(t *testing.T) {
 
 			resource := pdata.NewResource()
 			traces := pdata.NewTraces()
-			traces.ResourceSpans().Resize(1)
-			rspans := traces.ResourceSpans().At(0)
+			rspans := traces.ResourceSpans().AppendEmpty()
 			resource.CopyTo(rspans.Resource())
-			rspans.InstrumentationLibrarySpans().Resize(1)
-			ispans := rspans.InstrumentationLibrarySpans().At(0)
-			ispans.Spans().Resize(1)
-			span := ispans.Spans().At(0)
+			ispans := rspans.InstrumentationLibrarySpans().AppendEmpty()
+			span := ispans.Spans().AppendEmpty()
 			span.SetName(spanName)
 			span.SetStartTimestamp(pdata.TimestampFromTime(testTime))
 			err = sde.ConsumeTraces(context.Background(), traces)
