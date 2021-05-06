@@ -32,7 +32,6 @@ const (
 	unitAttrKey               = "unit"
 	descriptionAttrKey        = "description"
 	collectorNameKey          = "collector.name"
-	collectorVersionKey       = "collector.version"
 	instrumentationNameKey    = "instrumentation.name"
 	instrumentationVersionKey = "instrumentation.version"
 	statusCodeKey             = "otel.status_code"
@@ -54,9 +53,6 @@ func newTransformer(logger *zap.Logger, buildInfo *component.BuildInfo, details 
 	overrideAttributes := make(map[string]interface{})
 	if buildInfo != nil {
 		overrideAttributes[collectorNameKey] = buildInfo.Command
-		if buildInfo.Version != "" {
-			overrideAttributes[collectorVersionKey] = buildInfo.Version
-		}
 	}
 
 	return &transformer{logger: logger, OverrideAttributes: overrideAttributes, details: details}
