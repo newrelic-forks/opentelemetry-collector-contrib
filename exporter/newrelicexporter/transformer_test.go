@@ -47,7 +47,6 @@ func TestCommonAttributes(t *testing.T) {
 	details := newTraceMetadata(context.TODO())
 	commonAttrs := newTransformer(zap.NewNop(), buildInfo, &details).CommonAttributes(resource, ilm)
 	assert.Equal(t, "the-collector", commonAttrs[collectorNameKey])
-	assert.Equal(t, "0.0.1", commonAttrs[collectorVersionKey])
 	assert.Equal(t, "R1", commonAttrs["resource"])
 	assert.Equal(t, "test name", commonAttrs[instrumentationNameKey])
 	assert.Equal(t, "test version", commonAttrs[instrumentationVersionKey])
