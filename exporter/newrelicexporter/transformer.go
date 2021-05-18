@@ -451,6 +451,16 @@ func (t *transformer) TrackAttributes(location attributeLocation, attributeMap p
 	attributeMap.Range(func(k string, v pdata.AttributeValue) bool {
 		statsKey := attributeStatsKey{location: location, attributeType: v.Type()}
 		t.details.attributeMetadataCount[statsKey]++
+		// Add logging showing array values
+		if v.Type() == pdata.AttributeValueARRAY {
+			arr := make([]string, v.ArrayVal().Len())
+			for i := 0; i < v.ArrayVal().Len(); i++ {
+				a := v.ArrayVal().At(i)
+				s := tracetranslator.AttributeValueToString(a, false)
+				arr = append(arr, s)
+			}
+			t.logger.Info("Array value detected.", zap.String("key", k), zap.Strings("value", arr))
+		}
 		return true
 	})
 }
