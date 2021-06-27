@@ -33,7 +33,7 @@ func TestCreateDefaultConfig(t *testing.T) {
 
 	nrCfg, ok := cfg.(*Config)
 	require.True(t, ok, "invalid Config: %#v", cfg)
-	assert.Equal(t, nrCfg.CommonConfig.Timeout, time.Second*15)
+	assert.Equal(t, nrCfg.CommonConfig.TimeoutSettings.Timeout, time.Second*5)
 }
 
 func TestCreateExporterWithAPIKey(t *testing.T) {

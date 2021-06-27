@@ -15,8 +15,6 @@
 package newrelicexporter
 
 import (
-	"time"
-
 	"go.opentelemetry.io/collector/config"
 	"go.opentelemetry.io/collector/config/configparser"
 	"go.opentelemetry.io/collector/exporter/exporterhelper"
@@ -33,10 +31,10 @@ type EndpointConfig struct {
 	// HostOverride overrides the endpoint.
 	HostOverride string `mapstructure:"host_override"`
 
-	// Timeout is the total amount of time spent attempting a request,
-	// including retries, before abandoning and dropping data. Default is 15
+	// TimeoutSettings is the total amount of time spent attempting a request,
+	// including retries, before abandoning and dropping data. Default is 5
 	// seconds.
-	Timeout time.Duration `mapstructure:"timeout"`
+	TimeoutSettings exporterhelper.TimeoutSettings `mapstructure:",squash"`
 
 	// RetrySettings defines configuration for retrying batches in case of export failure.
 	// The current supported strategy is exponential backoff.

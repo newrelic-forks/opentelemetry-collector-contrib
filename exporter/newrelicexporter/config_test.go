@@ -24,6 +24,7 @@ import (
 	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/config"
 	"go.opentelemetry.io/collector/config/configtest"
+	"go.opentelemetry.io/collector/exporter/exporterhelper"
 )
 
 func TestLoadConfig(t *testing.T) {
@@ -52,22 +53,30 @@ func TestLoadConfig(t *testing.T) {
 	assert.Equal(t, r1, &Config{
 		ExporterSettings: config.NewExporterSettings(config.NewIDWithName(typeStr, "alt")),
 		CommonConfig: EndpointConfig{
-			APIKey:  "a1b2c3d4",
-			Timeout: time.Second * 30,
+			APIKey: "a1b2c3d4",
+			TimeoutSettings: exporterhelper.TimeoutSettings{
+				Timeout: 30 * time.Second,
+			},
 		},
 		MetricsConfig: EndpointConfig{
-			APIKey:       "a1b2c3d4",
-			Timeout:      time.Second * 30,
+			APIKey: "a1b2c3d4",
+			TimeoutSettings: exporterhelper.TimeoutSettings{
+				Timeout: 30 * time.Second,
+			},
 			HostOverride: "alt.metrics.newrelic.com",
 		},
 		TracesConfig: EndpointConfig{
-			APIKey:       "a1b2c3d4",
-			Timeout:      time.Second * 30,
+			APIKey: "a1b2c3d4",
+			TimeoutSettings: exporterhelper.TimeoutSettings{
+				Timeout: 30 * time.Second,
+			},
 			HostOverride: "alt.spans.newrelic.com",
 		},
 		LogsConfig: EndpointConfig{
-			APIKey:       "a1b2c3d4",
-			Timeout:      time.Second * 30,
+			APIKey: "a1b2c3d4",
+			TimeoutSettings: exporterhelper.TimeoutSettings{
+				Timeout: 30 * time.Second,
+			},
 			HostOverride: "alt.logs.newrelic.com",
 		},
 	})

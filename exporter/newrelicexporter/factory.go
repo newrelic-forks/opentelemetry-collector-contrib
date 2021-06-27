@@ -17,7 +17,6 @@ package newrelicexporter
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/newrelic/newrelic-telemetry-sdk-go/telemetry"
 	"go.opencensus.io/stats/view"
@@ -48,8 +47,8 @@ func createDefaultConfig() config.Exporter {
 		ExporterSettings: config.NewExporterSettings(config.NewID(typeStr)),
 
 		CommonConfig: EndpointConfig{
-			Timeout:       time.Second * 15,
-			RetrySettings: defaultRetry,
+			TimeoutSettings: exporterhelper.DefaultTimeoutSettings(),
+			RetrySettings:   defaultRetry,
 		},
 	}
 }
@@ -73,7 +72,7 @@ func createTracesExporter(
 	// The logger is only used in a disabled queuedRetrySender, which noisily logs at
 	// the error level when it is disabled and errors occur.
 	return exporterhelper.NewTracesExporter(cfg, zap.NewNop(), exp.pushTraceData,
-		exporterhelper.WithTimeout(exporterhelper.TimeoutSettings{Timeout: traceConfig.Timeout}),
+		exporterhelper.WithTimeout(traceConfig.TimeoutSettings),
 		exporterhelper.WithRetry(traceConfig.RetrySettings),
 		exporterhelper.WithQueue(exporterhelper.QueueSettings{Enabled: false}),
 	)
@@ -97,7 +96,7 @@ func createMetricsExporter(
 	}
 
 	return exporterhelper.NewMetricsExporter(cfg, zap.NewNop(), exp.pushMetricData,
-		exporterhelper.WithTimeout(exporterhelper.TimeoutSettings{Timeout: metricsConfig.Timeout}),
+		exporterhelper.WithTimeout(metricsConfig.TimeoutSettings),
 		exporterhelper.WithRetry(metricsConfig.RetrySettings),
 		exporterhelper.WithQueue(exporterhelper.QueueSettings{Enabled: false}),
 	)
@@ -120,7 +119,7 @@ func createLogsExporter(
 		return nil, err
 	}
 	return exporterhelper.NewLogsExporter(cfg, zap.NewNop(), exp.pushLogData,
-		exporterhelper.WithTimeout(exporterhelper.TimeoutSettings{Timeout: logsConfig.Timeout}),
+		exporterhelper.WithTimeout(logsConfig.TimeoutSettings),
 		exporterhelper.WithRetry(logsConfig.RetrySettings),
 		exporterhelper.WithQueue(exporterhelper.QueueSettings{Enabled: false}),
 	)
