@@ -19,8 +19,11 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 
 	"github.com/golang/protobuf/ptypes/duration"
+	"go.opentelemetry.io/collector/consumer/consumererror"
+	"go.opentelemetry.io/collector/exporter/exporterhelper"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	grpcStatus "google.golang.org/grpc/status"
@@ -46,6 +49,15 @@ func (e *urlError) GRPCStatus() *grpcStatus.Status {
 func (e *urlError) IsPermanent() bool {
 	urlError := e.Err.(*url.Error)
 	return !urlError.Temporary()
+}
+
+func (e *urlError) Wrap() error {
+	var out error
+	out = e
+	if e.IsPermanent() {
+		out = consumererror.Permanent(out)
+	}
+	return out
 }
 
 // Explicit mapping for the error status codes describe by the trace API:
@@ -92,9 +104,8 @@ func (e *httpError) GRPCStatus() *grpcStatus.Status {
 	// The OTLP spec uses the Unavailable code to signal backpressure to the client
 	// If the http status maps to Unavailable, attempt to extract and communicate retry info to the client
 	if mapEntry == codes.Unavailable {
-		retryAfter := e.Response.Header.Get("Retry-After")
-		retrySeconds, err := strconv.ParseInt(retryAfter, 10, 64)
-		if err == nil {
+		retrySeconds := int64(e.ThrottleDelay().Seconds())
+		if retrySeconds > 0 {
 			message := &errdetails.RetryInfo{RetryDelay: &duration.Duration{Seconds: retrySeconds}}
 			status, statusErr := grpcStatus.New(codes.Unavailable, e.Response.Status).WithDetails(message)
 			if statusErr == nil {
@@ -112,4 +123,29 @@ func (e *httpError) IsPermanent() bool {
 		return false
 	}
 	return true
+}
+
+func (e *httpError) ThrottleDelay() time.Duration {
+	if e.Response.StatusCode == http.StatusTooManyRequests {
+		retryAfter := e.Response.Header.Get("Retry-After")
+		if retrySeconds, err := strconv.ParseInt(retryAfter, 10, 64); err == nil {
+			return time.Duration(retrySeconds) * time.Second
+		}
+	}
+	return 0
+}
+
+func (e *httpError) Wrap() error {
+	var out error
+	out = e
+	if e.IsPermanent() {
+		out = consumererror.Permanent(out)
+	} else if delay := e.ThrottleDelay(); delay > 0 {
+		// NOTE: a retry-after header means that the error is not
+		// permanent (by definition). Here, we use an else if to
+		// optimize the branch conditions. If an error is permanent,
+		// there's no reason to check for a throttle delay.
+		out = exporterhelper.NewThrottleRetry(out, delay)
+	}
+	return out
 }
