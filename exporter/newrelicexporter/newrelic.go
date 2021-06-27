@@ -346,7 +346,12 @@ func (e exporter) doRequest(ctx context.Context, details *exportMetadata, req *h
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
 		e.logger.Error("Error making HTTP request.", zap.Error(err))
-		return &urlError{Err: err}
+		err := &urlError{Err: err}
+		if err.IsPermanent() {
+			return consumererror.Permanent(err)
+		} else {
+			return err
+		}
 	}
 	defer response.Body.Close()
 	io.Copy(ioutil.Discard, response.Body)
@@ -370,7 +375,12 @@ func (e exporter) doRequest(ctx context.Context, details *exportMetadata, req *h
 			e.logger.Error("Client HTTP error.", zap.String("Status", response.Status))
 		}
 
-		return &httpError{Response: response}
+		err := &httpError{Response: response}
+		if err.IsPermanent() {
+			return consumererror.Permanent(err)
+		} else {
+			return err
+		}
 	}
 	return nil
 }

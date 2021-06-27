@@ -43,6 +43,11 @@ func (e *urlError) GRPCStatus() *grpcStatus.Status {
 	return grpcStatus.New(codes.Internal, urlError.Error())
 }
 
+func (e *urlError) IsPermanent() bool {
+	urlError := e.Err.(*url.Error)
+	return !urlError.Temporary()
+}
+
 // Explicit mapping for the error status codes describe by the trace API:
 // https://docs.newrelic.com/docs/understand-dependencies/distributed-tracing/trace-api/trace-api-general-requirements-limits#response-validation
 var httpGrpcMapping = map[int]codes.Code{
@@ -58,6 +63,16 @@ var httpGrpcMapping = map[int]codes.Code{
 	http.StatusTooManyRequests:             codes.Unavailable,
 	http.StatusRequestHeaderFieldsTooLarge: codes.InvalidArgument,
 	http.StatusInternalServerError:         codes.DataLoss,
+	http.StatusBadGateway:                  codes.DataLoss,
+	http.StatusServiceUnavailable:          codes.DataLoss,
+}
+
+var retryableHttpCodes = map[int]struct{}{
+	http.StatusRequestTimeout:      {},
+	http.StatusTooManyRequests:     {},
+	http.StatusInternalServerError: {},
+	http.StatusBadGateway:          {},
+	http.StatusServiceUnavailable:  {},
 }
 
 type httpError struct {
@@ -90,4 +105,11 @@ func (e *httpError) GRPCStatus() *grpcStatus.Status {
 
 	// Generate an error with the mapped code, and a message containing the server's response status string
 	return grpcStatus.New(mapEntry, e.Response.Status)
+}
+
+func (e *httpError) IsPermanent() bool {
+	if _, ok := retryableHttpCodes[e.Response.StatusCode]; ok {
+		return false
+	}
+	return true
 }
