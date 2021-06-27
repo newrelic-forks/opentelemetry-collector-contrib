@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"go.opentelemetry.io/collector/config"
+	"go.opentelemetry.io/collector/exporter/exporterhelper"
 )
 
 // EndpointConfig defines configuration for a single endpoint in the New Relic exporter.
@@ -35,6 +36,10 @@ type EndpointConfig struct {
 	// including retries, before abandoning and dropping data. Default is 15
 	// seconds.
 	Timeout time.Duration `mapstructure:"timeout"`
+
+	// RetrySettings defines configuration for retrying batches in case of export failure.
+	// The current supported strategy is exponential backoff.
+	RetrySettings exporterhelper.RetrySettings `mapstructure:"retry"`
 
 	// Insecure disables TLS on the endpoint.
 	insecure bool
