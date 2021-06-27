@@ -46,7 +46,8 @@ func createDefaultConfig() config.Exporter {
 		ExporterSettings: config.NewExporterSettings(config.NewID(typeStr)),
 
 		CommonConfig: EndpointConfig{
-			Timeout: time.Second * 15,
+			Timeout:       time.Second * 15,
+			RetrySettings: exporterhelper.DefaultRetrySettings(),
 		},
 	}
 }
@@ -71,7 +72,7 @@ func createTracesExporter(
 	// the error level when it is disabled and errors occur.
 	return exporterhelper.NewTracesExporter(cfg, set, exp.pushTraceData,
 		exporterhelper.WithTimeout(exporterhelper.TimeoutSettings{Timeout: traceConfig.Timeout}),
-		exporterhelper.WithRetry(exporterhelper.RetrySettings{Enabled: false}),
+		exporterhelper.WithRetry(traceConfig.RetrySettings),
 		exporterhelper.WithQueue(exporterhelper.QueueSettings{Enabled: false}),
 	)
 }
@@ -95,7 +96,7 @@ func createMetricsExporter(
 
 	return exporterhelper.NewMetricsExporter(cfg, set, exp.pushMetricData,
 		exporterhelper.WithTimeout(exporterhelper.TimeoutSettings{Timeout: metricsConfig.Timeout}),
-		exporterhelper.WithRetry(exporterhelper.RetrySettings{Enabled: false}),
+		exporterhelper.WithRetry(metricsConfig.RetrySettings),
 		exporterhelper.WithQueue(exporterhelper.QueueSettings{Enabled: false}),
 	)
 }
@@ -118,7 +119,7 @@ func createLogsExporter(
 	}
 	return exporterhelper.NewLogsExporter(cfg, set, exp.pushLogData,
 		exporterhelper.WithTimeout(exporterhelper.TimeoutSettings{Timeout: logsConfig.Timeout}),
-		exporterhelper.WithRetry(exporterhelper.RetrySettings{Enabled: false}),
+		exporterhelper.WithRetry(logsConfig.RetrySettings),
 		exporterhelper.WithQueue(exporterhelper.QueueSettings{Enabled: false}),
 	)
 }
