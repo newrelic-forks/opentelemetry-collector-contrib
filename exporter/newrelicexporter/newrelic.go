@@ -330,16 +330,18 @@ func (e exporter) export(
 		return err
 	}
 
-	if err := e.doRequest(details, req); err != nil {
+	if err := e.doRequest(ctx, details, req); err != nil {
 		return err
 	}
 
 	return mapEntryErrors
 }
 
-func (e exporter) doRequest(details *exportMetadata, req *http.Request) error {
+func (e exporter) doRequest(ctx context.Context, details *exportMetadata, req *http.Request) error {
 	startTime := time.Now()
 	defer func() { details.externalDuration = time.Since(startTime) }()
+	req = req.WithContext(ctx)
+
 	// Execute the http request and handle the response
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
