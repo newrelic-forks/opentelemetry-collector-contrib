@@ -42,12 +42,13 @@ func NewFactory() component.ExporterFactory {
 }
 
 func createDefaultConfig() config.Exporter {
+	defaultRetry := exporterhelper.DefaultRetrySettings()
 	return &Config{
 		ExporterSettings: config.NewExporterSettings(config.NewID(typeStr)),
 
 		CommonConfig: EndpointConfig{
 			Timeout:       time.Second * 15,
-			RetrySettings: exporterhelper.DefaultRetrySettings(),
+			RetrySettings: defaultRetry,
 		},
 	}
 }
@@ -62,7 +63,7 @@ func createTracesExporter(
 	if !ok {
 		return nil, fmt.Errorf("invalid config: %#v", cfg)
 	}
-	traceConfig := nrConfig.GetTracesConfig()
+	traceConfig := nrConfig.TracesConfig
 	exp, err := newExporter(set.Logger, &set.BuildInfo, traceConfig, telemetry.NewSpanRequestFactory)
 	if err != nil {
 		return nil, err
@@ -88,7 +89,7 @@ func createMetricsExporter(
 		return nil, fmt.Errorf("invalid config: %#v", cfg)
 	}
 
-	metricsConfig := nrConfig.GetMetricsConfig()
+	metricsConfig := nrConfig.MetricsConfig
 	exp, err := newExporter(set.Logger, &set.BuildInfo, metricsConfig, telemetry.NewMetricRequestFactory)
 	if err != nil {
 		return nil, err
@@ -112,7 +113,7 @@ func createLogsExporter(
 		return nil, fmt.Errorf("invalid config: %#v", cfg)
 	}
 
-	logsConfig := nrConfig.GetLogsConfig()
+	logsConfig := nrConfig.LogsConfig
 	exp, err := newExporter(set.Logger, &set.BuildInfo, logsConfig, telemetry.NewLogRequestFactory)
 	if err != nil {
 		return nil, err
