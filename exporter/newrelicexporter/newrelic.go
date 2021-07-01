@@ -357,17 +357,17 @@ func (e exporter) doRequest(details *exportMetadata, req *http.Request) error {
 		// Log the error at an appropriate level based on the status code
 		if response.StatusCode >= 500 {
 			// The data has been lost, but it is due to a server side error
-			e.logger.Warn("Server HTTP error", zap.String("Status", response.Status))
+			e.logger.Warn("Server HTTP error", zap.String("Status", response.Status), zap.Stringer("Url", req.URL))
 		} else if response.StatusCode == http.StatusForbidden {
 			// The data has been lost, but it is due to an invalid api key
-			e.logger.Debug("HTTP Forbidden response", zap.String("Status", response.Status))
+			e.logger.Debug("HTTP Forbidden response", zap.String("Status", response.Status), zap.Stringer("Url", req.URL))
 		} else if response.StatusCode == http.StatusTooManyRequests {
 			// The data has been lost, but it is due to rate limiting
-			e.logger.Debug("HTTP Too Many Requests", zap.String("Status", response.Status))
+			e.logger.Debug("HTTP Too Many Requests", zap.String("Status", response.Status), zap.Stringer("Url", req.URL))
 		} else {
 			// The data has been lost due to an error in our payload
 			details.dataOutputCount = 0
-			e.logger.Error("Client HTTP error.", zap.String("Status", response.Status))
+			e.logger.Error("Client HTTP error.", zap.String("Status", response.Status), zap.Stringer("Url", req.URL))
 		}
 
 		err := &httpError{Response: response}
