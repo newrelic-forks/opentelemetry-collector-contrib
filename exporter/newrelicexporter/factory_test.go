@@ -39,7 +39,9 @@ func TestCreateDefaultConfig(t *testing.T) {
 func TestCreateExporterWithAPIKey(t *testing.T) {
 	cfg := createDefaultConfig()
 	nrConfig := cfg.(*Config)
-	nrConfig.CommonConfig.APIKey = "a1b2c3d4"
+	nrConfig.MetricsConfig.APIKey = "a1b2c3d4"
+	nrConfig.TracesConfig.APIKey = "a1b2c3d4"
+	nrConfig.LogsConfig.APIKey = "a1b2c3d4"
 	params := component.ExporterCreateSettings{Logger: zap.NewNop()}
 
 	te, err := createTracesExporter(context.Background(), params, nrConfig)
@@ -58,7 +60,9 @@ func TestCreateExporterWithAPIKey(t *testing.T) {
 func TestCreateExporterWithAPIKeyHeader(t *testing.T) {
 	cfg := createDefaultConfig()
 	nrConfig := cfg.(*Config)
-	nrConfig.CommonConfig.APIKeyHeader = "api-key"
+	nrConfig.MetricsConfig.APIKeyHeader = "api-key"
+	nrConfig.TracesConfig.APIKeyHeader = "api-key"
+	nrConfig.LogsConfig.APIKeyHeader = "api-key"
 	params := component.ExporterCreateSettings{Logger: zap.NewNop()}
 
 	te, err := createTracesExporter(context.Background(), params, nrConfig)
@@ -77,8 +81,12 @@ func TestCreateExporterWithAPIKeyHeader(t *testing.T) {
 func TestCreateExporterWithAPIKeyAndAPIKeyHeader(t *testing.T) {
 	cfg := createDefaultConfig()
 	nrConfig := cfg.(*Config)
-	nrConfig.CommonConfig.APIKey = "a1b2c3d4"
-	nrConfig.CommonConfig.APIKeyHeader = "api-key"
+	nrConfig.MetricsConfig.APIKey = "a1b2c3d4"
+	nrConfig.TracesConfig.APIKey = "a1b2c3d4"
+	nrConfig.LogsConfig.APIKey = "a1b2c3d4"
+	nrConfig.MetricsConfig.APIKeyHeader = "api-key"
+	nrConfig.TracesConfig.APIKeyHeader = "api-key"
+	nrConfig.LogsConfig.APIKeyHeader = "api-key"
 	params := component.ExporterCreateSettings{Logger: zap.NewNop()}
 
 	te, err := createTracesExporter(context.Background(), params, nrConfig)

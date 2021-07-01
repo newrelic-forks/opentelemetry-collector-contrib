@@ -79,7 +79,7 @@ var httpGrpcMapping = map[int]codes.Code{
 	http.StatusServiceUnavailable:          codes.DataLoss,
 }
 
-var retryableHttpCodes = map[int]struct{}{
+var retryableHTTPCodes = map[int]struct{}{
 	http.StatusRequestTimeout:      {},
 	http.StatusTooManyRequests:     {},
 	http.StatusInternalServerError: {},
@@ -119,7 +119,7 @@ func (e *httpError) GRPCStatus() *grpcStatus.Status {
 }
 
 func (e *httpError) IsPermanent() bool {
-	if _, ok := retryableHttpCodes[e.Response.StatusCode]; ok {
+	if _, ok := retryableHTTPCodes[e.Response.StatusCode]; ok {
 		return false
 	}
 	return true
