@@ -324,23 +324,22 @@ func (e exporter) export(
 		options = append(options, option)
 	}
 
-	req, err := e.requestFactory.BuildRequest(batches, options...)
+	req, err := e.requestFactory.BuildRequest(ctx, batches, options...)
 	if err != nil {
 		e.logger.Error("Failed to build data map", zap.Error(err))
 		return err
 	}
 
-	if err := e.doRequest(ctx, details, req); err != nil {
+	if err := e.doRequest(details, req); err != nil {
 		return err
 	}
 
 	return mapEntryErrors
 }
 
-func (e exporter) doRequest(ctx context.Context, details *exportMetadata, req *http.Request) error {
+func (e exporter) doRequest(details *exportMetadata, req *http.Request) error {
 	startTime := time.Now()
 	defer func() { details.externalDuration = time.Since(startTime) }()
-	req = req.WithContext(ctx)
 
 	// Execute the http request and handle the response
 	response, err := http.DefaultClient.Do(req)
