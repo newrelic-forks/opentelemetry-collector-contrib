@@ -118,7 +118,7 @@ func (e *httpError) GRPCStatus() *grpcStatus.Status {
 	return grpcStatus.New(mapEntry, e.response.Status)
 }
 
-func newHttpError(response *http.Response) *httpError {
+func newHTTPError(response *http.Response) *httpError {
 	return &httpError{
 		err:      fmt.Errorf("new relic HTTP call failed. Status Code: %d", response.StatusCode),
 		response: response,

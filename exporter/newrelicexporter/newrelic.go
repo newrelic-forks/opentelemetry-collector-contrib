@@ -370,7 +370,7 @@ func (e exporter) doRequest(details *exportMetadata, req *http.Request) error {
 			e.logger.Error("Client HTTP error.", zap.String("Status", response.Status), zap.Stringer("Url", req.URL))
 		}
 
-		err := newHttpError(response)
+		err := newHTTPError(response)
 		return err.Wrap()
 	}
 	return nil
