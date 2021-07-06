@@ -406,9 +406,9 @@ func TestExportTraceDataFullTrace(t *testing.T) {
 		{
 			Common: Common{
 				Attributes: map[string]string{
-					"collector.name":    testCollectorName,
-					"resource":          "R1",
-					"service.name":      "test-service",
+					"collector.name": testCollectorName,
+					"resource":       "R1",
+					"service.name":   "test-service",
 				},
 			},
 			Spans: []Span{
@@ -500,7 +500,7 @@ func TestExportMetricDataMinimal(t *testing.T) {
 		{
 			Common: Common{
 				Attributes: map[string]string{
-					"collector.name":    testCollectorName,
+					"collector.name": testCollectorName,
 				},
 			},
 			Metrics: []Metric{
@@ -615,9 +615,9 @@ func TestExportMetricDataFull(t *testing.T) {
 		{
 			Common: Common{
 				Attributes: map[string]string{
-					"collector.name":    testCollectorName,
-					"resource":          "R1",
-					"service.name":      "test-service",
+					"collector.name": testCollectorName,
+					"resource":       "R1",
+					"service.name":   "test-service",
 				},
 			},
 			Metrics: []Metric{
@@ -706,9 +706,9 @@ func TestExportLogs(t *testing.T) {
 		{
 			Common: Common{
 				Attributes: map[string]string{
-					"collector.name":    testCollectorName,
-					"resource":          "R1",
-					"service.name":      "test-service",
+					"collector.name": testCollectorName,
+					"resource":       "R1",
+					"service.name":   "test-service",
 				},
 			},
 			Logs: []Log{

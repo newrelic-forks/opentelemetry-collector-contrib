@@ -83,13 +83,13 @@ func TestHttpError_GRPCStatus(t *testing.T) {
 		assert.Equal(
 			t,
 			expectedStatus,
-			newHttpError(response).GRPCStatus(),
+			newHTTPError(response).GRPCStatus(),
 		)
 	})
 }
 
 func TestHttpError_Error(t *testing.T) {
-	httpError := newHttpError(responseOf(http.StatusTeapot))
+	httpError := newHTTPError(responseOf(http.StatusTeapot))
 	assert.Equal(t, httpError.Error(), "new relic HTTP call failed. Status Code: 418")
 }
 
@@ -161,7 +161,7 @@ func TestUrlError_Unwrap(t *testing.T) {
 }
 
 func TestFromGrpcErrorHttpError(t *testing.T) {
-	httpError := newHttpError(responseOf(http.StatusTeapot))
+	httpError := newHTTPError(responseOf(http.StatusTeapot))
 	_, ok := status.FromError(httpError)
 	assert.True(t, ok)
 }
