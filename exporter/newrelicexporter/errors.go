@@ -30,14 +30,14 @@ import (
 )
 
 type urlError struct {
-	Err error
+	err error
 }
 
-func (e *urlError) Error() string { return e.Err.Error() }
-func (e *urlError) Unwrap() error { return e.Err }
+func (e *urlError) Error() string { return e.err.Error() }
+func (e *urlError) Unwrap() error { return e.err }
 
 func (e *urlError) GRPCStatus() *grpcStatus.Status {
-	urlError := e.Err.(*url.Error)
+	urlError := e.err.(*url.Error)
 	// If error is temporary, return retryable DataLoss code
 	if urlError.Temporary() {
 		return grpcStatus.New(codes.DataLoss, urlError.Error())
@@ -47,7 +47,7 @@ func (e *urlError) GRPCStatus() *grpcStatus.Status {
 }
 
 func (e *urlError) IsPermanent() bool {
-	urlError := e.Err.(*url.Error)
+	urlError := e.err.(*url.Error)
 	return !urlError.Temporary()
 }
 
@@ -88,18 +88,18 @@ var retryableHTTPCodes = map[int]struct{}{
 }
 
 type httpError struct {
-	Response *http.Response
+	err      error
+	response *http.Response
 }
 
-func (e *httpError) Error() string {
-	return fmt.Sprintf("New Relic HTTP call failed. Status Code: %d", e.Response.StatusCode)
-}
+func (e *httpError) Unwrap() error { return e.err }
+func (e *httpError) Error() string { return e.err.Error() }
 
 func (e *httpError) GRPCStatus() *grpcStatus.Status {
-	mapEntry, ok := httpGrpcMapping[e.Response.StatusCode]
+	mapEntry, ok := httpGrpcMapping[e.response.StatusCode]
 	// If no explicit mapping exists, return retryable DataLoss code
 	if !ok {
-		return grpcStatus.New(codes.DataLoss, e.Response.Status)
+		return grpcStatus.New(codes.DataLoss, e.response.Status)
 	}
 	// The OTLP spec uses the Unavailable code to signal backpressure to the client
 	// If the http status maps to Unavailable, attempt to extract and communicate retry info to the client
@@ -107,7 +107,7 @@ func (e *httpError) GRPCStatus() *grpcStatus.Status {
 		retrySeconds := int64(e.ThrottleDelay().Seconds())
 		if retrySeconds > 0 {
 			message := &errdetails.RetryInfo{RetryDelay: &duration.Duration{Seconds: retrySeconds}}
-			status, statusErr := grpcStatus.New(codes.Unavailable, e.Response.Status).WithDetails(message)
+			status, statusErr := grpcStatus.New(codes.Unavailable, e.response.Status).WithDetails(message)
 			if statusErr == nil {
 				return status
 			}
@@ -115,19 +115,26 @@ func (e *httpError) GRPCStatus() *grpcStatus.Status {
 	}
 
 	// Generate an error with the mapped code, and a message containing the server's response status string
-	return grpcStatus.New(mapEntry, e.Response.Status)
+	return grpcStatus.New(mapEntry, e.response.Status)
+}
+
+func newHttpError(response *http.Response) *httpError {
+	return &httpError{
+		err:      fmt.Errorf("new relic HTTP call failed. Status Code: %d", response.StatusCode),
+		response: response,
+	}
 }
 
 func (e *httpError) IsPermanent() bool {
-	if _, ok := retryableHTTPCodes[e.Response.StatusCode]; ok {
+	if _, ok := retryableHTTPCodes[e.response.StatusCode]; ok {
 		return false
 	}
 	return true
 }
 
 func (e *httpError) ThrottleDelay() time.Duration {
-	if e.Response.StatusCode == http.StatusTooManyRequests {
-		retryAfter := e.Response.Header.Get("Retry-After")
+	if e.response.StatusCode == http.StatusTooManyRequests {
+		retryAfter := e.response.Header.Get("Retry-After")
 		if retrySeconds, err := strconv.ParseInt(retryAfter, 10, 64); err == nil {
 			return time.Duration(retrySeconds) * time.Second
 		}
@@ -136,16 +143,17 @@ func (e *httpError) ThrottleDelay() time.Duration {
 }
 
 func (e *httpError) Wrap() error {
-	var out error
-	out = e
 	if e.IsPermanent() {
-		out = consumererror.Permanent(out)
+		out := consumererror.Permanent(e.err)
+		return &httpError{err: out, response: e.response}
 	} else if delay := e.ThrottleDelay(); delay > 0 {
 		// NOTE: a retry-after header means that the error is not
 		// permanent (by definition). Here, we use an else if to
 		// optimize the branch conditions. If an error is permanent,
 		// there's no reason to check for a throttle delay.
-		out = exporterhelper.NewThrottleRetry(out, delay)
+		out := exporterhelper.NewThrottleRetry(e.err, delay)
+		return &httpError{err: out, response: e.response}
+	} else {
+		return e
 	}
-	return out
 }
