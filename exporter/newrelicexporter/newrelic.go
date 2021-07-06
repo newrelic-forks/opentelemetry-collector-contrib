@@ -345,7 +345,7 @@ func (e exporter) doRequest(details *exportMetadata, req *http.Request) error {
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
 		e.logger.Error("Error making HTTP request.", zap.Error(err))
-		err := &urlError{Err: err}
+		err := &urlError{err: err}
 		return err.Wrap()
 	}
 	defer response.Body.Close()
@@ -370,7 +370,7 @@ func (e exporter) doRequest(details *exportMetadata, req *http.Request) error {
 			e.logger.Error("Client HTTP error.", zap.String("Status", response.Status), zap.Stringer("Url", req.URL))
 		}
 
-		err := &httpError{Response: response}
+		err := newHttpError(response)
 		return err.Wrap()
 	}
 	return nil
