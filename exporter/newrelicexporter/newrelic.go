@@ -344,7 +344,11 @@ func (e exporter) doRequest(details *exportMetadata, req *http.Request) error {
 	// Execute the http request and handle the response
 	response, err := http.DefaultClient.Do(req)
 	if err != nil {
-		e.logger.Error("Error making HTTP request.", zap.Error(err))
+		// If the context cancellation caused the error, we don't want to log that error.
+		// Only log an error when the context is still active
+		if ctxErr := req.Context().Err(); ctxErr == nil {
+			e.logger.Error("Error making HTTP request.", zap.Error(err))
+		}
 		err := &urlError{err: err}
 		return err.Wrap()
 	}
