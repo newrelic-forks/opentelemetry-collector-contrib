@@ -47,6 +47,7 @@ var (
 	attributeMetadataTagKeys = []tag.Key{tagGrpcStatusCode, tagHTTPStatusCode, tagRequestUserAgent, tagAPIKey, tagDataType, tagAttributeLocation, tagAttributeValueType}
 
 	statRequestCount         = stats.Int64("newrelicexporter_request_count", "Number of requests processed", stats.UnitDimensionless)
+	statInputDatapointCount  = stats.Int64("newrelicexporter_input_datapoint_count", "Number of data points received by the exporter.", stats.UnitDimensionless)
 	statOutputDatapointCount = stats.Int64("newrelicexporter_output_datapoint_count", "Number of data points sent to the HTTP API", stats.UnitDimensionless)
 	statExporterTime         = stats.Float64("newrelicexporter_exporter_time", "Wall clock time (seconds) spent in the exporter", stats.UnitSeconds)
 	statExternalTime         = stats.Float64("newrelicexporter_external_time", "Wall clock time (seconds) spent sending data to the HTTP API", stats.UnitSeconds)
@@ -61,6 +62,13 @@ const EuKeyPrefix = "eu01xx"
 func MetricViews() []*view.View {
 	return []*view.View{
 		buildView(tagKeys, statRequestCount, view.Sum()),
+		{
+			Name:        "newrelicexporter_input_datapoint_count_notag",
+			Measure:     statInputDatapointCount,
+			Description: statInputDatapointCount.Description(),
+			TagKeys:     []tag.Key{},
+			Aggregation: view.Sum(),
+		},
 		buildView(tagKeys, statOutputDatapointCount, view.Sum()),
 		{
 			Name:        "newrelicexporter_output_datapoint_count_notag",
@@ -185,6 +193,7 @@ func (d exportMetadata) recordMetrics(ctx context.Context) error {
 	var errors []error
 	e := stats.RecordWithTags(ctx, tags,
 		statRequestCount.M(1),
+		statInputDatapointCount.M(int64(d.dataInputCount)),
 		statOutputDatapointCount.M(int64(d.dataOutputCount)),
 		statExporterTime.M(d.exporterTime.Seconds()),
 		statExternalTime.M(d.externalDuration.Seconds()),
