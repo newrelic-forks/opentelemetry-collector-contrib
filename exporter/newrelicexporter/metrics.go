@@ -70,6 +70,13 @@ func MetricViews() []*view.View {
 	return []*view.View{
 		buildView(tagKeys, statRequestCount, view.Sum()),
 		buildView(tagKeys, statOutputDatapointCount, view.Sum()),
+		{
+			Name:        "newrelicexporter_output_datapoint_count_notag",
+			Measure:     statOutputDatapointCount,
+			Description: statOutputDatapointCount.Description(),
+			TagKeys:     []tag.Key{},
+			Aggregation: view.Sum(),
+		},
 		buildView(tagKeys, statExporterTime, view.Sum()),
 		buildView(tagKeys, statExternalTime, view.Sum()),
 		buildView(metricMetadataTagKeys, statMetricMetadata, view.Sum()),
