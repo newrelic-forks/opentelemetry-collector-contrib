@@ -327,11 +327,12 @@ func (t *transformer) Metric(m pdata.Metric) ([]telemetry.Metric, error) {
 				output = append(output, nrMetric)
 			} else {
 				nrMetric := telemetry.Count{
-					Name:       m.Name(),
-					Attributes: attributes,
-					Value:      val,
-					Timestamp:  point.StartTimestamp().AsTime(),
-					Interval:   time.Duration(point.Timestamp() - point.StartTimestamp()),
+					Name:               m.Name(),
+					Attributes:         attributes,
+					Value:              val,
+					Timestamp:          point.StartTimestamp().AsTime(),
+					Interval:           time.Duration(point.Timestamp() - point.StartTimestamp()),
+					ForceIntervalValid: true,
 				}
 				output = append(output, nrMetric)
 			}
@@ -370,14 +371,15 @@ func (t *transformer) Metric(m pdata.Metric) ([]telemetry.Metric, error) {
 
 			attributes := t.MetricAttributes(baseAttributes, point.LabelsMap())
 			nrMetric := telemetry.Summary{
-				Name:       name,
-				Attributes: attributes,
-				Count:      float64(point.Count()),
-				Sum:        point.Sum(),
-				Min:        minQuantile,
-				Max:        maxQuantile,
-				Timestamp:  point.StartTimestamp().AsTime(),
-				Interval:   time.Duration(point.Timestamp() - point.StartTimestamp()),
+				Name:               name,
+				Attributes:         attributes,
+				Count:              float64(point.Count()),
+				Sum:                point.Sum(),
+				Min:                minQuantile,
+				Max:                maxQuantile,
+				Timestamp:          point.StartTimestamp().AsTime(),
+				Interval:           time.Duration(point.Timestamp() - point.StartTimestamp()),
+				ForceIntervalValid: true,
 			}
 
 			output = append(output, nrMetric)
