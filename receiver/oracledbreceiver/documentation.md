@@ -427,6 +427,7 @@ sample query
 | oracledb.state | Current state of the query or the session executing it. | Any Str | - |
 | oracledb.wait_class | The category of wait events a query or session is currently experiencing in Oracle Database. | Any Str | - |
 | oracledb.event | The specific wait event that a query or session is currently experiencing. | Any Str | - |
+| oracledb.wait_time_sec | The wait time in seconds. For active waits, shows how long the session has been waiting. For completed waits, shows the duration of the last wait. | Any Double | - |
 | oracledb.procedure_id | The identifier of the stored procedure or function being executed by the query. | Any Int | - |
 | oracledb.procedure_name | Name of the database object that a query is accessing. | Any Str | - |
 | oracledb.procedure_type | Type of the database object that a query is accessing. | Any Str | - |
@@ -469,6 +470,8 @@ Collection of event metrics for top N queries, filtered based on the highest CPU
 | oracledb.procedure_id | The identifier of the stored procedure or function being executed by the query. | Any Int | - |
 | oracledb.procedure_name | Name of the database object that a query is accessing. | Any Str | - |
 | oracledb.procedure_type | Type of the database object that a query is accessing. | Any Str | - |
+| oracledb.last_load_time | The timestamp when the SQL statement was last loaded into the library cache. | Any Str | - |
+| oracledb.plan_hash_value | Binary hash value calculated on the query execution plan and used to identify similar query execution plans, reported in the HEX format. | Any Str | - |
 
 ## Resource Attributes
 

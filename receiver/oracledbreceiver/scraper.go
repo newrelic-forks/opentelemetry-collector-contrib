@@ -100,6 +100,10 @@ const (
 	objectNameAttr  = "PROCEDURE_NAME"
 	objectTypeAttr  = "PROCEDURE_TYPE"
 	commandTypeAttr = "COMMAND_TYPE"
+
+	// Plan metadata columns
+	lastLoadTimeAttr  = "LAST_LOAD_TIME"
+	planHashValueAttr = "PLAN_HASH_VALUE"
 )
 
 var (
@@ -526,15 +530,17 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 }
 
 type queryMetricCacheHit struct {
-	sqlID        string
-	childNumber  string
-	childAddress string
-	queryText    string
-	metrics      map[string]int64
-	objectID     int64
-	objectName   string
-	objectType   string
-	commandType  int64
+	sqlID         string
+	childNumber   string
+	childAddress  string
+	queryText     string
+	metrics       map[string]int64
+	objectID      int64
+	objectName    string
+	objectType    string
+	commandType   int64
+	lastLoadTime  string
+	planHashValue string
 }
 
 func (s *oracleScraper) scrapeLogs(ctx context.Context) (plog.Logs, error) {
@@ -609,15 +615,17 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 			}
 
 			hit := queryMetricCacheHit{
-				sqlID:        row[sqlIDAttr],
-				queryText:    row[sqlTextAttr],
-				childNumber:  row[childNumberAttr],
-				childAddress: row[childAddressAttr],
-				metrics:      make(map[string]int64, len(metricNames)),
-				objectID:     objectID,
-				objectName:   row[objectNameAttr],
-				objectType:   row[objectTypeAttr],
-				commandType:  commandType,
+				sqlID:         row[sqlIDAttr],
+				queryText:     row[sqlTextAttr],
+				childNumber:   row[childNumberAttr],
+				childAddress:  row[childAddressAttr],
+				metrics:       make(map[string]int64, len(metricNames)),
+				objectID:      objectID,
+				objectName:    row[objectNameAttr],
+				objectType:    row[objectTypeAttr],
+				commandType:   commandType,
+				lastLoadTime:  row[lastLoadTimeAttr],
+				planHashValue: row[planHashValueAttr],
 			}
 
 			var possiblePurge bool
@@ -702,7 +710,9 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 			hit.metrics[procedureExecutionsMetric],
 			hit.objectID,
 			hit.objectName,
-			hit.objectType)
+			hit.objectType,
+			hit.lastLoadTime,
+			hit.planHashValue)
 	}
 
 	hitCount := len(hits)
@@ -739,6 +749,7 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 	const sqlText = "SQL_FULLTEXT"
 	const username = "USERNAME"
 	const waitclass = "WAIT_CLASS"
+	const waitTimeSec = "WAIT_TIME_SEC"
 	const port = "PORT"
 	const serviceName = "SERVICE_NAME"
 
@@ -784,13 +795,19 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 			objID, _ = strconv.ParseInt(row[objectID], 10, 64)
 		}
 
+		// Parse wait time in seconds
+		var waitTime float64
+		if row[waitTimeSec] != "" {
+			waitTime, _ = strconv.ParseFloat(row[waitTimeSec], 64)
+		}
+
 		queryContext := propagator.Extract(context.Background(), propagation.MapCarrier{
 			"traceparent": row[action],
 		})
 
 		s.lb.RecordDbServerQuerySampleEvent(queryContext, timestamp, obfuscatedSQL, dbSystemNameVal, row[username], row[serviceName], row[hostName],
 			clientPort, row[hostName], clientPort, queryPlanHashVal, row[sqlID], row[sqlChildNumber], row[childAddress], row[sid], row[serialNumber], row[process],
-			row[schemaName], row[program], row[module], row[status], row[state], row[waitclass], row[event], objID, row[objectName], row[objectType],
+			row[schemaName], row[program], row[module], row[status], row[state], row[waitclass], row[event], waitTime, objID, row[objectName], row[objectType],
 			row[osUser], queryDuration)
 	}
 
