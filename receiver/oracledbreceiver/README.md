@@ -113,6 +113,49 @@ receivers:
       max_query_sample_count: 1000               # maximum number of samples collected from db to filter the top N
       top_query_count: 200                       # The maximum number of queries (N) for which the metrics would be reported
       collection_interval: 60s                   # collection interval for top query collection specifically
+      allowed_comment_keys: ["nr_service_guid", "app_id", "trace_id"]  # optional: keys to extract from SQL comments
     query_sample_collection:                     # this collection exports the currently (relate to the query time) executing queries as logs
-      max_rows_per_query: 100                     # the maximum number of samples to bre reported.
+      max_rows_per_query: 100                    # the maximum number of samples to be reported.
+      allowed_comment_keys: ["nr_service_guid", "app_id", "trace_id"]  # optional: keys to extract from SQL comments
 ```
+
+### Query Comment Extraction
+
+The `allowed_comment_keys` configuration option enables extraction of metadata from SQL comments for correlation with APM traces. This feature is available for both `db.server.query_sample` and `db.server.top_query` events.
+
+**Configuration:**
+
+```yaml
+top_query_collection:
+  max_query_sample_count: 1000
+  top_query_count: 200
+  collection_interval: 60s
+  allowed_comment_keys: ["nr_service_guid", "app_id", "trace_id"]
+
+query_sample_collection:
+  max_rows_per_query: 100
+  allowed_comment_keys: ["nr_service_guid", "app_id", "trace_id"]
+```
+
+**How it works:**
+
+- Extracts leading `/* */` block comments from SQL queries (before the first SQL keyword)
+- Parses comments as comma-separated `key=value` pairs
+- Filters to include only keys specified in `allowed_comment_keys`
+- Adds filtered pairs as a `query.comments` attribute to both `db.server.query_sample` and `db.server.top_query` events
+- **Secure by default**: If `allowed_comment_keys` is empty or not configured, no comments are extracted
+
+**Example:**
+
+SQL query:
+```sql
+/* nr_service_guid=abc-123,app_id=my-app,internal_key=secret */ SELECT * FROM users WHERE id = 1
+```
+
+With `allowed_comment_keys: ["nr_service_guid", "app_id"]`:
+- Extracted attribute: `query.comments="nr_service_guid=abc-123,app_id=my-app"`
+- The `internal_key` is filtered out (not in allowlist)
+
+**Use case:**
+
+APM agents can add SQL comments containing service identifiers. When users click on a slow query in the APM UI, the `query.comments` attribute enables navigation to database dashboards showing metrics for that specific query and service.

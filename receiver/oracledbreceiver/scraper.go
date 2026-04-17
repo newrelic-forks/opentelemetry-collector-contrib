@@ -14,6 +14,7 @@ import (
 	"math"
 	"net"
 	"os"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -109,6 +110,11 @@ var (
 	oracleQueryMetricsSQL string
 	//go:embed templates/oracleQueryPlanSql.tmpl
 	oracleQueryPlanDataSQL string
+
+	// leadingBlockCommentRegex matches one or more leading /* */ block comments
+	leadingBlockCommentRegex = regexp.MustCompile(`^\s*(\/\*.*?\*\/\s*)+`)
+	// commentContentRegex extracts content between /* and */ delimiters
+	commentContentRegex = regexp.MustCompile(`/\*(.*?)\*/`)
 )
 
 type dbProviderFunc func() (*sql.DB, error)
@@ -142,6 +148,83 @@ type oracleScraper struct {
 	querySampleCfg             QuerySample
 	serviceInstanceID          string
 	lastExecutionTimestamp     time.Time
+}
+
+// extractAndFilterComments extracts leading /* */ block comments from SQL,
+// parses them as key=value pairs, and returns only allowed keys.
+// Returns comma-separated filtered pairs, or empty string if no allowed keys found.
+// Format: "key1=value1,key2=value2"
+func extractAndFilterComments(sqlText string, allowedKeys []string) string {
+	// Early exit: if no allowed keys, return empty immediately (secure by default)
+	if len(allowedKeys) == 0 {
+		return ""
+	}
+
+	// Extract leading block comments using regex
+	matches := leadingBlockCommentRegex.FindString(sqlText)
+	if matches == "" {
+		return ""
+	}
+
+	// Strip /* and */ delimiters from all comments
+	// Match each individual comment block
+	commentMatches := commentContentRegex.FindAllStringSubmatch(matches, -1)
+	if len(commentMatches) == 0 {
+		return ""
+	}
+
+	// Concatenate all comment contents
+	var allComments strings.Builder
+	for i, match := range commentMatches {
+		if len(match) > 1 {
+			if i > 0 {
+				allComments.WriteString(",")
+			}
+			allComments.WriteString(strings.TrimSpace(match[1]))
+		}
+	}
+
+	commentContent := allComments.String()
+	if commentContent == "" {
+		return ""
+	}
+
+	// Parse key=value pairs and filter by allowed keys
+	pairs := strings.Split(commentContent, ",")
+	var filteredPairs []string
+	seenKeys := make(map[string]bool)
+
+	// Create a set of allowed keys for O(1) lookup
+	allowedSet := make(map[string]bool)
+	for _, key := range allowedKeys {
+		allowedSet[key] = true
+	}
+
+	for _, pair := range pairs {
+		pair = strings.TrimSpace(pair)
+		if pair == "" {
+			continue
+		}
+
+		// Split by first = only
+		parts := strings.SplitN(pair, "=", 2)
+		if len(parts) != 2 {
+			// Malformed pair, skip it
+			continue
+		}
+
+		key := strings.TrimSpace(parts[0])
+		value := strings.TrimSpace(parts[1])
+
+		// Check if key is allowed and not already seen (use first occurrence)
+		if allowedSet[key] && !seenKeys[key] {
+			seenKeys[key] = true
+			filteredPairs = append(filteredPairs, key+"="+value)
+		}
+	}
+
+	// Join filtered pairs with comma (no space)
+	return strings.Join(filteredPairs, ",")
 }
 
 func newScraper(metricsBuilder *metadata.MetricsBuilder, metricsBuilderConfig metadata.MetricsBuilderConfig, scrapeCfg scraperhelper.ControllerConfig, logger *zap.Logger, providerFunc dbProviderFunc, clientProviderFunc clientProviderFunc, instanceName, hostName string) (scraper.Metrics, error) {
@@ -526,15 +609,16 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 }
 
 type queryMetricCacheHit struct {
-	sqlID        string
-	childNumber  string
-	childAddress string
-	queryText    string
-	metrics      map[string]int64
-	objectID     int64
-	objectName   string
-	objectType   string
-	commandType  int64
+	sqlID         string
+	childNumber   string
+	childAddress  string
+	queryText     string
+	queryComments string
+	metrics       map[string]int64
+	objectID      int64
+	objectName    string
+	objectType    string
+	commandType   int64
 }
 
 func (s *oracleScraper) scrapeLogs(ctx context.Context) (plog.Logs, error) {
@@ -608,16 +692,20 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 				commandType, _ = strconv.ParseInt(row[commandTypeAttr], 10, 64)
 			}
 
+			// Extract and filter comments from original SQL before obfuscation
+			queryComments := extractAndFilterComments(row[sqlTextAttr], s.topQueryCollectCfg.AllowedCommentKeys)
+
 			hit := queryMetricCacheHit{
-				sqlID:        row[sqlIDAttr],
-				queryText:    row[sqlTextAttr],
-				childNumber:  row[childNumberAttr],
-				childAddress: row[childAddressAttr],
-				metrics:      make(map[string]int64, len(metricNames)),
-				objectID:     objectID,
-				objectName:   row[objectNameAttr],
-				objectType:   row[objectTypeAttr],
-				commandType:  commandType,
+				sqlID:         row[sqlIDAttr],
+				queryText:     row[sqlTextAttr],
+				queryComments: queryComments,
+				childNumber:   row[childNumberAttr],
+				childAddress:  row[childAddressAttr],
+				metrics:       make(map[string]int64, len(metricNames)),
+				objectID:      objectID,
+				objectName:    row[objectNameAttr],
+				objectType:    row[objectTypeAttr],
+				commandType:   commandType,
 			}
 
 			var possiblePurge bool
@@ -702,7 +790,8 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 			hit.metrics[procedureExecutionsMetric],
 			hit.objectID,
 			hit.objectName,
-			hit.objectType)
+			hit.objectType,
+			hit.queryComments)
 	}
 
 	hitCount := len(hits)
@@ -788,10 +877,13 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 			"traceparent": row[action],
 		})
 
+		// Extract and filter query comments from original SQL (before obfuscation)
+		queryComments := extractAndFilterComments(row[sqlText], s.querySampleCfg.AllowedCommentKeys)
+
 		s.lb.RecordDbServerQuerySampleEvent(queryContext, timestamp, obfuscatedSQL, dbSystemNameVal, row[username], row[serviceName], row[hostName],
 			clientPort, row[hostName], clientPort, queryPlanHashVal, row[sqlID], row[sqlChildNumber], row[childAddress], row[sid], row[serialNumber], row[process],
 			row[schemaName], row[program], row[module], row[status], row[state], row[waitclass], row[event], objID, row[objectName], row[objectType],
-			row[osUser], queryDuration)
+			row[osUser], queryDuration, queryComments)
 	}
 
 	s.lb.Emit(metadata.WithLogsResource(rb.Emit())).ResourceLogs().MoveAndAppendTo(logs.ResourceLogs())
