@@ -112,7 +112,7 @@ var (
 	oracleQueryPlanDataSQL string
 
 	// leadingBlockCommentRegex matches one or more leading /* */ block comments
-	leadingBlockCommentRegex = regexp.MustCompile(`^\s*(\/\*.*?\*\/\s*)+`)
+	leadingBlockCommentRegex = regexp.MustCompile(`^\s*(/\*.*?\*/\s*)+`)
 	// commentContentRegex extracts content between /* and */ delimiters
 	commentContentRegex = regexp.MustCompile(`/\*(.*?)\*/`)
 )
