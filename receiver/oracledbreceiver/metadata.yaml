@@ -106,6 +106,9 @@ attributes:
   oracledb.module:
     description: Logical module name of the client application that initiated a query or session.
     type: string
+  oracledb.normalised_sql_hash:
+    description: "MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Used for correlation with APM slow query traces."
+    type: string
   oracledb.osuser:
     description: Name of the operating system user that initiated or is running the Oracle database session.
     type: string
@@ -230,6 +233,7 @@ events:
       - oracledb.duration_sec
       - oracledb.wait_time_sec
       - query.comments
+      - oracledb.normalised_sql_hash
   db.server.top_query:
     enabled: false
     description: Collection of event metrics for top N queries, filtered based on the highest CPU time consumed (oracledb.elapsed_time).
@@ -265,6 +269,7 @@ events:
       - oracledb.plan_hash_value
       - oracledb.last_load_time
       - query.comments
+      - oracledb.normalised_sql_hash
 metrics:
   oracledb.consistent_gets:
     description: Number of times a consistent read was requested for a block from the buffer cache.

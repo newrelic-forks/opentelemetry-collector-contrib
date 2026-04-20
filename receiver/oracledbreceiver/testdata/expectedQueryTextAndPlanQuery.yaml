@@ -97,9 +97,18 @@ resourceLogs:
               - key: oracledb.procedure_type
                 value:
                   stringValue: PROCEDURE
+              - key: oracledb.plan_hash_value
+                value:
+                  stringValue: ""
+              - key: oracledb.last_load_time
+                value:
+                  stringValue: ""
               - key: query.comments
                 value:
                   stringValue: ""
+              - key: oracledb.normalised_sql_hash
+                value:
+                  stringValue: fa528ddf06cefb42a2dab986dff8e77a
             body: {}
             eventName: db.server.top_query
             timeUnixNano: "1759142512777891000"

@@ -94,9 +94,15 @@ resourceLogs:
               - key: oracledb.duration_sec
                 value:
                   doubleValue: 1
+              - key: oracledb.wait_time_sec
+                value:
+                  doubleValue: 0
               - key: query.comments
                 value:
                   stringValue: ""
+              - key: oracledb.normalised_sql_hash
+                value:
+                  stringValue: b11b3fffa5cc548e4c7f4ecd86e4469f
             body: {}
             eventName: db.server.query_sample
             spanId: a7ad6b7169203331
