@@ -625,7 +625,7 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 				objectType:    row[objectTypeAttr],
 				commandType:   commandType,
 				lastLoadTime:  row[lastLoadTimeAttr],
-				planHashValue: row[planHashValueAttr],
+				planHashValue: hex.EncodeToString([]byte(row[planHashValueAttr])),
 			}
 
 			var possiblePurge bool
@@ -796,9 +796,9 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 		}
 
 		// Parse wait time in seconds
-		var waitTime float64
-		if row[waitTimeSec] != "" {
-			waitTime, _ = strconv.ParseFloat(row[waitTimeSec], 64)
+		waitTime, err := strconv.ParseFloat(row[waitTimeSec], 64)
+		if err != nil {
+			waitTime = 0
 		}
 
 		queryContext := propagator.Extract(context.Background(), propagation.MapCarrier{
