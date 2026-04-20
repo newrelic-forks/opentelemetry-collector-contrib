@@ -635,6 +635,7 @@ top query
 | sqlserver.procedure_execution_count | Number of times that the procedure has been executed since it was last compiled, reported in delta value. | Any Int | - |
 | sqlserver.procedure_id | The SQL Server ID of the stored procedure, if any | Any Str | - |
 | sqlserver.procedure_name | The name of the stored procedure, if any | Any Str | - |
+| sqlserver.last_execution_time | Timestamp of when the SQL query was last executed (ISO 8601 format). | Any Str | - |
 
 ## Resource Attributes
 

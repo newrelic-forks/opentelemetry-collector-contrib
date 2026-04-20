@@ -640,6 +640,7 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 		totalGrant       = "total_grant_kb"
 		// the time returned from mssql is in microsecond
 		totalWorkerTime = "total_worker_time"
+		lastExecutionTime = "last_execution_time"
 
 		dbSystemNameVal = "microsoft.sql_server"
 
@@ -766,6 +767,10 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 			procExecCountVal = int64(0)
 		}
 
+		lastExecutionTimeVal := s.retrieveValue(row, lastExecutionTime, &errs, func(row sqlquery.StringMap, columnName string) (any, error) {
+			return row[columnName], nil
+		})
+
 		totalElapsedTimeVal := float64(totalElapsedTimeDiffsMicrosecond[i]) / 1_000_000
 		if count, ok := executionCountVal.(int64); !ok || count == 0 || totalElapsedTimeVal == 0 {
 			continue
@@ -798,6 +803,7 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 			procExecCountVal.(int64),
 			row[storedProcedureID],
 			row[storedProcedureName],
+			lastExecutionTimeVal.(string),
 		)
 	}
 	return resources, errors.Join(errs...)
