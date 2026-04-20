@@ -27,6 +27,7 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/sqlcomments"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/sqlnormalizer"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/golden"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatatest/plogtest"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/oracledbreceiver/internal/metadata"
@@ -853,6 +854,75 @@ func TestCalculateLookbackSeconds(t *testing.T) {
 	assert.LessOrEqual(t, expectedMinimumLookbackTime, lookbackTime, "`lookbackTime` should be minimum %d", expectedMinimumLookbackTime)
 }
 
+func TestNormalizedSQLHashGeneration(t *testing.T) {
+	tests := []struct {
+		name         string
+		rawSQL       string
+		expectedHash string
+	}{
+		{
+			name:         "simple select query",
+			rawSQL:       "SELECT * FROM users WHERE id = 123",
+			expectedHash: "d1c08094cf228a33039e9ee0387ab83c",
+		},
+		{
+			name:         "query with string literal",
+			rawSQL:       "SELECT * FROM users WHERE name = 'John'",
+			expectedHash: "54fd7b74375736f22061cad3b7305d9e",
+		},
+		{
+			name:         "complex query with multiple conditions",
+			rawSQL:       "SELECT * FROM users WHERE id = 123 AND name = 'John'",
+			expectedHash: "7f51338aa6d5fa3a27d698eb2f3fd166",
+		},
+		{
+			name:         "query with comments",
+			rawSQL:       "/* comment */ SELECT * FROM users WHERE id = 1",
+			expectedHash: "d1c08094cf228a33039e9ee0387ab83c",
+		},
+		{
+			name:         "query with IN clause",
+			rawSQL:       "SELECT * FROM users WHERE id IN (1, 2, 3)",
+			expectedHash: "c7c2f8f231626f0b49d15cf40acf20a3",
+		},
+		{
+			name:         "empty SQL",
+			rawSQL:       "",
+			expectedHash: "d41d8cd98f00b204e9800998ecf8427e",
+		},
+		{
+			name:         "query with Oracle-style placeholders",
+			rawSQL:       "SELECT * FROM users WHERE id = :userId",
+			expectedHash: "d1c08094cf228a33039e9ee0387ab83c",
+		},
+		{
+			name:         "query with mixed case",
+			rawSQL:       "select * from Users WHERE Id = 123",
+			expectedHash: "d1c08094cf228a33039e9ee0387ab83c",
+		},
+		{
+			name:         "query with extra whitespace",
+			rawSQL:       "SELECT  *   FROM    users   WHERE   id = 123",
+			expectedHash: "d1c08094cf228a33039e9ee0387ab83c",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Import the sqlnormalizer package
+			// This test verifies that the SQL normalizer integration works correctly
+			normalizedSQL, sqlHash := sqlnormalizer.NormalizeSQLAndHash(tt.rawSQL)
+
+			// Verify hash format
+			assert.Len(t, sqlHash, 32, "MD5 hash should be 32 characters")
+			assert.Regexp(t, "^[a-f0-9]{32}$", sqlHash, "MD5 hash should be lowercase hex")
+
+			// Verify expected hash value
+			assert.Equal(t, tt.expectedHash, sqlHash, "Hash should match expected value for normalized SQL: %s", normalizedSQL)
+		})
+	}
+}
+
 func readFile(fname string) []byte {
 	file, err := os.ReadFile(filepath.Join("testdata", fname))
 	if err != nil {
@@ -860,4 +930,3 @@ func readFile(fname string) []byte {
 	}
 	return file
 }
-
