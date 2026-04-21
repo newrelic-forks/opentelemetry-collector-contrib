@@ -15,6 +15,7 @@ package sqlnormalizer // import "go.opentelemetry.io/collector/contrib/internal/
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"fmt"
 	"strings"
 )
 
@@ -275,6 +276,10 @@ func NormalizeSQL(sql string) string {
 		return ""
 	}
 
+	// Log original SQL
+	originalSQL := sql
+	fmt.Printf("[SQL Normalizer] BEFORE normalization:\n%s\n", originalSQL)
+
 	// Phase 1: Convert to uppercase (matches Java: sql.toUpperCase(Locale.ROOT))
 	sql = strings.ToUpper(sql)
 
@@ -282,7 +287,12 @@ func NormalizeSQL(sql string) string {
 	sql = normalizeParametersAndLiterals(sql)
 
 	// Phase 3: Remove comments and normalize whitespace
-	return removeCommentsAndNormalizeWhitespace(sql)
+	normalizedSQL := removeCommentsAndNormalizeWhitespace(sql)
+
+	// Log normalized SQL
+	fmt.Printf("[SQL Normalizer] AFTER normalization:\n%s\n\n", normalizedSQL)
+
+	return normalizedSQL
 }
 
 // isPrecededByIn checks if the result is preceded by "IN".
@@ -581,5 +591,9 @@ func GenerateMD5Hash(normalizedSQL string) string {
 func NormalizeSQLAndHash(sql string) (normalizedSQL, md5Hash string) {
 	normalizedSQL = NormalizeSQL(sql)
 	md5Hash = GenerateMD5Hash(normalizedSQL)
+
+	// Log the generated hash
+	fmt.Printf("[SQL Normalizer] Generated MD5 hash: %s\n\n", md5Hash)
+
 	return normalizedSQL, md5Hash
 }
