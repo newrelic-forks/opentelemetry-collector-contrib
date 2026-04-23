@@ -129,7 +129,7 @@ func isNumericLiteral(state *sqlNormalizerState) bool {
 }
 
 // skipNumericLiteral skips over a numeric literal.
-// Matches Java implementation.
+
 func skipNumericLiteral(state *sqlNormalizerState) {
 	// + or - sign
 	c := state.current()
@@ -163,7 +163,7 @@ func skipNumericLiteral(state *sqlNormalizerState) {
 }
 
 // skipStringLiteral skips over a string literal, handling escaped quotes.
-// Matches Java implementation.
+
 func skipStringLiteral(state *sqlNormalizerState) {
 	state.advance() // Skip the opening quote
 
@@ -192,7 +192,7 @@ func skipStringLiteral(state *sqlNormalizerState) {
 
 // isPlaceholder checks if current position is a parameter placeholder.
 // Supports: ? (JDBC), :name/:1 (Oracle), $1 (PostgreSQL), @name (SQL Server), %(name)s (Python)
-// Matches Java implementation.
+
 func isPlaceholder(state *sqlNormalizerState) bool {
 	c := state.current()
 
@@ -225,7 +225,7 @@ func isPlaceholder(state *sqlNormalizerState) bool {
 }
 
 // skipPlaceholder skips over any type of prepared statement placeholder.
-// Matches Java implementation.
+
 func skipPlaceholder(state *sqlNormalizerState) {
 	c := state.current()
 
@@ -297,7 +297,7 @@ func NormalizeSQL(sql string) string {
 
 // isPrecededByIn checks if the result is preceded by "IN".
 // Handles whitespace between "IN" and the current position.
-// Matches Java implementation.
+
 func isPrecededByIn(result *strings.Builder) bool {
 	str := result.String()
 	if len(str) < 2 {
@@ -326,7 +326,7 @@ func isPrecededByIn(result *strings.Builder) bool {
 
 // tryNormalizeInClause tries to normalize an IN clause like IN (1,2,3) or IN (?,?,?) to IN (?).
 // If it's not a simple IN clause, returns the opening paren as-is.
-// Matches Java implementation.
+
 func tryNormalizeInClause(state *sqlNormalizerState) string {
 	// Save position in case we need to backtrack
 	saveIdx := state.idx
@@ -424,19 +424,19 @@ func normalizeParametersAndLiterals(sql string) string {
 }
 
 // isMultilineCommentStart checks if current position is start of /* comment.
-// Matches Java implementation.
+
 func isMultilineCommentStart(state *sqlNormalizerState) bool {
 	return state.current() == '/' && state.hasNext() && state.peek() == '*'
 }
 
 // isSingleLineCommentStart checks if current position is start of -- comment.
-// Matches Java implementation.
+
 func isSingleLineCommentStart(state *sqlNormalizerState) bool {
 	return state.current() == '-' && state.hasNext() && state.peek() == '-'
 }
 
 // skipMultilineComment skips over /* */ comment.
-// Matches Java implementation.
+
 func skipMultilineComment(state *sqlNormalizerState) {
 	state.advanceBy(2) // Skip /*
 
@@ -455,7 +455,7 @@ func skipMultilineComment(state *sqlNormalizerState) {
 }
 
 // skipToEndOfLine skips to end of line for -- and # comments.
-// Matches Java implementation.
+
 func skipToEndOfLine(state *sqlNormalizerState) {
 	// Skip until newline
 	for state.hasMore() && state.current() != '\n' && state.current() != '\r' {
@@ -468,7 +468,7 @@ func skipToEndOfLine(state *sqlNormalizerState) {
 }
 
 // processWhitespace handles whitespace normalization.
-// Matches Java implementation.
+
 func processWhitespace(result *strings.Builder, state *sqlNormalizerState) {
 	if !state.lastWasWhitespace && result.Len() > 0 {
 		result.WriteByte(' ')
@@ -477,17 +477,37 @@ func processWhitespace(result *strings.Builder, state *sqlNormalizerState) {
 	state.advance()
 }
 
+// removeTrailingWhitespace removes trailing whitespace from the result buffer.
+// Used to remove spaces before commas to match APM behavior.
+func removeTrailingWhitespace(result *strings.Builder) {
+	str := result.String()
+	trimmed := strings.TrimRight(str, " \t\n\r")
+	if len(trimmed) < len(str) {
+		result.Reset()
+		result.WriteString(trimmed)
+	}
+}
+
 // processRegularCharacter handles regular character output.
-// Matches Java implementation.
+
 func processRegularCharacter(result *strings.Builder, state *sqlNormalizerState) {
-	result.WriteByte(state.current())
+	current := state.current()
+
+	// Special handling for comma: remove any preceding whitespace
+	// Oracle stores bind variables with space before comma (e.g., ":1 ,")
+	// but APM doesn't have these spaces, so we remove them to match APM hash
+	if current == ',' {
+		removeTrailingWhitespace(result)
+	}
+
+	result.WriteByte(current)
 	state.lastWasWhitespace = false
 	state.advance()
 }
 
 // processStringLiteral handles string literal in comment removal phase.
 // This is defensive code - literals should already be replaced in phase 1.
-// Matches Java implementation.
+
 func processStringLiteral(result *strings.Builder, state *sqlNormalizerState) {
 	result.WriteByte(state.current())
 	state.lastWasWhitespace = false

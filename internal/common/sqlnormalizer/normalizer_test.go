@@ -461,3 +461,55 @@ func TestNormalizeSQL_EmptyAndNil(t *testing.T) {
 	assert.Equal(t, "", NormalizeSQL("   "))
 	assert.Equal(t, "", NormalizeSQL("\t\n\r"))
 }
+
+func TestNormalizeSQL_SpaceBeforeComma(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "Oracle bind variable with space before comma",
+			input:    "UPDATE ORDERS SET status = :1 , updated_at = CURRENT_TIMESTAMP WHERE order_id = :2",
+			expected: "UPDATE ORDERS SET STATUS = ?, UPDATED_AT = CURRENT_TIMESTAMP WHERE ORDER_ID = ?",
+		},
+		{
+			name:     "Multiple spaces before comma",
+			input:    "SELECT col1   , col2  , col3 FROM table",
+			expected: "SELECT COL1, COL2, COL3 FROM TABLE",
+		},
+		{
+			name:     "No space before comma (should not change)",
+			input:    "SELECT col1, col2, col3 FROM table",
+			expected: "SELECT COL1, COL2, COL3 FROM TABLE",
+		},
+		{
+			name:     "Tab before comma",
+			input:    "SELECT col1\t, col2 FROM table",
+			expected: "SELECT COL1, COL2 FROM TABLE",
+		},
+		{
+			name:     "Space before comma in IN clause",
+			input:    "SELECT * FROM users WHERE id IN (1 , 2 , 3)",
+			expected: "SELECT * FROM USERS WHERE ID IN (?)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := NormalizeSQL(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestNormalizeSQL_SpaceBeforeCommaHash(t *testing.T) {
+	// The key test: Oracle SQL with space before comma should generate same hash as without
+	oracleSQL := "UPDATE ORDERS SET status = :1 , updated_at = CURRENT_TIMESTAMP WHERE order_id = :2"
+	normalSQL := "UPDATE ORDERS SET status = :1, updated_at = CURRENT_TIMESTAMP WHERE order_id = :2"
+
+	_, oracleHash := NormalizeSQLAndHash(oracleSQL)
+	_, normalHash := NormalizeSQLAndHash(normalSQL)
+
+	assert.Equal(t, normalHash, oracleHash, "Hashes should match when only difference is space before comma")
+}
