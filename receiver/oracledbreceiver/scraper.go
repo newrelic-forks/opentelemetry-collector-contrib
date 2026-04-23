@@ -693,7 +693,13 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 		planString := string(planBytes)
 
 		// Normalize raw SQL (not obfuscated) and generate MD5 hash for APM correlation
-		_, sqlHash := sqlnormalizer.NormalizeSQLAndHash(hit.rawQueryText)
+		normalizedSQL, sqlHash := sqlnormalizer.NormalizeSQLAndHash(hit.rawQueryText)
+
+		// Log for debugging: compare normalized SQL with APM
+		s.logger.Info("SQL Normalization Debug",
+			zap.String("sql_id", hit.sqlID),
+			zap.String("normalized_sql", normalizedSQL),
+			zap.String("hash", sqlHash))
 
 		s.lb.RecordDbServerTopQueryEvent(context.Background(),
 			pcommon.NewTimestampFromTime(collectionTime),
@@ -785,7 +791,13 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 			continue
 		}
 
-		_, sqlHash := sqlnormalizer.NormalizeSQLAndHash(row[sqlText])
+		normalizedSQL, sqlHash := sqlnormalizer.NormalizeSQLAndHash(row[sqlText])
+
+		// Log for debugging: compare normalized SQL with APM
+		s.logger.Info("SQL Normalization Debug (Query Sample)",
+			zap.String("sql_id", row[sqlID]),
+			zap.String("normalized_sql", normalizedSQL),
+			zap.String("hash", sqlHash))
 
 		// Obfuscate SQL for display purposes (db.query.text)
 		obfuscatedSQL, err := s.obfuscator.obfuscateSQLString(row[sqlText])
