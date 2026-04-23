@@ -783,14 +783,16 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 			continue
 		}
 
-		// Normalize SQL and generate MD5 hash for APM correlation
-		_, sqlHash := sqlnormalizer.NormalizeSQLAndHash(row[sqlText])
-
+		// Obfuscate SQL first (to match APM agent behavior)
 		obfuscatedSQL, err := s.obfuscator.obfuscateSQLString(row[sqlText])
 		if err != nil {
 			s.logger.Error(fmt.Sprintf("oracleScraper failed updating this log record: %s", err))
 			continue
 		}
+
+		// Normalize the OBFUSCATED SQL and generate MD5 hash for APM correlation
+		// This matches APM's behavior: agents obfuscate first, then normalize for hashing
+		_, sqlHash := sqlnormalizer.NormalizeSQLAndHash(obfuscatedSQL)
 
 		queryPlanHashVal := hex.EncodeToString([]byte(row[planHashValue]))
 
