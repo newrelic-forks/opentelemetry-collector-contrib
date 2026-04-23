@@ -108,7 +108,10 @@ resourceLogs:
                   stringValue: ""
               - key: oracledb.normalised_sql_hash
                 value:
-                  stringValue: fa528ddf06cefb42a2dab986dff8e77a
+                  stringValue: 1d1910e230ac1c192ff1733dca8625ba
+              - key: oracledb.normalized_sql
+                value:
+                  stringValue: SELECT COUNT(*) AS TOTALHIGHRATEEMPLOYEES FROM ADMIN."EMPLOYEE" E JOIN ADMIN."PERSON" P ON E."BUSINESSENTITYID" = "BUSID1?" JOIN ADMIN."EMPLOYEEPAYHISTORY" EPH ON E."BUSINESSENTITYID" = EPH."BUSINESSENTITYID" WHERE EPH."RATE" > (SELECT AVG("RATE") FROM ADMIN."EMPLOYEEPAYHISTORY")
             body: {}
             eventName: db.server.top_query
             timeUnixNano: "1759142512777891000"

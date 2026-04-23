@@ -520,29 +520,61 @@ func removeCommentsAndNormalizeWhitespace(sql string) string {
 	var result strings.Builder
 	result.Grow(len(sql))
 	state := newSQLNormalizerState(sql)
+	seenSQLContent := false // Track whether any actual SQL content has been written
 
 	for state.hasMore() {
 		current := state.current()
 
 		if current == '\'' {
 			// String literals (defensive - should already be replaced in phase 1)
+			seenSQLContent = true
 			processStringLiteral(&result, state)
 		} else if isMultilineCommentStart(state) {
 			// Multi-line comment /* */
-			skipMultilineComment(state)
+			if !seenSQLContent {
+				// Prefix comment: replace with ? (matches NR APM agent obfuscation behavior)
+				skipMultilineComment(state)
+				result.WriteByte('?')
+				state.lastWasWhitespace = false
+				seenSQLContent = true
+			} else {
+				// Inline comment: silently remove
+				skipMultilineComment(state)
+			}
 		} else if isSingleLineCommentStart(state) {
 			// Single-line comment --
-			state.advanceBy(2) // Skip --
-			skipToEndOfLine(state)
+			if !seenSQLContent {
+				// Prefix comment: replace with ?
+				state.advanceBy(2) // Skip --
+				skipToEndOfLine(state)
+				result.WriteByte('?')
+				state.lastWasWhitespace = false
+				seenSQLContent = true
+			} else {
+				// Inline comment: silently remove
+				state.advanceBy(2) // Skip --
+				skipToEndOfLine(state)
+			}
 		} else if current == '#' {
 			// Hash comment
-			state.advance() // Skip #
-			skipToEndOfLine(state)
+			if !seenSQLContent {
+				// Prefix comment: replace with ?
+				state.advance() // Skip #
+				skipToEndOfLine(state)
+				result.WriteByte('?')
+				state.lastWasWhitespace = false
+				seenSQLContent = true
+			} else {
+				// Inline comment: silently remove
+				state.advance() // Skip #
+				skipToEndOfLine(state)
+			}
 		} else if current == ' ' || current == '\t' || current == '\n' || current == '\r' {
 			// Whitespace
 			processWhitespace(&result, state)
 		} else {
 			// Regular character
+			seenSQLContent = true
 			processRegularCharacter(&result, state)
 		}
 	}
