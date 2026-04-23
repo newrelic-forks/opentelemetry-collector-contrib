@@ -695,12 +695,6 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 		// Normalize raw SQL (not obfuscated) and generate MD5 hash for APM correlation
 		normalizedSQL, sqlHash := sqlnormalizer.NormalizeSQLAndHash(hit.rawQueryText)
 
-		// Log for debugging: compare normalized SQL with APM
-		s.logger.Info("SQL Normalization Debug",
-			zap.String("sql_id", hit.sqlID),
-			zap.String("normalized_sql", normalizedSQL),
-			zap.String("hash", sqlHash))
-
 		s.lb.RecordDbServerTopQueryEvent(context.Background(),
 			pcommon.NewTimestampFromTime(collectionTime),
 			dbSystemNameVal,
@@ -732,7 +726,8 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 			hit.planHashValue,
 			hit.lastLoadTime,
 			hit.queryComments,
-			sqlHash)
+			sqlHash,
+			normalizedSQL)
 	}
 
 	hitCount := len(hits)
@@ -793,12 +788,6 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 
 		normalizedSQL, sqlHash := sqlnormalizer.NormalizeSQLAndHash(row[sqlText])
 
-		// Log for debugging: compare normalized SQL with APM
-		s.logger.Info("SQL Normalization Debug (Query Sample)",
-			zap.String("sql_id", row[sqlID]),
-			zap.String("normalized_sql", normalizedSQL),
-			zap.String("hash", sqlHash))
-
 		// Obfuscate SQL for display purposes (db.query.text)
 		obfuscatedSQL, err := s.obfuscator.obfuscateSQLString(row[sqlText])
 		if err != nil {
@@ -839,7 +828,7 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 		s.lb.RecordDbServerQuerySampleEvent(queryContext, timestamp, obfuscatedSQL, dbSystemNameVal, row[username], row[serviceName], row[hostName],
 			clientPort, row[hostName], clientPort, queryPlanHashVal, row[sqlID], row[sqlChildNumber], row[childAddress], row[sid], row[serialNumber], row[process],
 			row[schemaName], row[program], row[module], row[status], row[state], row[waitclass], row[event], objID, row[objectName], row[objectType],
-			row[osUser], queryDuration, waitTime, queryComments, sqlHash)
+			row[osUser], queryDuration, waitTime, queryComments, sqlHash, normalizedSQL)
 	}
 
 	s.lb.Emit(metadata.WithLogsResource(rb.Emit())).ResourceLogs().MoveAndAppendTo(logs.ResourceLogs())

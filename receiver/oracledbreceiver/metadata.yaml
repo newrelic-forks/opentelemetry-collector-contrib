@@ -109,6 +109,9 @@ attributes:
   oracledb.normalised_sql_hash:
     description: "MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Used for correlation with APM slow query traces."
     type: string
+  oracledb.normalized_sql:
+    description: "Normalized SQL query text for debugging hash generation. Shows the exact SQL string that was hashed."
+    type: string
   oracledb.osuser:
     description: Name of the operating system user that initiated or is running the Oracle database session.
     type: string
@@ -234,6 +237,7 @@ events:
       - oracledb.wait_time_sec
       - query.comments
       - oracledb.normalised_sql_hash
+      - oracledb.normalized_sql
   db.server.top_query:
     enabled: false
     description: Collection of event metrics for top N queries, filtered based on the highest CPU time consumed (oracledb.elapsed_time).
@@ -270,6 +274,7 @@ events:
       - oracledb.last_load_time
       - query.comments
       - oracledb.normalised_sql_hash
+      - oracledb.normalized_sql
 metrics:
   oracledb.consistent_gets:
     description: Number of times a consistent read was requested for a block from the buffer cache.
