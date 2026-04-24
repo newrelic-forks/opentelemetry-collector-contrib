@@ -436,6 +436,7 @@ sample query
 | query.comments | Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys specified in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
 | oracledb.normalised_sql_hash | MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Used for correlation with APM slow query traces. | Any Str | - |
 | oracledb.normalized_sql | Normalized SQL query text for debugging hash generation. Shows the exact SQL string that was hashed. | Any Str | - |
+| oracledb.sql_exec_start | The timestamp when the SQL statement started execution (ISO 8601 format). | Any Str | - |
 
 ### db.server.top_query
 

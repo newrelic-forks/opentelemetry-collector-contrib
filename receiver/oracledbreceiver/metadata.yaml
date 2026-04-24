@@ -163,6 +163,9 @@ attributes:
   oracledb.sid:
     description: ID of the Oracle Server session.
     type: string
+  oracledb.sql_exec_start:
+    description: The timestamp when the SQL statement started execution (ISO 8601 format).
+    type: string
   oracledb.sql_id:
     description: The SQL ID of the query.
     type: string
@@ -238,6 +241,7 @@ events:
       - query.comments
       - oracledb.normalised_sql_hash
       - oracledb.normalized_sql
+      - oracledb.sql_exec_start
   db.server.top_query:
     enabled: false
     description: Collection of event metrics for top N queries, filtered based on the highest CPU time consumed (oracledb.elapsed_time).
