@@ -433,6 +433,7 @@ sample query
 | oracledb.procedure_type | Type of the database object that a query is accessing. | Any Str | - |
 | oracledb.osuser | Name of the operating system user that initiated or is running the Oracle database session. | Any Str | - |
 | oracledb.duration_sec | Total time taken by a database query to execute. | Any Double | - |
+| oracledb.sql_exec_start | The timestamp when the SQL statement started execution (ISO 8601 format). | Any Str | - |
 
 ### db.server.top_query
 
