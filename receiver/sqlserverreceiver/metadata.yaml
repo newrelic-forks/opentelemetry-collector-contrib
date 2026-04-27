@@ -154,7 +154,7 @@ attributes:
     type: int
     requirement_level: recommended
   sqlserver.last_execution_time:
-    description: Timestamp of when the SQL query was last executed (ISO 8601 format).
+    description: Timestamp of when the SQL query was last executed in SQL Server's local timezone (format YYYY-MM-DD HH:MM:SS.mmm).
     type: string
     requirement_level: recommended
   sqlserver.lock_timeout:
