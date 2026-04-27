@@ -639,7 +639,7 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 		totalElapsedTime = "total_elapsed_time"
 		totalGrant       = "total_grant_kb"
 		// the time returned from mssql is in microsecond
-		totalWorkerTime = "total_worker_time"
+		totalWorkerTime   = "total_worker_time"
 		lastExecutionTime = "last_execution_time"
 
 		dbSystemNameVal = "microsoft.sql_server"
