@@ -94,6 +94,9 @@ resourceLogs:
               - key: oracledb.duration_sec
                 value:
                   doubleValue: 1
+              - key: oracledb.wait_time_sec
+                value:
+                  doubleValue: 0
               - key: query.comments
                 value:
                   stringValue: ""

@@ -102,6 +102,10 @@ const (
 	objectNameAttr  = "PROCEDURE_NAME"
 	objectTypeAttr  = "PROCEDURE_TYPE"
 	commandTypeAttr = "COMMAND_TYPE"
+
+	// Additional query attributes
+	planHashValueAttr = "PLAN_HASH_VALUE"
+	lastLoadTimeAttr  = "LAST_LOAD_TIME"
 )
 
 var (
@@ -531,13 +535,16 @@ type queryMetricCacheHit struct {
 	sqlID         string
 	childNumber   string
 	childAddress  string
-	queryText     string
+	queryText     string // Obfuscated SQL for display
+	rawQueryText  string // Raw SQL for hash generation
 	queryComments string
 	metrics       map[string]int64
 	objectID      int64
 	objectName    string
 	objectType    string
 	commandType   int64
+	planHashValue string
+	lastLoadTime  string
 }
 
 func (s *oracleScraper) scrapeLogs(ctx context.Context) (plog.Logs, error) {
@@ -617,6 +624,7 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 			hit := queryMetricCacheHit{
 				sqlID:         row[sqlIDAttr],
 				queryText:     row[sqlTextAttr],
+				rawQueryText:  row[sqlTextAttr], // Preserve raw SQL for hash generation
 				queryComments: queryComments,
 				childNumber:   row[childNumberAttr],
 				childAddress:  row[childAddressAttr],
@@ -625,6 +633,8 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 				objectName:    row[objectNameAttr],
 				objectType:    row[objectTypeAttr],
 				commandType:   commandType,
+				planHashValue: hex.EncodeToString([]byte(row[planHashValueAttr])),
+				lastLoadTime:  row[lastLoadTimeAttr],
 			}
 
 			var possiblePurge bool
@@ -682,8 +692,8 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 		}
 		planString := string(planBytes)
 
-		// Normalize SQL and generate MD5 hash for APM correlation
-		_, sqlHash := sqlnormalizer.NormalizeSQLAndHash(hit.queryText)
+		// Normalize raw SQL (not obfuscated) and generate MD5 hash for APM correlation
+		normalizedSQL, sqlHash := sqlnormalizer.NormalizeSQLAndHash(hit.rawQueryText)
 
 		s.lb.RecordDbServerTopQueryEvent(context.Background(),
 			pcommon.NewTimestampFromTime(collectionTime),
@@ -713,8 +723,11 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 			hit.objectID,
 			hit.objectName,
 			hit.objectType,
+			hit.planHashValue,
+			hit.lastLoadTime,
 			hit.queryComments,
-			sqlHash)
+			sqlHash,
+			normalizedSQL)
 	}
 
 	hitCount := len(hits)
@@ -751,6 +764,7 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 	const sqlText = "SQL_FULLTEXT"
 	const username = "USERNAME"
 	const waitclass = "WAIT_CLASS"
+	const waitTimeSec = "WAIT_TIME_SEC"
 	const port = "PORT"
 	const serviceName = "SERVICE_NAME"
 
@@ -772,9 +786,9 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 			continue
 		}
 
-		// Normalize SQL and generate MD5 hash for APM correlation
-		_, sqlHash := sqlnormalizer.NormalizeSQLAndHash(row[sqlText])
+		normalizedSQL, sqlHash := sqlnormalizer.NormalizeSQLAndHash(row[sqlText])
 
+		// Obfuscate SQL for display purposes (db.query.text)
 		obfuscatedSQL, err := s.obfuscator.obfuscateSQLString(row[sqlText])
 		if err != nil {
 			s.logger.Error(fmt.Sprintf("oracleScraper failed updating this log record: %s", err))
@@ -786,6 +800,11 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 		queryDuration, err := strconv.ParseFloat(row[duration], 64)
 		if err != nil {
 			scrapeErrors = append(scrapeErrors, fmt.Errorf("failed to parse int64 for Duration, value was %s: %w", row[duration], err))
+		}
+
+		waitTime, err := strconv.ParseFloat(row[waitTimeSec], 64)
+		if err != nil {
+			waitTime = 0
 		}
 
 		clientPort, err := strconv.ParseInt(row[port], 10, 64)
@@ -809,7 +828,7 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 		s.lb.RecordDbServerQuerySampleEvent(queryContext, timestamp, obfuscatedSQL, dbSystemNameVal, row[username], row[serviceName], row[hostName],
 			clientPort, row[hostName], clientPort, queryPlanHashVal, row[sqlID], row[sqlChildNumber], row[childAddress], row[sid], row[serialNumber], row[process],
 			row[schemaName], row[program], row[module], row[status], row[state], row[waitclass], row[event], objID, row[objectName], row[objectType],
-			row[osUser], queryDuration, queryComments, sqlHash)
+			row[osUser], queryDuration, waitTime, queryComments, sqlHash, normalizedSQL)
 	}
 
 	s.lb.Emit(metadata.WithLogsResource(rb.Emit())).ResourceLogs().MoveAndAppendTo(logs.ResourceLogs())
