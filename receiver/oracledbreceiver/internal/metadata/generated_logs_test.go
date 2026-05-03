@@ -237,7 +237,7 @@ func TestLogsBuilder(t *testing.T) {
 					assert.Equal(t, "oracledb.event-val", attrVal.Str())
 					attrVal, ok = lr.Attributes().Get("oracledb.wait_time_sec")
 					assert.True(t, ok)
-					assert.Equal(t, 21.100000, attrVal.Double())
+					assert.Equal(t, 22.100000, attrVal.Double())
 					attrVal, ok = lr.Attributes().Get("oracledb.procedure_id")
 					assert.True(t, ok)
 					assert.EqualValues(t, 21, attrVal.Int())
