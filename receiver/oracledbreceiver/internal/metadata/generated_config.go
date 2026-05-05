@@ -1140,6 +1140,8 @@ func (ec *EventConfig) Unmarshal(parser *confmap.Conf) error {
 type EventsConfig struct {
 	DbServerQuerySample EventConfig `mapstructure:"db.server.query_sample"`
 	DbServerTopQuery    EventConfig `mapstructure:"db.server.top_query"`
+	OracleBlockingChain EventConfig `mapstructure:"oracle.blocking_chain"`
+	OracleSessionActive EventConfig `mapstructure:"oracle.session.active"`
 }
 
 func DefaultEventsConfig() EventsConfig {
@@ -1148,6 +1150,12 @@ func DefaultEventsConfig() EventsConfig {
 			Enabled: false,
 		},
 		DbServerTopQuery: EventConfig{
+			Enabled: false,
+		},
+		OracleBlockingChain: EventConfig{
+			Enabled: false,
+		},
+		OracleSessionActive: EventConfig{
 			Enabled: false,
 		},
 	}

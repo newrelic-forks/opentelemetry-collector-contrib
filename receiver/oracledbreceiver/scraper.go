@@ -73,6 +73,90 @@ const (
 		FROM DBA_TABLESPACE_USAGE_METRICS um INNER JOIN DBA_TABLESPACES ts
 		ON um.TABLESPACE_NAME = ts.TABLESPACE_NAME`
 
+	// Blocking chains: Find head blockers and their victims
+	blockingChainsSQL = `
+		WITH blockers AS (
+			SELECT DISTINCT blocking_session
+			FROM v$session
+			WHERE blocking_session IS NOT NULL
+		),
+		head_blockers AS (
+			SELECT b.blocking_session as sid
+			FROM blockers b
+			WHERE b.blocking_session NOT IN (
+				SELECT sid FROM v$session WHERE blocking_session IS NOT NULL
+			)
+		)
+		SELECT
+			s.sid,
+			s.serial#,
+			s.status,
+			s.username,
+			s.osuser,
+			s.machine,
+			s.program,
+			s.sql_id,
+			s.prev_sql_id,
+			EXTRACT(DAY FROM (SYSDATE - s.logon_time)) * 86400 +
+			EXTRACT(HOUR FROM (SYSDATE - s.logon_time)) * 3600 +
+			EXTRACT(MINUTE FROM (SYSDATE - s.logon_time)) * 60 +
+			EXTRACT(SECOND FROM (SYSDATE - s.logon_time)) as duration_sec,
+			(SELECT COUNT(*) FROM v$session WHERE blocking_session = s.sid) as victim_count,
+			(SELECT MAX(seconds_in_wait) FROM v$session WHERE blocking_session = s.sid) as max_victim_wait
+		FROM v$session s
+		JOIN head_blockers hb ON s.sid = hb.sid
+		WHERE s.type = 'USER'`
+
+	// Active sessions: Individual session details for Sessions table
+	activeSessionsSQL = `
+		SELECT
+			s.sid,
+			s.serial#,
+			s.status,
+			s.username,
+			s.osuser,
+			s.machine,
+			s.program,
+			s.sql_id,
+			s.event,
+			s.wait_class,
+			s.seconds_in_wait,
+			s.blocking_session,
+			EXTRACT(DAY FROM (SYSDATE - s.logon_time)) * 86400 +
+			EXTRACT(HOUR FROM (SYSDATE - s.logon_time)) * 3600 +
+			EXTRACT(MINUTE FROM (SYSDATE - s.logon_time)) * 60 +
+			EXTRACT(SECOND FROM (SYSDATE - s.logon_time)) as duration_sec,
+			(SELECT COUNT(*) FROM v$session WHERE blocking_session = s.sid) as blocked_count
+		FROM v$session s
+		WHERE s.type = 'USER'
+			AND s.status = 'ACTIVE'
+		ORDER BY duration_sec DESC
+		FETCH FIRST 100 ROWS ONLY`
+
+	// Victims for a specific blocker - parameterized query
+	victimsSQL = `
+		SELECT
+			vs.sid,
+			vs.serial#,
+			vs.seconds_in_wait,
+			vs.event,
+			vs.wait_class,
+			vs.sql_id,
+			vl.type as lock_type,
+			vl.request as lock_mode_requested,
+			vl.id1,
+			vl.id2
+		FROM v$session vs
+		LEFT JOIN v$lock vl ON vs.sid = vl.sid AND vl.request > 0
+		WHERE vs.blocking_session = :1`
+
+	// SQL text lookup - parameterized query
+	sqlTextSQL = `
+		SELECT sql_id, sql_fulltext
+		FROM v$sql
+		WHERE sql_id = :1
+		AND ROWNUM = 1`
+
 	sqlIDAttr        = "SQL_ID"
 	childAddressAttr = "CHILD_ADDRESS"
 	childNumberAttr  = "CHILD_NUMBER"
@@ -129,6 +213,8 @@ type oracleScraper struct {
 	oracleQueryMetricsClient   dbClient
 	oraclePlanDataClient       dbClient
 	samplesQueryClient         dbClient
+	blockingChainsClient       dbClient
+	activeSessionsClient       dbClient
 	db                         *sql.DB
 	clientProviderFunc         clientProviderFunc
 	mb                         *metadata.MetricsBuilder
@@ -199,6 +285,8 @@ func (s *oracleScraper) start(context.Context, component.Host) error {
 	s.systemResourceLimitsClient = s.clientProviderFunc(s.db, systemResourceLimitsSQL, s.logger)
 	s.tablespaceUsageClient = s.clientProviderFunc(s.db, tablespaceUsageSQL, s.logger)
 	s.samplesQueryClient = s.clientProviderFunc(s.db, samplesQuery, s.logger)
+	s.blockingChainsClient = s.clientProviderFunc(s.db, blockingChainsSQL, s.logger)
+	s.activeSessionsClient = s.clientProviderFunc(s.db, activeSessionsSQL, s.logger)
 	return nil
 }
 
@@ -569,6 +657,20 @@ func (s *oracleScraper) scrapeLogs(ctx context.Context) (plog.Logs, error) {
 		samplesCollectionErrors := s.collectQuerySamples(ctx, logs)
 		if samplesCollectionErrors != nil {
 			scrapeErrors = append(scrapeErrors, samplesCollectionErrors)
+		}
+	}
+
+	if s.logsBuilderConfig.Events.OracleBlockingChain.Enabled {
+		blockingErr := s.collectBlockingChains(ctx, logs)
+		if blockingErr != nil {
+			scrapeErrors = append(scrapeErrors, blockingErr)
+		}
+	}
+
+	if s.logsBuilderConfig.Events.OracleSessionActive.Enabled {
+		sessionsErr := s.collectActiveSessions(ctx, logs)
+		if sessionsErr != nil {
+			scrapeErrors = append(scrapeErrors, sessionsErr)
 		}
 	}
 
@@ -965,4 +1067,219 @@ func (s *oracleScraper) calculateLookbackSeconds() int {
 	return int(math.Ceil(time.Now().
 		Add(vsqlRefreshLag).
 		Sub(s.lastExecutionTimestamp).Seconds()))
+}
+
+func (s *oracleScraper) collectBlockingChains(ctx context.Context, logs plog.Logs) error {
+	rows, err := s.blockingChainsClient.metricRows(ctx)
+	if err != nil {
+		return fmt.Errorf("error executing blockingChainsSQL: %w", err)
+	}
+
+	if len(rows) == 0 {
+		s.logger.Debug("No blocking chains detected")
+		return nil
+	}
+
+	for _, row := range rows {
+		logRecord := logs.ResourceLogs().AppendEmpty().ScopeLogs().AppendEmpty().LogRecords().AppendEmpty()
+		logRecord.SetTimestamp(pcommon.NewTimestampFromTime(time.Now()))
+
+		// Set event name
+		logRecord.Attributes().PutStr("event.name", "oracle.blocking_chain")
+
+		// Set blocker attributes
+		blockerSID := row["sid"]
+		logRecord.Attributes().PutStr("oracledb.blocker.sid", blockerSID)
+		logRecord.Attributes().PutStr("oracledb.blocker.serial", row["serial#"])
+		logRecord.Attributes().PutStr("oracledb.blocker.status", row["status"])
+		logRecord.Attributes().PutStr("oracledb.blocker.username", row["username"])
+		logRecord.Attributes().PutStr("oracledb.blocker.osuser", row["osuser"])
+		logRecord.Attributes().PutStr("oracledb.blocker.machine", row["machine"])
+		logRecord.Attributes().PutStr("oracledb.blocker.program", row["program"])
+		logRecord.Attributes().PutStr("oracledb.blocker.sql_id", row["sql_id"])
+		logRecord.Attributes().PutStr("oracledb.victim_count", row["victim_count"])
+		logRecord.Attributes().PutStr("oracledb.max_victim_wait_sec", row["max_victim_wait"])
+		logRecord.Attributes().PutStr("oracledb.blocker.duration_sec", row["duration_sec"])
+
+		// Fetch blocker SQL text
+		sqlID := row["sql_id"]
+		if sqlID == "" {
+			sqlID = row["prev_sql_id"]
+		}
+		if sqlID != "" {
+			sqlText, err := s.fetchSQLText(ctx, sqlID)
+			if err == nil && sqlText != "" {
+				// Obfuscate SQL text
+				obfuscated, err := s.obfuscator.obfuscateSQLString(sqlText)
+				if err == nil {
+					logRecord.Attributes().PutStr("oracledb.blocker.sql_text", obfuscated)
+				}
+			}
+		}
+
+		// Fetch victims for this blocker
+		victims, err := s.fetchVictims(ctx, blockerSID)
+		if err != nil {
+			s.logger.Warn("Failed to fetch victims", zap.String("blocker_sid", blockerSID), zap.Error(err))
+		} else if len(victims) > 0 {
+			// Convert victims array to JSON string
+			victimsJSON, err := json.Marshal(victims)
+			if err == nil {
+				logRecord.Attributes().PutStr("oracledb.victims", string(victimsJSON))
+			}
+		}
+
+		s.logger.Debug("Blocking chain detected",
+			zap.String("blocker_sid", blockerSID),
+			zap.String("victim_count", row["victim_count"]),
+			zap.Int("victims_fetched", len(victims)))
+	}
+
+	return nil
+}
+
+func (s *oracleScraper) fetchSQLText(ctx context.Context, sqlID string) (string, error) {
+	// Execute parameterized query to get SQL text
+	sqlTextRows, err := s.db.QueryContext(ctx, sqlTextSQL, sqlID)
+	if err != nil {
+		return "", err
+	}
+	defer sqlTextRows.Close()
+
+	if sqlTextRows.Next() {
+		var returnedSQLID string
+		var sqlText string
+		err = sqlTextRows.Scan(&returnedSQLID, &sqlText)
+		if err != nil {
+			return "", err
+		}
+		return sqlText, nil
+	}
+	return "", nil
+}
+
+func (s *oracleScraper) fetchVictims(ctx context.Context, blockerSID string) ([]map[string]interface{}, error) {
+	// Execute parameterized query to get victims
+	victimRows, err := s.db.QueryContext(ctx, victimsSQL, blockerSID)
+	if err != nil {
+		return nil, err
+	}
+	defer victimRows.Close()
+
+	var victims []map[string]interface{}
+	columns, err := victimRows.Columns()
+	if err != nil {
+		return nil, err
+	}
+
+	for victimRows.Next() {
+		// Create a slice of interface{} to hold column values
+		values := make([]interface{}, len(columns))
+		valuePtrs := make([]interface{}, len(columns))
+		for i := range columns {
+			valuePtrs[i] = &values[i]
+		}
+
+		err = victimRows.Scan(valuePtrs...)
+		if err != nil {
+			continue
+		}
+
+		victim := make(map[string]interface{})
+		for i, col := range columns {
+			var v interface{}
+			val := values[i]
+			b, ok := val.([]byte)
+			if ok {
+				v = string(b)
+			} else {
+				v = val
+			}
+			victim[col] = v
+		}
+
+		// Fetch SQL text for victim if available
+		if victimSQLID, ok := victim["sql_id"].(string); ok && victimSQLID != "" {
+			sqlText, err := s.fetchSQLText(ctx, victimSQLID)
+			if err == nil && sqlText != "" {
+				obfuscated, err := s.obfuscator.obfuscateSQLString(sqlText)
+				if err == nil {
+					victim["sql_text"] = obfuscated
+				}
+			}
+		}
+
+		// Convert seconds to milliseconds for wait time
+		if waitSec, ok := victim["seconds_in_wait"]; ok {
+			switch v := waitSec.(type) {
+			case int64:
+				victim["wait_time_ms"] = v * 1000
+			case float64:
+				victim["wait_time_ms"] = int64(v * 1000)
+			case string:
+				// Parse string to number
+				if val, err := strconv.ParseFloat(v, 64); err == nil {
+					victim["wait_time_ms"] = int64(val * 1000)
+				}
+			}
+		}
+
+		victims = append(victims, victim)
+	}
+
+	return victims, nil
+}
+
+func (s *oracleScraper) collectActiveSessions(ctx context.Context, logs plog.Logs) error {
+	rows, err := s.activeSessionsClient.metricRows(ctx)
+	if err != nil {
+		return fmt.Errorf("error executing activeSessionsSQL: %w", err)
+	}
+
+	if len(rows) == 0 {
+		s.logger.Debug("No active sessions found")
+		return nil
+	}
+
+	for _, row := range rows {
+		logRecord := logs.ResourceLogs().AppendEmpty().ScopeLogs().AppendEmpty().LogRecords().AppendEmpty()
+		logRecord.SetTimestamp(pcommon.NewTimestampFromTime(time.Now()))
+
+		// Set event name
+		logRecord.Attributes().PutStr("event.name", "oracle.session.active")
+
+		// Set session attributes
+		logRecord.Attributes().PutStr("oracledb.sid", row["sid"])
+		logRecord.Attributes().PutStr("oracledb.serial", row["serial#"])
+		logRecord.Attributes().PutStr("oracledb.status", row["status"])
+		logRecord.Attributes().PutStr("user.name", row["username"])
+		logRecord.Attributes().PutStr("oracledb.osuser", row["osuser"])
+		logRecord.Attributes().PutStr("oracledb.machine", row["machine"])
+		logRecord.Attributes().PutStr("oracledb.program", row["program"])
+		logRecord.Attributes().PutStr("oracledb.sql_id", row["sql_id"])
+		logRecord.Attributes().PutStr("oracledb.event", row["event"])
+		logRecord.Attributes().PutStr("oracledb.wait_class", row["wait_class"])
+		logRecord.Attributes().PutStr("oracledb.wait_time_sec", row["seconds_in_wait"])
+		logRecord.Attributes().PutStr("oracledb.blocking_session", row["blocking_session"])
+		logRecord.Attributes().PutStr("oracledb.blocked_count", row["blocked_count"])
+		logRecord.Attributes().PutStr("oracledb.duration_sec", row["duration_sec"])
+
+		// Fetch SQL text if available
+		if sqlID := row["sql_id"]; sqlID != "" {
+			sqlText, err := s.fetchSQLText(ctx, sqlID)
+			if err == nil && sqlText != "" {
+				// Obfuscate SQL text
+				obfuscated, err := s.obfuscator.obfuscateSQLString(sqlText)
+				if err == nil {
+					logRecord.Attributes().PutStr("db.query.text", obfuscated)
+				}
+			}
+		}
+
+		s.logger.Debug("Active session collected",
+			zap.String("sid", row["sid"]),
+			zap.String("status", row["status"]))
+	}
+
+	return nil
 }

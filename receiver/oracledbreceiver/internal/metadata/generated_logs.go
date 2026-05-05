@@ -4,7 +4,6 @@ package metadata
 
 import (
 	"context"
-
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/filter"
 	"go.opentelemetry.io/collector/pdata/pcommon"
@@ -148,6 +147,104 @@ func newEventDbServerTopQuery(cfg EventConfig) eventDbServerTopQuery {
 	return e
 }
 
+type eventOracleBlockingChain struct {
+	data   plog.LogRecordSlice // data buffer for generated log records.
+	config EventConfig         // event config provided by user.
+}
+
+func (e *eventOracleBlockingChain) recordEvent(ctx context.Context, timestamp pcommon.Timestamp, oracledbBlockerSidAttributeValue string, oracledbBlockerSerialAttributeValue string, oracledbBlockerStatusAttributeValue string, oracledbBlockerUsernameAttributeValue string, oracledbBlockerOsuserAttributeValue string, oracledbBlockerMachineAttributeValue string, oracledbBlockerProgramAttributeValue string, oracledbBlockerSQLIDAttributeValue string, oracledbBlockerSQLTextAttributeValue string, oracledbBlockerDurationSecAttributeValue float64, oracledbVictimCountAttributeValue int64, oracledbMaxVictimWaitSecAttributeValue float64, oracledbVictimsAttributeValue string) {
+	if !e.config.Enabled {
+		return
+	}
+	dp := e.data.AppendEmpty()
+	dp.SetEventName("oracle.blocking_chain")
+	dp.SetTimestamp(timestamp)
+
+	if span := trace.SpanContextFromContext(ctx); span.IsValid() {
+		dp.SetTraceID(pcommon.TraceID(span.TraceID()))
+		dp.SetSpanID(pcommon.SpanID(span.SpanID()))
+	}
+	dp.Attributes().PutStr("oracledb.blocker.sid", oracledbBlockerSidAttributeValue)
+	dp.Attributes().PutStr("oracledb.blocker.serial", oracledbBlockerSerialAttributeValue)
+	dp.Attributes().PutStr("oracledb.blocker.status", oracledbBlockerStatusAttributeValue)
+	dp.Attributes().PutStr("oracledb.blocker.username", oracledbBlockerUsernameAttributeValue)
+	dp.Attributes().PutStr("oracledb.blocker.osuser", oracledbBlockerOsuserAttributeValue)
+	dp.Attributes().PutStr("oracledb.blocker.machine", oracledbBlockerMachineAttributeValue)
+	dp.Attributes().PutStr("oracledb.blocker.program", oracledbBlockerProgramAttributeValue)
+	dp.Attributes().PutStr("oracledb.blocker.sql_id", oracledbBlockerSQLIDAttributeValue)
+	dp.Attributes().PutStr("oracledb.blocker.sql_text", oracledbBlockerSQLTextAttributeValue)
+	dp.Attributes().PutDouble("oracledb.blocker.duration_sec", oracledbBlockerDurationSecAttributeValue)
+	dp.Attributes().PutInt("oracledb.victim_count", oracledbVictimCountAttributeValue)
+	dp.Attributes().PutDouble("oracledb.max_victim_wait_sec", oracledbMaxVictimWaitSecAttributeValue)
+	dp.Attributes().PutStr("oracledb.victims", oracledbVictimsAttributeValue)
+
+}
+
+// emit appends recorded event data to a events slice and prepares it for recording another set of log records.
+func (e *eventOracleBlockingChain) emit(lrs plog.LogRecordSlice) {
+	if e.config.Enabled && e.data.Len() > 0 {
+		e.data.MoveAndAppendTo(lrs)
+	}
+}
+
+func newEventOracleBlockingChain(cfg EventConfig) eventOracleBlockingChain {
+	e := eventOracleBlockingChain{config: cfg}
+	if cfg.Enabled {
+		e.data = plog.NewLogRecordSlice()
+	}
+	return e
+}
+
+type eventOracleSessionActive struct {
+	data   plog.LogRecordSlice // data buffer for generated log records.
+	config EventConfig         // event config provided by user.
+}
+
+func (e *eventOracleSessionActive) recordEvent(ctx context.Context, timestamp pcommon.Timestamp, oracledbSidAttributeValue string, oracledbSerialAttributeValue string, oracledbStatusAttributeValue string, userNameAttributeValue string, oracledbOsuserAttributeValue string, oracledbMachineAttributeValue string, oracledbProgramAttributeValue string, oracledbDurationSecAttributeValue float64, oracledbSQLIDAttributeValue string, dbQueryTextAttributeValue string, oracledbEventAttributeValue string, oracledbWaitClassAttributeValue string, oracledbWaitTimeSecAttributeValue float64, oracledbBlockingSessionAttributeValue string, oracledbBlockedCountAttributeValue int64) {
+	if !e.config.Enabled {
+		return
+	}
+	dp := e.data.AppendEmpty()
+	dp.SetEventName("oracle.session.active")
+	dp.SetTimestamp(timestamp)
+
+	if span := trace.SpanContextFromContext(ctx); span.IsValid() {
+		dp.SetTraceID(pcommon.TraceID(span.TraceID()))
+		dp.SetSpanID(pcommon.SpanID(span.SpanID()))
+	}
+	dp.Attributes().PutStr("oracledb.sid", oracledbSidAttributeValue)
+	dp.Attributes().PutStr("oracledb.serial", oracledbSerialAttributeValue)
+	dp.Attributes().PutStr("oracledb.status", oracledbStatusAttributeValue)
+	dp.Attributes().PutStr("user.name", userNameAttributeValue)
+	dp.Attributes().PutStr("oracledb.osuser", oracledbOsuserAttributeValue)
+	dp.Attributes().PutStr("oracledb.machine", oracledbMachineAttributeValue)
+	dp.Attributes().PutStr("oracledb.program", oracledbProgramAttributeValue)
+	dp.Attributes().PutDouble("oracledb.duration_sec", oracledbDurationSecAttributeValue)
+	dp.Attributes().PutStr("oracledb.sql_id", oracledbSQLIDAttributeValue)
+	dp.Attributes().PutStr("db.query.text", dbQueryTextAttributeValue)
+	dp.Attributes().PutStr("oracledb.event", oracledbEventAttributeValue)
+	dp.Attributes().PutStr("oracledb.wait_class", oracledbWaitClassAttributeValue)
+	dp.Attributes().PutDouble("oracledb.wait_time_sec", oracledbWaitTimeSecAttributeValue)
+	dp.Attributes().PutStr("oracledb.blocking_session", oracledbBlockingSessionAttributeValue)
+	dp.Attributes().PutInt("oracledb.blocked_count", oracledbBlockedCountAttributeValue)
+
+}
+
+// emit appends recorded event data to a events slice and prepares it for recording another set of log records.
+func (e *eventOracleSessionActive) emit(lrs plog.LogRecordSlice) {
+	if e.config.Enabled && e.data.Len() > 0 {
+		e.data.MoveAndAppendTo(lrs)
+	}
+}
+
+func newEventOracleSessionActive(cfg EventConfig) eventOracleSessionActive {
+	e := eventOracleSessionActive{config: cfg}
+	if cfg.Enabled {
+		e.data = plog.NewLogRecordSlice()
+	}
+	return e
+}
+
 // LogsBuilder provides an interface for scrapers to report logs while taking care of all the transformations
 // required to produce log representation defined in metadata and user config.
 type LogsBuilder struct {
@@ -159,6 +256,8 @@ type LogsBuilder struct {
 	resourceAttributeExcludeFilter map[string]filter.Filter
 	eventDbServerQuerySample       eventDbServerQuerySample
 	eventDbServerTopQuery          eventDbServerTopQuery
+	eventOracleBlockingChain       eventOracleBlockingChain
+	eventOracleSessionActive       eventOracleSessionActive
 }
 
 // LogBuilderOption applies changes to default logs builder.
@@ -174,6 +273,8 @@ func NewLogsBuilder(lbc LogsBuilderConfig, settings receiver.Settings) *LogsBuil
 		buildInfo:                      settings.BuildInfo,
 		eventDbServerQuerySample:       newEventDbServerQuerySample(lbc.Events.DbServerQuerySample),
 		eventDbServerTopQuery:          newEventDbServerTopQuery(lbc.Events.DbServerTopQuery),
+		eventOracleBlockingChain:       newEventOracleBlockingChain(lbc.Events.OracleBlockingChain),
+		eventOracleSessionActive:       newEventOracleSessionActive(lbc.Events.OracleSessionActive),
 		resourceAttributeIncludeFilter: make(map[string]filter.Filter),
 		resourceAttributeExcludeFilter: make(map[string]filter.Filter),
 	}
@@ -240,6 +341,8 @@ func (lb *LogsBuilder) EmitForResource(options ...ResourceLogsOption) {
 	ils.Scope().SetVersion(lb.buildInfo.Version)
 	lb.eventDbServerQuerySample.emit(ils.LogRecords())
 	lb.eventDbServerTopQuery.emit(ils.LogRecords())
+	lb.eventOracleBlockingChain.emit(ils.LogRecords())
+	lb.eventOracleSessionActive.emit(ils.LogRecords())
 
 	for _, op := range options {
 		op.apply(rl)
@@ -284,4 +387,14 @@ func (lb *LogsBuilder) RecordDbServerQuerySampleEvent(ctx context.Context, times
 // RecordDbServerTopQueryEvent adds a log record of db.server.top_query event.
 func (lb *LogsBuilder) RecordDbServerTopQueryEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue string, dbServerNameAttributeValue string, dbQueryTextAttributeValue string, oracledbQueryPlanAttributeValue string, oracledbSQLIDAttributeValue string, oracledbChildNumberAttributeValue string, oracledbChildAddressAttributeValue string, oracledbApplicationWaitTimeAttributeValue float64, oracledbBufferGetsAttributeValue int64, oracledbClusterWaitTimeAttributeValue float64, oracledbCommandTypeAttributeValue int64, oracledbConcurrencyWaitTimeAttributeValue float64, oracledbCPUTimeAttributeValue float64, oracledbDirectReadsAttributeValue int64, oracledbDirectWritesAttributeValue int64, oracledbDiskReadsAttributeValue int64, oracledbElapsedTimeAttributeValue float64, oracledbExecutionsAttributeValue int64, oracledbPhysicalReadBytesAttributeValue int64, oracledbPhysicalReadRequestsAttributeValue int64, oracledbPhysicalWriteBytesAttributeValue int64, oracledbPhysicalWriteRequestsAttributeValue int64, oracledbRowsProcessedAttributeValue int64, oracledbUserIoWaitTimeAttributeValue float64, oracledbProcedureExecutionCountAttributeValue int64, oracledbProcedureIDAttributeValue int64, oracledbProcedureNameAttributeValue string, oracledbProcedureTypeAttributeValue string, oracledbPlanHashValueAttributeValue string, oracledbLastLoadTimeAttributeValue string, queryCommentsAttributeValue string, oracledbNormalisedSQLHashAttributeValue string, oracledbNormalizedSQLAttributeValue string) {
 	lb.eventDbServerTopQuery.recordEvent(ctx, timestamp, dbSystemNameAttributeValue, dbServerNameAttributeValue, dbQueryTextAttributeValue, oracledbQueryPlanAttributeValue, oracledbSQLIDAttributeValue, oracledbChildNumberAttributeValue, oracledbChildAddressAttributeValue, oracledbApplicationWaitTimeAttributeValue, oracledbBufferGetsAttributeValue, oracledbClusterWaitTimeAttributeValue, oracledbCommandTypeAttributeValue, oracledbConcurrencyWaitTimeAttributeValue, oracledbCPUTimeAttributeValue, oracledbDirectReadsAttributeValue, oracledbDirectWritesAttributeValue, oracledbDiskReadsAttributeValue, oracledbElapsedTimeAttributeValue, oracledbExecutionsAttributeValue, oracledbPhysicalReadBytesAttributeValue, oracledbPhysicalReadRequestsAttributeValue, oracledbPhysicalWriteBytesAttributeValue, oracledbPhysicalWriteRequestsAttributeValue, oracledbRowsProcessedAttributeValue, oracledbUserIoWaitTimeAttributeValue, oracledbProcedureExecutionCountAttributeValue, oracledbProcedureIDAttributeValue, oracledbProcedureNameAttributeValue, oracledbProcedureTypeAttributeValue, oracledbPlanHashValueAttributeValue, oracledbLastLoadTimeAttributeValue, queryCommentsAttributeValue, oracledbNormalisedSQLHashAttributeValue, oracledbNormalizedSQLAttributeValue)
+}
+
+// RecordOracleBlockingChainEvent adds a log record of oracle.blocking_chain event.
+func (lb *LogsBuilder) RecordOracleBlockingChainEvent(ctx context.Context, timestamp pcommon.Timestamp, oracledbBlockerSidAttributeValue string, oracledbBlockerSerialAttributeValue string, oracledbBlockerStatusAttributeValue string, oracledbBlockerUsernameAttributeValue string, oracledbBlockerOsuserAttributeValue string, oracledbBlockerMachineAttributeValue string, oracledbBlockerProgramAttributeValue string, oracledbBlockerSQLIDAttributeValue string, oracledbBlockerSQLTextAttributeValue string, oracledbBlockerDurationSecAttributeValue float64, oracledbVictimCountAttributeValue int64, oracledbMaxVictimWaitSecAttributeValue float64, oracledbVictimsAttributeValue string) {
+	lb.eventOracleBlockingChain.recordEvent(ctx, timestamp, oracledbBlockerSidAttributeValue, oracledbBlockerSerialAttributeValue, oracledbBlockerStatusAttributeValue, oracledbBlockerUsernameAttributeValue, oracledbBlockerOsuserAttributeValue, oracledbBlockerMachineAttributeValue, oracledbBlockerProgramAttributeValue, oracledbBlockerSQLIDAttributeValue, oracledbBlockerSQLTextAttributeValue, oracledbBlockerDurationSecAttributeValue, oracledbVictimCountAttributeValue, oracledbMaxVictimWaitSecAttributeValue, oracledbVictimsAttributeValue)
+}
+
+// RecordOracleSessionActiveEvent adds a log record of oracle.session.active event.
+func (lb *LogsBuilder) RecordOracleSessionActiveEvent(ctx context.Context, timestamp pcommon.Timestamp, oracledbSidAttributeValue string, oracledbSerialAttributeValue string, oracledbStatusAttributeValue string, userNameAttributeValue string, oracledbOsuserAttributeValue string, oracledbMachineAttributeValue string, oracledbProgramAttributeValue string, oracledbDurationSecAttributeValue float64, oracledbSQLIDAttributeValue string, dbQueryTextAttributeValue string, oracledbEventAttributeValue string, oracledbWaitClassAttributeValue string, oracledbWaitTimeSecAttributeValue float64, oracledbBlockingSessionAttributeValue string, oracledbBlockedCountAttributeValue int64) {
+	lb.eventOracleSessionActive.recordEvent(ctx, timestamp, oracledbSidAttributeValue, oracledbSerialAttributeValue, oracledbStatusAttributeValue, userNameAttributeValue, oracledbOsuserAttributeValue, oracledbMachineAttributeValue, oracledbProgramAttributeValue, oracledbDurationSecAttributeValue, oracledbSQLIDAttributeValue, dbQueryTextAttributeValue, oracledbEventAttributeValue, oracledbWaitClassAttributeValue, oracledbWaitTimeSecAttributeValue, oracledbBlockingSessionAttributeValue, oracledbBlockedCountAttributeValue)
 }

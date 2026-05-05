@@ -93,6 +93,10 @@ all_set:
       enabled: true
     db.server.top_query:
       enabled: true
+    oracle.blocking_chain:
+      enabled: true
+    oracle.session.active:
+      enabled: true
   resource_attributes:
     host.name:
       enabled: true
@@ -194,6 +198,10 @@ reaggregate_set:
       enabled: true
     db.server.top_query:
       enabled: true
+    oracle.blocking_chain:
+      enabled: true
+    oracle.session.active:
+      enabled: true
   resource_attributes:
     host.name:
       enabled: true
@@ -294,6 +302,10 @@ none_set:
     db.server.query_sample:
       enabled: false
     db.server.top_query:
+      enabled: false
+    oracle.blocking_chain:
+      enabled: false
+    oracle.session.active:
       enabled: false
   resource_attributes:
     host.name:

@@ -366,6 +366,20 @@ $defs:
           enabled:
             type: boolean
             default: false
+      oracle.blocking_chain:
+        description: EventConfig provides common config for a  oracle.blocking_chain event.
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: false
+      oracle.session.active:
+        description: EventConfig provides common config for a  oracle.session.active event.
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: false
   resource_attributes_config:
     description: ResourceAttributesConfig provides config for oracledb resource attributes.
     type: object

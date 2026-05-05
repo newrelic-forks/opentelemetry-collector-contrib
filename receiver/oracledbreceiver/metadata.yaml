@@ -57,6 +57,42 @@ attributes:
   oracledb.application_wait_time:
     description: The total time (in seconds) a query spent waiting on the application before it could proceed with execution (reporting delta).
     type: double
+  oracledb.blocked_count:
+    description: Number of sessions this session is blocking
+    type: int
+  oracledb.blocker.duration_sec:
+    description: Duration in seconds since the blocker session logged on
+    type: double
+  oracledb.blocker.machine:
+    description: Client machine name of the head blocker
+    type: string
+  oracledb.blocker.osuser:
+    description: Operating system username of the head blocker
+    type: string
+  oracledb.blocker.program:
+    description: Client program name of the head blocker
+    type: string
+  oracledb.blocker.serial:
+    description: Serial number of the head blocker session
+    type: string
+  oracledb.blocker.sid:
+    description: Session ID (SID) of the head blocker in a blocking chain
+    type: string
+  oracledb.blocker.sql_id:
+    description: SQL ID of the query executed by the head blocker
+    type: string
+  oracledb.blocker.sql_text:
+    description: SQL text executed by the head blocker (obfuscated)
+    type: string
+  oracledb.blocker.status:
+    description: Status of the head blocker session (ACTIVE, INACTIVE, etc.)
+    type: string
+  oracledb.blocker.username:
+    description: Oracle username of the head blocker session
+    type: string
+  oracledb.blocking_session:
+    description: SID of the session blocking this session (null if not blocked)
+    type: string
   oracledb.buffer_gets:
     description: Number of logical reads (i.e., buffer cache accesses) performed by a query (reporting delta).
     type: int
@@ -103,6 +139,12 @@ attributes:
   oracledb.last_load_time:
     description: The time when the query was last loaded into the shared SQL area.
     type: string
+  oracledb.machine:
+    description: Client machine name
+    type: string
+  oracledb.max_victim_wait_sec:
+    description: Maximum wait time in seconds across all victims in this blocking chain
+    type: double
   oracledb.module:
     description: Logical module name of the client application that initiated a query or session.
     type: string
@@ -178,6 +220,12 @@ attributes:
   oracledb.user_io_wait_time:
     description: The total time (in seconds) a query spent waiting for user I/O operations—such as reading or writing data to disk or network file systems (reporting delta).
     type: double
+  oracledb.victim_count:
+    description: Number of sessions blocked by this head blocker
+    type: int
+  oracledb.victims:
+    description: JSON array of victim session details (sid, wait_time_ms, wait_event, lock_type, sql_text)
+    type: string
   oracledb.wait_class:
     description: The category of wait events a query or session is currently experiencing in Oracle Database.
     type: string
@@ -279,6 +327,42 @@ events:
       - query.comments
       - oracledb.normalised_sql_hash
       - oracledb.normalized_sql
+  oracle.blocking_chain:
+    enabled: false
+    description: Blocking chain event showing head blocker and all victims. Emitted when blocking is detected.
+    attributes:
+      - oracledb.blocker.sid
+      - oracledb.blocker.serial
+      - oracledb.blocker.status
+      - oracledb.blocker.username
+      - oracledb.blocker.osuser
+      - oracledb.blocker.machine
+      - oracledb.blocker.program
+      - oracledb.blocker.sql_id
+      - oracledb.blocker.sql_text
+      - oracledb.blocker.duration_sec
+      - oracledb.victim_count
+      - oracledb.max_victim_wait_sec
+      - oracledb.victims
+  oracle.session.active:
+    enabled: false
+    description: Individual active session details for Sessions table
+    attributes:
+      - oracledb.sid
+      - oracledb.serial
+      - oracledb.status
+      - user.name
+      - oracledb.osuser
+      - oracledb.machine
+      - oracledb.program
+      - oracledb.duration_sec
+      - oracledb.sql_id
+      - db.query.text
+      - oracledb.event
+      - oracledb.wait_class
+      - oracledb.wait_time_sec
+      - oracledb.blocking_session
+      - oracledb.blocked_count
 metrics:
   oracledb.consistent_gets:
     description: Number of times a consistent read was requested for a block from the buffer cache.

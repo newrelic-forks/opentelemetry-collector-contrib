@@ -480,6 +480,52 @@ Collection of event metrics for top N queries, filtered based on the highest CPU
 | oracledb.normalised_sql_hash | MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Used for correlation with APM slow query traces. | Any Str | - |
 | oracledb.normalized_sql | Normalized SQL query text for debugging hash generation. Shows the exact SQL string that was hashed. | Any Str | - |
 
+### oracle.blocking_chain
+
+Blocking chain event showing head blocker and all victims. Emitted when blocking is detected.
+
+#### Attributes
+
+| Name | Description | Values | Semantic Convention |
+| ---- | ----------- | ------ | ------------------- |
+| oracledb.blocker.sid | Session ID (SID) of the head blocker in a blocking chain | Any Str | - |
+| oracledb.blocker.serial | Serial number of the head blocker session | Any Str | - |
+| oracledb.blocker.status | Status of the head blocker session (ACTIVE, INACTIVE, etc.) | Any Str | - |
+| oracledb.blocker.username | Oracle username of the head blocker session | Any Str | - |
+| oracledb.blocker.osuser | Operating system username of the head blocker | Any Str | - |
+| oracledb.blocker.machine | Client machine name of the head blocker | Any Str | - |
+| oracledb.blocker.program | Client program name of the head blocker | Any Str | - |
+| oracledb.blocker.sql_id | SQL ID of the query executed by the head blocker | Any Str | - |
+| oracledb.blocker.sql_text | SQL text executed by the head blocker (obfuscated) | Any Str | - |
+| oracledb.blocker.duration_sec | Duration in seconds since the blocker session logged on | Any Double | - |
+| oracledb.victim_count | Number of sessions blocked by this head blocker | Any Int | - |
+| oracledb.max_victim_wait_sec | Maximum wait time in seconds across all victims in this blocking chain | Any Double | - |
+| oracledb.victims | JSON array of victim session details (sid, wait_time_ms, wait_event, lock_type, sql_text) | Any Str | - |
+
+### oracle.session.active
+
+Individual active session details for Sessions table
+
+#### Attributes
+
+| Name | Description | Values | Semantic Convention |
+| ---- | ----------- | ------ | ------------------- |
+| oracledb.sid | ID of the Oracle Server session. | Any Str | - |
+| oracledb.serial | Serial number associated with a session. | Any Str | - |
+| oracledb.status | Execution state or result of a database query or session. | Any Str | - |
+| user.name | Database user name under which a session is connected to | Any Str | - |
+| oracledb.osuser | Name of the operating system user that initiated or is running the Oracle database session. | Any Str | - |
+| oracledb.machine | Client machine name | Any Str | - |
+| oracledb.program | Name of the client program or tool that initiated the Oracle database session. | Any Str | - |
+| oracledb.duration_sec | Total time taken by a database query to execute. | Any Double | - |
+| oracledb.sql_id | The SQL ID of the query. | Any Str | - |
+| db.query.text | The text of the database query being executed. | Any Str | - |
+| oracledb.event | The specific wait event that a query or session is currently experiencing. | Any Str | - |
+| oracledb.wait_class | The category of wait events a query or session is currently experiencing in Oracle Database. | Any Str | - |
+| oracledb.wait_time_sec | The time (in seconds) that the session has been waiting on its current wait event. | Any Double | - |
+| oracledb.blocking_session | SID of the session blocking this session (null if not blocked) | Any Str | - |
+| oracledb.blocked_count | Number of sessions this session is blocking | Any Int | - |
+
 ## Resource Attributes
 
 | Name | Description | Values | Enabled | Semantic Convention |

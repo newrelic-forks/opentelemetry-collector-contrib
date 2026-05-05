@@ -4,9 +4,6 @@ package metadata
 
 import (
 	"context"
-	"testing"
-	"time"
-
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/plog"
@@ -14,6 +11,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
+	"testing"
+	"time"
 )
 
 type eventsTestDataSet int
@@ -135,6 +134,12 @@ func TestLogsBuilder(t *testing.T) {
 
 			allEventsCount++
 			lb.RecordDbServerTopQueryEvent(ctx, timestamp, "db.system.name-val", "db.server.name-val", "db.query.text-val", "oracledb.query_plan-val", "oracledb.sql_id-val", "oracledb.child_number-val", "oracledb.child_address-val", 30.100000, 20, 26.100000, 21, 30.100000, 17.100000, 21, 22, 19, 21.100000, 19, 28, 31, 29, 32, 23, 26.100000, 34, 21, "oracledb.procedure_name-val", "oracledb.procedure_type-val", "oracledb.plan_hash_value-val", "oracledb.last_load_time-val", "query.comments-val", "oracledb.normalised_sql_hash-val", "oracledb.normalized_sql-val")
+
+			allEventsCount++
+			lb.RecordOracleBlockingChainEvent(ctx, timestamp, "oracledb.blocker.sid-val", "oracledb.blocker.serial-val", "oracledb.blocker.status-val", "oracledb.blocker.username-val", "oracledb.blocker.osuser-val", "oracledb.blocker.machine-val", "oracledb.blocker.program-val", "oracledb.blocker.sql_id-val", "oracledb.blocker.sql_text-val", 29.100000, 21, 28.100000, "oracledb.victims-val")
+
+			allEventsCount++
+			lb.RecordOracleSessionActiveEvent(ctx, timestamp, "oracledb.sid-val", "oracledb.serial-val", "oracledb.status-val", "user.name-val", "oracledb.osuser-val", "oracledb.machine-val", "oracledb.program-val", 21.100000, "oracledb.sql_id-val", "db.query.text-val", "oracledb.event-val", "oracledb.wait_class-val", 22.100000, "oracledb.blocking_session-val", 22)
 
 			rb := lb.NewResourceBuilder()
 			rb.SetHostName("host.name-val")
@@ -371,6 +376,104 @@ func TestLogsBuilder(t *testing.T) {
 					attrVal, ok = lr.Attributes().Get("oracledb.normalized_sql")
 					assert.True(t, ok)
 					assert.Equal(t, "oracledb.normalized_sql-val", attrVal.Str())
+				case "oracle.blocking_chain":
+					assert.False(t, validatedEvents["oracle.blocking_chain"], "Found a duplicate in the events slice: oracle.blocking_chain")
+					validatedEvents["oracle.blocking_chain"] = true
+					lr := lrs.At(i)
+					assert.Equal(t, timestamp, lr.Timestamp())
+					assert.Equal(t, pcommon.TraceID(traceID), lr.TraceID())
+					assert.Equal(t, pcommon.SpanID(spanID), lr.SpanID())
+					attrVal, ok := lr.Attributes().Get("oracledb.blocker.sid")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.blocker.sid-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.blocker.serial")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.blocker.serial-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.blocker.status")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.blocker.status-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.blocker.username")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.blocker.username-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.blocker.osuser")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.blocker.osuser-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.blocker.machine")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.blocker.machine-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.blocker.program")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.blocker.program-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.blocker.sql_id")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.blocker.sql_id-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.blocker.sql_text")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.blocker.sql_text-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.blocker.duration_sec")
+					assert.True(t, ok)
+					assert.Equal(t, 29.100000, attrVal.Double())
+					attrVal, ok = lr.Attributes().Get("oracledb.victim_count")
+					assert.True(t, ok)
+					assert.EqualValues(t, 21, attrVal.Int())
+					attrVal, ok = lr.Attributes().Get("oracledb.max_victim_wait_sec")
+					assert.True(t, ok)
+					assert.Equal(t, 28.100000, attrVal.Double())
+					attrVal, ok = lr.Attributes().Get("oracledb.victims")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.victims-val", attrVal.Str())
+				case "oracle.session.active":
+					assert.False(t, validatedEvents["oracle.session.active"], "Found a duplicate in the events slice: oracle.session.active")
+					validatedEvents["oracle.session.active"] = true
+					lr := lrs.At(i)
+					assert.Equal(t, timestamp, lr.Timestamp())
+					assert.Equal(t, pcommon.TraceID(traceID), lr.TraceID())
+					assert.Equal(t, pcommon.SpanID(spanID), lr.SpanID())
+					attrVal, ok := lr.Attributes().Get("oracledb.sid")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.sid-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.serial")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.serial-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.status")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.status-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("user.name")
+					assert.True(t, ok)
+					assert.Equal(t, "user.name-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.osuser")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.osuser-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.machine")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.machine-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.program")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.program-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.duration_sec")
+					assert.True(t, ok)
+					assert.Equal(t, 21.100000, attrVal.Double())
+					attrVal, ok = lr.Attributes().Get("oracledb.sql_id")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.sql_id-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("db.query.text")
+					assert.True(t, ok)
+					assert.Equal(t, "db.query.text-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.event")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.event-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.wait_class")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.wait_class-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.wait_time_sec")
+					assert.True(t, ok)
+					assert.Equal(t, 22.100000, attrVal.Double())
+					attrVal, ok = lr.Attributes().Get("oracledb.blocking_session")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.blocking_session-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.blocked_count")
+					assert.True(t, ok)
+					assert.EqualValues(t, 22, attrVal.Int())
 				}
 			}
 		})
