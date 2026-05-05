@@ -157,6 +157,9 @@ attributes:
   oracledb.sid:
     description: ID of the Oracle Server session.
     type: string
+  oracledb.logon_time:
+    description: "The timestamp when the session logged on, expressed in the server's local timezone."
+    type: string
   oracledb.sql_exec_start:
     description: "The timestamp when the SQL statement started execution, expressed in the server's local timezone. Format: YYYY-MM-DD/HH:MM:SS"
     type: string
@@ -230,6 +233,7 @@ events:
       - oracledb.osuser
       - oracledb.duration_sec
       - oracledb.sql_exec_start
+      - oracledb.logon_time
   db.server.top_query:
     enabled: false
     description: Collection of event metrics for top N queries, filtered based on the highest CPU time consumed (oracledb.elapsed_time).
