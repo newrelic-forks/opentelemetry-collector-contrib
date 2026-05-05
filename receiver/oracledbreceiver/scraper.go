@@ -198,7 +198,7 @@ func (s *oracleScraper) start(context.Context, component.Host) error {
 	s.sessionCountClient = s.clientProviderFunc(s.db, sessionCountSQL, s.logger)
 	s.systemResourceLimitsClient = s.clientProviderFunc(s.db, systemResourceLimitsSQL, s.logger)
 	s.tablespaceUsageClient = s.clientProviderFunc(s.db, tablespaceUsageSQL, s.logger)
-	s.samplesQueryClient = s.clientProviderFunc(s.db, samplesQuery, s.logger)
+	s.samplesQueryClient = s.clientProviderFunc(s.db, fmt.Sprintf(samplesQuery, buildStatusFilter(s.querySampleCfg.SessionStatuses)), s.logger)
 	return nil
 }
 
@@ -769,6 +769,8 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 	const port = "PORT"
 	const serviceName = "SERVICE_NAME"
 	const sqlExecStart = "SQL_EXEC_START"
+	const logonTime = "LOGON_TIME"
+	const sessionDuration = "SESSION_DURATION_SEC"
 
 	var scrapeErrors []error
 
@@ -807,6 +809,9 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 		waitTime, err := strconv.ParseFloat(row[waitTimeSec], 64)
 		if err != nil {
 			waitTime = 0
+		sessionDurationSec, err := strconv.ParseFloat(row[sessionDuration], 64)
+		if err != nil {
+			sessionDurationSec = 0
 		}
 
 		clientPort, err := strconv.ParseInt(row[port], 10, 64)
@@ -836,7 +841,7 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 		s.lb.RecordDbServerQuerySampleEvent(queryContext, timestamp, obfuscatedSQL, dbSystemNameVal, row[username], row[serviceName], row[hostName],
 			clientPort, row[hostName], clientPort, queryPlanHashVal, row[sqlID], row[sqlChildNumber], row[childAddress], row[sid], row[serialNumber], row[process],
 			row[schemaName], row[program], row[module], row[status], row[state], row[waitclass], row[event], objID, row[objectName], row[objectType],
-			row[osUser], queryDuration, waitTime, queryComments, sqlHash, normalizedSQL, row[sqlExecStart])
+			row[osUser], queryDuration, waitTime, queryComments, sqlHash, normalizedSQL, row[sqlExecStart],row[logonTime], sessionDurationSec)
 	}
 
 	s.lb.Emit(metadata.WithLogsResource(rb.Emit())).ResourceLogs().MoveAndAppendTo(logs.ResourceLogs())
@@ -846,6 +851,17 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 
 func asFloatInSeconds(value int64) float64 {
 	return float64(value) / 1_000_000
+}
+
+func buildStatusFilter(statuses []string) string {
+	if len(statuses) == 0 {
+		return ""
+	}
+	quoted := make([]string, len(statuses))
+	for i, s := range statuses {
+		quoted[i] = "'" + s + "'"
+	}
+	return " AND S.STATUS IN (" + strings.Join(quoted, ", ") + ")"
 }
 
 func (s *oracleScraper) obfuscateCacheHits(hits []queryMetricCacheHit) []queryMetricCacheHit {
