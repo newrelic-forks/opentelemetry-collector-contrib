@@ -154,6 +154,9 @@ attributes:
   oracledb.serial:
     description: Serial number associated with a session.
     type: string
+  oracledb.session_duration_sec:
+    description: The total time in seconds that the session has been connected.
+    type: double
   oracledb.sid:
     description: ID of the Oracle Server session.
     type: string
@@ -234,6 +237,7 @@ events:
       - oracledb.duration_sec
       - oracledb.sql_exec_start
       - oracledb.logon_time
+      - oracledb.session_duration_sec
   db.server.top_query:
     enabled: false
     description: Collection of event metrics for top N queries, filtered based on the highest CPU time consumed (oracledb.elapsed_time).
