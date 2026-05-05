@@ -427,6 +427,7 @@ sample query
 | oracledb.state | Current state of the query or the session executing it. | Any Str | - |
 | oracledb.wait_class | The category of wait events a query or session is currently experiencing in Oracle Database. | Any Str | - |
 | oracledb.event | The specific wait event that a query or session is currently experiencing. | Any Str | - |
+| oracledb.wait_time_sec | The wait time in seconds. If the session is currently waiting, the value is the time spent waiting in the current wait. If the session is not currently waiting, the value is the wait time from the previous wait. | Any Double | - |
 | oracledb.procedure_id | The identifier of the stored procedure or function being executed by the query. | Any Int | - |
 | oracledb.procedure_name | Name of the database object that a query is accessing. | Any Str | - |
 | oracledb.procedure_type | Type of the database object that a query is accessing. | Any Str | - |
@@ -449,7 +450,7 @@ Collection of event metrics for top N queries, filtered based on the highest CPU
 | db.system.name | The database management system (DBMS) product as identified by the client instrumentation. | Any Str | - |
 | db.server.name | The name of the server hosting the database. | Any Str | - |
 | db.query.text | The text of the database query being executed. | Any Str | - |
-| oracledb.query_plan | The query execution plan used by the SQL Server. | Any Str | - |
+| oracledb.query_plan | The query execution plan used by the SQL Server, expressed in the server's local timezone. Format: YYYY-MM-DD/HH:MM:SS | Any Str | - |
 | oracledb.sql_id | The SQL ID of the query. | Any Str | - |
 | oracledb.child_number | The child number of the query. | Any Str | - |
 | oracledb.child_address | Address of the child cursor. | Any Str | - |

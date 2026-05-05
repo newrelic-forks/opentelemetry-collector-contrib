@@ -99,10 +99,10 @@ resourceLogs:
                   stringValue: PROCEDURE
               - key: oracledb.plan_hash_value
                 value:
-                  stringValue: ""
+                  stringValue: "33313233343536373839"
               - key: oracledb.last_load_time
                 value:
-                  stringValue: ""
+                  stringValue: "2026-01-01/12:00:00"
               - key: query.comments
                 value:
                   stringValue: ""

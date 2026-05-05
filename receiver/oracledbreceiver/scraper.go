@@ -685,7 +685,8 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 
 	rb := s.setupResourceBuilder(s.lb.NewResourceBuilder())
 
-	for _, hit := range hits {
+	for i := range hits {
+		hit := &hits[i]
 		planBytes, err := json.Marshal(childAddressToPlanMap[hit.childAddress])
 		if err != nil {
 			s.logger.Error("Error marshaling plan data to JSON", zap.Error(err))
@@ -819,6 +820,12 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 			objID, _ = strconv.ParseInt(row[objectID], 10, 64)
 		}
 
+		// Parse wait time in seconds
+		waitTime, err := strconv.ParseFloat(row[waitTimeSec], 64)
+		if err != nil {
+			waitTime = 0
+		}
+
 		queryContext := propagator.Extract(context.Background(), propagation.MapCarrier{
 			"traceparent": row[action],
 		})
@@ -843,14 +850,15 @@ func asFloatInSeconds(value int64) float64 {
 
 func (s *oracleScraper) obfuscateCacheHits(hits []queryMetricCacheHit) []queryMetricCacheHit {
 	var obfuscatedHits []queryMetricCacheHit
-	for _, hit := range hits {
+	for i := range hits {
+		hit := &hits[i]
 		// obfuscate and normalize the query text
 		obfuscatedSQL, err := s.obfuscator.obfuscateSQLString(hit.queryText)
 		if err != nil {
 			s.logger.Warn("oracleScraper failed to obfuscate SQL query, skipping entry", zap.String("sql_id", hit.sqlID), zap.Error(err))
 		} else {
 			hit.queryText = obfuscatedSQL
-			obfuscatedHits = append(obfuscatedHits, hit)
+			obfuscatedHits = append(obfuscatedHits, *hit)
 		}
 	}
 	return obfuscatedHits
@@ -864,9 +872,9 @@ func (s *oracleScraper) getChildAddressToPlanMap(ctx context.Context, hits []que
 
 	var childAddressSlice []any
 	placeholders := make([]string, len(hits))
-	for i, hit := range hits {
+	for i := range hits {
 		placeholders[i] = fmt.Sprintf("HEXTORAW(:%d)", i+1)
-		childAddressSlice = append(childAddressSlice, hit.childAddress)
+		childAddressSlice = append(childAddressSlice, hits[i].childAddress)
 	}
 
 	placeholdersCombined := strings.Join(placeholders, ", ")

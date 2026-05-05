@@ -235,6 +235,9 @@ func TestLogsBuilder(t *testing.T) {
 					attrVal, ok = lr.Attributes().Get("oracledb.event")
 					assert.True(t, ok)
 					assert.Equal(t, "oracledb.event-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.wait_time_sec")
+					assert.True(t, ok)
+					assert.Equal(t, 22.100000, attrVal.Double())
 					attrVal, ok = lr.Attributes().Get("oracledb.procedure_id")
 					assert.True(t, ok)
 					assert.EqualValues(t, 21, attrVal.Int())
@@ -371,6 +374,9 @@ func TestLogsBuilder(t *testing.T) {
 					attrVal, ok = lr.Attributes().Get("oracledb.normalized_sql")
 					assert.True(t, ok)
 					assert.Equal(t, "oracledb.normalized_sql-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.last_load_time")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.last_load_time-val", attrVal.Str())
 				}
 			}
 		})

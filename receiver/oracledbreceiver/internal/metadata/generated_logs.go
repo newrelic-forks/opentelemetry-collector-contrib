@@ -52,6 +52,7 @@ func (e *eventDbServerQuerySample) recordEvent(ctx context.Context, timestamp pc
 	dp.Attributes().PutStr("oracledb.state", oracledbStateAttributeValue)
 	dp.Attributes().PutStr("oracledb.wait_class", oracledbWaitClassAttributeValue)
 	dp.Attributes().PutStr("oracledb.event", oracledbEventAttributeValue)
+	dp.Attributes().PutDouble("oracledb.wait_time_sec", oracledbWaitTimeSecAttributeValue)
 	dp.Attributes().PutInt("oracledb.procedure_id", oracledbProcedureIDAttributeValue)
 	dp.Attributes().PutStr("oracledb.procedure_name", oracledbProcedureNameAttributeValue)
 	dp.Attributes().PutStr("oracledb.procedure_type", oracledbProcedureTypeAttributeValue)
