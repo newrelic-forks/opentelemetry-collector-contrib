@@ -102,7 +102,7 @@ resourceLogs:
                   stringValue: "2026-01-01/12:00:00"
               - key: oracledb.plan_hash_value
                 value:
-                  stringValue: "3123456789"
+                  stringValue: "33313233343536373839"
             body: {}
             eventName: db.server.top_query
             timeUnixNano: "1759142512777891000"
