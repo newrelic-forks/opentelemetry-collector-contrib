@@ -196,7 +196,8 @@ func (s *oracleScraper) start(context.Context, component.Host) error {
 	s.sessionCountClient = s.clientProviderFunc(s.db, sessionCountSQL, s.logger)
 	s.systemResourceLimitsClient = s.clientProviderFunc(s.db, systemResourceLimitsSQL, s.logger)
 	s.tablespaceUsageClient = s.clientProviderFunc(s.db, tablespaceUsageSQL, s.logger)
-	s.samplesQueryClient = s.clientProviderFunc(s.db, fmt.Sprintf(samplesQuery, buildStatusFilter(s.querySampleCfg.SessionStatuses)), s.logger)
+	s.samplesQueryClient = s.clientProviderFunc(s.db, tablespaceUsageSQL, s.logger)
+	s.samplesQueryClient = s.clientProviderFunc(s.db, samplesQuery, s.logger)
 	return nil
 }
 
@@ -828,16 +829,6 @@ func asFloatInSeconds(value int64) float64 {
 	return float64(value) / 1_000_000
 }
 
-func buildStatusFilter(statuses []string) string {
-	if len(statuses) == 0 {
-		return ""
-	}
-	quoted := make([]string, len(statuses))
-	for i, s := range statuses {
-		quoted[i] = "'" + s + "'"
-	}
-	return " AND S.STATUS IN (" + strings.Join(quoted, ", ") + ")"
-}
 
 func (s *oracleScraper) obfuscateCacheHits(hits []queryMetricCacheHit) []queryMetricCacheHit {
 	var obfuscatedHits []queryMetricCacheHit

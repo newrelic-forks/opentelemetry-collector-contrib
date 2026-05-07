@@ -37,10 +37,7 @@ type TopQueryCollection struct {
 
 type QuerySample struct {
 	MaxRowsPerQuery uint64 `mapstructure:"max_rows_per_query"`
-	// SessionStatuses filters query samples by session status. Valid Oracle values are ACTIVE, INACTIVE, KILLED, CACHED, SNIPED.
-	// Defaults to ["ACTIVE"]. Set to an empty list to include all statuses.
-	SessionStatuses []string `mapstructure:"session_statuses"`
-
+	
 	// prevent unkeyed literal initialization
 	_ struct{}
 }

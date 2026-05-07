@@ -46,7 +46,6 @@ func createDefaultConfig() component.Config {
 		LogsBuilderConfig:    metadata.DefaultLogsBuilderConfig(),
 		QuerySample: QuerySample{
 			MaxRowsPerQuery: 100,
-			SessionStatuses: []string{"ACTIVE"},
 		},
 		TopQueryCollection: TopQueryCollection{
 			MaxQuerySampleCount: 1000,
