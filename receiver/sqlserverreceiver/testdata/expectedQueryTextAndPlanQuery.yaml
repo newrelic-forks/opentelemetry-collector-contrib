@@ -1,24 +1,24 @@
 resourceLogs:
   - resource:
       attributes:
-        - key: host.name
-          value:
-            stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
-        - key: service.instance.id
-          value:
-            stringValue: 0.0.0.0:1433
         - key: sqlserver.computer.name
           value:
             stringValue: DESKTOP-GHAEGRD
         - key: sqlserver.instance.name
           value:
             stringValue: sqlserver
+        - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: service.instance.id
+          value:
+            stringValue: 0.0.0.0:1433
+        - key: server.address
+          value:
+            stringValue: 0.0.0.0
+        - key: server.port
+          value:
+            intValue: "1433"
     scopeLogs:
       - logRecords:
           - attributes:
@@ -75,12 +75,13 @@ resourceLogs:
                   stringValue: "0"
               - key: sqlserver.procedure_name
                 value:
-                    stringValue: ""
+                  stringValue: ""
+              - key: sqlserver.last_execution_time
+                value:
+                  stringValue: ""
             body: {}
-            eventName: "db.server.top_query"
-            spanId: ""
-            timeUnixNano: "1749224037462260000"
-            traceId: ""
+            eventName: db.server.top_query
+            timeUnixNano: "1776666630093863000"
         scope:
           name: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/sqlserverreceiver
           version: latest
