@@ -363,6 +363,7 @@ events:
     attributes:
       - sqlserver.total_worker_time
       - db.query.text
+      - db.namespace
       - sqlserver.execution_count
       - sqlserver.total_logical_reads
       - sqlserver.total_logical_writes

@@ -782,6 +782,7 @@ func (s *sqlServerScraperHelper) recordDatabaseWaitMetrics(ctx context.Context) 
 func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Context) (pcommon.Resource, error) {
 	// Constants are the column names of the database status
 	const (
+		databaseName   = "database_name"
 		executionCount = "execution_count"
 		logicalReads   = "total_logical_reads"
 		logicalWrites  = "total_logical_writes"
@@ -867,6 +868,8 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 			return obfuscated, nil
 		})
 
+		databaseNameVal := row[databaseName]
+
 		var cached bool
 
 		executionCountVal := s.retrieveValue(row, executionCount, &errs, retrieveInt)
@@ -938,6 +941,7 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 			timestamp,
 			totalWorkerTimeInSecVal,
 			queryTextVal.(string),
+			databaseNameVal,
 			executionCountVal.(int64),
 			logicalReadsVal.(int64),
 			logicalWritesVal.(int64),
