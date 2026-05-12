@@ -37,7 +37,7 @@ type TopQueryCollection struct {
 
 type QuerySample struct {
 	MaxRowsPerQuery uint64 `mapstructure:"max_rows_per_query"`
-
+	
 	// prevent unkeyed literal initialization
 	_ struct{}
 }
