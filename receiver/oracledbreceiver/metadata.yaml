@@ -143,7 +143,7 @@ attributes:
     description: Name of the client program or tool that initiated the Oracle database session.
     type: string
   oracledb.query_plan:
-    description: "The query execution plan used by the SQL Server, expressed in the server's local timezone. Format: YYYY-MM-DD/HH:MM:SS"
+    description: "The query execution plan used by the Oracle DB Server, expressed in the server's local timezone. Format: YYYY-MM-DD/HH:MM:SS"
     type: string
   oracledb.rows_processed:
     description: The total number of rows that a query has read, returned, or affected during its execution (reporting delta).
