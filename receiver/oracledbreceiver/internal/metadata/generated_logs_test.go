@@ -4,9 +4,6 @@ package metadata
 
 import (
 	"context"
-	"testing"
-	"time"
-
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/plog"
@@ -14,6 +11,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
+	"testing"
+	"time"
 )
 
 type eventsTestDataSet int
@@ -33,6 +32,7 @@ func TestLogsBuilderAppendLogRecord(t *testing.T) {
 	rb := lb.NewResourceBuilder()
 	rb.SetHostName("host.name-val")
 	rb.SetOracledbInstanceName("oracledb.instance.name-val")
+	rb.SetOracledbPdbName("oracledb.pdb_name-val")
 	rb.SetServiceInstanceID("service.instance.id-val")
 	res := rb.Emit()
 
@@ -139,6 +139,7 @@ func TestLogsBuilder(t *testing.T) {
 			rb := lb.NewResourceBuilder()
 			rb.SetHostName("host.name-val")
 			rb.SetOracledbInstanceName("oracledb.instance.name-val")
+			rb.SetOracledbPdbName("oracledb.pdb_name-val")
 			rb.SetServiceInstanceID("service.instance.id-val")
 			res := rb.Emit()
 			logs := lb.Emit(WithLogsResource(res))

@@ -4,7 +4,6 @@ package metadata
 
 import (
 	"context"
-
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/filter"
 	"go.opentelemetry.io/collector/pdata/pcommon"
@@ -178,6 +177,12 @@ func NewLogsBuilder(lbc LogsBuilderConfig, settings receiver.Settings) *LogsBuil
 	}
 	if lbc.ResourceAttributes.OracledbInstanceName.EventsExclude != nil {
 		lb.resourceAttributeExcludeFilter["oracledb.instance.name"] = filter.CreateFilter(lbc.ResourceAttributes.OracledbInstanceName.EventsExclude)
+	}
+	if lbc.ResourceAttributes.OracledbPdbName.EventsInclude != nil {
+		lb.resourceAttributeIncludeFilter["oracledb.pdb_name"] = filter.CreateFilter(lbc.ResourceAttributes.OracledbPdbName.EventsInclude)
+	}
+	if lbc.ResourceAttributes.OracledbPdbName.EventsExclude != nil {
+		lb.resourceAttributeExcludeFilter["oracledb.pdb_name"] = filter.CreateFilter(lbc.ResourceAttributes.OracledbPdbName.EventsExclude)
 	}
 	if lbc.ResourceAttributes.ServiceInstanceID.EventsInclude != nil {
 		lb.resourceAttributeIncludeFilter["service.instance.id"] = filter.CreateFilter(lbc.ResourceAttributes.ServiceInstanceID.EventsInclude)
