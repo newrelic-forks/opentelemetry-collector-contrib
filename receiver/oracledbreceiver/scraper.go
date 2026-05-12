@@ -904,7 +904,6 @@ func asFloatInSeconds(value int64) float64 {
 	return float64(value) / 1_000_000
 }
 
-
 func (s *oracleScraper) obfuscateCacheHits(hits []queryMetricCacheHit) []queryMetricCacheHit {
 	var obfuscatedHits []queryMetricCacheHit
 	for i := range hits {
