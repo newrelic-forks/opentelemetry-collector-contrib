@@ -81,7 +81,7 @@ resourceLogs:
                   stringValue: ""
               - key: oracledb.wait_time_sec
                 value:
-                  doubleValue: 0
+                  doubleValue: 0.5
               - key: oracledb.procedure_id
                 value:
                   intValue: "12345"
