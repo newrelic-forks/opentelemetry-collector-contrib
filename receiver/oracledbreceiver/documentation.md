@@ -465,7 +465,9 @@ sample query
 | oracledb.procedure_type | Type of the database object that a query is accessing. | Any Str | - |
 | oracledb.osuser | Name of the operating system user that initiated or is running the Oracle database session. | Any Str | - |
 | oracledb.duration_sec | Total time taken by a database query to execute. | Any Double | - |
-| oracledb.sql_exec_start | The timestamp when the SQL statement started execution, expressed in the server's local timezone. Format: YYYY-MM-DD/HH:MM:SS | Any Str | - |
+| oracledb.sql_exec_start | The timestamp when the SQL statement started execution, expressed in the server's local timezone. Format: YYYY-MM-DD HH:MM:SS | Any Str | - |
+| oracledb.logon_time | The timestamp when the session logged on, expressed in the server's local timezone. | Any Str | - |
+| oracledb.session_duration_sec | The total time in seconds that the session has been connected. | Any Double | - |
 
 ### db.server.top_query
 
@@ -478,7 +480,7 @@ Collection of event metrics for top N queries, filtered based on the highest CPU
 | db.system.name | The database management system (DBMS) product as identified by the client instrumentation. | Any Str | - |
 | db.server.name | The name of the server hosting the database. | Any Str | - |
 | db.query.text | The text of the database query being executed. | Any Str | - |
-| oracledb.query_plan | The query execution plan used by the SQL Server, expressed in the server's local timezone. Format: YYYY-MM-DD/HH:MM:SS | Any Str | - |
+| oracledb.query_plan | The query execution plan used by the SQL Server. | Any Str | - |
 | oracledb.sql_id | The SQL ID of the query. | Any Str | - |
 | oracledb.child_number | The child number of the query. | Any Str | - |
 | oracledb.child_address | Address of the child cursor. | Any Str | - |
