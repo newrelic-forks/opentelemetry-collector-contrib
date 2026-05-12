@@ -476,7 +476,7 @@ Collection of event metrics for top N queries, filtered based on the highest CPU
 | db.system.name | The database management system (DBMS) product as identified by the client instrumentation. | Any Str | - |
 | db.server.name | The name of the server hosting the database. | Any Str | - |
 | db.query.text | The text of the database query being executed. | Any Str | - |
-| oracledb.query_plan | The query execution plan used by the Oracle DB Server, expressed in the server's local timezone. Format: YYYY-MM-DD/HH:MM:SS | Any Str | - |
+| oracledb.query_plan | The query execution plan used by the SQL Server. | Any Str | - |
 | oracledb.sql_id | The SQL ID of the query. | Any Str | - |
 | oracledb.child_number | The child number of the query. | Any Str | - |
 | oracledb.child_address | Address of the child cursor. | Any Str | - |
