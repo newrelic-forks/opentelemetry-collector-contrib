@@ -4,7 +4,6 @@
 package oracledbreceiver
 
 import (
-	"context"
 	"errors"
 	"testing"
 
@@ -99,7 +98,7 @@ func TestDetectInstanceInfo_VersionQueryFails(t *testing.T) {
 	// detection stops — the three subsequent clients must not be called.
 	core, logs := observer.New(zapcore.WarnLevel)
 
-	info := detectInstanceInfo(context.Background(),
+	info := detectInstanceInfo(t.Context(),
 		errClient(),
 		noopClient(t), noopClient(t), noopClient(t),
 		zap.New(core),
@@ -116,7 +115,7 @@ func TestDetectInstanceInfo_Pre12c(t *testing.T) {
 	// Oracle 11g: version is set, multitenant detection is skipped entirely.
 	core, logs := observer.New(zapcore.InfoLevel)
 
-	info := detectInstanceInfo(context.Background(),
+	info := detectInstanceInfo(t.Context(),
 		rowClient(versionRow("11.2.0.4.0")),
 		noopClient(t), noopClient(t), noopClient(t),
 		zap.New(core),
@@ -131,7 +130,7 @@ func TestDetectInstanceInfo_Pre12c(t *testing.T) {
 
 func TestDetectInstanceInfo_NonCDB(t *testing.T) {
 	// Oracle 19c non-CDB: isCDB=false, no further steps run.
-	info := detectInstanceInfo(context.Background(),
+	info := detectInstanceInfo(t.Context(),
 		rowClient(versionRow("19.0.0.0.0")),
 		rowClient(cdbRow("NO")),
 		noopClient(t), noopClient(t),
@@ -148,7 +147,7 @@ func TestDetectInstanceInfo_CDBQueryFails(t *testing.T) {
 	// v$database query fails: isCDB stays false, no further steps run.
 	core, logs := observer.New(zapcore.WarnLevel)
 
-	info := detectInstanceInfo(context.Background(),
+	info := detectInstanceInfo(t.Context(),
 		rowClient(versionRow("19.0.0.0.0")),
 		errClient(),
 		noopClient(t), noopClient(t),
@@ -165,7 +164,7 @@ func TestDetectInstanceInfo_CDBQueryFails(t *testing.T) {
 func TestDetectInstanceInfo_CDBRootConnection(t *testing.T) {
 	// Oracle 19c CDB, monitoring user connected to CDB root (CON_ID=1).
 	// connectedToPDB=false, pdbName stays empty, conNameClient not called.
-	info := detectInstanceInfo(context.Background(),
+	info := detectInstanceInfo(t.Context(),
 		rowClient(versionRow("19.0.0.0.0")),
 		rowClient(cdbRow("YES")),
 		rowClient(conTypeRow("CDB")),
@@ -183,7 +182,7 @@ func TestDetectInstanceInfo_ConnTypeQueryFails(t *testing.T) {
 	// USERENV CON_ID query fails: connectedToPDB stays false, conNameClient not called.
 	core, logs := observer.New(zapcore.WarnLevel)
 
-	info := detectInstanceInfo(context.Background(),
+	info := detectInstanceInfo(t.Context(),
 		rowClient(versionRow("19.0.0.0.0")),
 		rowClient(cdbRow("YES")),
 		errClient(),
@@ -202,7 +201,7 @@ func TestDetectInstanceInfo_PDBConnection(t *testing.T) {
 	// All four steps succeed: all fields populated.
 	core, logs := observer.New(zapcore.InfoLevel)
 
-	info := detectInstanceInfo(context.Background(),
+	info := detectInstanceInfo(t.Context(),
 		rowClient(versionRow("19.0.0.0.0")),
 		rowClient(cdbRow("YES")),
 		rowClient(conTypeRow("PDB")),
@@ -222,7 +221,7 @@ func TestDetectInstanceInfo_PDBNameQueryFails(t *testing.T) {
 	// Receiver still starts without the PDB name attribute.
 	core, logs := observer.New(zapcore.WarnLevel)
 
-	info := detectInstanceInfo(context.Background(),
+	info := detectInstanceInfo(t.Context(),
 		rowClient(versionRow("19.0.0.0.0")),
 		rowClient(cdbRow("YES")),
 		rowClient(conTypeRow("PDB")),
@@ -241,7 +240,7 @@ func TestDetectInstanceInfo_CDBFlagCaseInsensitive(t *testing.T) {
 	// Oracle may return "YES", "Yes", or "yes" — all must set isCDB=true.
 	for _, cdbVal := range []string{"YES", "Yes", "yes"} {
 		t.Run("cdb="+cdbVal, func(t *testing.T) {
-			info := detectInstanceInfo(context.Background(),
+			info := detectInstanceInfo(t.Context(),
 				rowClient(versionRow("19.0.0.0.0")),
 				rowClient(cdbRow(cdbVal)),
 				rowClient(conTypeRow("CDB")),
@@ -255,7 +254,7 @@ func TestDetectInstanceInfo_CDBFlagCaseInsensitive(t *testing.T) {
 
 func TestDetectInstanceInfo_Oracle12c(t *testing.T) {
 	// Oracle 12c is the minimum multitenant version — full detection runs.
-	info := detectInstanceInfo(context.Background(),
+	info := detectInstanceInfo(t.Context(),
 		rowClient(versionRow("12.2.0.1.0")),
 		rowClient(cdbRow("YES")),
 		rowClient(conTypeRow("PDB")),

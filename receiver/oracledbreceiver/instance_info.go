@@ -57,10 +57,10 @@ const (
 	// blackholed endpoint must not stall the collector.
 	instanceInfoDetectTimeout = 5 * time.Second
 
-	instanceVersionSQL  = "SELECT version FROM v$instance"
-	instanceCDBSQL      = "SELECT cdb FROM v$database"
-	instanceConTypeSQL  = "SELECT decode(sys_context('USERENV','CON_ID'),1,'CDB','PDB') FROM dual"
-	instanceConNameSQL  = "SELECT sys_context('USERENV','CON_NAME') FROM dual"
+	instanceVersionSQL = "SELECT version FROM v$instance"
+	instanceCDBSQL     = "SELECT cdb FROM v$database"
+	instanceConTypeSQL = "SELECT decode(sys_context('USERENV','CON_ID'),1,'CDB','PDB') FROM dual"
+	instanceConNameSQL = "SELECT sys_context('USERENV','CON_NAME') FROM dual"
 )
 
 // detectInstanceInfo runs a small set of read-only queries using the provided
