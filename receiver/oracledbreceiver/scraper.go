@@ -72,6 +72,14 @@ const (
 		select um.TABLESPACE_NAME, um.USED_SPACE, um.TABLESPACE_SIZE, ts.BLOCK_SIZE
 		FROM DBA_TABLESPACE_USAGE_METRICS um INNER JOIN DBA_TABLESPACES ts
 		ON um.TABLESPACE_NAME = ts.TABLESPACE_NAME`
+	dataDictHitRatioSQL = "SELECT (1-(SUM(getmisses)/SUM(gets))) * 100 as DATA_DICTIONARY_HIT_RATIO FROM v$rowcache WHERE getmisses + gets <> 0"
+	recycleBinSizeSQL   = "SELECT nvl(SUM(SPACE*(SELECT value FROM v$parameter WHERE name = 'db_block_size')),0) as RECYCLE_BIN_SIZE_BYTES FROM dba_recyclebin"
+	storageUsageSQL     = "WITH total_bytes AS (SELECT SUM(bytes) AS total FROM dba_data_files) SELECT (total - (SELECT SUM(bytes) FROM dba_free_space)) AS USED_DB_SIZE, total AS ALLOCATED_DB_SIZE FROM total_bytes"
+
+	colDataDictHitRatio    = "DATA_DICTIONARY_HIT_RATIO"
+	colRecycleBinSizeBytes = "RECYCLE_BIN_SIZE_BYTES"
+	colUsedDBSize          = "USED_DB_SIZE"
+	colAllocatedDBSize     = "ALLOCATED_DB_SIZE"
 
 	sqlIDAttr        = "SQL_ID"
 	childAddressAttr = "CHILD_ADDRESS"
@@ -103,9 +111,9 @@ const (
 	objectTypeAttr  = "PROCEDURE_TYPE"
 	commandTypeAttr = "COMMAND_TYPE"
 
-	// Additional query attributes
-	planHashValueAttr = "PLAN_HASH_VALUE"
+	// Plan metadata columns
 	lastLoadTimeAttr  = "LAST_LOAD_TIME"
+	planHashValueAttr = "PLAN_HASH_VALUE"
 )
 
 var (
@@ -129,6 +137,9 @@ type oracleScraper struct {
 	oracleQueryMetricsClient   dbClient
 	oraclePlanDataClient       dbClient
 	samplesQueryClient         dbClient
+	dataDictHitRatioClient     dbClient
+	recycleBinSizeClient       dbClient
+	storageUsageClient         dbClient
 	db                         *sql.DB
 	clientProviderFunc         clientProviderFunc
 	mb                         *metadata.MetricsBuilder
@@ -199,6 +210,9 @@ func (s *oracleScraper) start(context.Context, component.Host) error {
 	s.systemResourceLimitsClient = s.clientProviderFunc(s.db, systemResourceLimitsSQL, s.logger)
 	s.tablespaceUsageClient = s.clientProviderFunc(s.db, tablespaceUsageSQL, s.logger)
 	s.samplesQueryClient = s.clientProviderFunc(s.db, samplesQuery, s.logger)
+	s.dataDictHitRatioClient = s.clientProviderFunc(s.db, dataDictHitRatioSQL, s.logger)
+	s.recycleBinSizeClient = s.clientProviderFunc(s.db, recycleBinSizeSQL, s.logger)
+	s.storageUsageClient = s.clientProviderFunc(s.db, storageUsageSQL, s.logger)
 	return nil
 }
 
@@ -521,6 +535,10 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 		}
 	}
 
+	s.collectDataDictHitRatio(ctx, &scrapeErrors)
+	s.collectRecycleBinSize(ctx, &scrapeErrors)
+	s.collectStorageUsage(ctx, &scrapeErrors)
+
 	rb := s.setupResourceBuilder(s.mb.NewResourceBuilder())
 
 	out := s.mb.Emit(metadata.WithResource(rb.Emit()))
@@ -529,6 +547,78 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 		return out, scrapererror.NewPartialScrapeError(multierr.Combine(scrapeErrors...), len(scrapeErrors))
 	}
 	return out, nil
+}
+
+func (s *oracleScraper) collectDataDictHitRatio(ctx context.Context, scrapeErrors *[]error) {
+	if !s.metricsBuilderConfig.Metrics.OracledbDataDictionaryHitRatio.Enabled {
+		return
+	}
+	now := pcommon.NewTimestampFromTime(time.Now())
+	rows, err := s.dataDictHitRatioClient.metricRows(ctx)
+	if err != nil {
+		*scrapeErrors = append(*scrapeErrors, fmt.Errorf("error executing %s: %w", dataDictHitRatioSQL, err))
+		return
+	}
+	for _, row := range rows {
+		val, err := strconv.ParseFloat(row[colDataDictHitRatio], 64)
+		if err != nil {
+			*scrapeErrors = append(*scrapeErrors, fmt.Errorf("failed to parse float64 for OracledbDataDictionaryHitRatio, value was %s: %w", row[colDataDictHitRatio], err))
+			continue
+		}
+		s.mb.RecordOracledbDataDictionaryHitRatioDataPoint(now, val)
+	}
+}
+
+func (s *oracleScraper) collectRecycleBinSize(ctx context.Context, scrapeErrors *[]error) {
+	if !s.metricsBuilderConfig.Metrics.OracledbRecycleBinLimit.Enabled {
+		return
+	}
+	now := pcommon.NewTimestampFromTime(time.Now())
+	rows, err := s.recycleBinSizeClient.metricRows(ctx)
+	if err != nil {
+		*scrapeErrors = append(*scrapeErrors, fmt.Errorf("error executing %s: %w", recycleBinSizeSQL, err))
+		return
+	}
+	for _, row := range rows {
+		val, err := strconv.ParseFloat(row[colRecycleBinSizeBytes], 64)
+		if err != nil {
+			*scrapeErrors = append(*scrapeErrors, fmt.Errorf("failed to parse float64 for OracledbRecycleBinLimit, value was %s: %w", row[colRecycleBinSizeBytes], err))
+			continue
+		}
+		s.mb.RecordOracledbRecycleBinLimitDataPoint(now, val)
+	}
+}
+
+func (s *oracleScraper) collectStorageUsage(ctx context.Context, scrapeErrors *[]error) {
+	if !s.metricsBuilderConfig.Metrics.OracledbStorageUsage.Enabled &&
+		!s.metricsBuilderConfig.Metrics.OracledbStorageUtilization.Enabled {
+		return
+	}
+	now := pcommon.NewTimestampFromTime(time.Now())
+	rows, err := s.storageUsageClient.metricRows(ctx)
+	if err != nil {
+		*scrapeErrors = append(*scrapeErrors, fmt.Errorf("error executing %s: %w", storageUsageSQL, err))
+		return
+	}
+	for _, row := range rows {
+		allocatedBytes, err := strconv.ParseFloat(row[colAllocatedDBSize], 64)
+		if err != nil {
+			*scrapeErrors = append(*scrapeErrors, fmt.Errorf("failed to parse float64 for OracledbStorageUsage, value was %s: %w", row[colAllocatedDBSize], err))
+			continue
+		}
+		usedBytes, err := strconv.ParseFloat(row[colUsedDBSize], 64)
+		if err != nil {
+			*scrapeErrors = append(*scrapeErrors, fmt.Errorf("failed to parse float64 for OracledbStorageUtilization, value was %s: %w", row[colUsedDBSize], err))
+			continue
+		}
+		if s.metricsBuilderConfig.Metrics.OracledbStorageUsage.Enabled {
+			s.mb.RecordOracledbStorageUsageDataPoint(now, usedBytes)
+		}
+		if s.metricsBuilderConfig.Metrics.OracledbStorageUtilization.Enabled && allocatedBytes > 0 {
+			utilization := usedBytes / allocatedBytes
+			s.mb.RecordOracledbStorageUtilizationDataPoint(now, utilization)
+		}
+	}
 }
 
 type queryMetricCacheHit struct {
@@ -543,8 +633,8 @@ type queryMetricCacheHit struct {
 	objectName    string
 	objectType    string
 	commandType   int64
-	planHashValue string
 	lastLoadTime  string
+	planHashValue string
 }
 
 func (s *oracleScraper) scrapeLogs(ctx context.Context) (plog.Logs, error) {
@@ -633,8 +723,8 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 				objectName:    row[objectNameAttr],
 				objectType:    row[objectTypeAttr],
 				commandType:   commandType,
-				planHashValue: hex.EncodeToString([]byte(row[planHashValueAttr])),
 				lastLoadTime:  row[lastLoadTimeAttr],
+				planHashValue: hex.EncodeToString([]byte(row[planHashValueAttr])),
 			}
 
 			var possiblePurge bool
@@ -685,7 +775,8 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 
 	rb := s.setupResourceBuilder(s.lb.NewResourceBuilder())
 
-	for _, hit := range hits {
+	for i := range hits {
+		hit := &hits[i]
 		planBytes, err := json.Marshal(childAddressToPlanMap[hit.childAddress])
 		if err != nil {
 			s.logger.Error("Error marshaling plan data to JSON", zap.Error(err))
@@ -727,7 +818,9 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 			hit.lastLoadTime,
 			hit.queryComments,
 			sqlHash,
-			normalizedSQL)
+			normalizedSQL,
+			hit.lastLoadTime,
+			hit.planHashValue)
 	}
 
 	hitCount := len(hits)
@@ -843,14 +936,15 @@ func asFloatInSeconds(value int64) float64 {
 
 func (s *oracleScraper) obfuscateCacheHits(hits []queryMetricCacheHit) []queryMetricCacheHit {
 	var obfuscatedHits []queryMetricCacheHit
-	for _, hit := range hits {
+	for i := range hits {
+		hit := &hits[i]
 		// obfuscate and normalize the query text
 		obfuscatedSQL, err := s.obfuscator.obfuscateSQLString(hit.queryText)
 		if err != nil {
 			s.logger.Warn("oracleScraper failed to obfuscate SQL query, skipping entry", zap.String("sql_id", hit.sqlID), zap.Error(err))
 		} else {
 			hit.queryText = obfuscatedSQL
-			obfuscatedHits = append(obfuscatedHits, hit)
+			obfuscatedHits = append(obfuscatedHits, *hit)
 		}
 	}
 	return obfuscatedHits
@@ -864,9 +958,9 @@ func (s *oracleScraper) getChildAddressToPlanMap(ctx context.Context, hits []que
 
 	var childAddressSlice []any
 	placeholders := make([]string, len(hits))
-	for i, hit := range hits {
+	for i := range hits {
 		placeholders[i] = fmt.Sprintf("HEXTORAW(:%d)", i+1)
-		childAddressSlice = append(childAddressSlice, hit.childAddress)
+		childAddressSlice = append(childAddressSlice, hits[i].childAddress)
 	}
 
 	placeholdersCombined := strings.Join(placeholders, ", ")
