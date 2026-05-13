@@ -131,10 +131,10 @@ func TestLogsBuilder(t *testing.T) {
 			allEventsCount := 0
 
 			allEventsCount++
-			lb.RecordDbServerQuerySampleEvent(ctx, timestamp, "db.query.text-val", "db.system.name-val", "user.name-val", "db.namespace-val", "client.address-val", 11, "network.peer.address-val", 17, "oracledb.plan_hash_value-val", "oracledb.sql_id-val", "oracledb.child_number-val", "oracledb.child_address-val", "oracledb.sid-val", "oracledb.serial-val", "oracledb.process-val", "oracledb.schemaname-val", "oracledb.program-val", "oracledb.module-val", "oracledb.status-val", "oracledb.state-val", "oracledb.wait_class-val", "oracledb.event-val", 21, "oracledb.procedure_name-val", "oracledb.procedure_type-val", "oracledb.osuser-val", 21.100000)
+			lb.RecordDbServerQuerySampleEvent(ctx, timestamp, "db.query.text-val", "db.system.name-val", "user.name-val", "db.namespace-val", "client.address-val", 11, "network.peer.address-val", 17, "oracledb.plan_hash_value-val", "oracledb.sql_id-val", "oracledb.child_number-val", "oracledb.child_address-val", "oracledb.sid-val", "oracledb.serial-val", "oracledb.process-val", "oracledb.schemaname-val", "oracledb.program-val", "oracledb.module-val", "oracledb.status-val", "oracledb.state-val", "oracledb.wait_class-val", "oracledb.event-val", 21, "oracledb.procedure_name-val", "oracledb.procedure_type-val", "oracledb.osuser-val", 21.100000, 22.100000, "query.comments-val", "oracledb.normalised_sql_hash-val", "oracledb.normalized_sql-val", "oracledb.sql_exec_start-val")
 
 			allEventsCount++
-			lb.RecordDbServerTopQueryEvent(ctx, timestamp, "db.system.name-val", "db.server.name-val", "db.query.text-val", "oracledb.query_plan-val", "oracledb.sql_id-val", "oracledb.child_number-val", "oracledb.child_address-val", 30.100000, 20, 26.100000, 21, 30.100000, 17.100000, 21, 22, 19, 21.100000, 19, 28, 31, 29, 32, 23, 26.100000, 34, 21, "oracledb.procedure_name-val", "oracledb.procedure_type-val")
+			lb.RecordDbServerTopQueryEvent(ctx, timestamp, "db.system.name-val", "db.server.name-val", "db.query.text-val", "oracledb.query_plan-val", "oracledb.sql_id-val", "oracledb.child_number-val", "oracledb.child_address-val", 30.100000, 20, 26.100000, 21, 30.100000, 17.100000, 21, 22, 19, 21.100000, 19, 28, 31, 29, 32, 23, 26.100000, 34, 21, "oracledb.procedure_name-val", "oracledb.procedure_type-val", "oracledb.plan_hash_value-val", "oracledb.plan.last_load-val", "query.comments-val", "oracledb.normalised_sql_hash-val", "oracledb.normalized_sql-val")
 
 			rb := lb.NewResourceBuilder()
 			rb.SetHostName("host.name-val")
@@ -250,6 +250,21 @@ func TestLogsBuilder(t *testing.T) {
 					attrVal, ok = lr.Attributes().Get("oracledb.duration_sec")
 					assert.True(t, ok)
 					assert.Equal(t, 21.100000, attrVal.Double())
+					attrVal, ok = lr.Attributes().Get("oracledb.wait_time_sec")
+					assert.True(t, ok)
+					assert.Equal(t, 22.100000, attrVal.Double())
+					attrVal, ok = lr.Attributes().Get("query.comments")
+					assert.True(t, ok)
+					assert.Equal(t, "query.comments-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.normalised_sql_hash")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.normalised_sql_hash-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.normalized_sql")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.normalized_sql-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.sql_exec_start")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.sql_exec_start-val", attrVal.Str())
 				case "db.server.top_query":
 					assert.False(t, validatedEvents["db.server.top_query"], "Found a duplicate in the events slice: db.server.top_query")
 					validatedEvents["db.server.top_query"] = true
@@ -341,6 +356,21 @@ func TestLogsBuilder(t *testing.T) {
 					attrVal, ok = lr.Attributes().Get("oracledb.procedure_type")
 					assert.True(t, ok)
 					assert.Equal(t, "oracledb.procedure_type-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.plan_hash_value")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.plan_hash_value-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.plan.last_load")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.plan.last_load-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("query.comments")
+					assert.True(t, ok)
+					assert.Equal(t, "query.comments-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.normalised_sql_hash")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.normalised_sql_hash-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.normalized_sql")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.normalized_sql-val", attrVal.Str())
 				}
 			}
 		})
