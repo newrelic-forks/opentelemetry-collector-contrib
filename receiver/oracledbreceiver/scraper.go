@@ -818,9 +818,7 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 			hit.lastLoadTime,
 			hit.queryComments,
 			sqlHash,
-			normalizedSQL,
-			hit.lastLoadTime,
-			hit.planHashValue)
+			normalizedSQL)
 	}
 
 	hitCount := len(hits)
