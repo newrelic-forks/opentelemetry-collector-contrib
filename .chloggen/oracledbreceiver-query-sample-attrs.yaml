@@ -17,9 +17,10 @@ issues: [48216]
 # Use pipe (|) for multiline entries.
 subtext: |
   Add 4 new attributes to the db.server.query_sample event:
-  oracledb.wait_time_sec, oracledb.sql_exec_start, oracledb.logon_time,
-  and oracledb.session_duration_sec. These attributes enable better
-  monitoring of query wait times, execution timing, and session lifecycle.
+  oracledb.query.wait_time, oracledb.query.started, oracledb.session.started,
+  and oracledb.session.duration. Timestamps are in UTC ISO 8601 format.
+  These attributes enable better monitoring of query wait times, execution
+  timing, and session lifecycle.
 
 # If your change doesn't affect end users or the exported elements of any package,
 # you should instead start your pull request title with [chore] or use the "Skip Changelog" label.
