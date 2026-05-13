@@ -279,8 +279,6 @@ events:
       - query.comments
       - oracledb.normalised_sql_hash
       - oracledb.normalized_sql
-      - oracledb.last_load_time
-      - oracledb.plan_hash_value
 metrics:
   oracledb.consistent_gets:
     description: Number of times a consistent read was requested for a block from the buffer cache.
