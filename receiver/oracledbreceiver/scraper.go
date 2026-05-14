@@ -859,6 +859,8 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 	const port = "PORT"
 	const serviceName = "SERVICE_NAME"
 	const sqlExecStart = "SQL_EXEC_START"
+	const logonTime = "LOGON_TIME"
+	const sessionDuration = "SESSION_DURATION_SEC"
 
 	var scrapeErrors []error
 
@@ -898,6 +900,10 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 		if err != nil {
 			waitTime = 0
 		}
+		sessionDurationSec, err := strconv.ParseFloat(row[sessionDuration], 64)
+		if err != nil {
+			sessionDurationSec = 0
+		}
 
 		clientPort, err := strconv.ParseInt(row[port], 10, 64)
 		if err != nil {
@@ -919,8 +925,8 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 
 		s.lb.RecordDbServerQuerySampleEvent(queryContext, timestamp, obfuscatedSQL, dbSystemNameVal, row[username], row[serviceName], row[hostName],
 			clientPort, row[hostName], clientPort, queryPlanHashVal, row[sqlID], row[sqlChildNumber], row[childAddress], row[sid], row[serialNumber], row[process],
-			row[schemaName], row[program], row[module], row[status], row[state], row[waitclass], row[event], objID, row[objectName], row[objectType],
-			row[osUser], queryDuration, waitTime, queryComments, sqlHash, normalizedSQL, row[sqlExecStart])
+			row[schemaName], row[program], row[module], row[status], row[state], row[waitclass], row[event], waitTime, objID, row[objectName], row[objectType],
+			row[osUser], queryDuration, waitTime, queryComments, sqlHash, normalizedSQL, row[sqlExecStart], row[logonTime], sessionDurationSec)
 	}
 
 	s.lb.Emit(metadata.WithLogsResource(rb.Emit())).ResourceLogs().MoveAndAppendTo(logs.ResourceLogs())

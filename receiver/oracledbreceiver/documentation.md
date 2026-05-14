@@ -459,6 +459,7 @@ sample query
 | oracledb.state | Current state of the query or the session executing it. | Any Str | - |
 | oracledb.wait_class | The category of wait events a query or session is currently experiencing in Oracle Database. | Any Str | - |
 | oracledb.event | The specific wait event that a query or session is currently experiencing. | Any Str | - |
+| oracledb.query.wait_time | The wait time in seconds. If the session is currently waiting, the value is the time spent waiting in the current wait. Returns 0 if the session is not currently waiting. | Any Double | - |
 | oracledb.procedure_id | The identifier of the stored procedure or function being executed by the query. | Any Int | - |
 | oracledb.procedure_name | Name of the database object that a query is accessing. | Any Str | - |
 | oracledb.procedure_type | Type of the database object that a query is accessing. | Any Str | - |
@@ -468,7 +469,9 @@ sample query
 | query.comments | Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys specified in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
 | oracledb.normalised_sql_hash | MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Used for correlation with APM slow query traces. | Any Str | - |
 | oracledb.normalized_sql | Normalized SQL query text for debugging hash generation. Shows the exact SQL string that was hashed. | Any Str | - |
-| oracledb.sql_exec_start | The timestamp when the SQL statement started execution (ISO 8601 format). | Any Str | - |
+| oracledb.query.started | The timestamp when the SQL statement started execution, in ISO 8601 format (UTC). | Any Str | - |
+| oracledb.session.started | The timestamp when the session logged on, in ISO 8601 format (UTC). | Any Str | - |
+| oracledb.session.duration | The total time in seconds that the session has been connected. | Any Double | - |
 
 ### db.server.top_query
 
