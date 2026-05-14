@@ -587,6 +587,7 @@ query sample
 | sqlserver.cpu_time | CPU time consumed by the query, in seconds. | Any Double | - |
 | sqlserver.deadlock_priority | Deadlock priority value for the session. | Any Int | - |
 | sqlserver.estimated_completion_time | Estimated time remaining for the request to complete, in seconds. | Any Double | - |
+| sqlserver.host_process_id | Process ID of the client application on the host system. | Any Int | - |
 | sqlserver.lock_timeout | Lock timeout value in seconds. | Any Double | - |
 | sqlserver.logical_reads | Number of logical reads (data read from cache/memory). | Any Int | - |
 | sqlserver.open_transaction_count | Number of transactions currently open in the session. | Any Int | - |
@@ -599,7 +600,10 @@ query sample
 | sqlserver.wait.resource.id | SQL Server identifier for the locked or waited-on resource, if available. | Any Str | - |
 | sqlserver.wait.resource.type | SQL Server type of the locked or waited-on resource, if available. | Any Str | - |
 | sqlserver.row_count | Number of rows affected or returned by the query. | Any Int | - |
+| sqlserver.session_elapsed_time | Elapsed time in seconds since the session was established. | Any Double | - |
 | sqlserver.session_id | ID of the SQL Server session. | Any Int | - |
+| sqlserver.session_login_time | Timestamp of when the session logged in (ISO 8601 format). | Any Str | - |
+| sqlserver.session_program_name | Name of the client application that initiated the session. | Any Str | - |
 | sqlserver.session_status | Status of the session (e.g., running, sleeping). | Any Str | - |
 | sqlserver.total_elapsed_time | Total elapsed time for completed executions of this plan, reported in delta seconds. | Any Double | - |
 | sqlserver.transaction_id | Unique ID of the active transaction. | Any Int | - |

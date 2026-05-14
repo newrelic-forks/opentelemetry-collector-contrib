@@ -157,6 +157,10 @@ attributes:
     description: Number of times that the plan has been executed since it was last compiled, reported in delta value.
     type: int
     requirement_level: recommended
+  sqlserver.host_process_id:
+    description: Process ID of the client application on the host system.
+    type: int
+    requirement_level: recommended
   sqlserver.lock_timeout:
     description: Lock timeout value in seconds.
     type: double
@@ -214,9 +218,21 @@ attributes:
     description: Number of rows affected or returned by the query.
     type: int
     requirement_level: recommended
+  sqlserver.session_elapsed_time:
+    description: Elapsed time in seconds since the session was established.
+    type: double
+    requirement_level: recommended
   sqlserver.session_id:
     description: ID of the SQL Server session.
     type: int
+    requirement_level: recommended
+  sqlserver.session_login_time:
+    description: Timestamp of when the session logged in (ISO 8601 format).
+    type: string
+    requirement_level: recommended
+  sqlserver.session_program_name:
+    description: Name of the client application that initiated the session.
+    type: string
     requirement_level: recommended
   sqlserver.session_status:
     description: Status of the session (e.g., running, sleeping).
@@ -332,6 +348,7 @@ events:
       - sqlserver.cpu_time
       - sqlserver.deadlock_priority
       - sqlserver.estimated_completion_time
+      - sqlserver.host_process_id
       - sqlserver.lock_timeout
       - sqlserver.logical_reads
       - sqlserver.open_transaction_count
@@ -344,7 +361,10 @@ events:
       - sqlserver.wait.resource.id
       - sqlserver.wait.resource.type
       - sqlserver.row_count
+      - sqlserver.session_elapsed_time
       - sqlserver.session_id
+      - sqlserver.session_login_time
+      - sqlserver.session_program_name
       - sqlserver.session_status
       - sqlserver.total_elapsed_time
       - sqlserver.transaction_id

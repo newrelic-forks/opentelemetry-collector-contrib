@@ -135,7 +135,7 @@ func TestLogsBuilder(t *testing.T) {
 			allEventsCount := 0
 
 			allEventsCount++
-			lb.RecordDbServerQuerySampleEvent(ctx, timestamp, "client.address-val", 11, "db.namespace-val", "db.query.text-val", "db.system.name-val", "network.peer.address-val", 17, 29, "sqlserver.blocking.start_time-val", "sqlserver.context_info-val", "sqlserver.command-val", 18.100000, 27, 35.100000, 22.100000, 23, 32, 26.100000, "sqlserver.query_hash-val", "sqlserver.query_plan_hash-val", "sqlserver.query_start-val", 15, "sqlserver.request_status-val", "sqlserver.wait.resource.id-val", "sqlserver.wait.resource.type-val", 19, 20, "sqlserver.session_status-val", 28.100000, 24, 37, "sqlserver.wait_resource-val", 19.100000, "sqlserver.wait_type-val", 16, "user.name-val", "sqlserver.procedure_id-val", "sqlserver.procedure_name-val")
+			lb.RecordDbServerQuerySampleEvent(ctx, timestamp, "client.address-val", 11, "db.namespace-val", "db.query.text-val", "db.system.name-val", "network.peer.address-val", 17, 29, "sqlserver.blocking.start_time-val", "sqlserver.context_info-val", "sqlserver.command-val", 18.100000, 27, 35.100000, 25, 22.100000, 23, 32, 26.100000, "sqlserver.query_hash-val", "sqlserver.query_plan_hash-val", "sqlserver.query_start-val", 15, "sqlserver.request_status-val", "sqlserver.wait.resource.id-val", "sqlserver.wait.resource.type-val", 19, 30.100000, 20, "sqlserver.session_login_time-val", "sqlserver.session_program_name-val", "sqlserver.session_status-val", 28.100000, 24, 37, "sqlserver.wait_resource-val", 19.100000, "sqlserver.wait_type-val", 16, "user.name-val", "sqlserver.procedure_id-val", "sqlserver.procedure_name-val")
 
 			allEventsCount++
 			lb.RecordDbServerTopQueryEvent(ctx, timestamp, 27.100000, "db.query.text-val", 25, 29, 30, 30, "sqlserver.query_hash-val", "sqlserver.query_plan-val", "sqlserver.query_plan_hash-val", 20, 28.100000, 24, "server.address-val", 11, "db.system.name-val", 35, "sqlserver.procedure_id-val", "sqlserver.procedure_name-val")
@@ -219,6 +219,9 @@ func TestLogsBuilder(t *testing.T) {
 					attrVal, ok = lr.Attributes().Get("sqlserver.estimated_completion_time")
 					assert.True(t, ok)
 					assert.Equal(t, 35.100000, attrVal.Double())
+					attrVal, ok = lr.Attributes().Get("sqlserver.host_process_id")
+					assert.True(t, ok)
+					assert.EqualValues(t, 25, attrVal.Int())
 					attrVal, ok = lr.Attributes().Get("sqlserver.lock_timeout")
 					assert.True(t, ok)
 					assert.Equal(t, 22.100000, attrVal.Double())
@@ -255,9 +258,18 @@ func TestLogsBuilder(t *testing.T) {
 					attrVal, ok = lr.Attributes().Get("sqlserver.row_count")
 					assert.True(t, ok)
 					assert.EqualValues(t, 19, attrVal.Int())
+					attrVal, ok = lr.Attributes().Get("sqlserver.session_elapsed_time")
+					assert.True(t, ok)
+					assert.Equal(t, 30.100000, attrVal.Double())
 					attrVal, ok = lr.Attributes().Get("sqlserver.session_id")
 					assert.True(t, ok)
 					assert.EqualValues(t, 20, attrVal.Int())
+					attrVal, ok = lr.Attributes().Get("sqlserver.session_login_time")
+					assert.True(t, ok)
+					assert.Equal(t, "sqlserver.session_login_time-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("sqlserver.session_program_name")
+					assert.True(t, ok)
+					assert.Equal(t, "sqlserver.session_program_name-val", attrVal.Str())
 					attrVal, ok = lr.Attributes().Get("sqlserver.session_status")
 					assert.True(t, ok)
 					assert.Equal(t, "sqlserver.session_status-val", attrVal.Str())
