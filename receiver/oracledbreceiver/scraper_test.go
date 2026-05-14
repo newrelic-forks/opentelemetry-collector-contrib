@@ -595,7 +595,7 @@ func TestScraper_ScrapeSysMetrics(t *testing.T) {
 			assert.InDelta(t, 30.20, metricMap["oracledb.shared_pool.free"], floatDelta)
 			assert.InDelta(t, 44.55, metricMap["oracledb.database.wait_time_ratio"], floatDelta)
 			assert.InDelta(t, 88.90, metricMap["oracledb.soft_parse.ratio"], floatDelta)
-			assert.InDelta(t, 0.0042, metricMap["oracledb.sql_service.response_time"], floatDelta)
+			assert.InDelta(t, 0.000042, metricMap["oracledb.sql_service.response_time"], floatDelta)
 			assert.InDelta(t, 99.50, metricMap["oracledb.memory_sorts.ratio"], floatDelta)
 			assert.InDelta(t, 97.80, metricMap["oracledb.redo_allocation.hit_ratio"], floatDelta)
 			assert.InDelta(t, 0.25, metricMap["oracledb.parse_failures"], floatDelta)

@@ -697,7 +697,8 @@ func (s *oracleScraper) collectSysMetrics(ctx context.Context, scrapeErrors *[]e
 			}
 		case sysmetricSQLServiceResponseTime:
 			if s.metricsBuilderConfig.Metrics.OracledbSQLServiceResponseTime.Enabled {
-				s.mb.RecordOracledbSQLServiceResponseTimeDataPoint(now, val)
+				// Oracle reports SQL Service Response Time in centiseconds; convert to seconds.
+				s.mb.RecordOracledbSQLServiceResponseTimeDataPoint(now, val/100)
 			}
 		case sysmetricMemorySortsRatio:
 			if s.metricsBuilderConfig.Metrics.OracledbMemorySortsRatio.Enabled {

@@ -686,7 +686,7 @@ metrics:
       value_type: double
     unit: "%"
   oracledb.sql_service.response_time:
-    description: Average SQL service response time in seconds, as computed by Oracle (V$SYSMETRIC).
+    description: Average SQL service response time in seconds, converted from centiseconds as reported by Oracle V$SYSMETRIC.
     enabled: false
     stability: development
     gauge:
