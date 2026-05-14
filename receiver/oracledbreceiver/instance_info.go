@@ -84,7 +84,7 @@ func detectInstanceInfo(
 	// Step 1 — Oracle version from v$instance.
 	rows, err := versionClient.metricRows(ctx)
 	if err != nil || len(rows) == 0 {
-		logger.Warn("oracledbreceiver: failed to detect Oracle version; pdb_name attribute will not be set",
+		logger.Warn("oracledbreceiver: failed to detect Oracle version; oracledb.pdb.name attribute will not be set",
 			zap.Error(err))
 		return info
 	}

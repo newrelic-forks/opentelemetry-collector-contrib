@@ -180,10 +180,10 @@ func NewLogsBuilder(lbc LogsBuilderConfig, settings receiver.Settings) *LogsBuil
 		lb.resourceAttributeExcludeFilter["oracledb.instance.name"] = filter.CreateFilter(lbc.ResourceAttributes.OracledbInstanceName.EventsExclude)
 	}
 	if lbc.ResourceAttributes.OracledbPdbName.EventsInclude != nil {
-		lb.resourceAttributeIncludeFilter["oracledb.pdb_name"] = filter.CreateFilter(lbc.ResourceAttributes.OracledbPdbName.EventsInclude)
+		lb.resourceAttributeIncludeFilter["oracledb.pdb.name"] = filter.CreateFilter(lbc.ResourceAttributes.OracledbPdbName.EventsInclude)
 	}
 	if lbc.ResourceAttributes.OracledbPdbName.EventsExclude != nil {
-		lb.resourceAttributeExcludeFilter["oracledb.pdb_name"] = filter.CreateFilter(lbc.ResourceAttributes.OracledbPdbName.EventsExclude)
+		lb.resourceAttributeExcludeFilter["oracledb.pdb.name"] = filter.CreateFilter(lbc.ResourceAttributes.OracledbPdbName.EventsExclude)
 	}
 	if lbc.ResourceAttributes.ServiceInstanceID.EventsInclude != nil {
 		lb.resourceAttributeIncludeFilter["service.instance.id"] = filter.CreateFilter(lbc.ResourceAttributes.ServiceInstanceID.EventsInclude)

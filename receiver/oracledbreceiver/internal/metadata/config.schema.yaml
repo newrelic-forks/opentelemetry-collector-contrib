@@ -452,8 +452,8 @@ $defs:
             type: array
             items:
               $ref: go.opentelemetry.io/collector/filter.config
-      oracledb.pdb_name:
-        description: ResourceAttributeConfig provides common config for a oracledb.pdb_name resource attribute.
+      oracledb.pdb.name:
+        description: ResourceAttributeConfig provides common config for a oracledb.pdb.name resource attribute.
         type: object
         properties:
           enabled:

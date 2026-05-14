@@ -108,7 +108,7 @@ func TestDetectInstanceInfo_VersionQueryFails(t *testing.T) {
 	assert.False(t, info.isCDB)
 	assert.False(t, info.connectedToPDB)
 	assert.Empty(t, info.pdbName)
-	assert.Equal(t, 1, logs.FilterMessage("oracledbreceiver: failed to detect Oracle version; pdb_name attribute will not be set").Len())
+	assert.Equal(t, 1, logs.FilterMessage("oracledbreceiver: failed to detect Oracle version; oracledb.pdb.name attribute will not be set").Len())
 }
 
 func TestDetectInstanceInfo_Pre12c(t *testing.T) {
@@ -271,7 +271,7 @@ func TestDetectInstanceInfo_Oracle12c(t *testing.T) {
 // -- setupResourceBuilder tests -----------------------------------------------
 
 func TestSetupResourceBuilder_NoPDB(t *testing.T) {
-	// When not connected to a PDB, oracledb.pdb_name must not appear in resource.
+	// When not connected to a PDB, oracledb.pdb.name must not appear in resource.
 	cfg := metadata.NewDefaultMetricsBuilderConfig()
 	scrpr := oracleScraper{
 		mb:                   metadata.NewMetricsBuilder(cfg, receivertest.NewNopSettings(metadata.Type)),
@@ -283,7 +283,7 @@ func TestSetupResourceBuilder_NoPDB(t *testing.T) {
 
 	res := scrpr.setupResourceBuilder(scrpr.mb.NewResourceBuilder()).Emit()
 
-	_, hasPDB := res.Attributes().Get("oracledb.pdb_name")
+	_, hasPDB := res.Attributes().Get("oracledb.pdb.name")
 	assert.False(t, hasPDB, "pdb_name should not be set for non-PDB connections")
 
 	name, _ := res.Attributes().Get("oracledb.instance.name")
@@ -293,7 +293,7 @@ func TestSetupResourceBuilder_NoPDB(t *testing.T) {
 }
 
 func TestSetupResourceBuilder_WithPDB(t *testing.T) {
-	// When connected to a PDB, oracledb.pdb_name must be set on the resource.
+	// When connected to a PDB, oracledb.pdb.name must be set on the resource.
 	cfg := metadata.NewDefaultMetricsBuilderConfig()
 	scrpr := oracleScraper{
 		mb:                   metadata.NewMetricsBuilder(cfg, receivertest.NewNopSettings(metadata.Type)),
@@ -310,8 +310,8 @@ func TestSetupResourceBuilder_WithPDB(t *testing.T) {
 
 	res := scrpr.setupResourceBuilder(scrpr.mb.NewResourceBuilder()).Emit()
 
-	pdbName, ok := res.Attributes().Get("oracledb.pdb_name")
-	require.True(t, ok, "oracledb.pdb_name should be set when connected to a PDB")
+	pdbName, ok := res.Attributes().Get("oracledb.pdb.name")
+	require.True(t, ok, "oracledb.pdb.name should be set when connected to a PDB")
 	assert.Equal(t, "SALESPDB", pdbName.Str())
 }
 
@@ -332,6 +332,6 @@ func TestSetupResourceBuilder_PDBConnectedButEmptyName(t *testing.T) {
 
 	res := scrpr.setupResourceBuilder(scrpr.mb.NewResourceBuilder()).Emit()
 
-	_, hasPDB := res.Attributes().Get("oracledb.pdb_name")
+	_, hasPDB := res.Attributes().Get("oracledb.pdb.name")
 	assert.False(t, hasPDB, "pdb_name should not be emitted when name is empty")
 }

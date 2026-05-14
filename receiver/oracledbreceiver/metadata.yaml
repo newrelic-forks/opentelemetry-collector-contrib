@@ -24,7 +24,7 @@ resource_attributes:
     description: The name of the instance that data is coming from.
     enabled: true
     type: string
-  oracledb.pdb_name:
+  oracledb.pdb.name:
     description: >
       The name of the Oracle Pluggable Database (PDB) that the monitoring user
       is connected to. Only set when the database is a Container Database (CDB)

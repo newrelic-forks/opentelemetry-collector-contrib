@@ -7,7 +7,7 @@ change_type: enhancement
 component: receiver/oracledb
 
 # A brief description of the change.  Surround your text with quotes ("") if it needs to start with a backtick (`).
-note: Add Oracle multitenant (CDB/PDB) detection and oracledb.pdb_name resource attribute
+note: Add Oracle multitenant (CDB/PDB) detection and oracledb.pdb.name resource attribute
 
 # Mandatory: One or more tracking issues related to the change. You can use the PR number here if no issue exists.
 issues: [165]
@@ -18,7 +18,7 @@ issues: [165]
 subtext: |
   At startup the receiver detects the Oracle version, whether the database is a
   Container Database (CDB), and whether the monitoring user is connected to a
-  Pluggable Database (PDB). When connected to a PDB, the new oracledb.pdb_name
+  Pluggable Database (PDB). When connected to a PDB, the new oracledb.pdb.name
   resource attribute is set on all emitted metrics. Detection is best-effort:
   any query failure is logged at Warn level and the receiver continues normally.
 

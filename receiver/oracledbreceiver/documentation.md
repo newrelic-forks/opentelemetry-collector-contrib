@@ -508,6 +508,6 @@ Collection of event metrics for top N queries, filtered based on the highest CPU
 | ---- | ----------- | ------ | ------- | ------------------- |
 | host.name | The host name of Oracle Server | Any Str | true | - |
 | oracledb.instance.name | The name of the instance that data is coming from. | Any Str | true | - |
-| oracledb.pdb_name | The name of the Oracle Pluggable Database (PDB) that the monitoring user is connected to. Only set when the database is a Container Database (CDB) and the monitoring user is connected to a specific PDB rather than the CDB root. Empty for non-CDB (traditional) Oracle instances.
+| oracledb.pdb.name | The name of the Oracle Pluggable Database (PDB) that the monitoring user is connected to. Only set when the database is a Container Database (CDB) and the monitoring user is connected to a specific PDB rather than the CDB root. Empty for non-CDB (traditional) Oracle instances.
  | Any Str | true | - |
 | service.instance.id | A unique identifier of the Oracle DB instance in the format host:port/serviceName. (defaults to 'unknown:1521', in case of error in generating this value) | Any Str | true | - |

@@ -70,7 +70,7 @@ The following grants are required for the receiver to function correctly.
 
 These views are queried once at startup to detect the Oracle version and
 whether the monitoring user is connected to a Pluggable Database (PDB).
-The `oracledb.pdb_name` resource attribute is only populated when connected
+The `oracledb.pdb.name` resource attribute is only populated when connected
 to a specific PDB.
 
 ```sql
