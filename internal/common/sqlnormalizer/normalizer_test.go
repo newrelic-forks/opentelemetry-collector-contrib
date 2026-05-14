@@ -228,37 +228,37 @@ func TestNormalizeSQL_Comments(t *testing.T) {
 		{
 			name:     "multi-line comment",
 			input:    "SELECT * /* comment */ FROM users",
-			expected: "SELECT * FROM USERS",
+			expected: "SELECT*?FROMUSERS",
 		},
 		{
 			name:     "single-line comment with --",
 			input:    "SELECT * FROM users -- this is a comment\nWHERE id = 1",
-			expected: "SELECT * FROM USERS WHERE ID = ?",
+			expected: "SELECT*FROMUSERS?WHEREID=?",
 		},
 		{
 			name:     "hash comment",
 			input:    "SELECT * FROM users # comment\nWHERE id = 1",
-			expected: "SELECT * FROM USERS WHERE ID = ?",
+			expected: "SELECT*FROMUSERS?WHEREID=?",
 		},
 		{
 			name:     "leading comment",
 			input:    "/* leading comment */ SELECT * FROM users",
-			expected: "? SELECT * FROM USERS",
+			expected: "?SELECT*FROMUSERS",
 		},
 		{
 			name:     "comment with nr_service_guid",
 			input:    "/* nr_service_guid=abc-123 */ SELECT * FROM users WHERE id = 1",
-			expected: "? SELECT * FROM USERS WHERE ID = ?",
+			expected: "?SELECT*FROMUSERSWHEREID=?",
 		},
 		{
 			name:     "multiple comments",
 			input:    "SELECT /* comment1 */ * FROM /* comment2 */ users",
-			expected: "SELECT * FROM USERS",
+			expected: "SELECT?*FROM?USERS",
 		},
 		{
 			name:     "unclosed comment",
 			input:    "SELECT * FROM users /* unclosed",
-			expected: "SELECT * FROM USERS",
+			expected: "SELECT*FROMUSERS?",
 		},
 	}
 
@@ -429,7 +429,7 @@ func TestNormalizeSQL_EdgeCases(t *testing.T) {
 		{
 			name:     "complex query with everything",
 			input:    "/* comment */ SELECT u.id, u.name FROM users u WHERE u.id IN (1,2,3) AND u.age > 25 -- inline comment\nAND u.name = 'John'",
-			expected: "? SELECT U.ID, U.NAME FROM USERS U WHERE U.ID IN (?) AND U.AGE > ? AND U.NAME = ?",
+			expected: "?SELECTU.ID,U.NAMEFROMUSERSUWHEREU.IDIN(?)ANDU.AGE>??ANDU.NAME=?",
 		},
 		{
 			name:     "nested parentheses",

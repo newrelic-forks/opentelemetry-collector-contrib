@@ -503,61 +503,38 @@ func removeCommentsAndNormalizeWhitespace(sql string) string {
 	var result strings.Builder
 	result.Grow(len(sql))
 	state := newSQLNormalizerState(sql)
-	seenSQLContent := false // Track whether any actual SQL content has been written
 
 	for state.hasMore() {
 		current := state.current()
 
 		if current == '\'' {
 			// String literals (defensive - should already be replaced in phase 1)
-			seenSQLContent = true
 			processStringLiteral(&result, state)
 		} else if isMultilineCommentStart(state) {
 			// Multi-line comment /* */
-			if !seenSQLContent {
-				// Prefix comment: replace with ? (matches NR APM agent obfuscation behavior)
-				skipMultilineComment(state)
-				result.WriteByte('?')
-				state.lastWasWhitespace = false
-				seenSQLContent = true
-			} else {
-				// Inline comment: silently remove
-				skipMultilineComment(state)
-			}
+			// Always replace comments with ? (matches NR APM agent behavior for both prefix and inline)
+			skipMultilineComment(state)
+			result.WriteByte('?')
+			state.lastWasWhitespace = false
 		} else if isSingleLineCommentStart(state) {
 			// Single-line comment --
-			if !seenSQLContent {
-				// Prefix comment: replace with ?
-				state.advanceBy(2) // Skip --
-				skipToEndOfLine(state)
-				result.WriteByte('?')
-				state.lastWasWhitespace = false
-				seenSQLContent = true
-			} else {
-				// Inline comment: silently remove
-				state.advanceBy(2) // Skip --
-				skipToEndOfLine(state)
-			}
+			// Always replace comments with ? (matches NR APM agent behavior for both prefix and inline)
+			state.advanceBy(2) // Skip --
+			skipToEndOfLine(state)
+			result.WriteByte('?')
+			state.lastWasWhitespace = false
 		} else if current == '#' {
 			// Hash comment
-			if !seenSQLContent {
-				// Prefix comment: replace with ?
-				state.advance() // Skip #
-				skipToEndOfLine(state)
-				result.WriteByte('?')
-				state.lastWasWhitespace = false
-				seenSQLContent = true
-			} else {
-				// Inline comment: silently remove
-				state.advance() // Skip #
-				skipToEndOfLine(state)
-			}
+			// Always replace comments with ? (matches NR APM agent behavior for both prefix and inline)
+			state.advance() // Skip #
+			skipToEndOfLine(state)
+			result.WriteByte('?')
+			state.lastWasWhitespace = false
 		} else if current == ' ' || current == '\t' || current == '\n' || current == '\r' {
 			// stripWhitespace=true: just skip all whitespace (matches Java line 397-398)
 			state.advance()
 		} else {
 			// Regular character: just append (matches Java line 403-405)
-			seenSQLContent = true
 			result.WriteByte(current)
 			state.advance()
 		}
