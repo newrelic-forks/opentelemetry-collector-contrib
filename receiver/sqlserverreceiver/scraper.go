@@ -782,22 +782,22 @@ func (s *sqlServerScraperHelper) recordDatabaseWaitMetrics(ctx context.Context) 
 func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Context) (pcommon.Resource, error) {
 	// Constants are the column names of the database status
 	const (
-		databaseName   = "database_name"
-		executionCount = "execution_count"
-		logicalReads   = "total_logical_reads"
-		logicalWrites  = "total_logical_writes"
-		physicalReads  = "total_physical_reads"
-		queryHash      = "query_hash"
-		queryPlan      = "query_plan"
-		queryPlanHash  = "query_plan_hash"
-		queryText      = "query_text"
-		rowsReturned   = "total_rows"
+		databaseName      = "database_name"
+		executionCount    = "execution_count"
+		lastExecutionTime = "last_execution_time"
+		logicalReads      = "total_logical_reads"
+		logicalWrites     = "total_logical_writes"
+		physicalReads     = "total_physical_reads"
+		queryHash         = "query_hash"
+		queryPlan         = "query_plan"
+		queryPlanHash     = "query_plan_hash"
+		queryText         = "query_text"
+		rowsReturned      = "total_rows"
 		// the time returned from mssql is in microsecond
 		totalElapsedTime = "total_elapsed_time"
 		totalGrant       = "total_grant_kb"
 		// the time returned from mssql is in microsecond
-		totalWorkerTime   = "total_worker_time"
-		lastExecutionTime = "last_execution_time"
+		totalWorkerTime = "total_worker_time"
 
 		dbSystemNameVal = "microsoft.sql_server"
 
