@@ -2817,7 +2817,7 @@ type metricOracledbSQLServiceResponseTime struct {
 // init fills oracledb.sql_service.response_time metric with initial data.
 func (m *metricOracledbSQLServiceResponseTime) init() {
 	m.data.SetName("oracledb.sql_service.response_time")
-	m.data.SetDescription("Average SQL service response time in seconds, as computed by Oracle (V$SYSMETRIC).")
+	m.data.SetDescription("Average SQL service response time in seconds, converted from centiseconds as reported by Oracle V$SYSMETRIC.")
 	m.data.SetUnit("s")
 	m.data.SetEmptyGauge()
 }

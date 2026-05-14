@@ -1002,7 +1002,7 @@ func TestMetricsBuilder(t *testing.T) {
 					validatedMetrics["oracledb.sql_service.response_time"] = true
 					assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
 					assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
-					assert.Equal(t, "Average SQL service response time in seconds, as computed by Oracle (V$SYSMETRIC).", mi.Description())
+					assert.Equal(t, "Average SQL service response time in seconds, converted from centiseconds as reported by Oracle V$SYSMETRIC.", mi.Description())
 					assert.Equal(t, "s", mi.Unit())
 					dp := mi.Gauge().DataPoints().At(0)
 					assert.Equal(t, start, dp.StartTimestamp())

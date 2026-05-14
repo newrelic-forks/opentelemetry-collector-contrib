@@ -483,7 +483,7 @@ Percentage of soft parses to total parses, as computed by Oracle (V$SYSMETRIC). 
 
 ### oracledb.sql_service.response_time
 
-Average SQL service response time in seconds, as computed by Oracle (V$SYSMETRIC).
+Average SQL service response time in seconds, converted from centiseconds as reported by Oracle V$SYSMETRIC.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
