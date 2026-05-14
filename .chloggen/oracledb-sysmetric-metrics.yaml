@@ -1,0 +1,34 @@
+# Use this changelog template to create an entry for release notes.
+
+# One of 'breaking', 'deprecation', 'new_component', 'enhancement', 'bug_fix'
+change_type: enhancement
+
+# The name of the component, or a single word describing the area of concern, (e.g. receiver/filelog)
+component: receiver/oracledb
+
+# A brief description of the change.  Surround your text with quotes ("") if it needs to start with a backtick (`).
+note: Add 12 new opt-in metrics from V$SYSMETRIC (group_id=2) covering buffer cache, CPU, library cache, shared pool, parse, and sort ratios.
+
+# Mandatory: One or more tracking issues related to the change. You can use the PR number here if no issue exists.
+issues: [169]
+
+# (Optional) One or more lines of additional information to render under the primary note.
+# These lines will be padded with 2 spaces and then inserted directly into the document.
+# Use pipe (|) for multiline entries.
+subtext: |
+  New metrics (all disabled by default, stability: development):
+  oracledb.buffer_cache.hit_ratio, oracledb.database.cpu_time_ratio,
+  oracledb.database.wait_time_ratio, oracledb.execute_without_parse.ratio,
+  oracledb.host.cpu_utilization, oracledb.library_cache.hit_ratio,
+  oracledb.memory_sorts.ratio, oracledb.parse_failures,
+  oracledb.redo_allocation.hit_ratio, oracledb.shared_pool.free,
+  oracledb.soft_parse.ratio, oracledb.sql_service.response_time
+
+# If your change doesn't affect end users or the exported elements of any package,
+# you should instead start your pull request title with [chore] or use the "Skip Changelog" label.
+# Optional: The change log or logs in which this entry should be included.
+# e.g. '[user]' or '[user, api]'
+# Include 'user' if the change is relevant to end users.
+# Include 'api' if there is a change to a library API.
+# Default: '[user]'
+change_logs: [user]

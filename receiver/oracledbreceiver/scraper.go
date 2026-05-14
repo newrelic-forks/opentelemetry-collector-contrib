@@ -20,6 +20,7 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/oracledbreceiver/internal/metadata"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/plog"
@@ -30,13 +31,11 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
-
-	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/oracledbreceiver/internal/metadata"
 )
 
 const (
-	statsSQL                       = "select * from v$sysstat"
-	sysmetricSQL                   = "SELECT metric_name, value FROM v$sysmetric WHERE group_id = 2"
+	statsSQL     = "select * from v$sysstat"
+	sysmetricSQL = "SELECT metric_name, value FROM v$sysmetric WHERE group_id = 2"
 
 	// V$SYSMETRIC metric_name values (group_id=2, 60-second interval)
 	sysmetricBufferCacheHitRatio      = "Buffer Cache Hit Ratio"
@@ -635,19 +634,18 @@ func (s *oracleScraper) collectStorageUsage(ctx context.Context, scrapeErrors *[
 }
 
 func (s *oracleScraper) collectSysMetrics(ctx context.Context, scrapeErrors *[]error) {
-	anySysmetricEnabled :=
-		s.metricsBuilderConfig.Metrics.OracledbBufferCacheHitRatio.Enabled ||
-			s.metricsBuilderConfig.Metrics.OracledbHostCPUUtilization.Enabled ||
-			s.metricsBuilderConfig.Metrics.OracledbDatabaseCPUTimeRatio.Enabled ||
-			s.metricsBuilderConfig.Metrics.OracledbLibraryCacheHitRatio.Enabled ||
-			s.metricsBuilderConfig.Metrics.OracledbSharedPoolFree.Enabled ||
-			s.metricsBuilderConfig.Metrics.OracledbDatabaseWaitTimeRatio.Enabled ||
-			s.metricsBuilderConfig.Metrics.OracledbSoftParseRatio.Enabled ||
-			s.metricsBuilderConfig.Metrics.OracledbSQLServiceResponseTime.Enabled ||
-			s.metricsBuilderConfig.Metrics.OracledbMemorySortsRatio.Enabled ||
-			s.metricsBuilderConfig.Metrics.OracledbRedoAllocationHitRatio.Enabled ||
-			s.metricsBuilderConfig.Metrics.OracledbParseFailures.Enabled ||
-			s.metricsBuilderConfig.Metrics.OracledbExecuteWithoutParseRatio.Enabled
+	anySysmetricEnabled := s.metricsBuilderConfig.Metrics.OracledbBufferCacheHitRatio.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbHostCPUUtilization.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbDatabaseCPUTimeRatio.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbLibraryCacheHitRatio.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbSharedPoolFree.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbDatabaseWaitTimeRatio.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbSoftParseRatio.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbSQLServiceResponseTime.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbMemorySortsRatio.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbRedoAllocationHitRatio.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbParseFailures.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbExecuteWithoutParseRatio.Enabled
 	if !anySysmetricEnabled {
 		return
 	}
