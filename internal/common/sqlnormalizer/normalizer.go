@@ -266,11 +266,11 @@ func skipPlaceholder(state *sqlNormalizerState) {
 // - Normalizes all parameter placeholders to '?'
 // - Replaces string and numeric literals with '?'
 // - Removes comments (/* */, --, #)
-// - Normalizes whitespace
+// - Strips ALL whitespace 
 // - Normalizes IN clauses: IN (1,2,3) → IN (?)
 //
 // This function implements the exact same algorithm as SqlStatementNormalizer.normalizeSql()
-// in the apm-trace-consumer repository.
+// in the apm-trace-consumer repository with stripWhitespace=true.
 func NormalizeSQL(sql string) string {
 	if sql == "" {
 		return ""
@@ -286,7 +286,7 @@ func NormalizeSQL(sql string) string {
 	// Phase 2: Normalize parameters and literals
 	sql = normalizeParametersAndLiterals(sql)
 
-	// Phase 3: Remove comments and normalize whitespace
+	// Phase 3: Remove comments and strip all whitespace (stripWhitespace=true)
 	normalizedSQL := removeCommentsAndNormalizeWhitespace(sql)
 
 	// Log normalized SQL
@@ -467,43 +467,6 @@ func skipToEndOfLine(state *sqlNormalizerState) {
 	}
 }
 
-// processWhitespace handles whitespace normalization.
-
-func processWhitespace(result *strings.Builder, state *sqlNormalizerState) {
-	if !state.lastWasWhitespace && result.Len() > 0 {
-		result.WriteByte(' ')
-		state.lastWasWhitespace = true
-	}
-	state.advance()
-}
-
-// removeTrailingWhitespace removes trailing whitespace from the result buffer.
-// Used to remove spaces before commas to match APM behavior.
-func removeTrailingWhitespace(result *strings.Builder) {
-	str := result.String()
-	trimmed := strings.TrimRight(str, " \t\n\r")
-	if len(trimmed) < len(str) {
-		result.Reset()
-		result.WriteString(trimmed)
-	}
-}
-
-// processRegularCharacter handles regular character output.
-
-func processRegularCharacter(result *strings.Builder, state *sqlNormalizerState) {
-	current := state.current()
-
-	// Special handling for comma: remove any preceding whitespace
-	// Oracle stores bind variables with space before comma (e.g., ":1 ,")
-	// but APM doesn't have these spaces, so we remove them to match APM hash
-	if current == ',' {
-		removeTrailingWhitespace(result)
-	}
-
-	result.WriteByte(current)
-	state.lastWasWhitespace = false
-	state.advance()
-}
 
 // processStringLiteral handles string literal in comment removal phase.
 // This is defensive code - literals should already be replaced in phase 1.
@@ -533,9 +496,9 @@ func processStringLiteral(result *strings.Builder, state *sqlNormalizerState) {
 	state.lastWasWhitespace = false
 }
 
-// removeCommentsAndNormalizeWhitespace strips all comments and normalizes whitespace.
+// removeCommentsAndNormalizeWhitespace strips all comments and removes all whitespace.
 // This is phase 2 of the normalization process.
-// Matches Java: removeCommentsAndNormalizeWhitespace()
+// Matches Java: removeCommentsAndNormalizeWhitespace() with stripWhitespace=true
 func removeCommentsAndNormalizeWhitespace(sql string) string {
 	var result strings.Builder
 	result.Grow(len(sql))
@@ -590,15 +553,17 @@ func removeCommentsAndNormalizeWhitespace(sql string) string {
 				skipToEndOfLine(state)
 			}
 		} else if current == ' ' || current == '\t' || current == '\n' || current == '\r' {
-			// Whitespace
-			processWhitespace(&result, state)
+			// stripWhitespace=true: just skip all whitespace (matches Java line 397-398)
+			state.advance()
 		} else {
-			// Regular character
+			// Regular character: just append (matches Java line 403-405)
 			seenSQLContent = true
-			processRegularCharacter(&result, state)
+			result.WriteByte(current)
+			state.advance()
 		}
 	}
 
+	// Matches Java line 412: trim() at the end
 	return strings.TrimSpace(result.String())
 }
 
