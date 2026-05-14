@@ -4,6 +4,13 @@ $defs:
     description: MetricsConfig provides config for oracledb metrics.
     type: object
     properties:
+      oracledb.buffer_cache.hit_ratio:
+        description: "OracledbBufferCacheHitRatioMetricConfig provides config for the oracledb.buffer_cache.hit_ratio metric."
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: false
       oracledb.consistent_gets:
         description: "OracledbConsistentGetsMetricConfig provides config for the oracledb.consistent_gets metric."
         type: object
@@ -20,6 +27,20 @@ $defs:
             default: true
       oracledb.data_dictionary.hit_ratio:
         description: "OracledbDataDictionaryHitRatioMetricConfig provides config for the oracledb.data_dictionary.hit_ratio metric."
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: false
+      oracledb.database.cpu_time_ratio:
+        description: "OracledbDatabaseCPUTimeRatioMetricConfig provides config for the oracledb.database.cpu_time_ratio metric."
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: false
+      oracledb.database.wait_time_ratio:
+        description: "OracledbDatabaseWaitTimeRatioMetricConfig provides config for the oracledb.database.wait_time_ratio metric."
         type: object
         properties:
           enabled:
@@ -102,6 +123,13 @@ $defs:
           enabled:
             type: boolean
             default: true
+      oracledb.execute_without_parse.ratio:
+        description: "OracledbExecuteWithoutParseRatioMetricConfig provides config for the oracledb.execute_without_parse.ratio metric."
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: false
       oracledb.executions:
         description: "OracledbExecutionsMetricConfig provides config for the oracledb.executions metric."
         type: object
@@ -116,6 +144,20 @@ $defs:
           enabled:
             type: boolean
             default: true
+      oracledb.host.cpu_utilization:
+        description: "OracledbHostCPUUtilizationMetricConfig provides config for the oracledb.host.cpu_utilization metric."
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: false
+      oracledb.library_cache.hit_ratio:
+        description: "OracledbLibraryCacheHitRatioMetricConfig provides config for the oracledb.library_cache.hit_ratio metric."
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: false
       oracledb.logical_reads:
         description: "OracledbLogicalReadsMetricConfig provides config for the oracledb.logical_reads metric."
         type: object
@@ -125,6 +167,13 @@ $defs:
             default: true
       oracledb.logons:
         description: "OracledbLogonsMetricConfig provides config for the oracledb.logons metric."
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: false
+      oracledb.memory_sorts.ratio:
+        description: "OracledbMemorySortsRatioMetricConfig provides config for the oracledb.memory_sorts.ratio metric."
         type: object
         properties:
           enabled:
@@ -179,6 +228,13 @@ $defs:
           enabled:
             type: boolean
             default: true
+      oracledb.parse_failures:
+        description: "OracledbParseFailuresMetricConfig provides config for the oracledb.parse_failures metric."
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: false
       oracledb.pga_memory:
         description: "OracledbPgaMemoryMetricConfig provides config for the oracledb.pga_memory metric."
         type: object
@@ -256,6 +312,13 @@ $defs:
           enabled:
             type: boolean
             default: false
+      oracledb.redo_allocation.hit_ratio:
+        description: "OracledbRedoAllocationHitRatioMetricConfig provides config for the oracledb.redo_allocation.hit_ratio metric."
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: false
       oracledb.sessions.limit:
         description: "OracledbSessionsLimitMetricConfig provides config for the oracledb.sessions.limit metric."
         type: object
@@ -288,6 +351,27 @@ $defs:
             default:
               - "session_type"
               - "session_status"
+      oracledb.shared_pool.free:
+        description: "OracledbSharedPoolFreeMetricConfig provides config for the oracledb.shared_pool.free metric."
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: false
+      oracledb.soft_parse.ratio:
+        description: "OracledbSoftParseRatioMetricConfig provides config for the oracledb.soft_parse.ratio metric."
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: false
+      oracledb.sql_service.response_time:
+        description: "OracledbSQLServiceResponseTimeMetricConfig provides config for the oracledb.sql_service.response_time metric."
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: false
       oracledb.storage.usage:
         description: "OracledbStorageUsageMetricConfig provides config for the oracledb.storage.usage metric."
         type: object

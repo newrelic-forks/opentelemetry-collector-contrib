@@ -252,6 +252,13 @@ events:
       - oracledb.procedure_name
       - oracledb.procedure_type
 metrics:
+  oracledb.buffer_cache.hit_ratio:
+    description: Buffer cache hit ratio as computed by Oracle (V$SYSMETRIC). Percentage of logical reads served from the buffer cache without physical disk I/O.
+    enabled: false
+    stability: development
+    gauge:
+      value_type: double
+    unit: "%"
   oracledb.consistent_gets:
     description: Number of times a consistent read was requested for a block from the buffer cache.
     enabled: false
@@ -273,6 +280,20 @@ metrics:
     unit: s
   oracledb.data_dictionary.hit_ratio:
     description: Data dictionary cache hit ratio from v$rowcache.
+    enabled: false
+    stability: development
+    gauge:
+      value_type: double
+    unit: "%"
+  oracledb.database.cpu_time_ratio:
+    description: Ratio of database CPU time to total database time, as computed by Oracle (V$SYSMETRIC). Indicates what fraction of total wait+CPU time was spent on CPU.
+    enabled: false
+    stability: development
+    gauge:
+      value_type: double
+    unit: "%"
+  oracledb.database.wait_time_ratio:
+    description: Ratio of database wait time to total database time, as computed by Oracle (V$SYSMETRIC). High values indicate contention.
     enabled: false
     stability: development
     gauge:
@@ -376,6 +397,13 @@ metrics:
       value_type: int
       input_type: string
     unit: "{deadlocks}"
+  oracledb.execute_without_parse.ratio:
+    description: Percentage of executions that did not require a parse, as computed by Oracle (V$SYSMETRIC). High values indicate good statement reuse.
+    enabled: false
+    stability: development
+    gauge:
+      value_type: double
+    unit: "%"
   oracledb.executions:
     description: Total number of calls (user and recursive) that executed SQL statements
     enabled: true
@@ -396,6 +424,20 @@ metrics:
       value_type: int
       input_type: string
     unit: "{parses}"
+  oracledb.host.cpu_utilization:
+    description: Host CPU utilization percentage as computed by Oracle (V$SYSMETRIC). Percentage of CPU time used by all processes on the host.
+    enabled: false
+    stability: development
+    gauge:
+      value_type: double
+    unit: "%"
+  oracledb.library_cache.hit_ratio:
+    description: Library cache hit ratio as computed by Oracle (V$SYSMETRIC). Percentage of times a library cache lookup found the object already loaded.
+    enabled: false
+    stability: development
+    gauge:
+      value_type: double
+    unit: "%"
   oracledb.logical_reads:
     description: Number of logical reads
     enabled: true
@@ -416,8 +458,13 @@ metrics:
       value_type: int
       input_type: string
     unit: "{operation}"
-
-
+  oracledb.memory_sorts.ratio:
+    description: Percentage of sorts performed in memory (vs disk), as computed by Oracle (V$SYSMETRIC). High values indicate sufficient PGA memory.
+    enabled: false
+    stability: development
+    gauge:
+      value_type: double
+    unit: "%"
   oracledb.parallel_operations_downgraded_1_to_25_pct:
     description: Number of times parallel execution was requested and the degree of parallelism was reduced down to 1-25% because of insufficient parallel execution servers
     enabled: false
@@ -488,6 +535,13 @@ metrics:
       value_type: int
       input_type: string
     unit: "{parses}"
+  oracledb.parse_failures:
+    description: Number of parse failures per second, as computed by Oracle (V$SYSMETRIC).
+    enabled: false
+    stability: development
+    gauge:
+      value_type: double
+    unit: "{failures}/s"
   oracledb.pga_memory:
     description: Session PGA (Program Global Area) memory
     enabled: true
@@ -591,6 +645,13 @@ metrics:
     gauge:
       value_type: double
     unit: By
+  oracledb.redo_allocation.hit_ratio:
+    description: Redo log allocation hit ratio as computed by Oracle (V$SYSMETRIC). Percentage of redo allocations that did not need to wait for space.
+    enabled: false
+    stability: development
+    gauge:
+      value_type: double
+    unit: "%"
   oracledb.sessions.limit:
     description: Maximum limit of active sessions, -1 if unlimited.
     enabled: true
@@ -610,6 +671,27 @@ metrics:
       value_type: int
       input_type: string
     unit: "{sessions}"
+  oracledb.shared_pool.free:
+    description: Percentage of the shared pool that is currently free, as computed by Oracle (V$SYSMETRIC).
+    enabled: false
+    stability: development
+    gauge:
+      value_type: double
+    unit: "%"
+  oracledb.soft_parse.ratio:
+    description: Percentage of soft parses to total parses, as computed by Oracle (V$SYSMETRIC). High values indicate good cursor reuse.
+    enabled: false
+    stability: development
+    gauge:
+      value_type: double
+    unit: "%"
+  oracledb.sql_service.response_time:
+    description: Average SQL service response time in seconds, as computed by Oracle (V$SYSMETRIC).
+    enabled: false
+    stability: development
+    gauge:
+      value_type: double
+    unit: s
   oracledb.storage.usage:
     description: Used database storage size from dba_data_files and dba_free_space.
     enabled: false

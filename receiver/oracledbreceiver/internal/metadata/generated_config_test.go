@@ -26,6 +26,9 @@ func TestMetricsBuilderConfig(t *testing.T) {
 			name: "all_set",
 			want: MetricsBuilderConfig{
 				Metrics: MetricsConfig{
+					OracledbBufferCacheHitRatio: OracledbBufferCacheHitRatioMetricConfig{
+						Enabled: true,
+					},
 					OracledbConsistentGets: OracledbConsistentGetsMetricConfig{
 						Enabled: true,
 					},
@@ -33,6 +36,12 @@ func TestMetricsBuilderConfig(t *testing.T) {
 						Enabled: true,
 					},
 					OracledbDataDictionaryHitRatio: OracledbDataDictionaryHitRatioMetricConfig{
+						Enabled: true,
+					},
+					OracledbDatabaseCPUTimeRatio: OracledbDatabaseCPUTimeRatioMetricConfig{
+						Enabled: true,
+					},
+					OracledbDatabaseWaitTimeRatio: OracledbDatabaseWaitTimeRatioMetricConfig{
 						Enabled: true,
 					},
 					OracledbDbBlockGets: OracledbDbBlockGetsMetricConfig{
@@ -68,16 +77,28 @@ func TestMetricsBuilderConfig(t *testing.T) {
 					OracledbExchangeDeadlocks: OracledbExchangeDeadlocksMetricConfig{
 						Enabled: true,
 					},
+					OracledbExecuteWithoutParseRatio: OracledbExecuteWithoutParseRatioMetricConfig{
+						Enabled: true,
+					},
 					OracledbExecutions: OracledbExecutionsMetricConfig{
 						Enabled: true,
 					},
 					OracledbHardParses: OracledbHardParsesMetricConfig{
 						Enabled: true,
 					},
+					OracledbHostCPUUtilization: OracledbHostCPUUtilizationMetricConfig{
+						Enabled: true,
+					},
+					OracledbLibraryCacheHitRatio: OracledbLibraryCacheHitRatioMetricConfig{
+						Enabled: true,
+					},
 					OracledbLogicalReads: OracledbLogicalReadsMetricConfig{
 						Enabled: true,
 					},
 					OracledbLogons: OracledbLogonsMetricConfig{
+						Enabled: true,
+					},
+					OracledbMemorySortsRatio: OracledbMemorySortsRatioMetricConfig{
 						Enabled: true,
 					},
 					OracledbParallelOperationsDowngraded1To25Pct: OracledbParallelOperationsDowngraded1To25PctMetricConfig{
@@ -99,6 +120,9 @@ func TestMetricsBuilderConfig(t *testing.T) {
 						Enabled: true,
 					},
 					OracledbParseCalls: OracledbParseCallsMetricConfig{
+						Enabled: true,
+					},
+					OracledbParseFailures: OracledbParseFailuresMetricConfig{
 						Enabled: true,
 					},
 					OracledbPgaMemory: OracledbPgaMemoryMetricConfig{
@@ -134,6 +158,9 @@ func TestMetricsBuilderConfig(t *testing.T) {
 					OracledbRecycleBinLimit: OracledbRecycleBinLimitMetricConfig{
 						Enabled: true,
 					},
+					OracledbRedoAllocationHitRatio: OracledbRedoAllocationHitRatioMetricConfig{
+						Enabled: true,
+					},
 					OracledbSessionsLimit: OracledbSessionsLimitMetricConfig{
 						Enabled: true,
 					},
@@ -141,6 +168,15 @@ func TestMetricsBuilderConfig(t *testing.T) {
 						Enabled:             true,
 						AggregationStrategy: AggregationStrategyAvg,
 						EnabledAttributes:   []OracledbSessionsUsageMetricAttributeKey{OracledbSessionsUsageMetricAttributeKeySessionType, OracledbSessionsUsageMetricAttributeKeySessionStatus},
+					},
+					OracledbSharedPoolFree: OracledbSharedPoolFreeMetricConfig{
+						Enabled: true,
+					},
+					OracledbSoftParseRatio: OracledbSoftParseRatioMetricConfig{
+						Enabled: true,
+					},
+					OracledbSQLServiceResponseTime: OracledbSQLServiceResponseTimeMetricConfig{
+						Enabled: true,
 					},
 					OracledbStorageUsage: OracledbStorageUsageMetricConfig{
 						Enabled: true,
@@ -182,6 +218,9 @@ func TestMetricsBuilderConfig(t *testing.T) {
 			name: "none_set",
 			want: MetricsBuilderConfig{
 				Metrics: MetricsConfig{
+					OracledbBufferCacheHitRatio: OracledbBufferCacheHitRatioMetricConfig{
+						Enabled: false,
+					},
 					OracledbConsistentGets: OracledbConsistentGetsMetricConfig{
 						Enabled: false,
 					},
@@ -189,6 +228,12 @@ func TestMetricsBuilderConfig(t *testing.T) {
 						Enabled: false,
 					},
 					OracledbDataDictionaryHitRatio: OracledbDataDictionaryHitRatioMetricConfig{
+						Enabled: false,
+					},
+					OracledbDatabaseCPUTimeRatio: OracledbDatabaseCPUTimeRatioMetricConfig{
+						Enabled: false,
+					},
+					OracledbDatabaseWaitTimeRatio: OracledbDatabaseWaitTimeRatioMetricConfig{
 						Enabled: false,
 					},
 					OracledbDbBlockGets: OracledbDbBlockGetsMetricConfig{
@@ -224,16 +269,28 @@ func TestMetricsBuilderConfig(t *testing.T) {
 					OracledbExchangeDeadlocks: OracledbExchangeDeadlocksMetricConfig{
 						Enabled: false,
 					},
+					OracledbExecuteWithoutParseRatio: OracledbExecuteWithoutParseRatioMetricConfig{
+						Enabled: false,
+					},
 					OracledbExecutions: OracledbExecutionsMetricConfig{
 						Enabled: false,
 					},
 					OracledbHardParses: OracledbHardParsesMetricConfig{
 						Enabled: false,
 					},
+					OracledbHostCPUUtilization: OracledbHostCPUUtilizationMetricConfig{
+						Enabled: false,
+					},
+					OracledbLibraryCacheHitRatio: OracledbLibraryCacheHitRatioMetricConfig{
+						Enabled: false,
+					},
 					OracledbLogicalReads: OracledbLogicalReadsMetricConfig{
 						Enabled: false,
 					},
 					OracledbLogons: OracledbLogonsMetricConfig{
+						Enabled: false,
+					},
+					OracledbMemorySortsRatio: OracledbMemorySortsRatioMetricConfig{
 						Enabled: false,
 					},
 					OracledbParallelOperationsDowngraded1To25Pct: OracledbParallelOperationsDowngraded1To25PctMetricConfig{
@@ -255,6 +312,9 @@ func TestMetricsBuilderConfig(t *testing.T) {
 						Enabled: false,
 					},
 					OracledbParseCalls: OracledbParseCallsMetricConfig{
+						Enabled: false,
+					},
+					OracledbParseFailures: OracledbParseFailuresMetricConfig{
 						Enabled: false,
 					},
 					OracledbPgaMemory: OracledbPgaMemoryMetricConfig{
@@ -290,6 +350,9 @@ func TestMetricsBuilderConfig(t *testing.T) {
 					OracledbRecycleBinLimit: OracledbRecycleBinLimitMetricConfig{
 						Enabled: false,
 					},
+					OracledbRedoAllocationHitRatio: OracledbRedoAllocationHitRatioMetricConfig{
+						Enabled: false,
+					},
 					OracledbSessionsLimit: OracledbSessionsLimitMetricConfig{
 						Enabled: false,
 					},
@@ -297,6 +360,15 @@ func TestMetricsBuilderConfig(t *testing.T) {
 						Enabled:             false,
 						AggregationStrategy: AggregationStrategyAvg,
 						EnabledAttributes:   []OracledbSessionsUsageMetricAttributeKey{OracledbSessionsUsageMetricAttributeKeySessionType, OracledbSessionsUsageMetricAttributeKeySessionStatus},
+					},
+					OracledbSharedPoolFree: OracledbSharedPoolFreeMetricConfig{
+						Enabled: false,
+					},
+					OracledbSoftParseRatio: OracledbSoftParseRatioMetricConfig{
+						Enabled: false,
+					},
+					OracledbSQLServiceResponseTime: OracledbSQLServiceResponseTimeMetricConfig{
+						Enabled: false,
 					},
 					OracledbStorageUsage: OracledbStorageUsageMetricConfig{
 						Enabled: false,
@@ -338,7 +410,7 @@ func TestMetricsBuilderConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := loadMetricsBuilderConfig(t, tt.name)
-			diff := cmp.Diff(tt.want, cfg, cmpopts.IgnoreUnexported(OracledbConsistentGetsMetricConfig{}, OracledbCPUTimeMetricConfig{}, OracledbDataDictionaryHitRatioMetricConfig{}, OracledbDbBlockGetsMetricConfig{}, OracledbDdlStatementsParallelizedMetricConfig{}, OracledbDmlLocksLimitMetricConfig{}, OracledbDmlLocksUsageMetricConfig{}, OracledbDmlStatementsParallelizedMetricConfig{}, OracledbEnqueueDeadlocksMetricConfig{}, OracledbEnqueueLocksLimitMetricConfig{}, OracledbEnqueueLocksUsageMetricConfig{}, OracledbEnqueueResourcesLimitMetricConfig{}, OracledbEnqueueResourcesUsageMetricConfig{}, OracledbExchangeDeadlocksMetricConfig{}, OracledbExecutionsMetricConfig{}, OracledbHardParsesMetricConfig{}, OracledbLogicalReadsMetricConfig{}, OracledbLogonsMetricConfig{}, OracledbParallelOperationsDowngraded1To25PctMetricConfig{}, OracledbParallelOperationsDowngraded25To50PctMetricConfig{}, OracledbParallelOperationsDowngraded50To75PctMetricConfig{}, OracledbParallelOperationsDowngraded75To99PctMetricConfig{}, OracledbParallelOperationsDowngradedToSerialMetricConfig{}, OracledbParallelOperationsNotDowngradedMetricConfig{}, OracledbParseCallsMetricConfig{}, OracledbPgaMemoryMetricConfig{}, OracledbPhysicalReadIoRequestsMetricConfig{}, OracledbPhysicalReadsMetricConfig{}, OracledbPhysicalReadsDirectMetricConfig{}, OracledbPhysicalWriteIoRequestsMetricConfig{}, OracledbPhysicalWritesMetricConfig{}, OracledbPhysicalWritesDirectMetricConfig{}, OracledbProcessesLimitMetricConfig{}, OracledbProcessesUsageMetricConfig{}, OracledbQueriesParallelizedMetricConfig{}, OracledbRecycleBinLimitMetricConfig{}, OracledbSessionsLimitMetricConfig{}, OracledbSessionsUsageMetricConfig{}, OracledbStorageUsageMetricConfig{}, OracledbStorageUtilizationMetricConfig{}, OracledbTablespaceSizeLimitMetricConfig{}, OracledbTablespaceSizeUsageMetricConfig{}, OracledbTransactionsLimitMetricConfig{}, OracledbTransactionsUsageMetricConfig{}, OracledbUserCommitsMetricConfig{}, OracledbUserRollbacksMetricConfig{}, ResourceAttributeConfig{}))
+			diff := cmp.Diff(tt.want, cfg, cmpopts.IgnoreUnexported(OracledbBufferCacheHitRatioMetricConfig{}, OracledbConsistentGetsMetricConfig{}, OracledbCPUTimeMetricConfig{}, OracledbDataDictionaryHitRatioMetricConfig{}, OracledbDatabaseCPUTimeRatioMetricConfig{}, OracledbDatabaseWaitTimeRatioMetricConfig{}, OracledbDbBlockGetsMetricConfig{}, OracledbDdlStatementsParallelizedMetricConfig{}, OracledbDmlLocksLimitMetricConfig{}, OracledbDmlLocksUsageMetricConfig{}, OracledbDmlStatementsParallelizedMetricConfig{}, OracledbEnqueueDeadlocksMetricConfig{}, OracledbEnqueueLocksLimitMetricConfig{}, OracledbEnqueueLocksUsageMetricConfig{}, OracledbEnqueueResourcesLimitMetricConfig{}, OracledbEnqueueResourcesUsageMetricConfig{}, OracledbExchangeDeadlocksMetricConfig{}, OracledbExecuteWithoutParseRatioMetricConfig{}, OracledbExecutionsMetricConfig{}, OracledbHardParsesMetricConfig{}, OracledbHostCPUUtilizationMetricConfig{}, OracledbLibraryCacheHitRatioMetricConfig{}, OracledbLogicalReadsMetricConfig{}, OracledbLogonsMetricConfig{}, OracledbMemorySortsRatioMetricConfig{}, OracledbParallelOperationsDowngraded1To25PctMetricConfig{}, OracledbParallelOperationsDowngraded25To50PctMetricConfig{}, OracledbParallelOperationsDowngraded50To75PctMetricConfig{}, OracledbParallelOperationsDowngraded75To99PctMetricConfig{}, OracledbParallelOperationsDowngradedToSerialMetricConfig{}, OracledbParallelOperationsNotDowngradedMetricConfig{}, OracledbParseCallsMetricConfig{}, OracledbParseFailuresMetricConfig{}, OracledbPgaMemoryMetricConfig{}, OracledbPhysicalReadIoRequestsMetricConfig{}, OracledbPhysicalReadsMetricConfig{}, OracledbPhysicalReadsDirectMetricConfig{}, OracledbPhysicalWriteIoRequestsMetricConfig{}, OracledbPhysicalWritesMetricConfig{}, OracledbPhysicalWritesDirectMetricConfig{}, OracledbProcessesLimitMetricConfig{}, OracledbProcessesUsageMetricConfig{}, OracledbQueriesParallelizedMetricConfig{}, OracledbRecycleBinLimitMetricConfig{}, OracledbRedoAllocationHitRatioMetricConfig{}, OracledbSessionsLimitMetricConfig{}, OracledbSessionsUsageMetricConfig{}, OracledbSharedPoolFreeMetricConfig{}, OracledbSoftParseRatioMetricConfig{}, OracledbSQLServiceResponseTimeMetricConfig{}, OracledbStorageUsageMetricConfig{}, OracledbStorageUtilizationMetricConfig{}, OracledbTablespaceSizeLimitMetricConfig{}, OracledbTablespaceSizeUsageMetricConfig{}, OracledbTransactionsLimitMetricConfig{}, OracledbTransactionsUsageMetricConfig{}, OracledbUserCommitsMetricConfig{}, OracledbUserRollbacksMetricConfig{}, ResourceAttributeConfig{}))
 			require.Emptyf(t, diff, "Config mismatch (-expected +actual):\n%s", diff)
 		})
 	}

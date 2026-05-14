@@ -36,6 +36,22 @@ import (
 
 const (
 	statsSQL                       = "select * from v$sysstat"
+	sysmetricSQL                   = "SELECT metric_name, value FROM v$sysmetric WHERE group_id = 2"
+
+	// V$SYSMETRIC metric_name values (group_id=2, 60-second interval)
+	sysmetricBufferCacheHitRatio      = "Buffer Cache Hit Ratio"
+	sysmetricHostCPUUtilization       = "Host CPU Utilization (%)"
+	sysmetricDatabaseCPUTimeRatio     = "Database CPU Time Ratio"
+	sysmetricLibraryCacheHitRatio     = "Library Cache Hit Ratio"
+	sysmetricSharedPoolFreePct        = "Shared Pool Free %"
+	sysmetricDatabaseWaitTimeRatio    = "Database Wait Time Ratio"
+	sysmetricSoftParseRatio           = "Soft Parse Ratio"
+	sysmetricSQLServiceResponseTime   = "SQL Service Response Time"
+	sysmetricMemorySortsRatio         = "Memory Sorts Ratio"
+	sysmetricRedoAllocationHitRatio   = "Redo Allocation Hit Ratio"
+	sysmetricParseFailureCount        = "Parse Failure Count Per Sec"
+	sysmetricExecuteWithoutParseRatio = "Execute Without Parse Ratio"
+
 	enqueueDeadlocks               = "enqueue deadlocks"
 	exchangeDeadlocks              = "exchange deadlocks"
 	executeCount                   = "execute count"
@@ -134,6 +150,7 @@ type oracleScraper struct {
 	dataDictHitRatioClient     dbClient
 	recycleBinSizeClient       dbClient
 	storageUsageClient         dbClient
+	sysmetricClient            dbClient
 	db                         *sql.DB
 	clientProviderFunc         clientProviderFunc
 	mb                         *metadata.MetricsBuilder
@@ -207,6 +224,7 @@ func (s *oracleScraper) start(context.Context, component.Host) error {
 	s.dataDictHitRatioClient = s.clientProviderFunc(s.db, dataDictHitRatioSQL, s.logger)
 	s.recycleBinSizeClient = s.clientProviderFunc(s.db, recycleBinSizeSQL, s.logger)
 	s.storageUsageClient = s.clientProviderFunc(s.db, storageUsageSQL, s.logger)
+	s.sysmetricClient = s.clientProviderFunc(s.db, sysmetricSQL, s.logger)
 	return nil
 }
 
@@ -532,6 +550,7 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 	s.collectDataDictHitRatio(ctx, &scrapeErrors)
 	s.collectRecycleBinSize(ctx, &scrapeErrors)
 	s.collectStorageUsage(ctx, &scrapeErrors)
+	s.collectSysMetrics(ctx, &scrapeErrors)
 
 	rb := s.setupResourceBuilder(s.mb.NewResourceBuilder())
 
@@ -611,6 +630,92 @@ func (s *oracleScraper) collectStorageUsage(ctx context.Context, scrapeErrors *[
 		if s.metricsBuilderConfig.Metrics.OracledbStorageUtilization.Enabled && allocatedBytes > 0 {
 			utilization := usedBytes / allocatedBytes
 			s.mb.RecordOracledbStorageUtilizationDataPoint(now, utilization)
+		}
+	}
+}
+
+func (s *oracleScraper) collectSysMetrics(ctx context.Context, scrapeErrors *[]error) {
+	anySysmetricEnabled :=
+		s.metricsBuilderConfig.Metrics.OracledbBufferCacheHitRatio.Enabled ||
+			s.metricsBuilderConfig.Metrics.OracledbHostCPUUtilization.Enabled ||
+			s.metricsBuilderConfig.Metrics.OracledbDatabaseCPUTimeRatio.Enabled ||
+			s.metricsBuilderConfig.Metrics.OracledbLibraryCacheHitRatio.Enabled ||
+			s.metricsBuilderConfig.Metrics.OracledbSharedPoolFree.Enabled ||
+			s.metricsBuilderConfig.Metrics.OracledbDatabaseWaitTimeRatio.Enabled ||
+			s.metricsBuilderConfig.Metrics.OracledbSoftParseRatio.Enabled ||
+			s.metricsBuilderConfig.Metrics.OracledbSQLServiceResponseTime.Enabled ||
+			s.metricsBuilderConfig.Metrics.OracledbMemorySortsRatio.Enabled ||
+			s.metricsBuilderConfig.Metrics.OracledbRedoAllocationHitRatio.Enabled ||
+			s.metricsBuilderConfig.Metrics.OracledbParseFailures.Enabled ||
+			s.metricsBuilderConfig.Metrics.OracledbExecuteWithoutParseRatio.Enabled
+	if !anySysmetricEnabled {
+		return
+	}
+
+	now := pcommon.NewTimestampFromTime(time.Now())
+	rows, err := s.sysmetricClient.metricRows(ctx)
+	if err != nil {
+		*scrapeErrors = append(*scrapeErrors, fmt.Errorf("error executing %s: %w", sysmetricSQL, err))
+		return
+	}
+
+	for _, row := range rows {
+		metricName := row["METRIC_NAME"]
+		rawVal := row["VALUE"]
+		val, parseErr := strconv.ParseFloat(rawVal, 64)
+		if parseErr != nil {
+			*scrapeErrors = append(*scrapeErrors, fmt.Errorf("sysmetric %q: failed to parse float64 from %q: %w", metricName, rawVal, parseErr))
+			continue
+		}
+		switch metricName {
+		case sysmetricBufferCacheHitRatio:
+			if s.metricsBuilderConfig.Metrics.OracledbBufferCacheHitRatio.Enabled {
+				s.mb.RecordOracledbBufferCacheHitRatioDataPoint(now, val)
+			}
+		case sysmetricHostCPUUtilization:
+			if s.metricsBuilderConfig.Metrics.OracledbHostCPUUtilization.Enabled {
+				s.mb.RecordOracledbHostCPUUtilizationDataPoint(now, val)
+			}
+		case sysmetricDatabaseCPUTimeRatio:
+			if s.metricsBuilderConfig.Metrics.OracledbDatabaseCPUTimeRatio.Enabled {
+				s.mb.RecordOracledbDatabaseCPUTimeRatioDataPoint(now, val)
+			}
+		case sysmetricLibraryCacheHitRatio:
+			if s.metricsBuilderConfig.Metrics.OracledbLibraryCacheHitRatio.Enabled {
+				s.mb.RecordOracledbLibraryCacheHitRatioDataPoint(now, val)
+			}
+		case sysmetricSharedPoolFreePct:
+			if s.metricsBuilderConfig.Metrics.OracledbSharedPoolFree.Enabled {
+				s.mb.RecordOracledbSharedPoolFreeDataPoint(now, val)
+			}
+		case sysmetricDatabaseWaitTimeRatio:
+			if s.metricsBuilderConfig.Metrics.OracledbDatabaseWaitTimeRatio.Enabled {
+				s.mb.RecordOracledbDatabaseWaitTimeRatioDataPoint(now, val)
+			}
+		case sysmetricSoftParseRatio:
+			if s.metricsBuilderConfig.Metrics.OracledbSoftParseRatio.Enabled {
+				s.mb.RecordOracledbSoftParseRatioDataPoint(now, val)
+			}
+		case sysmetricSQLServiceResponseTime:
+			if s.metricsBuilderConfig.Metrics.OracledbSQLServiceResponseTime.Enabled {
+				s.mb.RecordOracledbSQLServiceResponseTimeDataPoint(now, val)
+			}
+		case sysmetricMemorySortsRatio:
+			if s.metricsBuilderConfig.Metrics.OracledbMemorySortsRatio.Enabled {
+				s.mb.RecordOracledbMemorySortsRatioDataPoint(now, val)
+			}
+		case sysmetricRedoAllocationHitRatio:
+			if s.metricsBuilderConfig.Metrics.OracledbRedoAllocationHitRatio.Enabled {
+				s.mb.RecordOracledbRedoAllocationHitRatioDataPoint(now, val)
+			}
+		case sysmetricParseFailureCount:
+			if s.metricsBuilderConfig.Metrics.OracledbParseFailures.Enabled {
+				s.mb.RecordOracledbParseFailuresDataPoint(now, val)
+			}
+		case sysmetricExecuteWithoutParseRatio:
+			if s.metricsBuilderConfig.Metrics.OracledbExecuteWithoutParseRatio.Enabled {
+				s.mb.RecordOracledbExecuteWithoutParseRatioDataPoint(now, val)
+			}
 		}
 	}
 }

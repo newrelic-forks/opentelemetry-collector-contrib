@@ -52,6 +52,20 @@ var queryResponses = map[string][]metricRow{
 	dataDictHitRatioSQL: {{"DATA_DICTIONARY_HIT_RATIO": "98.75"}},
 	recycleBinSizeSQL:   {{"RECYCLE_BIN_SIZE_BYTES": "13107200"}},
 	storageUsageSQL:     {{"USED_DB_SIZE": "5368709120", "ALLOCATED_DB_SIZE": "10737418240"}},
+	sysmetricSQL: {
+		{"METRIC_NAME": "Buffer Cache Hit Ratio", "VALUE": "98.75"},
+		{"METRIC_NAME": "Host CPU Utilization (%)", "VALUE": "12.34"},
+		{"METRIC_NAME": "Database CPU Time Ratio", "VALUE": "55.66"},
+		{"METRIC_NAME": "Library Cache Hit Ratio", "VALUE": "99.10"},
+		{"METRIC_NAME": "Shared Pool Free %", "VALUE": "30.20"},
+		{"METRIC_NAME": "Database Wait Time Ratio", "VALUE": "44.55"},
+		{"METRIC_NAME": "Soft Parse Ratio", "VALUE": "88.90"},
+		{"METRIC_NAME": "SQL Service Response Time", "VALUE": "0.0042"},
+		{"METRIC_NAME": "Memory Sorts Ratio", "VALUE": "99.50"},
+		{"METRIC_NAME": "Redo Allocation Hit Ratio", "VALUE": "97.80"},
+		{"METRIC_NAME": "Parse Failure Count Per Sec", "VALUE": "0.25"},
+		{"METRIC_NAME": "Execute Without Parse Ratio", "VALUE": "75.30"},
+	},
 }
 
 var cacheValue = map[string]int64{
@@ -479,6 +493,113 @@ func TestSamplesQuery(t *testing.T) {
 				assert.Equal(t, "db.server.query_sample", logs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0).EventName())
 				assert.NoError(t, errs)
 			}
+		})
+	}
+}
+
+func TestScraper_ScrapeSysMetrics(t *testing.T) {
+	const floatDelta = 0.001
+
+	tests := []struct {
+		name      string
+		clientFn  func(db *sql.DB, s string, logger *zap.Logger) dbClient
+		errWanted string
+	}{
+		{
+			name: "valid sysmetric data",
+			clientFn: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+				return &fakeDbClient{
+					Responses: [][]metricRow{queryResponses[s]},
+				}
+			},
+		},
+		{
+			name: "bad sysmetric value",
+			clientFn: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+				if s == sysmetricSQL {
+					return &fakeDbClient{Responses: [][]metricRow{
+						{{"METRIC_NAME": "Buffer Cache Hit Ratio", "VALUE": "not_a_number"}},
+					}}
+				}
+				return &fakeDbClient{Responses: [][]metricRow{queryResponses[s]}}
+			},
+			errWanted: `sysmetric "Buffer Cache Hit Ratio": failed to parse float64`,
+		},
+		{
+			name: "sysmetric query error",
+			clientFn: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+				if s == sysmetricSQL {
+					return &fakeDbClient{Err: errors.New("db connection lost")}
+				}
+				return &fakeDbClient{Responses: [][]metricRow{queryResponses[s]}}
+			},
+			errWanted: "error executing SELECT metric_name",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := metadata.NewDefaultMetricsBuilderConfig()
+			cfg.Metrics.OracledbBufferCacheHitRatio.Enabled = true
+			cfg.Metrics.OracledbHostCPUUtilization.Enabled = true
+			cfg.Metrics.OracledbDatabaseCPUTimeRatio.Enabled = true
+			cfg.Metrics.OracledbLibraryCacheHitRatio.Enabled = true
+			cfg.Metrics.OracledbSharedPoolFree.Enabled = true
+			cfg.Metrics.OracledbDatabaseWaitTimeRatio.Enabled = true
+			cfg.Metrics.OracledbSoftParseRatio.Enabled = true
+			cfg.Metrics.OracledbSQLServiceResponseTime.Enabled = true
+			cfg.Metrics.OracledbMemorySortsRatio.Enabled = true
+			cfg.Metrics.OracledbRedoAllocationHitRatio.Enabled = true
+			cfg.Metrics.OracledbParseFailures.Enabled = true
+			cfg.Metrics.OracledbExecuteWithoutParseRatio.Enabled = true
+
+			scrpr := oracleScraper{
+				logger: zap.NewNop(),
+				mb:     metadata.NewMetricsBuilder(cfg, receivertest.NewNopSettings(metadata.Type)),
+				dbProviderFunc: func() (*sql.DB, error) {
+					return nil, nil
+				},
+				clientProviderFunc:   test.clientFn,
+				id:                   component.ID{},
+				metricsBuilderConfig: cfg,
+			}
+			err := scrpr.start(t.Context(), componenttest.NewNopHost())
+			require.NoError(t, err)
+			defer func() {
+				assert.NoError(t, scrpr.shutdown(t.Context()))
+			}()
+
+			m, err := scrpr.scrape(t.Context())
+
+			if test.errWanted != "" {
+				require.True(t, scrapererror.IsPartialScrapeError(err))
+				require.Contains(t, err.Error(), test.errWanted)
+				return
+			}
+
+			require.NoError(t, err)
+
+			metrics := m.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
+			metricMap := make(map[string]float64)
+			for i := 0; i < metrics.Len(); i++ {
+				metric := metrics.At(i)
+				if metric.Type() == pmetric.MetricTypeGauge && metric.Gauge().DataPoints().Len() > 0 {
+					metricMap[metric.Name()] = metric.Gauge().DataPoints().At(0).DoubleValue()
+				}
+			}
+
+			assert.InDelta(t, 98.75, metricMap["oracledb.buffer_cache.hit_ratio"], floatDelta)
+			assert.InDelta(t, 12.34, metricMap["oracledb.host.cpu_utilization"], floatDelta)
+			assert.InDelta(t, 55.66, metricMap["oracledb.database.cpu_time_ratio"], floatDelta)
+			assert.InDelta(t, 99.10, metricMap["oracledb.library_cache.hit_ratio"], floatDelta)
+			assert.InDelta(t, 30.20, metricMap["oracledb.shared_pool.free"], floatDelta)
+			assert.InDelta(t, 44.55, metricMap["oracledb.database.wait_time_ratio"], floatDelta)
+			assert.InDelta(t, 88.90, metricMap["oracledb.soft_parse.ratio"], floatDelta)
+			assert.InDelta(t, 0.0042, metricMap["oracledb.sql_service.response_time"], floatDelta)
+			assert.InDelta(t, 99.50, metricMap["oracledb.memory_sorts.ratio"], floatDelta)
+			assert.InDelta(t, 97.80, metricMap["oracledb.redo_allocation.hit_ratio"], floatDelta)
+			assert.InDelta(t, 0.25, metricMap["oracledb.parse_failures"], floatDelta)
+			assert.InDelta(t, 75.30, metricMap["oracledb.execute_without_parse.ratio"], floatDelta)
 		})
 	}
 }

@@ -1,11 +1,17 @@
 default:
 all_set:
   metrics:
+    oracledb.buffer_cache.hit_ratio:
+      enabled: true
     oracledb.consistent_gets:
       enabled: true
     oracledb.cpu_time:
       enabled: true
     oracledb.data_dictionary.hit_ratio:
+      enabled: true
+    oracledb.database.cpu_time_ratio:
+      enabled: true
+    oracledb.database.wait_time_ratio:
       enabled: true
     oracledb.db_block_gets:
       enabled: true
@@ -29,13 +35,21 @@ all_set:
       enabled: true
     oracledb.exchange_deadlocks:
       enabled: true
+    oracledb.execute_without_parse.ratio:
+      enabled: true
     oracledb.executions:
       enabled: true
     oracledb.hard_parses:
       enabled: true
+    oracledb.host.cpu_utilization:
+      enabled: true
+    oracledb.library_cache.hit_ratio:
+      enabled: true
     oracledb.logical_reads:
       enabled: true
     oracledb.logons:
+      enabled: true
+    oracledb.memory_sorts.ratio:
       enabled: true
     oracledb.parallel_operations_downgraded_1_to_25_pct:
       enabled: true
@@ -50,6 +64,8 @@ all_set:
     oracledb.parallel_operations_not_downgraded:
       enabled: true
     oracledb.parse_calls:
+      enabled: true
+    oracledb.parse_failures:
       enabled: true
     oracledb.pga_memory:
       enabled: true
@@ -73,11 +89,19 @@ all_set:
       enabled: true
     oracledb.recycle_bin.limit:
       enabled: true
+    oracledb.redo_allocation.hit_ratio:
+      enabled: true
     oracledb.sessions.limit:
       enabled: true
     oracledb.sessions.usage:
       enabled: true
       attributes: ["session_type","session_status"]
+    oracledb.shared_pool.free:
+      enabled: true
+    oracledb.soft_parse.ratio:
+      enabled: true
+    oracledb.sql_service.response_time:
+      enabled: true
     oracledb.storage.usage:
       enabled: true
     oracledb.storage.utilization:
@@ -110,11 +134,17 @@ all_set:
       enabled: true
 reaggregate_set:
   metrics:
+    oracledb.buffer_cache.hit_ratio:
+      enabled: true
     oracledb.consistent_gets:
       enabled: true
     oracledb.cpu_time:
       enabled: true
     oracledb.data_dictionary.hit_ratio:
+      enabled: true
+    oracledb.database.cpu_time_ratio:
+      enabled: true
+    oracledb.database.wait_time_ratio:
       enabled: true
     oracledb.db_block_gets:
       enabled: true
@@ -138,13 +168,21 @@ reaggregate_set:
       enabled: true
     oracledb.exchange_deadlocks:
       enabled: true
+    oracledb.execute_without_parse.ratio:
+      enabled: true
     oracledb.executions:
       enabled: true
     oracledb.hard_parses:
       enabled: true
+    oracledb.host.cpu_utilization:
+      enabled: true
+    oracledb.library_cache.hit_ratio:
+      enabled: true
     oracledb.logical_reads:
       enabled: true
     oracledb.logons:
+      enabled: true
+    oracledb.memory_sorts.ratio:
       enabled: true
     oracledb.parallel_operations_downgraded_1_to_25_pct:
       enabled: true
@@ -159,6 +197,8 @@ reaggregate_set:
     oracledb.parallel_operations_not_downgraded:
       enabled: true
     oracledb.parse_calls:
+      enabled: true
+    oracledb.parse_failures:
       enabled: true
     oracledb.pga_memory:
       enabled: true
@@ -182,11 +222,19 @@ reaggregate_set:
       enabled: true
     oracledb.recycle_bin.limit:
       enabled: true
+    oracledb.redo_allocation.hit_ratio:
+      enabled: true
     oracledb.sessions.limit:
       enabled: true
     oracledb.sessions.usage:
       enabled: true
       attributes: []
+    oracledb.shared_pool.free:
+      enabled: true
+    oracledb.soft_parse.ratio:
+      enabled: true
+    oracledb.sql_service.response_time:
+      enabled: true
     oracledb.storage.usage:
       enabled: true
     oracledb.storage.utilization:
@@ -219,11 +267,17 @@ reaggregate_set:
       enabled: true
 none_set:
   metrics:
+    oracledb.buffer_cache.hit_ratio:
+      enabled: false
     oracledb.consistent_gets:
       enabled: false
     oracledb.cpu_time:
       enabled: false
     oracledb.data_dictionary.hit_ratio:
+      enabled: false
+    oracledb.database.cpu_time_ratio:
+      enabled: false
+    oracledb.database.wait_time_ratio:
       enabled: false
     oracledb.db_block_gets:
       enabled: false
@@ -247,13 +301,21 @@ none_set:
       enabled: false
     oracledb.exchange_deadlocks:
       enabled: false
+    oracledb.execute_without_parse.ratio:
+      enabled: false
     oracledb.executions:
       enabled: false
     oracledb.hard_parses:
       enabled: false
+    oracledb.host.cpu_utilization:
+      enabled: false
+    oracledb.library_cache.hit_ratio:
+      enabled: false
     oracledb.logical_reads:
       enabled: false
     oracledb.logons:
+      enabled: false
+    oracledb.memory_sorts.ratio:
       enabled: false
     oracledb.parallel_operations_downgraded_1_to_25_pct:
       enabled: false
@@ -268,6 +330,8 @@ none_set:
     oracledb.parallel_operations_not_downgraded:
       enabled: false
     oracledb.parse_calls:
+      enabled: false
+    oracledb.parse_failures:
       enabled: false
     oracledb.pga_memory:
       enabled: false
@@ -291,11 +355,19 @@ none_set:
       enabled: false
     oracledb.recycle_bin.limit:
       enabled: false
+    oracledb.redo_allocation.hit_ratio:
+      enabled: false
     oracledb.sessions.limit:
       enabled: false
     oracledb.sessions.usage:
       enabled: false
       attributes: ["session_type","session_status"]
+    oracledb.shared_pool.free:
+      enabled: false
+    oracledb.soft_parse.ratio:
+      enabled: false
+    oracledb.sql_service.response_time:
+      enabled: false
     oracledb.storage.usage:
       enabled: false
     oracledb.storage.utilization:

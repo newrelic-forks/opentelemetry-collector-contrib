@@ -23,6 +23,9 @@ const (
 )
 
 var MetricsInfo = metricsInfo{
+	OracledbBufferCacheHitRatio: metricInfo{
+		Name: "oracledb.buffer_cache.hit_ratio",
+	},
 	OracledbConsistentGets: metricInfo{
 		Name: "oracledb.consistent_gets",
 	},
@@ -31,6 +34,12 @@ var MetricsInfo = metricsInfo{
 	},
 	OracledbDataDictionaryHitRatio: metricInfo{
 		Name: "oracledb.data_dictionary.hit_ratio",
+	},
+	OracledbDatabaseCPUTimeRatio: metricInfo{
+		Name: "oracledb.database.cpu_time_ratio",
+	},
+	OracledbDatabaseWaitTimeRatio: metricInfo{
+		Name: "oracledb.database.wait_time_ratio",
 	},
 	OracledbDbBlockGets: metricInfo{
 		Name: "oracledb.db_block_gets",
@@ -65,17 +74,29 @@ var MetricsInfo = metricsInfo{
 	OracledbExchangeDeadlocks: metricInfo{
 		Name: "oracledb.exchange_deadlocks",
 	},
+	OracledbExecuteWithoutParseRatio: metricInfo{
+		Name: "oracledb.execute_without_parse.ratio",
+	},
 	OracledbExecutions: metricInfo{
 		Name: "oracledb.executions",
 	},
 	OracledbHardParses: metricInfo{
 		Name: "oracledb.hard_parses",
 	},
+	OracledbHostCPUUtilization: metricInfo{
+		Name: "oracledb.host.cpu_utilization",
+	},
+	OracledbLibraryCacheHitRatio: metricInfo{
+		Name: "oracledb.library_cache.hit_ratio",
+	},
 	OracledbLogicalReads: metricInfo{
 		Name: "oracledb.logical_reads",
 	},
 	OracledbLogons: metricInfo{
 		Name: "oracledb.logons",
+	},
+	OracledbMemorySortsRatio: metricInfo{
+		Name: "oracledb.memory_sorts.ratio",
 	},
 	OracledbParallelOperationsDowngraded1To25Pct: metricInfo{
 		Name: "oracledb.parallel_operations_downgraded_1_to_25_pct",
@@ -97,6 +118,9 @@ var MetricsInfo = metricsInfo{
 	},
 	OracledbParseCalls: metricInfo{
 		Name: "oracledb.parse_calls",
+	},
+	OracledbParseFailures: metricInfo{
+		Name: "oracledb.parse_failures",
 	},
 	OracledbPgaMemory: metricInfo{
 		Name: "oracledb.pga_memory",
@@ -131,11 +155,23 @@ var MetricsInfo = metricsInfo{
 	OracledbRecycleBinLimit: metricInfo{
 		Name: "oracledb.recycle_bin.limit",
 	},
+	OracledbRedoAllocationHitRatio: metricInfo{
+		Name: "oracledb.redo_allocation.hit_ratio",
+	},
 	OracledbSessionsLimit: metricInfo{
 		Name: "oracledb.sessions.limit",
 	},
 	OracledbSessionsUsage: metricInfo{
 		Name: "oracledb.sessions.usage",
+	},
+	OracledbSharedPoolFree: metricInfo{
+		Name: "oracledb.shared_pool.free",
+	},
+	OracledbSoftParseRatio: metricInfo{
+		Name: "oracledb.soft_parse.ratio",
+	},
+	OracledbSQLServiceResponseTime: metricInfo{
+		Name: "oracledb.sql_service.response_time",
 	},
 	OracledbStorageUsage: metricInfo{
 		Name: "oracledb.storage.usage",
@@ -164,9 +200,12 @@ var MetricsInfo = metricsInfo{
 }
 
 type metricsInfo struct {
+	OracledbBufferCacheHitRatio                   metricInfo
 	OracledbConsistentGets                        metricInfo
 	OracledbCPUTime                               metricInfo
 	OracledbDataDictionaryHitRatio                metricInfo
+	OracledbDatabaseCPUTimeRatio                  metricInfo
+	OracledbDatabaseWaitTimeRatio                 metricInfo
 	OracledbDbBlockGets                           metricInfo
 	OracledbDdlStatementsParallelized             metricInfo
 	OracledbDmlLocksLimit                         metricInfo
@@ -178,10 +217,14 @@ type metricsInfo struct {
 	OracledbEnqueueResourcesLimit                 metricInfo
 	OracledbEnqueueResourcesUsage                 metricInfo
 	OracledbExchangeDeadlocks                     metricInfo
+	OracledbExecuteWithoutParseRatio              metricInfo
 	OracledbExecutions                            metricInfo
 	OracledbHardParses                            metricInfo
+	OracledbHostCPUUtilization                    metricInfo
+	OracledbLibraryCacheHitRatio                  metricInfo
 	OracledbLogicalReads                          metricInfo
 	OracledbLogons                                metricInfo
+	OracledbMemorySortsRatio                      metricInfo
 	OracledbParallelOperationsDowngraded1To25Pct  metricInfo
 	OracledbParallelOperationsDowngraded25To50Pct metricInfo
 	OracledbParallelOperationsDowngraded50To75Pct metricInfo
@@ -189,6 +232,7 @@ type metricsInfo struct {
 	OracledbParallelOperationsDowngradedToSerial  metricInfo
 	OracledbParallelOperationsNotDowngraded       metricInfo
 	OracledbParseCalls                            metricInfo
+	OracledbParseFailures                         metricInfo
 	OracledbPgaMemory                             metricInfo
 	OracledbPhysicalReadIoRequests                metricInfo
 	OracledbPhysicalReads                         metricInfo
@@ -200,8 +244,12 @@ type metricsInfo struct {
 	OracledbProcessesUsage                        metricInfo
 	OracledbQueriesParallelized                   metricInfo
 	OracledbRecycleBinLimit                       metricInfo
+	OracledbRedoAllocationHitRatio                metricInfo
 	OracledbSessionsLimit                         metricInfo
 	OracledbSessionsUsage                         metricInfo
+	OracledbSharedPoolFree                        metricInfo
+	OracledbSoftParseRatio                        metricInfo
+	OracledbSQLServiceResponseTime                metricInfo
 	OracledbStorageUsage                          metricInfo
 	OracledbStorageUtilization                    metricInfo
 	OracledbTablespaceSizeLimit                   metricInfo
@@ -214,6 +262,56 @@ type metricsInfo struct {
 
 type metricInfo struct {
 	Name string
+}
+
+type metricOracledbBufferCacheHitRatio struct {
+	data     pmetric.Metric                          // data buffer for generated metric.
+	config   OracledbBufferCacheHitRatioMetricConfig // metric config provided by user.
+	capacity int                                     // max observed number of data points added to the metric.
+}
+
+// init fills oracledb.buffer_cache.hit_ratio metric with initial data.
+func (m *metricOracledbBufferCacheHitRatio) init() {
+	m.data.SetName("oracledb.buffer_cache.hit_ratio")
+	m.data.SetDescription("Buffer cache hit ratio as computed by Oracle (V$SYSMETRIC). Percentage of logical reads served from the buffer cache without physical disk I/O.")
+	m.data.SetUnit("%")
+	m.data.SetEmptyGauge()
+}
+
+func (m *metricOracledbBufferCacheHitRatio) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetDoubleValue(val)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricOracledbBufferCacheHitRatio) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricOracledbBufferCacheHitRatio) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricOracledbBufferCacheHitRatio(cfg OracledbBufferCacheHitRatioMetricConfig) metricOracledbBufferCacheHitRatio {
+	m := metricOracledbBufferCacheHitRatio{config: cfg}
+
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
 }
 
 type metricOracledbConsistentGets struct {
@@ -362,6 +460,106 @@ func (m *metricOracledbDataDictionaryHitRatio) emit(metrics pmetric.MetricSlice)
 
 func newMetricOracledbDataDictionaryHitRatio(cfg OracledbDataDictionaryHitRatioMetricConfig) metricOracledbDataDictionaryHitRatio {
 	m := metricOracledbDataDictionaryHitRatio{config: cfg}
+
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricOracledbDatabaseCPUTimeRatio struct {
+	data     pmetric.Metric                           // data buffer for generated metric.
+	config   OracledbDatabaseCPUTimeRatioMetricConfig // metric config provided by user.
+	capacity int                                      // max observed number of data points added to the metric.
+}
+
+// init fills oracledb.database.cpu_time_ratio metric with initial data.
+func (m *metricOracledbDatabaseCPUTimeRatio) init() {
+	m.data.SetName("oracledb.database.cpu_time_ratio")
+	m.data.SetDescription("Ratio of database CPU time to total database time, as computed by Oracle (V$SYSMETRIC). Indicates what fraction of total wait+CPU time was spent on CPU.")
+	m.data.SetUnit("%")
+	m.data.SetEmptyGauge()
+}
+
+func (m *metricOracledbDatabaseCPUTimeRatio) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetDoubleValue(val)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricOracledbDatabaseCPUTimeRatio) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricOracledbDatabaseCPUTimeRatio) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricOracledbDatabaseCPUTimeRatio(cfg OracledbDatabaseCPUTimeRatioMetricConfig) metricOracledbDatabaseCPUTimeRatio {
+	m := metricOracledbDatabaseCPUTimeRatio{config: cfg}
+
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricOracledbDatabaseWaitTimeRatio struct {
+	data     pmetric.Metric                            // data buffer for generated metric.
+	config   OracledbDatabaseWaitTimeRatioMetricConfig // metric config provided by user.
+	capacity int                                       // max observed number of data points added to the metric.
+}
+
+// init fills oracledb.database.wait_time_ratio metric with initial data.
+func (m *metricOracledbDatabaseWaitTimeRatio) init() {
+	m.data.SetName("oracledb.database.wait_time_ratio")
+	m.data.SetDescription("Ratio of database wait time to total database time, as computed by Oracle (V$SYSMETRIC). High values indicate contention.")
+	m.data.SetUnit("%")
+	m.data.SetEmptyGauge()
+}
+
+func (m *metricOracledbDatabaseWaitTimeRatio) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetDoubleValue(val)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricOracledbDatabaseWaitTimeRatio) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricOracledbDatabaseWaitTimeRatio) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricOracledbDatabaseWaitTimeRatio(cfg OracledbDatabaseWaitTimeRatioMetricConfig) metricOracledbDatabaseWaitTimeRatio {
+	m := metricOracledbDatabaseWaitTimeRatio{config: cfg}
 
 	if cfg.Enabled {
 		m.data = pmetric.NewMetric()
@@ -930,6 +1128,56 @@ func newMetricOracledbExchangeDeadlocks(cfg OracledbExchangeDeadlocksMetricConfi
 	return m
 }
 
+type metricOracledbExecuteWithoutParseRatio struct {
+	data     pmetric.Metric                               // data buffer for generated metric.
+	config   OracledbExecuteWithoutParseRatioMetricConfig // metric config provided by user.
+	capacity int                                          // max observed number of data points added to the metric.
+}
+
+// init fills oracledb.execute_without_parse.ratio metric with initial data.
+func (m *metricOracledbExecuteWithoutParseRatio) init() {
+	m.data.SetName("oracledb.execute_without_parse.ratio")
+	m.data.SetDescription("Percentage of executions that did not require a parse, as computed by Oracle (V$SYSMETRIC). High values indicate good statement reuse.")
+	m.data.SetUnit("%")
+	m.data.SetEmptyGauge()
+}
+
+func (m *metricOracledbExecuteWithoutParseRatio) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetDoubleValue(val)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricOracledbExecuteWithoutParseRatio) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricOracledbExecuteWithoutParseRatio) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricOracledbExecuteWithoutParseRatio(cfg OracledbExecuteWithoutParseRatioMetricConfig) metricOracledbExecuteWithoutParseRatio {
+	m := metricOracledbExecuteWithoutParseRatio{config: cfg}
+
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
 type metricOracledbExecutions struct {
 	data     pmetric.Metric                 // data buffer for generated metric.
 	config   OracledbExecutionsMetricConfig // metric config provided by user.
@@ -1034,6 +1282,106 @@ func newMetricOracledbHardParses(cfg OracledbHardParsesMetricConfig) metricOracl
 	return m
 }
 
+type metricOracledbHostCPUUtilization struct {
+	data     pmetric.Metric                         // data buffer for generated metric.
+	config   OracledbHostCPUUtilizationMetricConfig // metric config provided by user.
+	capacity int                                    // max observed number of data points added to the metric.
+}
+
+// init fills oracledb.host.cpu_utilization metric with initial data.
+func (m *metricOracledbHostCPUUtilization) init() {
+	m.data.SetName("oracledb.host.cpu_utilization")
+	m.data.SetDescription("Host CPU utilization percentage as computed by Oracle (V$SYSMETRIC). Percentage of CPU time used by all processes on the host.")
+	m.data.SetUnit("%")
+	m.data.SetEmptyGauge()
+}
+
+func (m *metricOracledbHostCPUUtilization) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetDoubleValue(val)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricOracledbHostCPUUtilization) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricOracledbHostCPUUtilization) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricOracledbHostCPUUtilization(cfg OracledbHostCPUUtilizationMetricConfig) metricOracledbHostCPUUtilization {
+	m := metricOracledbHostCPUUtilization{config: cfg}
+
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricOracledbLibraryCacheHitRatio struct {
+	data     pmetric.Metric                           // data buffer for generated metric.
+	config   OracledbLibraryCacheHitRatioMetricConfig // metric config provided by user.
+	capacity int                                      // max observed number of data points added to the metric.
+}
+
+// init fills oracledb.library_cache.hit_ratio metric with initial data.
+func (m *metricOracledbLibraryCacheHitRatio) init() {
+	m.data.SetName("oracledb.library_cache.hit_ratio")
+	m.data.SetDescription("Library cache hit ratio as computed by Oracle (V$SYSMETRIC). Percentage of times a library cache lookup found the object already loaded.")
+	m.data.SetUnit("%")
+	m.data.SetEmptyGauge()
+}
+
+func (m *metricOracledbLibraryCacheHitRatio) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetDoubleValue(val)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricOracledbLibraryCacheHitRatio) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricOracledbLibraryCacheHitRatio) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricOracledbLibraryCacheHitRatio(cfg OracledbLibraryCacheHitRatioMetricConfig) metricOracledbLibraryCacheHitRatio {
+	m := metricOracledbLibraryCacheHitRatio{config: cfg}
+
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
 type metricOracledbLogicalReads struct {
 	data     pmetric.Metric                   // data buffer for generated metric.
 	config   OracledbLogicalReadsMetricConfig // metric config provided by user.
@@ -1130,6 +1478,56 @@ func (m *metricOracledbLogons) emit(metrics pmetric.MetricSlice) {
 
 func newMetricOracledbLogons(cfg OracledbLogonsMetricConfig) metricOracledbLogons {
 	m := metricOracledbLogons{config: cfg}
+
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricOracledbMemorySortsRatio struct {
+	data     pmetric.Metric                       // data buffer for generated metric.
+	config   OracledbMemorySortsRatioMetricConfig // metric config provided by user.
+	capacity int                                  // max observed number of data points added to the metric.
+}
+
+// init fills oracledb.memory_sorts.ratio metric with initial data.
+func (m *metricOracledbMemorySortsRatio) init() {
+	m.data.SetName("oracledb.memory_sorts.ratio")
+	m.data.SetDescription("Percentage of sorts performed in memory (vs disk), as computed by Oracle (V$SYSMETRIC). High values indicate sufficient PGA memory.")
+	m.data.SetUnit("%")
+	m.data.SetEmptyGauge()
+}
+
+func (m *metricOracledbMemorySortsRatio) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetDoubleValue(val)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricOracledbMemorySortsRatio) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricOracledbMemorySortsRatio) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricOracledbMemorySortsRatio(cfg OracledbMemorySortsRatioMetricConfig) metricOracledbMemorySortsRatio {
+	m := metricOracledbMemorySortsRatio{config: cfg}
 
 	if cfg.Enabled {
 		m.data = pmetric.NewMetric()
@@ -1494,6 +1892,56 @@ func (m *metricOracledbParseCalls) emit(metrics pmetric.MetricSlice) {
 
 func newMetricOracledbParseCalls(cfg OracledbParseCallsMetricConfig) metricOracledbParseCalls {
 	m := metricOracledbParseCalls{config: cfg}
+
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricOracledbParseFailures struct {
+	data     pmetric.Metric                    // data buffer for generated metric.
+	config   OracledbParseFailuresMetricConfig // metric config provided by user.
+	capacity int                               // max observed number of data points added to the metric.
+}
+
+// init fills oracledb.parse_failures metric with initial data.
+func (m *metricOracledbParseFailures) init() {
+	m.data.SetName("oracledb.parse_failures")
+	m.data.SetDescription("Number of parse failures per second, as computed by Oracle (V$SYSMETRIC).")
+	m.data.SetUnit("{failures}/s")
+	m.data.SetEmptyGauge()
+}
+
+func (m *metricOracledbParseFailures) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetDoubleValue(val)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricOracledbParseFailures) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricOracledbParseFailures) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricOracledbParseFailures(cfg OracledbParseFailuresMetricConfig) metricOracledbParseFailures {
+	m := metricOracledbParseFailures{config: cfg}
 
 	if cfg.Enabled {
 		m.data = pmetric.NewMetric()
@@ -2068,6 +2516,56 @@ func newMetricOracledbRecycleBinLimit(cfg OracledbRecycleBinLimitMetricConfig) m
 	return m
 }
 
+type metricOracledbRedoAllocationHitRatio struct {
+	data     pmetric.Metric                             // data buffer for generated metric.
+	config   OracledbRedoAllocationHitRatioMetricConfig // metric config provided by user.
+	capacity int                                        // max observed number of data points added to the metric.
+}
+
+// init fills oracledb.redo_allocation.hit_ratio metric with initial data.
+func (m *metricOracledbRedoAllocationHitRatio) init() {
+	m.data.SetName("oracledb.redo_allocation.hit_ratio")
+	m.data.SetDescription("Redo log allocation hit ratio as computed by Oracle (V$SYSMETRIC). Percentage of redo allocations that did not need to wait for space.")
+	m.data.SetUnit("%")
+	m.data.SetEmptyGauge()
+}
+
+func (m *metricOracledbRedoAllocationHitRatio) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetDoubleValue(val)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricOracledbRedoAllocationHitRatio) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricOracledbRedoAllocationHitRatio) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricOracledbRedoAllocationHitRatio(cfg OracledbRedoAllocationHitRatioMetricConfig) metricOracledbRedoAllocationHitRatio {
+	m := metricOracledbRedoAllocationHitRatio{config: cfg}
+
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
 type metricOracledbSessionsLimit struct {
 	data     pmetric.Metric                    // data buffer for generated metric.
 	config   OracledbSessionsLimitMetricConfig // metric config provided by user.
@@ -2202,6 +2700,156 @@ func (m *metricOracledbSessionsUsage) emit(metrics pmetric.MetricSlice) {
 
 func newMetricOracledbSessionsUsage(cfg OracledbSessionsUsageMetricConfig) metricOracledbSessionsUsage {
 	m := metricOracledbSessionsUsage{config: cfg}
+
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricOracledbSharedPoolFree struct {
+	data     pmetric.Metric                     // data buffer for generated metric.
+	config   OracledbSharedPoolFreeMetricConfig // metric config provided by user.
+	capacity int                                // max observed number of data points added to the metric.
+}
+
+// init fills oracledb.shared_pool.free metric with initial data.
+func (m *metricOracledbSharedPoolFree) init() {
+	m.data.SetName("oracledb.shared_pool.free")
+	m.data.SetDescription("Percentage of the shared pool that is currently free, as computed by Oracle (V$SYSMETRIC).")
+	m.data.SetUnit("%")
+	m.data.SetEmptyGauge()
+}
+
+func (m *metricOracledbSharedPoolFree) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetDoubleValue(val)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricOracledbSharedPoolFree) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricOracledbSharedPoolFree) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricOracledbSharedPoolFree(cfg OracledbSharedPoolFreeMetricConfig) metricOracledbSharedPoolFree {
+	m := metricOracledbSharedPoolFree{config: cfg}
+
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricOracledbSoftParseRatio struct {
+	data     pmetric.Metric                     // data buffer for generated metric.
+	config   OracledbSoftParseRatioMetricConfig // metric config provided by user.
+	capacity int                                // max observed number of data points added to the metric.
+}
+
+// init fills oracledb.soft_parse.ratio metric with initial data.
+func (m *metricOracledbSoftParseRatio) init() {
+	m.data.SetName("oracledb.soft_parse.ratio")
+	m.data.SetDescription("Percentage of soft parses to total parses, as computed by Oracle (V$SYSMETRIC). High values indicate good cursor reuse.")
+	m.data.SetUnit("%")
+	m.data.SetEmptyGauge()
+}
+
+func (m *metricOracledbSoftParseRatio) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetDoubleValue(val)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricOracledbSoftParseRatio) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricOracledbSoftParseRatio) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricOracledbSoftParseRatio(cfg OracledbSoftParseRatioMetricConfig) metricOracledbSoftParseRatio {
+	m := metricOracledbSoftParseRatio{config: cfg}
+
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricOracledbSQLServiceResponseTime struct {
+	data     pmetric.Metric                             // data buffer for generated metric.
+	config   OracledbSQLServiceResponseTimeMetricConfig // metric config provided by user.
+	capacity int                                        // max observed number of data points added to the metric.
+}
+
+// init fills oracledb.sql_service.response_time metric with initial data.
+func (m *metricOracledbSQLServiceResponseTime) init() {
+	m.data.SetName("oracledb.sql_service.response_time")
+	m.data.SetDescription("Average SQL service response time in seconds, as computed by Oracle (V$SYSMETRIC).")
+	m.data.SetUnit("s")
+	m.data.SetEmptyGauge()
+}
+
+func (m *metricOracledbSQLServiceResponseTime) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetDoubleValue(val)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricOracledbSQLServiceResponseTime) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricOracledbSQLServiceResponseTime) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricOracledbSQLServiceResponseTime(cfg OracledbSQLServiceResponseTimeMetricConfig) metricOracledbSQLServiceResponseTime {
+	m := metricOracledbSQLServiceResponseTime{config: cfg}
 
 	if cfg.Enabled {
 		m.data = pmetric.NewMetric()
@@ -2702,9 +3350,12 @@ type MetricsBuilder struct {
 	buildInfo                                           component.BuildInfo  // contains version information.
 	resourceAttributeIncludeFilter                      map[string]filter.Filter
 	resourceAttributeExcludeFilter                      map[string]filter.Filter
+	metricOracledbBufferCacheHitRatio                   metricOracledbBufferCacheHitRatio
 	metricOracledbConsistentGets                        metricOracledbConsistentGets
 	metricOracledbCPUTime                               metricOracledbCPUTime
 	metricOracledbDataDictionaryHitRatio                metricOracledbDataDictionaryHitRatio
+	metricOracledbDatabaseCPUTimeRatio                  metricOracledbDatabaseCPUTimeRatio
+	metricOracledbDatabaseWaitTimeRatio                 metricOracledbDatabaseWaitTimeRatio
 	metricOracledbDbBlockGets                           metricOracledbDbBlockGets
 	metricOracledbDdlStatementsParallelized             metricOracledbDdlStatementsParallelized
 	metricOracledbDmlLocksLimit                         metricOracledbDmlLocksLimit
@@ -2716,10 +3367,14 @@ type MetricsBuilder struct {
 	metricOracledbEnqueueResourcesLimit                 metricOracledbEnqueueResourcesLimit
 	metricOracledbEnqueueResourcesUsage                 metricOracledbEnqueueResourcesUsage
 	metricOracledbExchangeDeadlocks                     metricOracledbExchangeDeadlocks
+	metricOracledbExecuteWithoutParseRatio              metricOracledbExecuteWithoutParseRatio
 	metricOracledbExecutions                            metricOracledbExecutions
 	metricOracledbHardParses                            metricOracledbHardParses
+	metricOracledbHostCPUUtilization                    metricOracledbHostCPUUtilization
+	metricOracledbLibraryCacheHitRatio                  metricOracledbLibraryCacheHitRatio
 	metricOracledbLogicalReads                          metricOracledbLogicalReads
 	metricOracledbLogons                                metricOracledbLogons
+	metricOracledbMemorySortsRatio                      metricOracledbMemorySortsRatio
 	metricOracledbParallelOperationsDowngraded1To25Pct  metricOracledbParallelOperationsDowngraded1To25Pct
 	metricOracledbParallelOperationsDowngraded25To50Pct metricOracledbParallelOperationsDowngraded25To50Pct
 	metricOracledbParallelOperationsDowngraded50To75Pct metricOracledbParallelOperationsDowngraded50To75Pct
@@ -2727,6 +3382,7 @@ type MetricsBuilder struct {
 	metricOracledbParallelOperationsDowngradedToSerial  metricOracledbParallelOperationsDowngradedToSerial
 	metricOracledbParallelOperationsNotDowngraded       metricOracledbParallelOperationsNotDowngraded
 	metricOracledbParseCalls                            metricOracledbParseCalls
+	metricOracledbParseFailures                         metricOracledbParseFailures
 	metricOracledbPgaMemory                             metricOracledbPgaMemory
 	metricOracledbPhysicalReadIoRequests                metricOracledbPhysicalReadIoRequests
 	metricOracledbPhysicalReads                         metricOracledbPhysicalReads
@@ -2738,8 +3394,12 @@ type MetricsBuilder struct {
 	metricOracledbProcessesUsage                        metricOracledbProcessesUsage
 	metricOracledbQueriesParallelized                   metricOracledbQueriesParallelized
 	metricOracledbRecycleBinLimit                       metricOracledbRecycleBinLimit
+	metricOracledbRedoAllocationHitRatio                metricOracledbRedoAllocationHitRatio
 	metricOracledbSessionsLimit                         metricOracledbSessionsLimit
 	metricOracledbSessionsUsage                         metricOracledbSessionsUsage
+	metricOracledbSharedPoolFree                        metricOracledbSharedPoolFree
+	metricOracledbSoftParseRatio                        metricOracledbSoftParseRatio
+	metricOracledbSQLServiceResponseTime                metricOracledbSQLServiceResponseTime
 	metricOracledbStorageUsage                          metricOracledbStorageUsage
 	metricOracledbStorageUtilization                    metricOracledbStorageUtilization
 	metricOracledbTablespaceSizeLimit                   metricOracledbTablespaceSizeLimit
@@ -2773,9 +3433,12 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		startTime:                                           pcommon.NewTimestampFromTime(time.Now()),
 		metricsBuffer:                                       pmetric.NewMetrics(),
 		buildInfo:                                           settings.BuildInfo,
+		metricOracledbBufferCacheHitRatio:                   newMetricOracledbBufferCacheHitRatio(mbc.Metrics.OracledbBufferCacheHitRatio),
 		metricOracledbConsistentGets:                        newMetricOracledbConsistentGets(mbc.Metrics.OracledbConsistentGets),
 		metricOracledbCPUTime:                               newMetricOracledbCPUTime(mbc.Metrics.OracledbCPUTime),
 		metricOracledbDataDictionaryHitRatio:                newMetricOracledbDataDictionaryHitRatio(mbc.Metrics.OracledbDataDictionaryHitRatio),
+		metricOracledbDatabaseCPUTimeRatio:                  newMetricOracledbDatabaseCPUTimeRatio(mbc.Metrics.OracledbDatabaseCPUTimeRatio),
+		metricOracledbDatabaseWaitTimeRatio:                 newMetricOracledbDatabaseWaitTimeRatio(mbc.Metrics.OracledbDatabaseWaitTimeRatio),
 		metricOracledbDbBlockGets:                           newMetricOracledbDbBlockGets(mbc.Metrics.OracledbDbBlockGets),
 		metricOracledbDdlStatementsParallelized:             newMetricOracledbDdlStatementsParallelized(mbc.Metrics.OracledbDdlStatementsParallelized),
 		metricOracledbDmlLocksLimit:                         newMetricOracledbDmlLocksLimit(mbc.Metrics.OracledbDmlLocksLimit),
@@ -2787,10 +3450,14 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		metricOracledbEnqueueResourcesLimit:                 newMetricOracledbEnqueueResourcesLimit(mbc.Metrics.OracledbEnqueueResourcesLimit),
 		metricOracledbEnqueueResourcesUsage:                 newMetricOracledbEnqueueResourcesUsage(mbc.Metrics.OracledbEnqueueResourcesUsage),
 		metricOracledbExchangeDeadlocks:                     newMetricOracledbExchangeDeadlocks(mbc.Metrics.OracledbExchangeDeadlocks),
+		metricOracledbExecuteWithoutParseRatio:              newMetricOracledbExecuteWithoutParseRatio(mbc.Metrics.OracledbExecuteWithoutParseRatio),
 		metricOracledbExecutions:                            newMetricOracledbExecutions(mbc.Metrics.OracledbExecutions),
 		metricOracledbHardParses:                            newMetricOracledbHardParses(mbc.Metrics.OracledbHardParses),
+		metricOracledbHostCPUUtilization:                    newMetricOracledbHostCPUUtilization(mbc.Metrics.OracledbHostCPUUtilization),
+		metricOracledbLibraryCacheHitRatio:                  newMetricOracledbLibraryCacheHitRatio(mbc.Metrics.OracledbLibraryCacheHitRatio),
 		metricOracledbLogicalReads:                          newMetricOracledbLogicalReads(mbc.Metrics.OracledbLogicalReads),
 		metricOracledbLogons:                                newMetricOracledbLogons(mbc.Metrics.OracledbLogons),
+		metricOracledbMemorySortsRatio:                      newMetricOracledbMemorySortsRatio(mbc.Metrics.OracledbMemorySortsRatio),
 		metricOracledbParallelOperationsDowngraded1To25Pct:  newMetricOracledbParallelOperationsDowngraded1To25Pct(mbc.Metrics.OracledbParallelOperationsDowngraded1To25Pct),
 		metricOracledbParallelOperationsDowngraded25To50Pct: newMetricOracledbParallelOperationsDowngraded25To50Pct(mbc.Metrics.OracledbParallelOperationsDowngraded25To50Pct),
 		metricOracledbParallelOperationsDowngraded50To75Pct: newMetricOracledbParallelOperationsDowngraded50To75Pct(mbc.Metrics.OracledbParallelOperationsDowngraded50To75Pct),
@@ -2798,6 +3465,7 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		metricOracledbParallelOperationsDowngradedToSerial:  newMetricOracledbParallelOperationsDowngradedToSerial(mbc.Metrics.OracledbParallelOperationsDowngradedToSerial),
 		metricOracledbParallelOperationsNotDowngraded:       newMetricOracledbParallelOperationsNotDowngraded(mbc.Metrics.OracledbParallelOperationsNotDowngraded),
 		metricOracledbParseCalls:                            newMetricOracledbParseCalls(mbc.Metrics.OracledbParseCalls),
+		metricOracledbParseFailures:                         newMetricOracledbParseFailures(mbc.Metrics.OracledbParseFailures),
 		metricOracledbPgaMemory:                             newMetricOracledbPgaMemory(mbc.Metrics.OracledbPgaMemory),
 		metricOracledbPhysicalReadIoRequests:                newMetricOracledbPhysicalReadIoRequests(mbc.Metrics.OracledbPhysicalReadIoRequests),
 		metricOracledbPhysicalReads:                         newMetricOracledbPhysicalReads(mbc.Metrics.OracledbPhysicalReads),
@@ -2809,8 +3477,12 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		metricOracledbProcessesUsage:                        newMetricOracledbProcessesUsage(mbc.Metrics.OracledbProcessesUsage),
 		metricOracledbQueriesParallelized:                   newMetricOracledbQueriesParallelized(mbc.Metrics.OracledbQueriesParallelized),
 		metricOracledbRecycleBinLimit:                       newMetricOracledbRecycleBinLimit(mbc.Metrics.OracledbRecycleBinLimit),
+		metricOracledbRedoAllocationHitRatio:                newMetricOracledbRedoAllocationHitRatio(mbc.Metrics.OracledbRedoAllocationHitRatio),
 		metricOracledbSessionsLimit:                         newMetricOracledbSessionsLimit(mbc.Metrics.OracledbSessionsLimit),
 		metricOracledbSessionsUsage:                         newMetricOracledbSessionsUsage(mbc.Metrics.OracledbSessionsUsage),
+		metricOracledbSharedPoolFree:                        newMetricOracledbSharedPoolFree(mbc.Metrics.OracledbSharedPoolFree),
+		metricOracledbSoftParseRatio:                        newMetricOracledbSoftParseRatio(mbc.Metrics.OracledbSoftParseRatio),
+		metricOracledbSQLServiceResponseTime:                newMetricOracledbSQLServiceResponseTime(mbc.Metrics.OracledbSQLServiceResponseTime),
 		metricOracledbStorageUsage:                          newMetricOracledbStorageUsage(mbc.Metrics.OracledbStorageUsage),
 		metricOracledbStorageUtilization:                    newMetricOracledbStorageUtilization(mbc.Metrics.OracledbStorageUtilization),
 		metricOracledbTablespaceSizeLimit:                   newMetricOracledbTablespaceSizeLimit(mbc.Metrics.OracledbTablespaceSizeLimit),
@@ -2909,9 +3581,12 @@ func (mb *MetricsBuilder) EmitForResource(options ...ResourceMetricsOption) {
 	ils.Scope().SetName(ScopeName)
 	ils.Scope().SetVersion(mb.buildInfo.Version)
 	ils.Metrics().EnsureCapacity(mb.metricsCapacity)
+	mb.metricOracledbBufferCacheHitRatio.emit(ils.Metrics())
 	mb.metricOracledbConsistentGets.emit(ils.Metrics())
 	mb.metricOracledbCPUTime.emit(ils.Metrics())
 	mb.metricOracledbDataDictionaryHitRatio.emit(ils.Metrics())
+	mb.metricOracledbDatabaseCPUTimeRatio.emit(ils.Metrics())
+	mb.metricOracledbDatabaseWaitTimeRatio.emit(ils.Metrics())
 	mb.metricOracledbDbBlockGets.emit(ils.Metrics())
 	mb.metricOracledbDdlStatementsParallelized.emit(ils.Metrics())
 	mb.metricOracledbDmlLocksLimit.emit(ils.Metrics())
@@ -2923,10 +3598,14 @@ func (mb *MetricsBuilder) EmitForResource(options ...ResourceMetricsOption) {
 	mb.metricOracledbEnqueueResourcesLimit.emit(ils.Metrics())
 	mb.metricOracledbEnqueueResourcesUsage.emit(ils.Metrics())
 	mb.metricOracledbExchangeDeadlocks.emit(ils.Metrics())
+	mb.metricOracledbExecuteWithoutParseRatio.emit(ils.Metrics())
 	mb.metricOracledbExecutions.emit(ils.Metrics())
 	mb.metricOracledbHardParses.emit(ils.Metrics())
+	mb.metricOracledbHostCPUUtilization.emit(ils.Metrics())
+	mb.metricOracledbLibraryCacheHitRatio.emit(ils.Metrics())
 	mb.metricOracledbLogicalReads.emit(ils.Metrics())
 	mb.metricOracledbLogons.emit(ils.Metrics())
+	mb.metricOracledbMemorySortsRatio.emit(ils.Metrics())
 	mb.metricOracledbParallelOperationsDowngraded1To25Pct.emit(ils.Metrics())
 	mb.metricOracledbParallelOperationsDowngraded25To50Pct.emit(ils.Metrics())
 	mb.metricOracledbParallelOperationsDowngraded50To75Pct.emit(ils.Metrics())
@@ -2934,6 +3613,7 @@ func (mb *MetricsBuilder) EmitForResource(options ...ResourceMetricsOption) {
 	mb.metricOracledbParallelOperationsDowngradedToSerial.emit(ils.Metrics())
 	mb.metricOracledbParallelOperationsNotDowngraded.emit(ils.Metrics())
 	mb.metricOracledbParseCalls.emit(ils.Metrics())
+	mb.metricOracledbParseFailures.emit(ils.Metrics())
 	mb.metricOracledbPgaMemory.emit(ils.Metrics())
 	mb.metricOracledbPhysicalReadIoRequests.emit(ils.Metrics())
 	mb.metricOracledbPhysicalReads.emit(ils.Metrics())
@@ -2945,8 +3625,12 @@ func (mb *MetricsBuilder) EmitForResource(options ...ResourceMetricsOption) {
 	mb.metricOracledbProcessesUsage.emit(ils.Metrics())
 	mb.metricOracledbQueriesParallelized.emit(ils.Metrics())
 	mb.metricOracledbRecycleBinLimit.emit(ils.Metrics())
+	mb.metricOracledbRedoAllocationHitRatio.emit(ils.Metrics())
 	mb.metricOracledbSessionsLimit.emit(ils.Metrics())
 	mb.metricOracledbSessionsUsage.emit(ils.Metrics())
+	mb.metricOracledbSharedPoolFree.emit(ils.Metrics())
+	mb.metricOracledbSoftParseRatio.emit(ils.Metrics())
+	mb.metricOracledbSQLServiceResponseTime.emit(ils.Metrics())
 	mb.metricOracledbStorageUsage.emit(ils.Metrics())
 	mb.metricOracledbStorageUtilization.emit(ils.Metrics())
 	mb.metricOracledbTablespaceSizeLimit.emit(ils.Metrics())
@@ -2986,6 +3670,11 @@ func (mb *MetricsBuilder) Emit(options ...ResourceMetricsOption) pmetric.Metrics
 	return metrics
 }
 
+// RecordOracledbBufferCacheHitRatioDataPoint adds a data point to oracledb.buffer_cache.hit_ratio metric.
+func (mb *MetricsBuilder) RecordOracledbBufferCacheHitRatioDataPoint(ts pcommon.Timestamp, val float64) {
+	mb.metricOracledbBufferCacheHitRatio.recordDataPoint(mb.startTime, ts, val)
+}
+
 // RecordOracledbConsistentGetsDataPoint adds a data point to oracledb.consistent_gets metric.
 func (mb *MetricsBuilder) RecordOracledbConsistentGetsDataPoint(ts pcommon.Timestamp, inputVal string) error {
 	val, err := strconv.ParseInt(inputVal, 10, 64)
@@ -3004,6 +3693,16 @@ func (mb *MetricsBuilder) RecordOracledbCPUTimeDataPoint(ts pcommon.Timestamp, v
 // RecordOracledbDataDictionaryHitRatioDataPoint adds a data point to oracledb.data_dictionary.hit_ratio metric.
 func (mb *MetricsBuilder) RecordOracledbDataDictionaryHitRatioDataPoint(ts pcommon.Timestamp, val float64) {
 	mb.metricOracledbDataDictionaryHitRatio.recordDataPoint(mb.startTime, ts, val)
+}
+
+// RecordOracledbDatabaseCPUTimeRatioDataPoint adds a data point to oracledb.database.cpu_time_ratio metric.
+func (mb *MetricsBuilder) RecordOracledbDatabaseCPUTimeRatioDataPoint(ts pcommon.Timestamp, val float64) {
+	mb.metricOracledbDatabaseCPUTimeRatio.recordDataPoint(mb.startTime, ts, val)
+}
+
+// RecordOracledbDatabaseWaitTimeRatioDataPoint adds a data point to oracledb.database.wait_time_ratio metric.
+func (mb *MetricsBuilder) RecordOracledbDatabaseWaitTimeRatioDataPoint(ts pcommon.Timestamp, val float64) {
+	mb.metricOracledbDatabaseWaitTimeRatio.recordDataPoint(mb.startTime, ts, val)
 }
 
 // RecordOracledbDbBlockGetsDataPoint adds a data point to oracledb.db_block_gets metric.
@@ -3116,6 +3815,11 @@ func (mb *MetricsBuilder) RecordOracledbExchangeDeadlocksDataPoint(ts pcommon.Ti
 	return nil
 }
 
+// RecordOracledbExecuteWithoutParseRatioDataPoint adds a data point to oracledb.execute_without_parse.ratio metric.
+func (mb *MetricsBuilder) RecordOracledbExecuteWithoutParseRatioDataPoint(ts pcommon.Timestamp, val float64) {
+	mb.metricOracledbExecuteWithoutParseRatio.recordDataPoint(mb.startTime, ts, val)
+}
+
 // RecordOracledbExecutionsDataPoint adds a data point to oracledb.executions metric.
 func (mb *MetricsBuilder) RecordOracledbExecutionsDataPoint(ts pcommon.Timestamp, inputVal string) error {
 	val, err := strconv.ParseInt(inputVal, 10, 64)
@@ -3136,6 +3840,16 @@ func (mb *MetricsBuilder) RecordOracledbHardParsesDataPoint(ts pcommon.Timestamp
 	return nil
 }
 
+// RecordOracledbHostCPUUtilizationDataPoint adds a data point to oracledb.host.cpu_utilization metric.
+func (mb *MetricsBuilder) RecordOracledbHostCPUUtilizationDataPoint(ts pcommon.Timestamp, val float64) {
+	mb.metricOracledbHostCPUUtilization.recordDataPoint(mb.startTime, ts, val)
+}
+
+// RecordOracledbLibraryCacheHitRatioDataPoint adds a data point to oracledb.library_cache.hit_ratio metric.
+func (mb *MetricsBuilder) RecordOracledbLibraryCacheHitRatioDataPoint(ts pcommon.Timestamp, val float64) {
+	mb.metricOracledbLibraryCacheHitRatio.recordDataPoint(mb.startTime, ts, val)
+}
+
 // RecordOracledbLogicalReadsDataPoint adds a data point to oracledb.logical_reads metric.
 func (mb *MetricsBuilder) RecordOracledbLogicalReadsDataPoint(ts pcommon.Timestamp, inputVal string) error {
 	val, err := strconv.ParseInt(inputVal, 10, 64)
@@ -3154,6 +3868,11 @@ func (mb *MetricsBuilder) RecordOracledbLogonsDataPoint(ts pcommon.Timestamp, in
 	}
 	mb.metricOracledbLogons.recordDataPoint(mb.startTime, ts, val)
 	return nil
+}
+
+// RecordOracledbMemorySortsRatioDataPoint adds a data point to oracledb.memory_sorts.ratio metric.
+func (mb *MetricsBuilder) RecordOracledbMemorySortsRatioDataPoint(ts pcommon.Timestamp, val float64) {
+	mb.metricOracledbMemorySortsRatio.recordDataPoint(mb.startTime, ts, val)
 }
 
 // RecordOracledbParallelOperationsDowngraded1To25PctDataPoint adds a data point to oracledb.parallel_operations_downgraded_1_to_25_pct metric.
@@ -3224,6 +3943,11 @@ func (mb *MetricsBuilder) RecordOracledbParseCallsDataPoint(ts pcommon.Timestamp
 	}
 	mb.metricOracledbParseCalls.recordDataPoint(mb.startTime, ts, val)
 	return nil
+}
+
+// RecordOracledbParseFailuresDataPoint adds a data point to oracledb.parse_failures metric.
+func (mb *MetricsBuilder) RecordOracledbParseFailuresDataPoint(ts pcommon.Timestamp, val float64) {
+	mb.metricOracledbParseFailures.recordDataPoint(mb.startTime, ts, val)
 }
 
 // RecordOracledbPgaMemoryDataPoint adds a data point to oracledb.pga_memory metric.
@@ -3331,6 +4055,11 @@ func (mb *MetricsBuilder) RecordOracledbRecycleBinLimitDataPoint(ts pcommon.Time
 	mb.metricOracledbRecycleBinLimit.recordDataPoint(mb.startTime, ts, val)
 }
 
+// RecordOracledbRedoAllocationHitRatioDataPoint adds a data point to oracledb.redo_allocation.hit_ratio metric.
+func (mb *MetricsBuilder) RecordOracledbRedoAllocationHitRatioDataPoint(ts pcommon.Timestamp, val float64) {
+	mb.metricOracledbRedoAllocationHitRatio.recordDataPoint(mb.startTime, ts, val)
+}
+
 // RecordOracledbSessionsLimitDataPoint adds a data point to oracledb.sessions.limit metric.
 func (mb *MetricsBuilder) RecordOracledbSessionsLimitDataPoint(ts pcommon.Timestamp, inputVal string) error {
 	val, err := strconv.ParseInt(inputVal, 10, 64)
@@ -3349,6 +4078,21 @@ func (mb *MetricsBuilder) RecordOracledbSessionsUsageDataPoint(ts pcommon.Timest
 	}
 	mb.metricOracledbSessionsUsage.recordDataPoint(mb.startTime, ts, val, sessionTypeAttributeValue, sessionStatusAttributeValue)
 	return nil
+}
+
+// RecordOracledbSharedPoolFreeDataPoint adds a data point to oracledb.shared_pool.free metric.
+func (mb *MetricsBuilder) RecordOracledbSharedPoolFreeDataPoint(ts pcommon.Timestamp, val float64) {
+	mb.metricOracledbSharedPoolFree.recordDataPoint(mb.startTime, ts, val)
+}
+
+// RecordOracledbSoftParseRatioDataPoint adds a data point to oracledb.soft_parse.ratio metric.
+func (mb *MetricsBuilder) RecordOracledbSoftParseRatioDataPoint(ts pcommon.Timestamp, val float64) {
+	mb.metricOracledbSoftParseRatio.recordDataPoint(mb.startTime, ts, val)
+}
+
+// RecordOracledbSQLServiceResponseTimeDataPoint adds a data point to oracledb.sql_service.response_time metric.
+func (mb *MetricsBuilder) RecordOracledbSQLServiceResponseTimeDataPoint(ts pcommon.Timestamp, val float64) {
+	mb.metricOracledbSQLServiceResponseTime.recordDataPoint(mb.startTime, ts, val)
 }
 
 // RecordOracledbStorageUsageDataPoint adds a data point to oracledb.storage.usage metric.
