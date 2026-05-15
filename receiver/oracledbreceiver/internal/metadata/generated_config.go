@@ -349,10 +349,20 @@ func (ms *OracledbExchangeDeadlocksMetricConfig) Unmarshal(parser *confmap.Conf)
 	return nil
 }
 
+// OracledbExecutionUtilizationMetricAttributeKey specifies the key of an attribute for the oracledb.execution.utilization metric.
+type OracledbExecutionUtilizationMetricAttributeKey string
+
+const (
+	OracledbExecutionUtilizationMetricAttributeKeyParseType OracledbExecutionUtilizationMetricAttributeKey = "parse_type"
+)
+
 // OracledbExecutionUtilizationMetricConfig provides config for the oracledb.execution.utilization metric.
 type OracledbExecutionUtilizationMetricConfig struct {
 	Enabled          bool `mapstructure:"enabled"`
 	enabledSetByUser bool
+
+	AggregationStrategy string                                           `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []OracledbExecutionUtilizationMetricAttributeKey `mapstructure:"attributes"`
 }
 
 func (ms *OracledbExecutionUtilizationMetricConfig) Unmarshal(parser *confmap.Conf) error {
@@ -366,6 +376,24 @@ func (ms *OracledbExecutionUtilizationMetricConfig) Unmarshal(parser *confmap.Co
 	}
 
 	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *OracledbExecutionUtilizationMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case OracledbExecutionUtilizationMetricAttributeKeyParseType:
+		default:
+			return fmt.Errorf("metric oracledb.execution.utilization doesn't have an attribute %v, valid attributes: [parse_type]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
 	return nil
 }
 
@@ -609,13 +637,23 @@ func (ms *OracledbParallelOperationsNotDowngradedMetricConfig) Unmarshal(parser 
 	return nil
 }
 
-// OracledbParseFailuresMetricConfig provides config for the oracledb.parse.failures metric.
-type OracledbParseFailuresMetricConfig struct {
+// OracledbParseRateMetricAttributeKey specifies the key of an attribute for the oracledb.parse.rate metric.
+type OracledbParseRateMetricAttributeKey string
+
+const (
+	OracledbParseRateMetricAttributeKeyParseResult OracledbParseRateMetricAttributeKey = "parse_result"
+)
+
+// OracledbParseRateMetricConfig provides config for the oracledb.parse.rate metric.
+type OracledbParseRateMetricConfig struct {
 	Enabled          bool `mapstructure:"enabled"`
 	enabledSetByUser bool
+
+	AggregationStrategy string                                `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []OracledbParseRateMetricAttributeKey `mapstructure:"attributes"`
 }
 
-func (ms *OracledbParseFailuresMetricConfig) Unmarshal(parser *confmap.Conf) error {
+func (ms *OracledbParseRateMetricConfig) Unmarshal(parser *confmap.Conf) error {
 	if parser == nil {
 		return nil
 	}
@@ -626,6 +664,24 @@ func (ms *OracledbParseFailuresMetricConfig) Unmarshal(parser *confmap.Conf) err
 	}
 
 	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *OracledbParseRateMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case OracledbParseRateMetricAttributeKeyParseResult:
+		default:
+			return fmt.Errorf("metric oracledb.parse.rate doesn't have an attribute %v, valid attributes: [parse_result]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
 	return nil
 }
 
@@ -998,13 +1054,23 @@ func (ms *OracledbSharedPoolUtilizationMetricConfig) Unmarshal(parser *confmap.C
 	return nil
 }
 
-// OracledbSortUtilizationMetricConfig provides config for the oracledb.sort.utilization metric.
-type OracledbSortUtilizationMetricConfig struct {
+// OracledbSortRatioMetricAttributeKey specifies the key of an attribute for the oracledb.sort.ratio metric.
+type OracledbSortRatioMetricAttributeKey string
+
+const (
+	OracledbSortRatioMetricAttributeKeySortType OracledbSortRatioMetricAttributeKey = "sort_type"
+)
+
+// OracledbSortRatioMetricConfig provides config for the oracledb.sort.ratio metric.
+type OracledbSortRatioMetricConfig struct {
 	Enabled          bool `mapstructure:"enabled"`
 	enabledSetByUser bool
+
+	AggregationStrategy string                                `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []OracledbSortRatioMetricAttributeKey `mapstructure:"attributes"`
 }
 
-func (ms *OracledbSortUtilizationMetricConfig) Unmarshal(parser *confmap.Conf) error {
+func (ms *OracledbSortRatioMetricConfig) Unmarshal(parser *confmap.Conf) error {
 	if parser == nil {
 		return nil
 	}
@@ -1015,6 +1081,24 @@ func (ms *OracledbSortUtilizationMetricConfig) Unmarshal(parser *confmap.Conf) e
 	}
 
 	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *OracledbSortRatioMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case OracledbSortRatioMetricAttributeKeySortType:
+		default:
+			return fmt.Errorf("metric oracledb.sort.ratio doesn't have an attribute %v, valid attributes: [sort_type]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
 	return nil
 }
 
@@ -1286,7 +1370,7 @@ type MetricsConfig struct {
 	OracledbParallelOperationsDowngraded75To99Pct OracledbParallelOperationsDowngraded75To99PctMetricConfig `mapstructure:"oracledb.parallel_operations_downgraded_75_to_99_pct"`
 	OracledbParallelOperationsDowngradedToSerial  OracledbParallelOperationsDowngradedToSerialMetricConfig  `mapstructure:"oracledb.parallel_operations_downgraded_to_serial"`
 	OracledbParallelOperationsNotDowngraded       OracledbParallelOperationsNotDowngradedMetricConfig       `mapstructure:"oracledb.parallel_operations_not_downgraded"`
-	OracledbParseFailures                         OracledbParseFailuresMetricConfig                         `mapstructure:"oracledb.parse.failures"`
+	OracledbParseRate                             OracledbParseRateMetricConfig                             `mapstructure:"oracledb.parse.rate"`
 	OracledbParseUtilization                      OracledbParseUtilizationMetricConfig                      `mapstructure:"oracledb.parse.utilization"`
 	OracledbParseCalls                            OracledbParseCallsMetricConfig                            `mapstructure:"oracledb.parse_calls"`
 	OracledbPgaMemory                             OracledbPgaMemoryMetricConfig                             `mapstructure:"oracledb.pga_memory"`
@@ -1304,7 +1388,7 @@ type MetricsConfig struct {
 	OracledbSessionsLimit                         OracledbSessionsLimitMetricConfig                         `mapstructure:"oracledb.sessions.limit"`
 	OracledbSessionsUsage                         OracledbSessionsUsageMetricConfig                         `mapstructure:"oracledb.sessions.usage"`
 	OracledbSharedPoolUtilization                 OracledbSharedPoolUtilizationMetricConfig                 `mapstructure:"oracledb.shared_pool.utilization"`
-	OracledbSortUtilization                       OracledbSortUtilizationMetricConfig                       `mapstructure:"oracledb.sort.utilization"`
+	OracledbSortRatio                             OracledbSortRatioMetricConfig                             `mapstructure:"oracledb.sort.ratio"`
 	OracledbSQLServiceResponseDuration            OracledbSQLServiceResponseDurationMetricConfig            `mapstructure:"oracledb.sql_service.response.duration"`
 	OracledbStorageUsage                          OracledbStorageUsageMetricConfig                          `mapstructure:"oracledb.storage.usage"`
 	OracledbStorageUtilization                    OracledbStorageUtilizationMetricConfig                    `mapstructure:"oracledb.storage.utilization"`
@@ -1370,7 +1454,9 @@ func DefaultMetricsConfig() MetricsConfig {
 			Enabled: true,
 		},
 		OracledbExecutionUtilization: OracledbExecutionUtilizationMetricConfig{
-			Enabled: false,
+			Enabled:             false,
+			AggregationStrategy: AggregationStrategyAvg,
+			EnabledAttributes:   []OracledbExecutionUtilizationMetricAttributeKey{OracledbExecutionUtilizationMetricAttributeKeyParseType},
 		},
 		OracledbExecutions: OracledbExecutionsMetricConfig{
 			Enabled: true,
@@ -1408,8 +1494,10 @@ func DefaultMetricsConfig() MetricsConfig {
 		OracledbParallelOperationsNotDowngraded: OracledbParallelOperationsNotDowngradedMetricConfig{
 			Enabled: false,
 		},
-		OracledbParseFailures: OracledbParseFailuresMetricConfig{
-			Enabled: false,
+		OracledbParseRate: OracledbParseRateMetricConfig{
+			Enabled:             false,
+			AggregationStrategy: AggregationStrategyAvg,
+			EnabledAttributes:   []OracledbParseRateMetricAttributeKey{OracledbParseRateMetricAttributeKeyParseResult},
 		},
 		OracledbParseUtilization: OracledbParseUtilizationMetricConfig{
 			Enabled: false,
@@ -1464,8 +1552,10 @@ func DefaultMetricsConfig() MetricsConfig {
 		OracledbSharedPoolUtilization: OracledbSharedPoolUtilizationMetricConfig{
 			Enabled: false,
 		},
-		OracledbSortUtilization: OracledbSortUtilizationMetricConfig{
-			Enabled: false,
+		OracledbSortRatio: OracledbSortRatioMetricConfig{
+			Enabled:             false,
+			AggregationStrategy: AggregationStrategyAvg,
+			EnabledAttributes:   []OracledbSortRatioMetricAttributeKey{OracledbSortRatioMetricAttributeKeySortType},
 		},
 		OracledbSQLServiceResponseDuration: OracledbSQLServiceResponseDurationMetricConfig{
 			Enabled: false,

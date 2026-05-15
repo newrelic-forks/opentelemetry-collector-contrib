@@ -7,7 +7,7 @@ change_type: enhancement
 component: receiver/oracledb
 
 # A brief description of the change.  Surround your text with quotes ("") if it needs to start with a backtick (`).
-note: Add 12 new opt-in metrics from V$SYSMETRIC (group_id=2) covering buffer cache, CPU, library cache, shared pool, parse, and sort utilization.
+note: Add 12 new opt-in metrics from V$SYSMETRIC (group_id=2) covering buffer cache, CPU, library cache, shared pool, parse, and sort utilization. Parse and sort metrics include differentiating attributes.
 
 # Mandatory: One or more tracking issues related to the change. You can use the PR number here if no issue exists.
 issues: [169]
@@ -18,11 +18,11 @@ issues: [169]
 subtext: |
   New metrics (all disabled by default, stability: development):
   oracledb.buffer_cache.utilization, oracledb.database.cpu.utilization,
-  oracledb.database.wait.utilization, oracledb.execution.utilization,
+  oracledb.database.wait.utilization, oracledb.execution.utilization (with parse_type attribute),
   oracledb.host.cpu.utilization, oracledb.library_cache.utilization,
-  oracledb.parse.failures, oracledb.parse.utilization,
+  oracledb.parse.rate (with parse_result attribute), oracledb.parse.utilization,
   oracledb.redo_allocation.utilization, oracledb.shared_pool.utilization,
-  oracledb.sort.utilization, oracledb.sql_service.response.duration
+  oracledb.sort.ratio (with sort_type attribute), oracledb.sql_service.response.duration
 
 # If your change doesn't affect end users or the exported elements of any package,
 # you should instead start your pull request title with [chore] or use the "Skip Changelog" label.

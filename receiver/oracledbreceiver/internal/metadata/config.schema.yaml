@@ -130,6 +130,22 @@ $defs:
           enabled:
             type: boolean
             default: false
+          aggregation_strategy:
+            type: string
+            enum:
+              - "sum"
+              - "avg"
+              - "min"
+              - "max"
+            default: "avg"
+          attributes:
+            type: array
+            items:
+              type: string
+              enum:
+                - "parse_type"
+            default:
+              - "parse_type"
       oracledb.executions:
         description: "OracledbExecutionsMetricConfig provides config for the oracledb.executions metric."
         type: object
@@ -214,13 +230,29 @@ $defs:
           enabled:
             type: boolean
             default: false
-      oracledb.parse.failures:
-        description: "OracledbParseFailuresMetricConfig provides config for the oracledb.parse.failures metric."
+      oracledb.parse.rate:
+        description: "OracledbParseRateMetricConfig provides config for the oracledb.parse.rate metric."
         type: object
         properties:
           enabled:
             type: boolean
             default: false
+          aggregation_strategy:
+            type: string
+            enum:
+              - "sum"
+              - "avg"
+              - "min"
+              - "max"
+            default: "avg"
+          attributes:
+            type: array
+            items:
+              type: string
+              enum:
+                - "parse_result"
+            default:
+              - "parse_result"
       oracledb.parse.utilization:
         description: "OracledbParseUtilizationMetricConfig provides config for the oracledb.parse.utilization metric."
         type: object
@@ -358,13 +390,29 @@ $defs:
           enabled:
             type: boolean
             default: false
-      oracledb.sort.utilization:
-        description: "OracledbSortUtilizationMetricConfig provides config for the oracledb.sort.utilization metric."
+      oracledb.sort.ratio:
+        description: "OracledbSortRatioMetricConfig provides config for the oracledb.sort.ratio metric."
         type: object
         properties:
           enabled:
             type: boolean
             default: false
+          aggregation_strategy:
+            type: string
+            enum:
+              - "sum"
+              - "avg"
+              - "min"
+              - "max"
+            default: "avg"
+          attributes:
+            type: array
+            items:
+              type: string
+              enum:
+                - "sort_type"
+            default:
+              - "sort_type"
       oracledb.sql_service.response.duration:
         description: "OracledbSQLServiceResponseDurationMetricConfig provides config for the oracledb.sql_service.response.duration metric."
         type: object

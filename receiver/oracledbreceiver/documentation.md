@@ -313,6 +313,12 @@ Fraction of executions that did not require a parse, as computed by Oracle V$SYS
 | ---- | ----------- | ---------- | --------- |
 | % | Gauge | Double | Development |
 
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| parse_type | Type of parse operation (e.g., soft). | Str: ``soft`` | Recommended | - |
+
 ### oracledb.host.cpu.utilization
 
 Fraction of host CPU time in use, as computed by Oracle V$SYSMETRIC (% Busy/(Idle+Busy)).
@@ -385,13 +391,19 @@ Number of times parallel execution was executed at the requested degree of paral
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {executions} | Sum | Int | Cumulative | true | Development |
 
-### oracledb.parse.failures
+### oracledb.parse.rate
 
-Rate of parse failures per second, as computed by Oracle V$SYSMETRIC (Parses Per Second).
+Rate of parse operations per second broken down by result, as computed by Oracle V$SYSMETRIC (e.g., Parse Failure Count Per Sec).
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
-| {failures}/s | Gauge | Double | Development |
+| {parses}/s | Gauge | Double | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| parse_result | Result of a parse operation (e.g., failure). | Str: ``failure`` | Recommended | - |
 
 ### oracledb.parse.utilization
 
@@ -473,13 +485,19 @@ Fraction of the shared pool that is currently free, as computed by Oracle V$SYSM
 | ---- | ----------- | ---------- | --------- |
 | % | Gauge | Double | Development |
 
-### oracledb.sort.utilization
+### oracledb.sort.ratio
 
 Fraction of sorts performed in memory vs disk, as computed by Oracle V$SYSMETRIC (% MemSort/(MemSort + DiskSort)). Low values indicate PGA memory pressure.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
-| % | Gauge | Double | Development |
+| 1 | Gauge | Double | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| sort_type | Type of sort operation (e.g., memory, disk). | Str: ``memory`` | Recommended | - |
 
 ### oracledb.sql_service.response.duration
 

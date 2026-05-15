@@ -643,9 +643,9 @@ func (s *oracleScraper) collectSysMetrics(ctx context.Context, scrapeErrors *[]e
 		s.metricsBuilderConfig.Metrics.OracledbDatabaseWaitUtilization.Enabled ||
 		s.metricsBuilderConfig.Metrics.OracledbParseUtilization.Enabled ||
 		s.metricsBuilderConfig.Metrics.OracledbSQLServiceResponseDuration.Enabled ||
-		s.metricsBuilderConfig.Metrics.OracledbSortUtilization.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbSortRatio.Enabled ||
 		s.metricsBuilderConfig.Metrics.OracledbRedoAllocationUtilization.Enabled ||
-		s.metricsBuilderConfig.Metrics.OracledbParseFailures.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbParseRate.Enabled ||
 		s.metricsBuilderConfig.Metrics.OracledbExecutionUtilization.Enabled
 	if !anySysmetricEnabled {
 		return
@@ -701,20 +701,20 @@ func (s *oracleScraper) collectSysMetrics(ctx context.Context, scrapeErrors *[]e
 				s.mb.RecordOracledbSQLServiceResponseDurationDataPoint(now, val/100)
 			}
 		case sysmetricMemorySortsRatio:
-			if s.metricsBuilderConfig.Metrics.OracledbSortUtilization.Enabled {
-				s.mb.RecordOracledbSortUtilizationDataPoint(now, val)
+			if s.metricsBuilderConfig.Metrics.OracledbSortRatio.Enabled {
+				s.mb.RecordOracledbSortRatioDataPoint(now, val, metadata.AttributeSortTypeMemory)
 			}
 		case sysmetricRedoAllocationHitRatio:
 			if s.metricsBuilderConfig.Metrics.OracledbRedoAllocationUtilization.Enabled {
 				s.mb.RecordOracledbRedoAllocationUtilizationDataPoint(now, val)
 			}
 		case sysmetricParseFailureCount:
-			if s.metricsBuilderConfig.Metrics.OracledbParseFailures.Enabled {
-				s.mb.RecordOracledbParseFailuresDataPoint(now, val)
+			if s.metricsBuilderConfig.Metrics.OracledbParseRate.Enabled {
+				s.mb.RecordOracledbParseRateDataPoint(now, val, metadata.AttributeParseResultFailure)
 			}
 		case sysmetricExecuteWithoutParseRatio:
 			if s.metricsBuilderConfig.Metrics.OracledbExecutionUtilization.Enabled {
-				s.mb.RecordOracledbExecutionUtilizationDataPoint(now, val)
+				s.mb.RecordOracledbExecutionUtilizationDataPoint(now, val, metadata.AttributeParseTypeSoft)
 			}
 		}
 	}

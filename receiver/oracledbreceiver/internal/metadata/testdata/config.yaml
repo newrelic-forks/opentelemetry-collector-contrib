@@ -37,6 +37,7 @@ all_set:
       enabled: true
     oracledb.execution.utilization:
       enabled: true
+      attributes: ["parse_type"]
     oracledb.executions:
       enabled: true
     oracledb.hard_parses:
@@ -61,8 +62,9 @@ all_set:
       enabled: true
     oracledb.parallel_operations_not_downgraded:
       enabled: true
-    oracledb.parse.failures:
+    oracledb.parse.rate:
       enabled: true
+      attributes: ["parse_result"]
     oracledb.parse.utilization:
       enabled: true
     oracledb.parse_calls:
@@ -98,8 +100,9 @@ all_set:
       attributes: ["session_type","session_status"]
     oracledb.shared_pool.utilization:
       enabled: true
-    oracledb.sort.utilization:
+    oracledb.sort.ratio:
       enabled: true
+      attributes: ["sort_type"]
     oracledb.sql_service.response.duration:
       enabled: true
     oracledb.storage.usage:
@@ -170,6 +173,7 @@ reaggregate_set:
       enabled: true
     oracledb.execution.utilization:
       enabled: true
+      attributes: []
     oracledb.executions:
       enabled: true
     oracledb.hard_parses:
@@ -194,8 +198,9 @@ reaggregate_set:
       enabled: true
     oracledb.parallel_operations_not_downgraded:
       enabled: true
-    oracledb.parse.failures:
+    oracledb.parse.rate:
       enabled: true
+      attributes: []
     oracledb.parse.utilization:
       enabled: true
     oracledb.parse_calls:
@@ -231,8 +236,9 @@ reaggregate_set:
       attributes: []
     oracledb.shared_pool.utilization:
       enabled: true
-    oracledb.sort.utilization:
+    oracledb.sort.ratio:
       enabled: true
+      attributes: []
     oracledb.sql_service.response.duration:
       enabled: true
     oracledb.storage.usage:
@@ -303,6 +309,7 @@ none_set:
       enabled: false
     oracledb.execution.utilization:
       enabled: false
+      attributes: ["parse_type"]
     oracledb.executions:
       enabled: false
     oracledb.hard_parses:
@@ -327,8 +334,9 @@ none_set:
       enabled: false
     oracledb.parallel_operations_not_downgraded:
       enabled: false
-    oracledb.parse.failures:
+    oracledb.parse.rate:
       enabled: false
+      attributes: ["parse_result"]
     oracledb.parse.utilization:
       enabled: false
     oracledb.parse_calls:
@@ -364,8 +372,9 @@ none_set:
       attributes: ["session_type","session_status"]
     oracledb.shared_pool.utilization:
       enabled: false
-    oracledb.sort.utilization:
+    oracledb.sort.ratio:
       enabled: false
+      attributes: ["sort_type"]
     oracledb.sql_service.response.duration:
       enabled: false
     oracledb.storage.usage:

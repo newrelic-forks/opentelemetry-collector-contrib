@@ -169,6 +169,14 @@ attributes:
   oracledb.wait_class:
     description: The category of wait events a query or session is currently experiencing in Oracle Database.
     type: string
+  parse_result:
+    description: Result of a parse operation (e.g., failure).
+    type: string
+    enum: [failure]
+  parse_type:
+    description: Type of parse operation (e.g., soft).
+    type: string
+    enum: [soft]
   session_status:
     description: Session status
     type: string
@@ -177,6 +185,10 @@ attributes:
     description: Session type
     type: string
     requirement_level: recommended
+  sort_type:
+    description: Type of sort operation (e.g., memory, disk).
+    type: string
+    enum: [memory]
   tablespace_name:
     description: Tablespace name
     type: string
@@ -398,6 +410,8 @@ metrics:
       input_type: string
     unit: "{deadlocks}"
   oracledb.execution.utilization:
+    attributes:
+      - parse_type
     description: Fraction of executions that did not require a parse, as computed by Oracle V$SYSMETRIC (% (ExecWOParse/TotalExec)). High values indicate good cursor reuse.
     enabled: false
     stability: development
@@ -518,13 +532,15 @@ metrics:
       value_type: int
       input_type: string
     unit: "{executions}"
-  oracledb.parse.failures:
-    description: Rate of parse failures per second, as computed by Oracle V$SYSMETRIC (Parses Per Second).
+  oracledb.parse.rate:
+    attributes:
+      - parse_result
+    description: Rate of parse operations per second broken down by result, as computed by Oracle V$SYSMETRIC (e.g., Parse Failure Count Per Sec).
     enabled: false
     stability: development
     gauge:
       value_type: double
-    unit: "{failures}/s"
+    unit: "{parses}/s"
   oracledb.parse.utilization:
     description: Fraction of parse calls that were soft parses, as computed by Oracle V$SYSMETRIC (% SoftParses/TotalParses). High values indicate good cursor reuse.
     enabled: false
@@ -678,13 +694,15 @@ metrics:
     gauge:
       value_type: double
     unit: "%"
-  oracledb.sort.utilization:
+  oracledb.sort.ratio:
+    attributes:
+      - sort_type
     description: Fraction of sorts performed in memory vs disk, as computed by Oracle V$SYSMETRIC (% MemSort/(MemSort + DiskSort)). Low values indicate PGA memory pressure.
     enabled: false
     stability: development
     gauge:
       value_type: double
-    unit: "%"
+    unit: "1"
   oracledb.sql_service.response.duration:
     description: Average SQL service response time in seconds, converted from centiseconds as reported by Oracle V$SYSMETRIC (CentiSeconds Per Call).
     enabled: false

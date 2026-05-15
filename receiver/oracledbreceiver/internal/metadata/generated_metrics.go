@@ -22,6 +22,72 @@ const (
 	AggregationStrategyMax = "max"
 )
 
+// AttributeParseResult specifies the value parse_result attribute.
+type AttributeParseResult int
+
+const (
+	_ AttributeParseResult = iota
+	AttributeParseResultFailure
+)
+
+// String returns the string representation of the AttributeParseResult.
+func (av AttributeParseResult) String() string {
+	switch av {
+	case AttributeParseResultFailure:
+		return "failure"
+	}
+	return ""
+}
+
+// MapAttributeParseResult is a helper map of string to AttributeParseResult attribute value.
+var MapAttributeParseResult = map[string]AttributeParseResult{
+	"failure": AttributeParseResultFailure,
+}
+
+// AttributeParseType specifies the value parse_type attribute.
+type AttributeParseType int
+
+const (
+	_ AttributeParseType = iota
+	AttributeParseTypeSoft
+)
+
+// String returns the string representation of the AttributeParseType.
+func (av AttributeParseType) String() string {
+	switch av {
+	case AttributeParseTypeSoft:
+		return "soft"
+	}
+	return ""
+}
+
+// MapAttributeParseType is a helper map of string to AttributeParseType attribute value.
+var MapAttributeParseType = map[string]AttributeParseType{
+	"soft": AttributeParseTypeSoft,
+}
+
+// AttributeSortType specifies the value sort_type attribute.
+type AttributeSortType int
+
+const (
+	_ AttributeSortType = iota
+	AttributeSortTypeMemory
+)
+
+// String returns the string representation of the AttributeSortType.
+func (av AttributeSortType) String() string {
+	switch av {
+	case AttributeSortTypeMemory:
+		return "memory"
+	}
+	return ""
+}
+
+// MapAttributeSortType is a helper map of string to AttributeSortType attribute value.
+var MapAttributeSortType = map[string]AttributeSortType{
+	"memory": AttributeSortTypeMemory,
+}
+
 var MetricsInfo = metricsInfo{
 	OracledbBufferCacheUtilization: metricInfo{
 		Name: "oracledb.buffer_cache.utilization",
@@ -113,8 +179,8 @@ var MetricsInfo = metricsInfo{
 	OracledbParallelOperationsNotDowngraded: metricInfo{
 		Name: "oracledb.parallel_operations_not_downgraded",
 	},
-	OracledbParseFailures: metricInfo{
-		Name: "oracledb.parse.failures",
+	OracledbParseRate: metricInfo{
+		Name: "oracledb.parse.rate",
 	},
 	OracledbParseUtilization: metricInfo{
 		Name: "oracledb.parse.utilization",
@@ -167,8 +233,8 @@ var MetricsInfo = metricsInfo{
 	OracledbSharedPoolUtilization: metricInfo{
 		Name: "oracledb.shared_pool.utilization",
 	},
-	OracledbSortUtilization: metricInfo{
-		Name: "oracledb.sort.utilization",
+	OracledbSortRatio: metricInfo{
+		Name: "oracledb.sort.ratio",
 	},
 	OracledbSQLServiceResponseDuration: metricInfo{
 		Name: "oracledb.sql_service.response.duration",
@@ -230,7 +296,7 @@ type metricsInfo struct {
 	OracledbParallelOperationsDowngraded75To99Pct metricInfo
 	OracledbParallelOperationsDowngradedToSerial  metricInfo
 	OracledbParallelOperationsNotDowngraded       metricInfo
-	OracledbParseFailures                         metricInfo
+	OracledbParseRate                             metricInfo
 	OracledbParseUtilization                      metricInfo
 	OracledbParseCalls                            metricInfo
 	OracledbPgaMemory                             metricInfo
@@ -248,7 +314,7 @@ type metricsInfo struct {
 	OracledbSessionsLimit                         metricInfo
 	OracledbSessionsUsage                         metricInfo
 	OracledbSharedPoolUtilization                 metricInfo
-	OracledbSortUtilization                       metricInfo
+	OracledbSortRatio                             metricInfo
 	OracledbSQLServiceResponseDuration            metricInfo
 	OracledbStorageUsage                          metricInfo
 	OracledbStorageUtilization                    metricInfo
@@ -1129,9 +1195,10 @@ func newMetricOracledbExchangeDeadlocks(cfg OracledbExchangeDeadlocksMetricConfi
 }
 
 type metricOracledbExecutionUtilization struct {
-	data     pmetric.Metric                           // data buffer for generated metric.
-	config   OracledbExecutionUtilizationMetricConfig // metric config provided by user.
-	capacity int                                      // max observed number of data points added to the metric.
+	data          pmetric.Metric                           // data buffer for generated metric.
+	config        OracledbExecutionUtilizationMetricConfig // metric config provided by user.
+	capacity      int                                      // max observed number of data points added to the metric.
+	aggDataPoints []float64                                // slice containing number of aggregated datapoints at each index
 }
 
 // init fills oracledb.execution.utilization metric with initial data.
@@ -1140,16 +1207,49 @@ func (m *metricOracledbExecutionUtilization) init() {
 	m.data.SetDescription("Fraction of executions that did not require a parse, as computed by Oracle V$SYSMETRIC (% (ExecWOParse/TotalExec)). High values indicate good cursor reuse.")
 	m.data.SetUnit("%")
 	m.data.SetEmptyGauge()
+	m.data.Gauge().DataPoints().EnsureCapacity(m.capacity)
+	m.aggDataPoints = m.aggDataPoints[:0]
 }
 
-func (m *metricOracledbExecutionUtilization) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64) {
+func (m *metricOracledbExecutionUtilization) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64, parseTypeAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
-	dp := m.data.Gauge().DataPoints().AppendEmpty()
+
+	dp := pmetric.NewNumberDataPoint()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
+	if slices.Contains(m.config.EnabledAttributes, OracledbExecutionUtilizationMetricAttributeKeyParseType) {
+		dp.Attributes().PutStr("parse_type", parseTypeAttributeValue)
+	}
+
+	var s string
+	dps := m.data.Gauge().DataPoints()
+	for i := 0; i < dps.Len(); i++ {
+		dpi := dps.At(i)
+		if dp.Attributes().Equal(dpi.Attributes()) && dp.StartTimestamp() == dpi.StartTimestamp() && dp.Timestamp() == dpi.Timestamp() {
+			switch s = m.config.AggregationStrategy; s {
+			case AggregationStrategySum, AggregationStrategyAvg:
+				dpi.SetDoubleValue(dpi.DoubleValue() + val)
+				m.aggDataPoints[i] += 1
+				return
+			case AggregationStrategyMin:
+				if dpi.DoubleValue() > val {
+					dpi.SetDoubleValue(val)
+				}
+				return
+			case AggregationStrategyMax:
+				if dpi.DoubleValue() < val {
+					dpi.SetDoubleValue(val)
+				}
+				return
+			}
+		}
+	}
+
 	dp.SetDoubleValue(val)
+	m.aggDataPoints = append(m.aggDataPoints, 1)
+	dp.MoveTo(dps.AppendEmpty())
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
@@ -1162,6 +1262,11 @@ func (m *metricOracledbExecutionUtilization) updateCapacity() {
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
 func (m *metricOracledbExecutionUtilization) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		if m.config.AggregationStrategy == AggregationStrategyAvg {
+			for i, aggCount := range m.aggDataPoints {
+				m.data.Gauge().DataPoints().At(i).SetDoubleValue(m.data.Gauge().DataPoints().At(i).DoubleValue() / aggCount)
+			}
+		}
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
 		m.init()
@@ -1798,48 +1903,87 @@ func newMetricOracledbParallelOperationsNotDowngraded(cfg OracledbParallelOperat
 	return m
 }
 
-type metricOracledbParseFailures struct {
-	data     pmetric.Metric                    // data buffer for generated metric.
-	config   OracledbParseFailuresMetricConfig // metric config provided by user.
-	capacity int                               // max observed number of data points added to the metric.
+type metricOracledbParseRate struct {
+	data          pmetric.Metric                // data buffer for generated metric.
+	config        OracledbParseRateMetricConfig // metric config provided by user.
+	capacity      int                           // max observed number of data points added to the metric.
+	aggDataPoints []float64                     // slice containing number of aggregated datapoints at each index
 }
 
-// init fills oracledb.parse.failures metric with initial data.
-func (m *metricOracledbParseFailures) init() {
-	m.data.SetName("oracledb.parse.failures")
-	m.data.SetDescription("Rate of parse failures per second, as computed by Oracle V$SYSMETRIC (Parses Per Second).")
-	m.data.SetUnit("{failures}/s")
+// init fills oracledb.parse.rate metric with initial data.
+func (m *metricOracledbParseRate) init() {
+	m.data.SetName("oracledb.parse.rate")
+	m.data.SetDescription("Rate of parse operations per second broken down by result, as computed by Oracle V$SYSMETRIC (e.g., Parse Failure Count Per Sec).")
+	m.data.SetUnit("{parses}/s")
 	m.data.SetEmptyGauge()
+	m.data.Gauge().DataPoints().EnsureCapacity(m.capacity)
+	m.aggDataPoints = m.aggDataPoints[:0]
 }
 
-func (m *metricOracledbParseFailures) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64) {
+func (m *metricOracledbParseRate) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64, parseResultAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
-	dp := m.data.Gauge().DataPoints().AppendEmpty()
+
+	dp := pmetric.NewNumberDataPoint()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
+	if slices.Contains(m.config.EnabledAttributes, OracledbParseRateMetricAttributeKeyParseResult) {
+		dp.Attributes().PutStr("parse_result", parseResultAttributeValue)
+	}
+
+	var s string
+	dps := m.data.Gauge().DataPoints()
+	for i := 0; i < dps.Len(); i++ {
+		dpi := dps.At(i)
+		if dp.Attributes().Equal(dpi.Attributes()) && dp.StartTimestamp() == dpi.StartTimestamp() && dp.Timestamp() == dpi.Timestamp() {
+			switch s = m.config.AggregationStrategy; s {
+			case AggregationStrategySum, AggregationStrategyAvg:
+				dpi.SetDoubleValue(dpi.DoubleValue() + val)
+				m.aggDataPoints[i] += 1
+				return
+			case AggregationStrategyMin:
+				if dpi.DoubleValue() > val {
+					dpi.SetDoubleValue(val)
+				}
+				return
+			case AggregationStrategyMax:
+				if dpi.DoubleValue() < val {
+					dpi.SetDoubleValue(val)
+				}
+				return
+			}
+		}
+	}
+
 	dp.SetDoubleValue(val)
+	m.aggDataPoints = append(m.aggDataPoints, 1)
+	dp.MoveTo(dps.AppendEmpty())
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
-func (m *metricOracledbParseFailures) updateCapacity() {
+func (m *metricOracledbParseRate) updateCapacity() {
 	if m.data.Gauge().DataPoints().Len() > m.capacity {
 		m.capacity = m.data.Gauge().DataPoints().Len()
 	}
 }
 
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
-func (m *metricOracledbParseFailures) emit(metrics pmetric.MetricSlice) {
+func (m *metricOracledbParseRate) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		if m.config.AggregationStrategy == AggregationStrategyAvg {
+			for i, aggCount := range m.aggDataPoints {
+				m.data.Gauge().DataPoints().At(i).SetDoubleValue(m.data.Gauge().DataPoints().At(i).DoubleValue() / aggCount)
+			}
+		}
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
 		m.init()
 	}
 }
 
-func newMetricOracledbParseFailures(cfg OracledbParseFailuresMetricConfig) metricOracledbParseFailures {
-	m := metricOracledbParseFailures{config: cfg}
+func newMetricOracledbParseRate(cfg OracledbParseRateMetricConfig) metricOracledbParseRate {
+	m := metricOracledbParseRate{config: cfg}
 
 	if cfg.Enabled {
 		m.data = pmetric.NewMetric()
@@ -2758,48 +2902,87 @@ func newMetricOracledbSharedPoolUtilization(cfg OracledbSharedPoolUtilizationMet
 	return m
 }
 
-type metricOracledbSortUtilization struct {
-	data     pmetric.Metric                      // data buffer for generated metric.
-	config   OracledbSortUtilizationMetricConfig // metric config provided by user.
-	capacity int                                 // max observed number of data points added to the metric.
+type metricOracledbSortRatio struct {
+	data          pmetric.Metric                // data buffer for generated metric.
+	config        OracledbSortRatioMetricConfig // metric config provided by user.
+	capacity      int                           // max observed number of data points added to the metric.
+	aggDataPoints []float64                     // slice containing number of aggregated datapoints at each index
 }
 
-// init fills oracledb.sort.utilization metric with initial data.
-func (m *metricOracledbSortUtilization) init() {
-	m.data.SetName("oracledb.sort.utilization")
+// init fills oracledb.sort.ratio metric with initial data.
+func (m *metricOracledbSortRatio) init() {
+	m.data.SetName("oracledb.sort.ratio")
 	m.data.SetDescription("Fraction of sorts performed in memory vs disk, as computed by Oracle V$SYSMETRIC (% MemSort/(MemSort + DiskSort)). Low values indicate PGA memory pressure.")
-	m.data.SetUnit("%")
+	m.data.SetUnit("1")
 	m.data.SetEmptyGauge()
+	m.data.Gauge().DataPoints().EnsureCapacity(m.capacity)
+	m.aggDataPoints = m.aggDataPoints[:0]
 }
 
-func (m *metricOracledbSortUtilization) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64) {
+func (m *metricOracledbSortRatio) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64, sortTypeAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
-	dp := m.data.Gauge().DataPoints().AppendEmpty()
+
+	dp := pmetric.NewNumberDataPoint()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
+	if slices.Contains(m.config.EnabledAttributes, OracledbSortRatioMetricAttributeKeySortType) {
+		dp.Attributes().PutStr("sort_type", sortTypeAttributeValue)
+	}
+
+	var s string
+	dps := m.data.Gauge().DataPoints()
+	for i := 0; i < dps.Len(); i++ {
+		dpi := dps.At(i)
+		if dp.Attributes().Equal(dpi.Attributes()) && dp.StartTimestamp() == dpi.StartTimestamp() && dp.Timestamp() == dpi.Timestamp() {
+			switch s = m.config.AggregationStrategy; s {
+			case AggregationStrategySum, AggregationStrategyAvg:
+				dpi.SetDoubleValue(dpi.DoubleValue() + val)
+				m.aggDataPoints[i] += 1
+				return
+			case AggregationStrategyMin:
+				if dpi.DoubleValue() > val {
+					dpi.SetDoubleValue(val)
+				}
+				return
+			case AggregationStrategyMax:
+				if dpi.DoubleValue() < val {
+					dpi.SetDoubleValue(val)
+				}
+				return
+			}
+		}
+	}
+
 	dp.SetDoubleValue(val)
+	m.aggDataPoints = append(m.aggDataPoints, 1)
+	dp.MoveTo(dps.AppendEmpty())
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
-func (m *metricOracledbSortUtilization) updateCapacity() {
+func (m *metricOracledbSortRatio) updateCapacity() {
 	if m.data.Gauge().DataPoints().Len() > m.capacity {
 		m.capacity = m.data.Gauge().DataPoints().Len()
 	}
 }
 
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
-func (m *metricOracledbSortUtilization) emit(metrics pmetric.MetricSlice) {
+func (m *metricOracledbSortRatio) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		if m.config.AggregationStrategy == AggregationStrategyAvg {
+			for i, aggCount := range m.aggDataPoints {
+				m.data.Gauge().DataPoints().At(i).SetDoubleValue(m.data.Gauge().DataPoints().At(i).DoubleValue() / aggCount)
+			}
+		}
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
 		m.init()
 	}
 }
 
-func newMetricOracledbSortUtilization(cfg OracledbSortUtilizationMetricConfig) metricOracledbSortUtilization {
-	m := metricOracledbSortUtilization{config: cfg}
+func newMetricOracledbSortRatio(cfg OracledbSortRatioMetricConfig) metricOracledbSortRatio {
+	m := metricOracledbSortRatio{config: cfg}
 
 	if cfg.Enabled {
 		m.data = pmetric.NewMetric()
@@ -3380,7 +3563,7 @@ type MetricsBuilder struct {
 	metricOracledbParallelOperationsDowngraded75To99Pct metricOracledbParallelOperationsDowngraded75To99Pct
 	metricOracledbParallelOperationsDowngradedToSerial  metricOracledbParallelOperationsDowngradedToSerial
 	metricOracledbParallelOperationsNotDowngraded       metricOracledbParallelOperationsNotDowngraded
-	metricOracledbParseFailures                         metricOracledbParseFailures
+	metricOracledbParseRate                             metricOracledbParseRate
 	metricOracledbParseUtilization                      metricOracledbParseUtilization
 	metricOracledbParseCalls                            metricOracledbParseCalls
 	metricOracledbPgaMemory                             metricOracledbPgaMemory
@@ -3398,7 +3581,7 @@ type MetricsBuilder struct {
 	metricOracledbSessionsLimit                         metricOracledbSessionsLimit
 	metricOracledbSessionsUsage                         metricOracledbSessionsUsage
 	metricOracledbSharedPoolUtilization                 metricOracledbSharedPoolUtilization
-	metricOracledbSortUtilization                       metricOracledbSortUtilization
+	metricOracledbSortRatio                             metricOracledbSortRatio
 	metricOracledbSQLServiceResponseDuration            metricOracledbSQLServiceResponseDuration
 	metricOracledbStorageUsage                          metricOracledbStorageUsage
 	metricOracledbStorageUtilization                    metricOracledbStorageUtilization
@@ -3463,7 +3646,7 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		metricOracledbParallelOperationsDowngraded75To99Pct: newMetricOracledbParallelOperationsDowngraded75To99Pct(mbc.Metrics.OracledbParallelOperationsDowngraded75To99Pct),
 		metricOracledbParallelOperationsDowngradedToSerial:  newMetricOracledbParallelOperationsDowngradedToSerial(mbc.Metrics.OracledbParallelOperationsDowngradedToSerial),
 		metricOracledbParallelOperationsNotDowngraded:       newMetricOracledbParallelOperationsNotDowngraded(mbc.Metrics.OracledbParallelOperationsNotDowngraded),
-		metricOracledbParseFailures:                         newMetricOracledbParseFailures(mbc.Metrics.OracledbParseFailures),
+		metricOracledbParseRate:                             newMetricOracledbParseRate(mbc.Metrics.OracledbParseRate),
 		metricOracledbParseUtilization:                      newMetricOracledbParseUtilization(mbc.Metrics.OracledbParseUtilization),
 		metricOracledbParseCalls:                            newMetricOracledbParseCalls(mbc.Metrics.OracledbParseCalls),
 		metricOracledbPgaMemory:                             newMetricOracledbPgaMemory(mbc.Metrics.OracledbPgaMemory),
@@ -3481,7 +3664,7 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		metricOracledbSessionsLimit:                         newMetricOracledbSessionsLimit(mbc.Metrics.OracledbSessionsLimit),
 		metricOracledbSessionsUsage:                         newMetricOracledbSessionsUsage(mbc.Metrics.OracledbSessionsUsage),
 		metricOracledbSharedPoolUtilization:                 newMetricOracledbSharedPoolUtilization(mbc.Metrics.OracledbSharedPoolUtilization),
-		metricOracledbSortUtilization:                       newMetricOracledbSortUtilization(mbc.Metrics.OracledbSortUtilization),
+		metricOracledbSortRatio:                             newMetricOracledbSortRatio(mbc.Metrics.OracledbSortRatio),
 		metricOracledbSQLServiceResponseDuration:            newMetricOracledbSQLServiceResponseDuration(mbc.Metrics.OracledbSQLServiceResponseDuration),
 		metricOracledbStorageUsage:                          newMetricOracledbStorageUsage(mbc.Metrics.OracledbStorageUsage),
 		metricOracledbStorageUtilization:                    newMetricOracledbStorageUtilization(mbc.Metrics.OracledbStorageUtilization),
@@ -3611,7 +3794,7 @@ func (mb *MetricsBuilder) EmitForResource(options ...ResourceMetricsOption) {
 	mb.metricOracledbParallelOperationsDowngraded75To99Pct.emit(ils.Metrics())
 	mb.metricOracledbParallelOperationsDowngradedToSerial.emit(ils.Metrics())
 	mb.metricOracledbParallelOperationsNotDowngraded.emit(ils.Metrics())
-	mb.metricOracledbParseFailures.emit(ils.Metrics())
+	mb.metricOracledbParseRate.emit(ils.Metrics())
 	mb.metricOracledbParseUtilization.emit(ils.Metrics())
 	mb.metricOracledbParseCalls.emit(ils.Metrics())
 	mb.metricOracledbPgaMemory.emit(ils.Metrics())
@@ -3629,7 +3812,7 @@ func (mb *MetricsBuilder) EmitForResource(options ...ResourceMetricsOption) {
 	mb.metricOracledbSessionsLimit.emit(ils.Metrics())
 	mb.metricOracledbSessionsUsage.emit(ils.Metrics())
 	mb.metricOracledbSharedPoolUtilization.emit(ils.Metrics())
-	mb.metricOracledbSortUtilization.emit(ils.Metrics())
+	mb.metricOracledbSortRatio.emit(ils.Metrics())
 	mb.metricOracledbSQLServiceResponseDuration.emit(ils.Metrics())
 	mb.metricOracledbStorageUsage.emit(ils.Metrics())
 	mb.metricOracledbStorageUtilization.emit(ils.Metrics())
@@ -3816,8 +3999,8 @@ func (mb *MetricsBuilder) RecordOracledbExchangeDeadlocksDataPoint(ts pcommon.Ti
 }
 
 // RecordOracledbExecutionUtilizationDataPoint adds a data point to oracledb.execution.utilization metric.
-func (mb *MetricsBuilder) RecordOracledbExecutionUtilizationDataPoint(ts pcommon.Timestamp, val float64) {
-	mb.metricOracledbExecutionUtilization.recordDataPoint(mb.startTime, ts, val)
+func (mb *MetricsBuilder) RecordOracledbExecutionUtilizationDataPoint(ts pcommon.Timestamp, val float64, parseTypeAttributeValue AttributeParseType) {
+	mb.metricOracledbExecutionUtilization.recordDataPoint(mb.startTime, ts, val, parseTypeAttributeValue.String())
 }
 
 // RecordOracledbExecutionsDataPoint adds a data point to oracledb.executions metric.
@@ -3930,9 +4113,9 @@ func (mb *MetricsBuilder) RecordOracledbParallelOperationsNotDowngradedDataPoint
 	return nil
 }
 
-// RecordOracledbParseFailuresDataPoint adds a data point to oracledb.parse.failures metric.
-func (mb *MetricsBuilder) RecordOracledbParseFailuresDataPoint(ts pcommon.Timestamp, val float64) {
-	mb.metricOracledbParseFailures.recordDataPoint(mb.startTime, ts, val)
+// RecordOracledbParseRateDataPoint adds a data point to oracledb.parse.rate metric.
+func (mb *MetricsBuilder) RecordOracledbParseRateDataPoint(ts pcommon.Timestamp, val float64, parseResultAttributeValue AttributeParseResult) {
+	mb.metricOracledbParseRate.recordDataPoint(mb.startTime, ts, val, parseResultAttributeValue.String())
 }
 
 // RecordOracledbParseUtilizationDataPoint adds a data point to oracledb.parse.utilization metric.
@@ -4085,9 +4268,9 @@ func (mb *MetricsBuilder) RecordOracledbSharedPoolUtilizationDataPoint(ts pcommo
 	mb.metricOracledbSharedPoolUtilization.recordDataPoint(mb.startTime, ts, val)
 }
 
-// RecordOracledbSortUtilizationDataPoint adds a data point to oracledb.sort.utilization metric.
-func (mb *MetricsBuilder) RecordOracledbSortUtilizationDataPoint(ts pcommon.Timestamp, val float64) {
-	mb.metricOracledbSortUtilization.recordDataPoint(mb.startTime, ts, val)
+// RecordOracledbSortRatioDataPoint adds a data point to oracledb.sort.ratio metric.
+func (mb *MetricsBuilder) RecordOracledbSortRatioDataPoint(ts pcommon.Timestamp, val float64, sortTypeAttributeValue AttributeSortType) {
+	mb.metricOracledbSortRatio.recordDataPoint(mb.startTime, ts, val, sortTypeAttributeValue.String())
 }
 
 // RecordOracledbSQLServiceResponseDurationDataPoint adds a data point to oracledb.sql_service.response.duration metric.

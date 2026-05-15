@@ -548,9 +548,9 @@ func TestScraper_ScrapeSysMetrics(t *testing.T) {
 			cfg.Metrics.OracledbDatabaseWaitUtilization.Enabled = true
 			cfg.Metrics.OracledbParseUtilization.Enabled = true
 			cfg.Metrics.OracledbSQLServiceResponseDuration.Enabled = true
-			cfg.Metrics.OracledbSortUtilization.Enabled = true
+			cfg.Metrics.OracledbSortRatio.Enabled = true
 			cfg.Metrics.OracledbRedoAllocationUtilization.Enabled = true
-			cfg.Metrics.OracledbParseFailures.Enabled = true
+			cfg.Metrics.OracledbParseRate.Enabled = true
 			cfg.Metrics.OracledbExecutionUtilization.Enabled = true
 
 			scrpr := oracleScraper{
@@ -596,9 +596,9 @@ func TestScraper_ScrapeSysMetrics(t *testing.T) {
 			assert.InDelta(t, 44.55, metricMap["oracledb.database.wait.utilization"], floatDelta)
 			assert.InDelta(t, 88.90, metricMap["oracledb.parse.utilization"], floatDelta)
 			assert.InDelta(t, 0.000042, metricMap["oracledb.sql_service.response.duration"], floatDelta)
-			assert.InDelta(t, 99.50, metricMap["oracledb.sort.utilization"], floatDelta)
+			assert.InDelta(t, 99.50, metricMap["oracledb.sort.ratio"], floatDelta)
 			assert.InDelta(t, 97.80, metricMap["oracledb.redo_allocation.utilization"], floatDelta)
-			assert.InDelta(t, 0.25, metricMap["oracledb.parse.failures"], floatDelta)
+			assert.InDelta(t, 0.25, metricMap["oracledb.parse.rate"], floatDelta)
 			assert.InDelta(t, 75.30, metricMap["oracledb.execution.utilization"], floatDelta)
 		})
 	}
