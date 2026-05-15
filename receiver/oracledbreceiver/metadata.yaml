@@ -20,6 +20,10 @@ resource_attributes:
     description: The host name of Oracle Server
     enabled: true
     type: string
+  oracle.db.pdb:
+    description: The pluggable database (PDB) name associated with the connection.
+    enabled: true
+    type: string
   oracledb.instance.name:
     description: The name of the instance that data is coming from.
     enabled: true

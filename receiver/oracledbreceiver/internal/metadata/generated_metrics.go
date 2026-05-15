@@ -2828,6 +2828,12 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 	if mbc.ResourceAttributes.HostName.MetricsExclude != nil {
 		mb.resourceAttributeExcludeFilter["host.name"] = filter.CreateFilter(mbc.ResourceAttributes.HostName.MetricsExclude)
 	}
+	if mbc.ResourceAttributes.OracleDbPdb.MetricsInclude != nil {
+		mb.resourceAttributeIncludeFilter["oracle.db.pdb"] = filter.CreateFilter(mbc.ResourceAttributes.OracleDbPdb.MetricsInclude)
+	}
+	if mbc.ResourceAttributes.OracleDbPdb.MetricsExclude != nil {
+		mb.resourceAttributeExcludeFilter["oracle.db.pdb"] = filter.CreateFilter(mbc.ResourceAttributes.OracleDbPdb.MetricsExclude)
+	}
 	if mbc.ResourceAttributes.OracledbInstanceName.MetricsInclude != nil {
 		mb.resourceAttributeIncludeFilter["oracledb.instance.name"] = filter.CreateFilter(mbc.ResourceAttributes.OracledbInstanceName.MetricsInclude)
 	}

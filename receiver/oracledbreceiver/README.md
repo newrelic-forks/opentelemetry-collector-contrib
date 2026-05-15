@@ -64,8 +64,29 @@ receivers:
 
 ## Permissions
 
-Depending on which metrics you collect, you will need to assign those permissions to the database user:
+The following grants are required for the receiver to function correctly.
+
+### Instance detection (always required)
+
+These views are queried once at startup to detect the Oracle version and
+whether the monitoring user is connected to a Pluggable Database (PDB).
+The `oracle.db.pdb` resource attribute is only populated when connected
+to a specific PDB.
+
+```sql
+GRANT SELECT ON V_$INSTANCE TO <username>;
+GRANT SELECT ON V_$DATABASE TO <username>;
 ```
+
+> **Note:** `sys_context('USERENV', ...)` queries against `DUAL` require no
+> additional grant and are available to all database users.
+
+### Metrics collection
+
+Depending on which metrics you collect, you will need to assign these
+permissions to the database user:
+
+```sql
 GRANT SELECT ON V_$SESSION TO <username>;
 GRANT SELECT ON V_$SYSSTAT TO <username>;
 GRANT SELECT ON V_$RESOURCE_LIMIT TO <username>;

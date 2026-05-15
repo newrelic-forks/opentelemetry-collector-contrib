@@ -253,6 +253,7 @@ func TestMetricsBuilder(t *testing.T) {
 
 			rb := mb.NewResourceBuilder()
 			rb.SetHostName("host.name-val")
+			rb.SetOracleDbPdb("oracle.db.pdb-val")
 			rb.SetOracledbInstanceName("oracledb.instance.name-val")
 			rb.SetServiceInstanceID("service.instance.id-val")
 			res := rb.Emit()

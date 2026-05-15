@@ -28,6 +28,13 @@ func (rb *ResourceBuilder) SetHostName(val string) {
 	}
 }
 
+// SetOracleDbPdb sets provided value as "oracle.db.pdb" attribute.
+func (rb *ResourceBuilder) SetOracleDbPdb(val string) {
+	if rb.config.OracleDbPdb.Enabled {
+		rb.res.Attributes().PutStr("oracle.db.pdb", val)
+	}
+}
+
 // SetOracledbInstanceName sets provided value as "oracledb.instance.name" attribute.
 func (rb *ResourceBuilder) SetOracledbInstanceName(val string) {
 	if rb.config.OracledbInstanceName.Enabled {

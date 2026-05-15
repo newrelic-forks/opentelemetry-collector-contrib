@@ -1285,6 +1285,7 @@ func (rac *ResourceAttributeConfig) Unmarshal(parser *confmap.Conf) error {
 // ResourceAttributesConfig provides config for oracledb resource attributes.
 type ResourceAttributesConfig struct {
 	HostName             ResourceAttributeConfig `mapstructure:"host.name"`
+	OracleDbPdb          ResourceAttributeConfig `mapstructure:"oracle.db.pdb"`
 	OracledbInstanceName ResourceAttributeConfig `mapstructure:"oracledb.instance.name"`
 	ServiceInstanceID    ResourceAttributeConfig `mapstructure:"service.instance.id"`
 }
@@ -1292,6 +1293,9 @@ type ResourceAttributesConfig struct {
 func DefaultResourceAttributesConfig() ResourceAttributesConfig {
 	return ResourceAttributesConfig{
 		HostName: ResourceAttributeConfig{
+			Enabled: true,
+		},
+		OracleDbPdb: ResourceAttributeConfig{
 			Enabled: true,
 		},
 		OracledbInstanceName: ResourceAttributeConfig{
