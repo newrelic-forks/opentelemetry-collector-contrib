@@ -411,7 +411,7 @@ Fraction of allocated database storage that is used.
 
 ### oracledb.tablespace.count
 
-Number of tablespaces, broken down by status.
+Number of tablespaces, broken down by state.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
@@ -422,7 +422,7 @@ Number of tablespaces, broken down by status.
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
 | tablespace_name | Tablespace name | Any Str | Recommended | - |
-| oracledb.tablespace.status | Tablespace status as reported by Oracle (e.g. online, offline, read only) | Any Str | Recommended | - |
+| oracledb.tablespace.state | Tablespace state as reported by Oracle (e.g. online, offline, read only) | Any Str | Recommended | - |
 
 ### oracledb.tablespace.limit
 

@@ -151,7 +151,7 @@ func TestMetricsBuilderConfig(t *testing.T) {
 					OracledbTablespaceCount: OracledbTablespaceCountMetricConfig{
 						Enabled:             true,
 						AggregationStrategy: AggregationStrategyAvg,
-						EnabledAttributes:   []OracledbTablespaceCountMetricAttributeKey{OracledbTablespaceCountMetricAttributeKeyTablespaceName, OracledbTablespaceCountMetricAttributeKeyOracledbTablespaceStatus},
+						EnabledAttributes:   []OracledbTablespaceCountMetricAttributeKey{OracledbTablespaceCountMetricAttributeKeyTablespaceName, OracledbTablespaceCountMetricAttributeKeyOracledbTablespaceState},
 					},
 					OracledbTablespaceLimit: OracledbTablespaceLimitMetricConfig{
 						Enabled:             true,
@@ -322,7 +322,7 @@ func TestMetricsBuilderConfig(t *testing.T) {
 					OracledbTablespaceCount: OracledbTablespaceCountMetricConfig{
 						Enabled:             false,
 						AggregationStrategy: AggregationStrategyAvg,
-						EnabledAttributes:   []OracledbTablespaceCountMetricAttributeKey{OracledbTablespaceCountMetricAttributeKeyTablespaceName, OracledbTablespaceCountMetricAttributeKeyOracledbTablespaceStatus},
+						EnabledAttributes:   []OracledbTablespaceCountMetricAttributeKey{OracledbTablespaceCountMetricAttributeKeyTablespaceName, OracledbTablespaceCountMetricAttributeKeyOracledbTablespaceState},
 					},
 					OracledbTablespaceLimit: OracledbTablespaceLimitMetricConfig{
 						Enabled:             false,

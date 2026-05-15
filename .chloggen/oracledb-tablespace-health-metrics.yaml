@@ -18,7 +18,7 @@ issues: [47303]
 subtext: |
   Add 3 new opt-in metrics (disabled by default, stability: development):
   oracledb.tablespace.utilization - fraction of tablespace in use (0-1),
-  oracledb.tablespace.count - number of tablespaces broken down by oracledb.tablespace.status attribute,
+  oracledb.tablespace.count - number of tablespaces broken down by oracledb.tablespace.state attribute,
   oracledb.tablespace.limit - autoextend maximum size in bytes per tablespace.
 
 # If your change doesn't affect end users or the exported elements of any package,

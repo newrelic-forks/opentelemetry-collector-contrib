@@ -323,10 +323,10 @@ $defs:
               type: string
               enum:
                 - "tablespace_name"
-                - "oracledb.tablespace.status"
+                - "oracledb.tablespace.state"
             default:
               - "tablespace_name"
-              - "oracledb.tablespace.status"
+              - "oracledb.tablespace.state"
       oracledb.tablespace.limit:
         description: "OracledbTablespaceLimitMetricConfig provides config for the oracledb.tablespace.limit metric."
         type: object

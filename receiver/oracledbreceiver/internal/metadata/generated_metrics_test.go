@@ -225,9 +225,9 @@ func TestMetricsBuilder(t *testing.T) {
 			mb.RecordOracledbStorageUtilizationDataPoint(ts, 1)
 
 			allMetricsCount++
-			mb.RecordOracledbTablespaceCountDataPoint(ts, 1, "tablespace_name-val", "oracledb.tablespace.status-val")
+			mb.RecordOracledbTablespaceCountDataPoint(ts, 1, "tablespace_name-val", "oracledb.tablespace.state-val")
 			if tt.name == "reaggregate_set" {
-				mb.RecordOracledbTablespaceCountDataPoint(ts, 3, "tablespace_name-val-2", "oracledb.tablespace.status-val-2")
+				mb.RecordOracledbTablespaceCountDataPoint(ts, 3, "tablespace_name-val-2", "oracledb.tablespace.state-val-2")
 			}
 
 			allMetricsCount++
@@ -883,7 +883,7 @@ func TestMetricsBuilder(t *testing.T) {
 						validatedMetrics["oracledb.tablespace.count"] = true
 						assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
 						assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
-						assert.Equal(t, "Number of tablespaces, broken down by status.", mi.Description())
+						assert.Equal(t, "Number of tablespaces, broken down by state.", mi.Description())
 						assert.Equal(t, "{tablespace}", mi.Unit())
 						dp := mi.Gauge().DataPoints().At(0)
 						assert.Equal(t, start, dp.StartTimestamp())
@@ -893,15 +893,15 @@ func TestMetricsBuilder(t *testing.T) {
 						tablespaceNameAttrVal, ok := dp.Attributes().Get("tablespace_name")
 						assert.True(t, ok)
 						assert.Equal(t, "tablespace_name-val", tablespaceNameAttrVal.Str())
-						oracledbTablespaceStatusAttrVal, ok := dp.Attributes().Get("oracledb.tablespace.status")
+						oracledbTablespaceStateAttrVal, ok := dp.Attributes().Get("oracledb.tablespace.state")
 						assert.True(t, ok)
-						assert.Equal(t, "oracledb.tablespace.status-val", oracledbTablespaceStatusAttrVal.Str())
+						assert.Equal(t, "oracledb.tablespace.state-val", oracledbTablespaceStateAttrVal.Str())
 					} else {
 						assert.False(t, validatedMetrics["oracledb.tablespace.count"], "Found a duplicate in the metrics slice: oracledb.tablespace.count")
 						validatedMetrics["oracledb.tablespace.count"] = true
 						assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
 						assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
-						assert.Equal(t, "Number of tablespaces, broken down by status.", mi.Description())
+						assert.Equal(t, "Number of tablespaces, broken down by state.", mi.Description())
 						assert.Equal(t, "{tablespace}", mi.Unit())
 						dp := mi.Gauge().DataPoints().At(0)
 						assert.Equal(t, start, dp.StartTimestamp())
@@ -919,7 +919,7 @@ func TestMetricsBuilder(t *testing.T) {
 						}
 						_, ok := dp.Attributes().Get("tablespace_name")
 						assert.False(t, ok)
-						_, ok = dp.Attributes().Get("oracledb.tablespace.status")
+						_, ok = dp.Attributes().Get("oracledb.tablespace.state")
 						assert.False(t, ok)
 					}
 				case "oracledb.tablespace.limit":

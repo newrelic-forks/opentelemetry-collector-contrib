@@ -175,8 +175,8 @@ attributes:
   oracledb.status:
     description: Execution state or result of a database query or session.
     type: string
-  oracledb.tablespace.status:
-    description: Tablespace status as reported by Oracle (e.g. online, offline, read only)
+  oracledb.tablespace.state:
+    description: Tablespace state as reported by Oracle (e.g. online, offline, read only)
     type: string
     requirement_level: recommended
   oracledb.user_io_wait_time:
@@ -647,8 +647,8 @@ metrics:
   oracledb.tablespace.count:
     attributes:
       - tablespace_name
-      - oracledb.tablespace.status
-    description: Number of tablespaces, broken down by status.
+      - oracledb.tablespace.state
+    description: Number of tablespaces, broken down by state.
     enabled: false
     stability: development
     gauge:

@@ -842,8 +842,8 @@ func (ms *OracledbStorageUtilizationMetricConfig) Unmarshal(parser *confmap.Conf
 type OracledbTablespaceCountMetricAttributeKey string
 
 const (
-	OracledbTablespaceCountMetricAttributeKeyTablespaceName           OracledbTablespaceCountMetricAttributeKey = "tablespace_name"
-	OracledbTablespaceCountMetricAttributeKeyOracledbTablespaceStatus OracledbTablespaceCountMetricAttributeKey = "oracledb.tablespace.status"
+	OracledbTablespaceCountMetricAttributeKeyTablespaceName          OracledbTablespaceCountMetricAttributeKey = "tablespace_name"
+	OracledbTablespaceCountMetricAttributeKeyOracledbTablespaceState OracledbTablespaceCountMetricAttributeKey = "oracledb.tablespace.state"
 )
 
 // OracledbTablespaceCountMetricConfig provides config for the oracledb.tablespace.count metric.
@@ -872,9 +872,9 @@ func (ms *OracledbTablespaceCountMetricConfig) Unmarshal(parser *confmap.Conf) e
 func (ms *OracledbTablespaceCountMetricConfig) Validate() error {
 	for _, val := range ms.EnabledAttributes {
 		switch val {
-		case OracledbTablespaceCountMetricAttributeKeyTablespaceName, OracledbTablespaceCountMetricAttributeKeyOracledbTablespaceStatus:
+		case OracledbTablespaceCountMetricAttributeKeyTablespaceName, OracledbTablespaceCountMetricAttributeKeyOracledbTablespaceState:
 		default:
-			return fmt.Errorf("metric oracledb.tablespace.count doesn't have an attribute %v, valid attributes: [tablespace_name, oracledb.tablespace.status]", val)
+			return fmt.Errorf("metric oracledb.tablespace.count doesn't have an attribute %v, valid attributes: [tablespace_name, oracledb.tablespace.state]", val)
 		}
 	}
 
@@ -1339,7 +1339,7 @@ func DefaultMetricsConfig() MetricsConfig {
 		OracledbTablespaceCount: OracledbTablespaceCountMetricConfig{
 			Enabled:             false,
 			AggregationStrategy: AggregationStrategyAvg,
-			EnabledAttributes:   []OracledbTablespaceCountMetricAttributeKey{OracledbTablespaceCountMetricAttributeKeyTablespaceName, OracledbTablespaceCountMetricAttributeKeyOracledbTablespaceStatus},
+			EnabledAttributes:   []OracledbTablespaceCountMetricAttributeKey{OracledbTablespaceCountMetricAttributeKeyTablespaceName, OracledbTablespaceCountMetricAttributeKeyOracledbTablespaceState},
 		},
 		OracledbTablespaceLimit: OracledbTablespaceLimitMetricConfig{
 			Enabled:             false,

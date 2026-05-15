@@ -2332,14 +2332,14 @@ type metricOracledbTablespaceCount struct {
 // init fills oracledb.tablespace.count metric with initial data.
 func (m *metricOracledbTablespaceCount) init() {
 	m.data.SetName("oracledb.tablespace.count")
-	m.data.SetDescription("Number of tablespaces, broken down by status.")
+	m.data.SetDescription("Number of tablespaces, broken down by state.")
 	m.data.SetUnit("{tablespace}")
 	m.data.SetEmptyGauge()
 	m.data.Gauge().DataPoints().EnsureCapacity(m.capacity)
 	m.aggDataPoints = m.aggDataPoints[:0]
 }
 
-func (m *metricOracledbTablespaceCount) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, tablespaceNameAttributeValue string, oracledbTablespaceStatusAttributeValue string) {
+func (m *metricOracledbTablespaceCount) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, tablespaceNameAttributeValue string, oracledbTablespaceStateAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
@@ -2350,8 +2350,8 @@ func (m *metricOracledbTablespaceCount) recordDataPoint(start pcommon.Timestamp,
 	if slices.Contains(m.config.EnabledAttributes, OracledbTablespaceCountMetricAttributeKeyTablespaceName) {
 		dp.Attributes().PutStr("tablespace_name", tablespaceNameAttributeValue)
 	}
-	if slices.Contains(m.config.EnabledAttributes, OracledbTablespaceCountMetricAttributeKeyOracledbTablespaceStatus) {
-		dp.Attributes().PutStr("oracledb.tablespace.status", oracledbTablespaceStatusAttributeValue)
+	if slices.Contains(m.config.EnabledAttributes, OracledbTablespaceCountMetricAttributeKeyOracledbTablespaceState) {
+		dp.Attributes().PutStr("oracledb.tablespace.state", oracledbTablespaceStateAttributeValue)
 	}
 
 	var s string
@@ -3653,8 +3653,8 @@ func (mb *MetricsBuilder) RecordOracledbStorageUtilizationDataPoint(ts pcommon.T
 }
 
 // RecordOracledbTablespaceCountDataPoint adds a data point to oracledb.tablespace.count metric.
-func (mb *MetricsBuilder) RecordOracledbTablespaceCountDataPoint(ts pcommon.Timestamp, val int64, tablespaceNameAttributeValue string, oracledbTablespaceStatusAttributeValue string) {
-	mb.metricOracledbTablespaceCount.recordDataPoint(mb.startTime, ts, val, tablespaceNameAttributeValue, oracledbTablespaceStatusAttributeValue)
+func (mb *MetricsBuilder) RecordOracledbTablespaceCountDataPoint(ts pcommon.Timestamp, val int64, tablespaceNameAttributeValue string, oracledbTablespaceStateAttributeValue string) {
+	mb.metricOracledbTablespaceCount.recordDataPoint(mb.startTime, ts, val, tablespaceNameAttributeValue, oracledbTablespaceStateAttributeValue)
 }
 
 // RecordOracledbTablespaceLimitDataPoint adds a data point to oracledb.tablespace.limit metric.
