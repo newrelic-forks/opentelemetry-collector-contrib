@@ -4,8 +4,8 @@ $defs:
     description: MetricsConfig provides config for oracledb metrics.
     type: object
     properties:
-      oracledb.buffer_cache.hit_ratio:
-        description: "OracledbBufferCacheHitRatioMetricConfig provides config for the oracledb.buffer_cache.hit_ratio metric."
+      oracledb.buffer_cache.utilization:
+        description: "OracledbBufferCacheUtilizationMetricConfig provides config for the oracledb.buffer_cache.utilization metric."
         type: object
         properties:
           enabled:
@@ -32,15 +32,15 @@ $defs:
           enabled:
             type: boolean
             default: false
-      oracledb.database.cpu_time_ratio:
-        description: "OracledbDatabaseCPUTimeRatioMetricConfig provides config for the oracledb.database.cpu_time_ratio metric."
+      oracledb.database.cpu.utilization:
+        description: "OracledbDatabaseCPUUtilizationMetricConfig provides config for the oracledb.database.cpu.utilization metric."
         type: object
         properties:
           enabled:
             type: boolean
             default: false
-      oracledb.database.wait_time_ratio:
-        description: "OracledbDatabaseWaitTimeRatioMetricConfig provides config for the oracledb.database.wait_time_ratio metric."
+      oracledb.database.wait.utilization:
+        description: "OracledbDatabaseWaitUtilizationMetricConfig provides config for the oracledb.database.wait.utilization metric."
         type: object
         properties:
           enabled:
@@ -123,8 +123,8 @@ $defs:
           enabled:
             type: boolean
             default: true
-      oracledb.execute_without_parse.ratio:
-        description: "OracledbExecuteWithoutParseRatioMetricConfig provides config for the oracledb.execute_without_parse.ratio metric."
+      oracledb.execution.utilization:
+        description: "OracledbExecutionUtilizationMetricConfig provides config for the oracledb.execution.utilization metric."
         type: object
         properties:
           enabled:
@@ -144,15 +144,15 @@ $defs:
           enabled:
             type: boolean
             default: true
-      oracledb.host.cpu_utilization:
-        description: "OracledbHostCPUUtilizationMetricConfig provides config for the oracledb.host.cpu_utilization metric."
+      oracledb.host.cpu.utilization:
+        description: "OracledbHostCPUUtilizationMetricConfig provides config for the oracledb.host.cpu.utilization metric."
         type: object
         properties:
           enabled:
             type: boolean
             default: false
-      oracledb.library_cache.hit_ratio:
-        description: "OracledbLibraryCacheHitRatioMetricConfig provides config for the oracledb.library_cache.hit_ratio metric."
+      oracledb.library_cache.utilization:
+        description: "OracledbLibraryCacheUtilizationMetricConfig provides config for the oracledb.library_cache.utilization metric."
         type: object
         properties:
           enabled:
@@ -167,13 +167,6 @@ $defs:
             default: true
       oracledb.logons:
         description: "OracledbLogonsMetricConfig provides config for the oracledb.logons metric."
-        type: object
-        properties:
-          enabled:
-            type: boolean
-            default: false
-      oracledb.memory_sorts.ratio:
-        description: "OracledbMemorySortsRatioMetricConfig provides config for the oracledb.memory_sorts.ratio metric."
         type: object
         properties:
           enabled:
@@ -221,6 +214,20 @@ $defs:
           enabled:
             type: boolean
             default: false
+      oracledb.parse.failures:
+        description: "OracledbParseFailuresMetricConfig provides config for the oracledb.parse.failures metric."
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: false
+      oracledb.parse.utilization:
+        description: "OracledbParseUtilizationMetricConfig provides config for the oracledb.parse.utilization metric."
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: false
       oracledb.parse_calls:
         description: "OracledbParseCallsMetricConfig provides config for the oracledb.parse_calls metric."
         type: object
@@ -228,13 +235,6 @@ $defs:
           enabled:
             type: boolean
             default: true
-      oracledb.parse_failures:
-        description: "OracledbParseFailuresMetricConfig provides config for the oracledb.parse_failures metric."
-        type: object
-        properties:
-          enabled:
-            type: boolean
-            default: false
       oracledb.pga_memory:
         description: "OracledbPgaMemoryMetricConfig provides config for the oracledb.pga_memory metric."
         type: object
@@ -312,8 +312,8 @@ $defs:
           enabled:
             type: boolean
             default: false
-      oracledb.redo_allocation.hit_ratio:
-        description: "OracledbRedoAllocationHitRatioMetricConfig provides config for the oracledb.redo_allocation.hit_ratio metric."
+      oracledb.redo_allocation.utilization:
+        description: "OracledbRedoAllocationUtilizationMetricConfig provides config for the oracledb.redo_allocation.utilization metric."
         type: object
         properties:
           enabled:
@@ -351,22 +351,22 @@ $defs:
             default:
               - "session_type"
               - "session_status"
-      oracledb.shared_pool.free:
-        description: "OracledbSharedPoolFreeMetricConfig provides config for the oracledb.shared_pool.free metric."
+      oracledb.shared_pool.utilization:
+        description: "OracledbSharedPoolUtilizationMetricConfig provides config for the oracledb.shared_pool.utilization metric."
         type: object
         properties:
           enabled:
             type: boolean
             default: false
-      oracledb.soft_parse.ratio:
-        description: "OracledbSoftParseRatioMetricConfig provides config for the oracledb.soft_parse.ratio metric."
+      oracledb.sort.utilization:
+        description: "OracledbSortUtilizationMetricConfig provides config for the oracledb.sort.utilization metric."
         type: object
         properties:
           enabled:
             type: boolean
             default: false
-      oracledb.sql_service.response_time:
-        description: "OracledbSQLServiceResponseTimeMetricConfig provides config for the oracledb.sql_service.response_time metric."
+      oracledb.sql_service.response.duration:
+        description: "OracledbSQLServiceResponseDurationMetricConfig provides config for the oracledb.sql_service.response.duration metric."
         type: object
         properties:
           enabled:

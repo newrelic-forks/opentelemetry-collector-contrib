@@ -635,18 +635,18 @@ func (s *oracleScraper) collectStorageUsage(ctx context.Context, scrapeErrors *[
 }
 
 func (s *oracleScraper) collectSysMetrics(ctx context.Context, scrapeErrors *[]error) {
-	anySysmetricEnabled := s.metricsBuilderConfig.Metrics.OracledbBufferCacheHitRatio.Enabled ||
+	anySysmetricEnabled := s.metricsBuilderConfig.Metrics.OracledbBufferCacheUtilization.Enabled ||
 		s.metricsBuilderConfig.Metrics.OracledbHostCPUUtilization.Enabled ||
-		s.metricsBuilderConfig.Metrics.OracledbDatabaseCPUTimeRatio.Enabled ||
-		s.metricsBuilderConfig.Metrics.OracledbLibraryCacheHitRatio.Enabled ||
-		s.metricsBuilderConfig.Metrics.OracledbSharedPoolFree.Enabled ||
-		s.metricsBuilderConfig.Metrics.OracledbDatabaseWaitTimeRatio.Enabled ||
-		s.metricsBuilderConfig.Metrics.OracledbSoftParseRatio.Enabled ||
-		s.metricsBuilderConfig.Metrics.OracledbSQLServiceResponseTime.Enabled ||
-		s.metricsBuilderConfig.Metrics.OracledbMemorySortsRatio.Enabled ||
-		s.metricsBuilderConfig.Metrics.OracledbRedoAllocationHitRatio.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbDatabaseCPUUtilization.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbLibraryCacheUtilization.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbSharedPoolUtilization.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbDatabaseWaitUtilization.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbParseUtilization.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbSQLServiceResponseDuration.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbSortUtilization.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbRedoAllocationUtilization.Enabled ||
 		s.metricsBuilderConfig.Metrics.OracledbParseFailures.Enabled ||
-		s.metricsBuilderConfig.Metrics.OracledbExecuteWithoutParseRatio.Enabled
+		s.metricsBuilderConfig.Metrics.OracledbExecutionUtilization.Enabled
 	if !anySysmetricEnabled {
 		return
 	}
@@ -668,53 +668,53 @@ func (s *oracleScraper) collectSysMetrics(ctx context.Context, scrapeErrors *[]e
 		}
 		switch metricName {
 		case sysmetricBufferCacheHitRatio:
-			if s.metricsBuilderConfig.Metrics.OracledbBufferCacheHitRatio.Enabled {
-				s.mb.RecordOracledbBufferCacheHitRatioDataPoint(now, val)
+			if s.metricsBuilderConfig.Metrics.OracledbBufferCacheUtilization.Enabled {
+				s.mb.RecordOracledbBufferCacheUtilizationDataPoint(now, val)
 			}
 		case sysmetricHostCPUUtilization:
 			if s.metricsBuilderConfig.Metrics.OracledbHostCPUUtilization.Enabled {
 				s.mb.RecordOracledbHostCPUUtilizationDataPoint(now, val)
 			}
 		case sysmetricDatabaseCPUTimeRatio:
-			if s.metricsBuilderConfig.Metrics.OracledbDatabaseCPUTimeRatio.Enabled {
-				s.mb.RecordOracledbDatabaseCPUTimeRatioDataPoint(now, val)
+			if s.metricsBuilderConfig.Metrics.OracledbDatabaseCPUUtilization.Enabled {
+				s.mb.RecordOracledbDatabaseCPUUtilizationDataPoint(now, val)
 			}
 		case sysmetricLibraryCacheHitRatio:
-			if s.metricsBuilderConfig.Metrics.OracledbLibraryCacheHitRatio.Enabled {
-				s.mb.RecordOracledbLibraryCacheHitRatioDataPoint(now, val)
+			if s.metricsBuilderConfig.Metrics.OracledbLibraryCacheUtilization.Enabled {
+				s.mb.RecordOracledbLibraryCacheUtilizationDataPoint(now, val)
 			}
 		case sysmetricSharedPoolFreePct:
-			if s.metricsBuilderConfig.Metrics.OracledbSharedPoolFree.Enabled {
-				s.mb.RecordOracledbSharedPoolFreeDataPoint(now, val)
+			if s.metricsBuilderConfig.Metrics.OracledbSharedPoolUtilization.Enabled {
+				s.mb.RecordOracledbSharedPoolUtilizationDataPoint(now, val)
 			}
 		case sysmetricDatabaseWaitTimeRatio:
-			if s.metricsBuilderConfig.Metrics.OracledbDatabaseWaitTimeRatio.Enabled {
-				s.mb.RecordOracledbDatabaseWaitTimeRatioDataPoint(now, val)
+			if s.metricsBuilderConfig.Metrics.OracledbDatabaseWaitUtilization.Enabled {
+				s.mb.RecordOracledbDatabaseWaitUtilizationDataPoint(now, val)
 			}
 		case sysmetricSoftParseRatio:
-			if s.metricsBuilderConfig.Metrics.OracledbSoftParseRatio.Enabled {
-				s.mb.RecordOracledbSoftParseRatioDataPoint(now, val)
+			if s.metricsBuilderConfig.Metrics.OracledbParseUtilization.Enabled {
+				s.mb.RecordOracledbParseUtilizationDataPoint(now, val)
 			}
 		case sysmetricSQLServiceResponseTime:
-			if s.metricsBuilderConfig.Metrics.OracledbSQLServiceResponseTime.Enabled {
+			if s.metricsBuilderConfig.Metrics.OracledbSQLServiceResponseDuration.Enabled {
 				// Oracle reports SQL Service Response Time in centiseconds; convert to seconds.
-				s.mb.RecordOracledbSQLServiceResponseTimeDataPoint(now, val/100)
+				s.mb.RecordOracledbSQLServiceResponseDurationDataPoint(now, val/100)
 			}
 		case sysmetricMemorySortsRatio:
-			if s.metricsBuilderConfig.Metrics.OracledbMemorySortsRatio.Enabled {
-				s.mb.RecordOracledbMemorySortsRatioDataPoint(now, val)
+			if s.metricsBuilderConfig.Metrics.OracledbSortUtilization.Enabled {
+				s.mb.RecordOracledbSortUtilizationDataPoint(now, val)
 			}
 		case sysmetricRedoAllocationHitRatio:
-			if s.metricsBuilderConfig.Metrics.OracledbRedoAllocationHitRatio.Enabled {
-				s.mb.RecordOracledbRedoAllocationHitRatioDataPoint(now, val)
+			if s.metricsBuilderConfig.Metrics.OracledbRedoAllocationUtilization.Enabled {
+				s.mb.RecordOracledbRedoAllocationUtilizationDataPoint(now, val)
 			}
 		case sysmetricParseFailureCount:
 			if s.metricsBuilderConfig.Metrics.OracledbParseFailures.Enabled {
 				s.mb.RecordOracledbParseFailuresDataPoint(now, val)
 			}
 		case sysmetricExecuteWithoutParseRatio:
-			if s.metricsBuilderConfig.Metrics.OracledbExecuteWithoutParseRatio.Enabled {
-				s.mb.RecordOracledbExecuteWithoutParseRatioDataPoint(now, val)
+			if s.metricsBuilderConfig.Metrics.OracledbExecutionUtilization.Enabled {
+				s.mb.RecordOracledbExecutionUtilizationDataPoint(now, val)
 			}
 		}
 	}

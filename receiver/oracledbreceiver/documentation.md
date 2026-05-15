@@ -241,9 +241,9 @@ metrics:
     enabled: true
 ```
 
-### oracledb.buffer_cache.hit_ratio
+### oracledb.buffer_cache.utilization
 
-Buffer cache hit ratio as computed by Oracle (V$SYSMETRIC). Percentage of logical reads served from the buffer cache without physical disk I/O.
+Fraction of logical reads served from the buffer cache without physical I/O, as computed by Oracle V$SYSMETRIC (% (LogRead - PhyRead)/LogRead).
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
@@ -265,17 +265,17 @@ Data dictionary cache hit ratio from v$rowcache.
 | ---- | ----------- | ---------- | --------- |
 | % | Gauge | Double | Development |
 
-### oracledb.database.cpu_time_ratio
+### oracledb.database.cpu.utilization
 
-Ratio of database CPU time to total database time, as computed by Oracle (V$SYSMETRIC). Indicates what fraction of total wait+CPU time was spent on CPU.
+Fraction of total database time spent on CPU, as computed by Oracle V$SYSMETRIC (% Cpu/DB_Time).
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
 | % | Gauge | Double | Development |
 
-### oracledb.database.wait_time_ratio
+### oracledb.database.wait.utilization
 
-Ratio of database wait time to total database time, as computed by Oracle (V$SYSMETRIC). High values indicate contention.
+Fraction of total database time spent waiting on I/O, locks, or latches, as computed by Oracle V$SYSMETRIC (% Wait/DB_Time).
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
@@ -305,25 +305,25 @@ Number of DML statements that were executed in parallel
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {statements} | Sum | Int | Cumulative | true | Development |
 
-### oracledb.execute_without_parse.ratio
+### oracledb.execution.utilization
 
-Percentage of executions that did not require a parse, as computed by Oracle (V$SYSMETRIC). High values indicate good statement reuse.
-
-| Unit | Metric Type | Value Type | Stability |
-| ---- | ----------- | ---------- | --------- |
-| % | Gauge | Double | Development |
-
-### oracledb.host.cpu_utilization
-
-Host CPU utilization percentage as computed by Oracle (V$SYSMETRIC). Percentage of CPU time used by all processes on the host.
+Fraction of executions that did not require a parse, as computed by Oracle V$SYSMETRIC (% (ExecWOParse/TotalExec)). High values indicate good cursor reuse.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
 | % | Gauge | Double | Development |
 
-### oracledb.library_cache.hit_ratio
+### oracledb.host.cpu.utilization
 
-Library cache hit ratio as computed by Oracle (V$SYSMETRIC). Percentage of times a library cache lookup found the object already loaded.
+Fraction of host CPU time in use, as computed by Oracle V$SYSMETRIC (% Busy/(Idle+Busy)).
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| % | Gauge | Double | Development |
+
+### oracledb.library_cache.utilization
+
+Fraction of library cache pin requests that found the object already cached, as computed by Oracle V$SYSMETRIC (% Hits/Pins).
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
@@ -336,14 +336,6 @@ Number of logon operations
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {operation} | Sum | Int | Cumulative | true | Development |
-
-### oracledb.memory_sorts.ratio
-
-Percentage of sorts performed in memory (vs disk), as computed by Oracle (V$SYSMETRIC). High values indicate sufficient PGA memory.
-
-| Unit | Metric Type | Value Type | Stability |
-| ---- | ----------- | ---------- | --------- |
-| % | Gauge | Double | Development |
 
 ### oracledb.parallel_operations_downgraded_1_to_25_pct
 
@@ -393,13 +385,21 @@ Number of times parallel execution was executed at the requested degree of paral
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {executions} | Sum | Int | Cumulative | true | Development |
 
-### oracledb.parse_failures
+### oracledb.parse.failures
 
-Number of parse failures per second, as computed by Oracle (V$SYSMETRIC).
+Rate of parse failures per second, as computed by Oracle V$SYSMETRIC (Parses Per Second).
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
 | {failures}/s | Gauge | Double | Development |
+
+### oracledb.parse.utilization
+
+Fraction of parse calls that were soft parses, as computed by Oracle V$SYSMETRIC (% SoftParses/TotalParses). High values indicate good cursor reuse.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| % | Gauge | Double | Development |
 
 ### oracledb.physical_read_io_requests
 
@@ -457,33 +457,33 @@ Total size of the recycle bin.
 | ---- | ----------- | ---------- | --------- |
 | By | Gauge | Double | Development |
 
-### oracledb.redo_allocation.hit_ratio
+### oracledb.redo_allocation.utilization
 
-Redo log allocation hit ratio as computed by Oracle (V$SYSMETRIC). Percentage of redo allocations that did not need to wait for space.
-
-| Unit | Metric Type | Value Type | Stability |
-| ---- | ----------- | ---------- | --------- |
-| % | Gauge | Double | Development |
-
-### oracledb.shared_pool.free
-
-Percentage of the shared pool that is currently free, as computed by Oracle (V$SYSMETRIC).
+Fraction of redo allocations that succeeded without space contention, as computed by Oracle V$SYSMETRIC (% (#Redo - RedoSpaceReq)/#Redo).
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
 | % | Gauge | Double | Development |
 
-### oracledb.soft_parse.ratio
+### oracledb.shared_pool.utilization
 
-Percentage of soft parses to total parses, as computed by Oracle (V$SYSMETRIC). High values indicate good cursor reuse.
+Fraction of the shared pool that is currently free, as computed by Oracle V$SYSMETRIC (% Free/Total). Low values indicate shared pool pressure.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
 | % | Gauge | Double | Development |
 
-### oracledb.sql_service.response_time
+### oracledb.sort.utilization
 
-Average SQL service response time in seconds, converted from centiseconds as reported by Oracle V$SYSMETRIC.
+Fraction of sorts performed in memory vs disk, as computed by Oracle V$SYSMETRIC (% MemSort/(MemSort + DiskSort)). Low values indicate PGA memory pressure.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| % | Gauge | Double | Development |
+
+### oracledb.sql_service.response.duration
+
+Average SQL service response time in seconds, converted from centiseconds as reported by Oracle V$SYSMETRIC (CentiSeconds Per Call).
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
