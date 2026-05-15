@@ -214,6 +214,22 @@ attributes:
     description: Number of rows affected or returned by the query.
     type: int
     requirement_level: recommended
+  sqlserver.session.host_process_id:
+    description: Process ID of the client application on the host system.
+    type: int
+    requirement_level: recommended
+  sqlserver.session.program_name:
+    description: Name of the client application that initiated the session.
+    type: string
+    requirement_level: recommended
+  sqlserver.session.started:
+    description: Timestamp when the session was established (ISO 8601 format).
+    type: string
+    requirement_level: recommended
+  sqlserver.session.total_elapsed_time:
+    description: Total elapsed time in seconds the session has been actively executing requests.
+    type: double
+    requirement_level: recommended
   sqlserver.session_id:
     description: ID of the SQL Server session.
     type: int
@@ -344,6 +360,10 @@ events:
       - sqlserver.wait.resource.id
       - sqlserver.wait.resource.type
       - sqlserver.row_count
+      - sqlserver.session.total_elapsed_time
+      - sqlserver.session.host_process_id
+      - sqlserver.session.program_name
+      - sqlserver.session.started
       - sqlserver.session_id
       - sqlserver.session_status
       - sqlserver.total_elapsed_time
