@@ -37,7 +37,7 @@ all_set:
       enabled: true
     oracledb.execution.utilization:
       enabled: true
-      attributes: ["parse_type"]
+      attributes: ["oracledb.parse.type"]
     oracledb.executions:
       enabled: true
     oracledb.hard_parses:
@@ -64,7 +64,7 @@ all_set:
       enabled: true
     oracledb.parse.rate:
       enabled: true
-      attributes: ["parse_result"]
+      attributes: ["oracledb.parse.result"]
     oracledb.parse.utilization:
       enabled: true
     oracledb.parse_calls:
@@ -102,7 +102,7 @@ all_set:
       enabled: true
     oracledb.sort.ratio:
       enabled: true
-      attributes: ["sort_type"]
+      attributes: ["oracledb.sort.type"]
     oracledb.sql_service.response.duration:
       enabled: true
     oracledb.storage.usage:
@@ -309,7 +309,7 @@ none_set:
       enabled: false
     oracledb.execution.utilization:
       enabled: false
-      attributes: ["parse_type"]
+      attributes: ["oracledb.parse.type"]
     oracledb.executions:
       enabled: false
     oracledb.hard_parses:
@@ -336,7 +336,7 @@ none_set:
       enabled: false
     oracledb.parse.rate:
       enabled: false
-      attributes: ["parse_result"]
+      attributes: ["oracledb.parse.result"]
     oracledb.parse.utilization:
       enabled: false
     oracledb.parse_calls:
@@ -374,7 +374,7 @@ none_set:
       enabled: false
     oracledb.sort.ratio:
       enabled: false
-      attributes: ["sort_type"]
+      attributes: ["oracledb.sort.type"]
     oracledb.sql_service.response.duration:
       enabled: false
     oracledb.storage.usage:

@@ -143,9 +143,9 @@ func TestMetricsBuilder(t *testing.T) {
 			mb.RecordOracledbExchangeDeadlocksDataPoint(ts, "1")
 
 			allMetricsCount++
-			mb.RecordOracledbExecutionUtilizationDataPoint(ts, 1, AttributeParseTypeSoft)
+			mb.RecordOracledbExecutionUtilizationDataPoint(ts, 1, AttributeOracledbParseTypeSoft)
 			if tt.name == "reaggregate_set" {
-				mb.RecordOracledbExecutionUtilizationDataPoint(ts, 3, AttributeParseTypeSoft)
+				mb.RecordOracledbExecutionUtilizationDataPoint(ts, 3, AttributeOracledbParseTypeSoft)
 			}
 
 			defaultMetricsCount++
@@ -188,9 +188,9 @@ func TestMetricsBuilder(t *testing.T) {
 			mb.RecordOracledbParallelOperationsNotDowngradedDataPoint(ts, "1")
 
 			allMetricsCount++
-			mb.RecordOracledbParseRateDataPoint(ts, 1, AttributeParseResultFailure)
+			mb.RecordOracledbParseRateDataPoint(ts, 1, AttributeOracledbParseResultFailure)
 			if tt.name == "reaggregate_set" {
-				mb.RecordOracledbParseRateDataPoint(ts, 3, AttributeParseResultFailure)
+				mb.RecordOracledbParseRateDataPoint(ts, 3, AttributeOracledbParseResultFailure)
 			}
 
 			allMetricsCount++
@@ -255,9 +255,9 @@ func TestMetricsBuilder(t *testing.T) {
 			mb.RecordOracledbSharedPoolUtilizationDataPoint(ts, 1)
 
 			allMetricsCount++
-			mb.RecordOracledbSortRatioDataPoint(ts, 1, AttributeSortTypeMemory)
+			mb.RecordOracledbSortRatioDataPoint(ts, 1, AttributeOracledbSortTypeMemory)
 			if tt.name == "reaggregate_set" {
-				mb.RecordOracledbSortRatioDataPoint(ts, 3, AttributeSortTypeMemory)
+				mb.RecordOracledbSortRatioDataPoint(ts, 3, AttributeOracledbSortTypeMemory)
 			}
 
 			allMetricsCount++
@@ -570,9 +570,9 @@ func TestMetricsBuilder(t *testing.T) {
 						assert.Equal(t, ts, dp.Timestamp())
 						assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
 						assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
-						parseTypeAttrVal, ok := dp.Attributes().Get("parse_type")
+						oracledbParseTypeAttrVal, ok := dp.Attributes().Get("oracledb.parse.type")
 						assert.True(t, ok)
-						assert.Equal(t, "soft", parseTypeAttrVal.Str())
+						assert.Equal(t, "soft", oracledbParseTypeAttrVal.Str())
 					} else {
 						assert.False(t, validatedMetrics["oracledb.execution.utilization"], "Found a duplicate in the metrics slice: oracledb.execution.utilization")
 						validatedMetrics["oracledb.execution.utilization"] = true
@@ -594,7 +594,7 @@ func TestMetricsBuilder(t *testing.T) {
 						case "max":
 							assert.InDelta(t, float64(3), dp.DoubleValue(), 0.01)
 						}
-						_, ok := dp.Attributes().Get("parse_type")
+						_, ok := dp.Attributes().Get("oracledb.parse.type")
 						assert.False(t, ok)
 					}
 				case "oracledb.executions":
@@ -774,9 +774,9 @@ func TestMetricsBuilder(t *testing.T) {
 						assert.Equal(t, ts, dp.Timestamp())
 						assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
 						assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
-						parseResultAttrVal, ok := dp.Attributes().Get("parse_result")
+						oracledbParseResultAttrVal, ok := dp.Attributes().Get("oracledb.parse.result")
 						assert.True(t, ok)
-						assert.Equal(t, "failure", parseResultAttrVal.Str())
+						assert.Equal(t, "failure", oracledbParseResultAttrVal.Str())
 					} else {
 						assert.False(t, validatedMetrics["oracledb.parse.rate"], "Found a duplicate in the metrics slice: oracledb.parse.rate")
 						validatedMetrics["oracledb.parse.rate"] = true
@@ -798,7 +798,7 @@ func TestMetricsBuilder(t *testing.T) {
 						case "max":
 							assert.InDelta(t, float64(3), dp.DoubleValue(), 0.01)
 						}
-						_, ok := dp.Attributes().Get("parse_result")
+						_, ok := dp.Attributes().Get("oracledb.parse.result")
 						assert.False(t, ok)
 					}
 				case "oracledb.parse.utilization":
@@ -1069,9 +1069,9 @@ func TestMetricsBuilder(t *testing.T) {
 						assert.Equal(t, ts, dp.Timestamp())
 						assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
 						assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
-						sortTypeAttrVal, ok := dp.Attributes().Get("sort_type")
+						oracledbSortTypeAttrVal, ok := dp.Attributes().Get("oracledb.sort.type")
 						assert.True(t, ok)
-						assert.Equal(t, "memory", sortTypeAttrVal.Str())
+						assert.Equal(t, "memory", oracledbSortTypeAttrVal.Str())
 					} else {
 						assert.False(t, validatedMetrics["oracledb.sort.ratio"], "Found a duplicate in the metrics slice: oracledb.sort.ratio")
 						validatedMetrics["oracledb.sort.ratio"] = true
@@ -1093,7 +1093,7 @@ func TestMetricsBuilder(t *testing.T) {
 						case "max":
 							assert.InDelta(t, float64(3), dp.DoubleValue(), 0.01)
 						}
-						_, ok := dp.Attributes().Get("sort_type")
+						_, ok := dp.Attributes().Get("oracledb.sort.type")
 						assert.False(t, ok)
 					}
 				case "oracledb.sql_service.response.duration":

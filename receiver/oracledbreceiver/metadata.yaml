@@ -106,6 +106,14 @@ attributes:
   oracledb.osuser:
     description: Name of the operating system user that initiated or is running the Oracle database session.
     type: string
+  oracledb.parse.result:
+    description: Result of a parse operation (e.g., failure).
+    type: string
+    enum: [failure]
+  oracledb.parse.type:
+    description: Type of parse operation (e.g., soft).
+    type: string
+    enum: [soft]
   oracledb.physical_read_bytes:
     description: The total number of bytes read from disk by a query (reporting delta).
     type: int
@@ -154,6 +162,10 @@ attributes:
   oracledb.sid:
     description: ID of the Oracle Server session.
     type: string
+  oracledb.sort.type:
+    description: Type of sort operation (e.g., memory, disk).
+    type: string
+    enum: [memory]
   oracledb.sql_id:
     description: The SQL ID of the query.
     type: string
@@ -169,14 +181,6 @@ attributes:
   oracledb.wait_class:
     description: The category of wait events a query or session is currently experiencing in Oracle Database.
     type: string
-  parse_result:
-    description: Result of a parse operation (e.g., failure).
-    type: string
-    enum: [failure]
-  parse_type:
-    description: Type of parse operation (e.g., soft).
-    type: string
-    enum: [soft]
   session_status:
     description: Session status
     type: string
@@ -185,10 +189,6 @@ attributes:
     description: Session type
     type: string
     requirement_level: recommended
-  sort_type:
-    description: Type of sort operation (e.g., memory, disk).
-    type: string
-    enum: [memory]
   tablespace_name:
     description: Tablespace name
     type: string
@@ -411,7 +411,7 @@ metrics:
     unit: "{deadlocks}"
   oracledb.execution.utilization:
     attributes:
-      - parse_type
+      - oracledb.parse.type
     description: Fraction of executions that did not require a parse, as computed by Oracle V$SYSMETRIC (% (ExecWOParse/TotalExec)). High values indicate good cursor reuse.
     enabled: false
     stability: development
@@ -534,7 +534,7 @@ metrics:
     unit: "{executions}"
   oracledb.parse.rate:
     attributes:
-      - parse_result
+      - oracledb.parse.result
     description: Rate of parse operations per second broken down by result, as computed by Oracle V$SYSMETRIC (e.g., Parse Failure Count Per Sec).
     enabled: false
     stability: development
@@ -696,7 +696,7 @@ metrics:
     unit: "%"
   oracledb.sort.ratio:
     attributes:
-      - sort_type
+      - oracledb.sort.type
     description: Fraction of sorts performed in memory vs disk, as computed by Oracle V$SYSMETRIC (% MemSort/(MemSort + DiskSort)). Low values indicate PGA memory pressure.
     enabled: false
     stability: development

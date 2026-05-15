@@ -353,7 +353,7 @@ func (ms *OracledbExchangeDeadlocksMetricConfig) Unmarshal(parser *confmap.Conf)
 type OracledbExecutionUtilizationMetricAttributeKey string
 
 const (
-	OracledbExecutionUtilizationMetricAttributeKeyParseType OracledbExecutionUtilizationMetricAttributeKey = "parse_type"
+	OracledbExecutionUtilizationMetricAttributeKeyOracledbParseType OracledbExecutionUtilizationMetricAttributeKey = "oracledb.parse.type"
 )
 
 // OracledbExecutionUtilizationMetricConfig provides config for the oracledb.execution.utilization metric.
@@ -382,9 +382,9 @@ func (ms *OracledbExecutionUtilizationMetricConfig) Unmarshal(parser *confmap.Co
 func (ms *OracledbExecutionUtilizationMetricConfig) Validate() error {
 	for _, val := range ms.EnabledAttributes {
 		switch val {
-		case OracledbExecutionUtilizationMetricAttributeKeyParseType:
+		case OracledbExecutionUtilizationMetricAttributeKeyOracledbParseType:
 		default:
-			return fmt.Errorf("metric oracledb.execution.utilization doesn't have an attribute %v, valid attributes: [parse_type]", val)
+			return fmt.Errorf("metric oracledb.execution.utilization doesn't have an attribute %v, valid attributes: [oracledb.parse.type]", val)
 		}
 	}
 
@@ -641,7 +641,7 @@ func (ms *OracledbParallelOperationsNotDowngradedMetricConfig) Unmarshal(parser 
 type OracledbParseRateMetricAttributeKey string
 
 const (
-	OracledbParseRateMetricAttributeKeyParseResult OracledbParseRateMetricAttributeKey = "parse_result"
+	OracledbParseRateMetricAttributeKeyOracledbParseResult OracledbParseRateMetricAttributeKey = "oracledb.parse.result"
 )
 
 // OracledbParseRateMetricConfig provides config for the oracledb.parse.rate metric.
@@ -670,9 +670,9 @@ func (ms *OracledbParseRateMetricConfig) Unmarshal(parser *confmap.Conf) error {
 func (ms *OracledbParseRateMetricConfig) Validate() error {
 	for _, val := range ms.EnabledAttributes {
 		switch val {
-		case OracledbParseRateMetricAttributeKeyParseResult:
+		case OracledbParseRateMetricAttributeKeyOracledbParseResult:
 		default:
-			return fmt.Errorf("metric oracledb.parse.rate doesn't have an attribute %v, valid attributes: [parse_result]", val)
+			return fmt.Errorf("metric oracledb.parse.rate doesn't have an attribute %v, valid attributes: [oracledb.parse.result]", val)
 		}
 	}
 
@@ -1058,7 +1058,7 @@ func (ms *OracledbSharedPoolUtilizationMetricConfig) Unmarshal(parser *confmap.C
 type OracledbSortRatioMetricAttributeKey string
 
 const (
-	OracledbSortRatioMetricAttributeKeySortType OracledbSortRatioMetricAttributeKey = "sort_type"
+	OracledbSortRatioMetricAttributeKeyOracledbSortType OracledbSortRatioMetricAttributeKey = "oracledb.sort.type"
 )
 
 // OracledbSortRatioMetricConfig provides config for the oracledb.sort.ratio metric.
@@ -1087,9 +1087,9 @@ func (ms *OracledbSortRatioMetricConfig) Unmarshal(parser *confmap.Conf) error {
 func (ms *OracledbSortRatioMetricConfig) Validate() error {
 	for _, val := range ms.EnabledAttributes {
 		switch val {
-		case OracledbSortRatioMetricAttributeKeySortType:
+		case OracledbSortRatioMetricAttributeKeyOracledbSortType:
 		default:
-			return fmt.Errorf("metric oracledb.sort.ratio doesn't have an attribute %v, valid attributes: [sort_type]", val)
+			return fmt.Errorf("metric oracledb.sort.ratio doesn't have an attribute %v, valid attributes: [oracledb.sort.type]", val)
 		}
 	}
 
@@ -1456,7 +1456,7 @@ func DefaultMetricsConfig() MetricsConfig {
 		OracledbExecutionUtilization: OracledbExecutionUtilizationMetricConfig{
 			Enabled:             false,
 			AggregationStrategy: AggregationStrategyAvg,
-			EnabledAttributes:   []OracledbExecutionUtilizationMetricAttributeKey{OracledbExecutionUtilizationMetricAttributeKeyParseType},
+			EnabledAttributes:   []OracledbExecutionUtilizationMetricAttributeKey{OracledbExecutionUtilizationMetricAttributeKeyOracledbParseType},
 		},
 		OracledbExecutions: OracledbExecutionsMetricConfig{
 			Enabled: true,
@@ -1497,7 +1497,7 @@ func DefaultMetricsConfig() MetricsConfig {
 		OracledbParseRate: OracledbParseRateMetricConfig{
 			Enabled:             false,
 			AggregationStrategy: AggregationStrategyAvg,
-			EnabledAttributes:   []OracledbParseRateMetricAttributeKey{OracledbParseRateMetricAttributeKeyParseResult},
+			EnabledAttributes:   []OracledbParseRateMetricAttributeKey{OracledbParseRateMetricAttributeKeyOracledbParseResult},
 		},
 		OracledbParseUtilization: OracledbParseUtilizationMetricConfig{
 			Enabled: false,
@@ -1555,7 +1555,7 @@ func DefaultMetricsConfig() MetricsConfig {
 		OracledbSortRatio: OracledbSortRatioMetricConfig{
 			Enabled:             false,
 			AggregationStrategy: AggregationStrategyAvg,
-			EnabledAttributes:   []OracledbSortRatioMetricAttributeKey{OracledbSortRatioMetricAttributeKeySortType},
+			EnabledAttributes:   []OracledbSortRatioMetricAttributeKey{OracledbSortRatioMetricAttributeKeyOracledbSortType},
 		},
 		OracledbSQLServiceResponseDuration: OracledbSQLServiceResponseDurationMetricConfig{
 			Enabled: false,

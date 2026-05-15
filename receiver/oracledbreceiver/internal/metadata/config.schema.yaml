@@ -143,9 +143,9 @@ $defs:
             items:
               type: string
               enum:
-                - "parse_type"
+                - "oracledb.parse.type"
             default:
-              - "parse_type"
+              - "oracledb.parse.type"
       oracledb.executions:
         description: "OracledbExecutionsMetricConfig provides config for the oracledb.executions metric."
         type: object
@@ -250,9 +250,9 @@ $defs:
             items:
               type: string
               enum:
-                - "parse_result"
+                - "oracledb.parse.result"
             default:
-              - "parse_result"
+              - "oracledb.parse.result"
       oracledb.parse.utilization:
         description: "OracledbParseUtilizationMetricConfig provides config for the oracledb.parse.utilization metric."
         type: object
@@ -410,9 +410,9 @@ $defs:
             items:
               type: string
               enum:
-                - "sort_type"
+                - "oracledb.sort.type"
             default:
-              - "sort_type"
+              - "oracledb.sort.type"
       oracledb.sql_service.response.duration:
         description: "OracledbSQLServiceResponseDurationMetricConfig provides config for the oracledb.sql_service.response.duration metric."
         type: object

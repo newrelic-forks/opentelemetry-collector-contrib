@@ -702,7 +702,7 @@ func (s *oracleScraper) collectSysMetrics(ctx context.Context, scrapeErrors *[]e
 			}
 		case sysmetricMemorySortsRatio:
 			if s.metricsBuilderConfig.Metrics.OracledbSortRatio.Enabled {
-				s.mb.RecordOracledbSortRatioDataPoint(now, val, metadata.AttributeSortTypeMemory)
+				s.mb.RecordOracledbSortRatioDataPoint(now, val, metadata.AttributeOracledbSortTypeMemory)
 			}
 		case sysmetricRedoAllocationHitRatio:
 			if s.metricsBuilderConfig.Metrics.OracledbRedoAllocationUtilization.Enabled {
@@ -710,11 +710,11 @@ func (s *oracleScraper) collectSysMetrics(ctx context.Context, scrapeErrors *[]e
 			}
 		case sysmetricParseFailureCount:
 			if s.metricsBuilderConfig.Metrics.OracledbParseRate.Enabled {
-				s.mb.RecordOracledbParseRateDataPoint(now, val, metadata.AttributeParseResultFailure)
+				s.mb.RecordOracledbParseRateDataPoint(now, val, metadata.AttributeOracledbParseResultFailure)
 			}
 		case sysmetricExecuteWithoutParseRatio:
 			if s.metricsBuilderConfig.Metrics.OracledbExecutionUtilization.Enabled {
-				s.mb.RecordOracledbExecutionUtilizationDataPoint(now, val, metadata.AttributeParseTypeSoft)
+				s.mb.RecordOracledbExecutionUtilizationDataPoint(now, val, metadata.AttributeOracledbParseTypeSoft)
 			}
 		}
 	}

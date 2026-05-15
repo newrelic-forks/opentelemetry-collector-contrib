@@ -22,70 +22,70 @@ const (
 	AggregationStrategyMax = "max"
 )
 
-// AttributeParseResult specifies the value parse_result attribute.
-type AttributeParseResult int
+// AttributeOracledbParseResult specifies the value oracledb.parse.result attribute.
+type AttributeOracledbParseResult int
 
 const (
-	_ AttributeParseResult = iota
-	AttributeParseResultFailure
+	_ AttributeOracledbParseResult = iota
+	AttributeOracledbParseResultFailure
 )
 
-// String returns the string representation of the AttributeParseResult.
-func (av AttributeParseResult) String() string {
+// String returns the string representation of the AttributeOracledbParseResult.
+func (av AttributeOracledbParseResult) String() string {
 	switch av {
-	case AttributeParseResultFailure:
+	case AttributeOracledbParseResultFailure:
 		return "failure"
 	}
 	return ""
 }
 
-// MapAttributeParseResult is a helper map of string to AttributeParseResult attribute value.
-var MapAttributeParseResult = map[string]AttributeParseResult{
-	"failure": AttributeParseResultFailure,
+// MapAttributeOracledbParseResult is a helper map of string to AttributeOracledbParseResult attribute value.
+var MapAttributeOracledbParseResult = map[string]AttributeOracledbParseResult{
+	"failure": AttributeOracledbParseResultFailure,
 }
 
-// AttributeParseType specifies the value parse_type attribute.
-type AttributeParseType int
+// AttributeOracledbParseType specifies the value oracledb.parse.type attribute.
+type AttributeOracledbParseType int
 
 const (
-	_ AttributeParseType = iota
-	AttributeParseTypeSoft
+	_ AttributeOracledbParseType = iota
+	AttributeOracledbParseTypeSoft
 )
 
-// String returns the string representation of the AttributeParseType.
-func (av AttributeParseType) String() string {
+// String returns the string representation of the AttributeOracledbParseType.
+func (av AttributeOracledbParseType) String() string {
 	switch av {
-	case AttributeParseTypeSoft:
+	case AttributeOracledbParseTypeSoft:
 		return "soft"
 	}
 	return ""
 }
 
-// MapAttributeParseType is a helper map of string to AttributeParseType attribute value.
-var MapAttributeParseType = map[string]AttributeParseType{
-	"soft": AttributeParseTypeSoft,
+// MapAttributeOracledbParseType is a helper map of string to AttributeOracledbParseType attribute value.
+var MapAttributeOracledbParseType = map[string]AttributeOracledbParseType{
+	"soft": AttributeOracledbParseTypeSoft,
 }
 
-// AttributeSortType specifies the value sort_type attribute.
-type AttributeSortType int
+// AttributeOracledbSortType specifies the value oracledb.sort.type attribute.
+type AttributeOracledbSortType int
 
 const (
-	_ AttributeSortType = iota
-	AttributeSortTypeMemory
+	_ AttributeOracledbSortType = iota
+	AttributeOracledbSortTypeMemory
 )
 
-// String returns the string representation of the AttributeSortType.
-func (av AttributeSortType) String() string {
+// String returns the string representation of the AttributeOracledbSortType.
+func (av AttributeOracledbSortType) String() string {
 	switch av {
-	case AttributeSortTypeMemory:
+	case AttributeOracledbSortTypeMemory:
 		return "memory"
 	}
 	return ""
 }
 
-// MapAttributeSortType is a helper map of string to AttributeSortType attribute value.
-var MapAttributeSortType = map[string]AttributeSortType{
-	"memory": AttributeSortTypeMemory,
+// MapAttributeOracledbSortType is a helper map of string to AttributeOracledbSortType attribute value.
+var MapAttributeOracledbSortType = map[string]AttributeOracledbSortType{
+	"memory": AttributeOracledbSortTypeMemory,
 }
 
 var MetricsInfo = metricsInfo{
@@ -1211,7 +1211,7 @@ func (m *metricOracledbExecutionUtilization) init() {
 	m.aggDataPoints = m.aggDataPoints[:0]
 }
 
-func (m *metricOracledbExecutionUtilization) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64, parseTypeAttributeValue string) {
+func (m *metricOracledbExecutionUtilization) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64, oracledbParseTypeAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
@@ -1219,8 +1219,8 @@ func (m *metricOracledbExecutionUtilization) recordDataPoint(start pcommon.Times
 	dp := pmetric.NewNumberDataPoint()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
-	if slices.Contains(m.config.EnabledAttributes, OracledbExecutionUtilizationMetricAttributeKeyParseType) {
-		dp.Attributes().PutStr("parse_type", parseTypeAttributeValue)
+	if slices.Contains(m.config.EnabledAttributes, OracledbExecutionUtilizationMetricAttributeKeyOracledbParseType) {
+		dp.Attributes().PutStr("oracledb.parse.type", oracledbParseTypeAttributeValue)
 	}
 
 	var s string
@@ -1920,7 +1920,7 @@ func (m *metricOracledbParseRate) init() {
 	m.aggDataPoints = m.aggDataPoints[:0]
 }
 
-func (m *metricOracledbParseRate) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64, parseResultAttributeValue string) {
+func (m *metricOracledbParseRate) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64, oracledbParseResultAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
@@ -1928,8 +1928,8 @@ func (m *metricOracledbParseRate) recordDataPoint(start pcommon.Timestamp, ts pc
 	dp := pmetric.NewNumberDataPoint()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
-	if slices.Contains(m.config.EnabledAttributes, OracledbParseRateMetricAttributeKeyParseResult) {
-		dp.Attributes().PutStr("parse_result", parseResultAttributeValue)
+	if slices.Contains(m.config.EnabledAttributes, OracledbParseRateMetricAttributeKeyOracledbParseResult) {
+		dp.Attributes().PutStr("oracledb.parse.result", oracledbParseResultAttributeValue)
 	}
 
 	var s string
@@ -2919,7 +2919,7 @@ func (m *metricOracledbSortRatio) init() {
 	m.aggDataPoints = m.aggDataPoints[:0]
 }
 
-func (m *metricOracledbSortRatio) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64, sortTypeAttributeValue string) {
+func (m *metricOracledbSortRatio) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64, oracledbSortTypeAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
@@ -2927,8 +2927,8 @@ func (m *metricOracledbSortRatio) recordDataPoint(start pcommon.Timestamp, ts pc
 	dp := pmetric.NewNumberDataPoint()
 	dp.SetStartTimestamp(start)
 	dp.SetTimestamp(ts)
-	if slices.Contains(m.config.EnabledAttributes, OracledbSortRatioMetricAttributeKeySortType) {
-		dp.Attributes().PutStr("sort_type", sortTypeAttributeValue)
+	if slices.Contains(m.config.EnabledAttributes, OracledbSortRatioMetricAttributeKeyOracledbSortType) {
+		dp.Attributes().PutStr("oracledb.sort.type", oracledbSortTypeAttributeValue)
 	}
 
 	var s string
@@ -3999,8 +3999,8 @@ func (mb *MetricsBuilder) RecordOracledbExchangeDeadlocksDataPoint(ts pcommon.Ti
 }
 
 // RecordOracledbExecutionUtilizationDataPoint adds a data point to oracledb.execution.utilization metric.
-func (mb *MetricsBuilder) RecordOracledbExecutionUtilizationDataPoint(ts pcommon.Timestamp, val float64, parseTypeAttributeValue AttributeParseType) {
-	mb.metricOracledbExecutionUtilization.recordDataPoint(mb.startTime, ts, val, parseTypeAttributeValue.String())
+func (mb *MetricsBuilder) RecordOracledbExecutionUtilizationDataPoint(ts pcommon.Timestamp, val float64, oracledbParseTypeAttributeValue AttributeOracledbParseType) {
+	mb.metricOracledbExecutionUtilization.recordDataPoint(mb.startTime, ts, val, oracledbParseTypeAttributeValue.String())
 }
 
 // RecordOracledbExecutionsDataPoint adds a data point to oracledb.executions metric.
@@ -4114,8 +4114,8 @@ func (mb *MetricsBuilder) RecordOracledbParallelOperationsNotDowngradedDataPoint
 }
 
 // RecordOracledbParseRateDataPoint adds a data point to oracledb.parse.rate metric.
-func (mb *MetricsBuilder) RecordOracledbParseRateDataPoint(ts pcommon.Timestamp, val float64, parseResultAttributeValue AttributeParseResult) {
-	mb.metricOracledbParseRate.recordDataPoint(mb.startTime, ts, val, parseResultAttributeValue.String())
+func (mb *MetricsBuilder) RecordOracledbParseRateDataPoint(ts pcommon.Timestamp, val float64, oracledbParseResultAttributeValue AttributeOracledbParseResult) {
+	mb.metricOracledbParseRate.recordDataPoint(mb.startTime, ts, val, oracledbParseResultAttributeValue.String())
 }
 
 // RecordOracledbParseUtilizationDataPoint adds a data point to oracledb.parse.utilization metric.
@@ -4269,8 +4269,8 @@ func (mb *MetricsBuilder) RecordOracledbSharedPoolUtilizationDataPoint(ts pcommo
 }
 
 // RecordOracledbSortRatioDataPoint adds a data point to oracledb.sort.ratio metric.
-func (mb *MetricsBuilder) RecordOracledbSortRatioDataPoint(ts pcommon.Timestamp, val float64, sortTypeAttributeValue AttributeSortType) {
-	mb.metricOracledbSortRatio.recordDataPoint(mb.startTime, ts, val, sortTypeAttributeValue.String())
+func (mb *MetricsBuilder) RecordOracledbSortRatioDataPoint(ts pcommon.Timestamp, val float64, oracledbSortTypeAttributeValue AttributeOracledbSortType) {
+	mb.metricOracledbSortRatio.recordDataPoint(mb.startTime, ts, val, oracledbSortTypeAttributeValue.String())
 }
 
 // RecordOracledbSQLServiceResponseDurationDataPoint adds a data point to oracledb.sql_service.response.duration metric.

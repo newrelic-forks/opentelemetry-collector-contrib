@@ -317,7 +317,7 @@ Fraction of executions that did not require a parse, as computed by Oracle V$SYS
 
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
-| parse_type | Type of parse operation (e.g., soft). | Str: ``soft`` | Recommended | - |
+| oracledb.parse.type | Type of parse operation (e.g., soft). | Str: ``soft`` | Recommended | - |
 
 ### oracledb.host.cpu.utilization
 
@@ -403,7 +403,7 @@ Rate of parse operations per second broken down by result, as computed by Oracle
 
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
-| parse_result | Result of a parse operation (e.g., failure). | Str: ``failure`` | Recommended | - |
+| oracledb.parse.result | Result of a parse operation (e.g., failure). | Str: ``failure`` | Recommended | - |
 
 ### oracledb.parse.utilization
 
@@ -497,7 +497,7 @@ Fraction of sorts performed in memory vs disk, as computed by Oracle V$SYSMETRIC
 
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
-| sort_type | Type of sort operation (e.g., memory, disk). | Str: ``memory`` | Recommended | - |
+| oracledb.sort.type | Type of sort operation (e.g., memory, disk). | Str: ``memory`` | Recommended | - |
 
 ### oracledb.sql_service.response.duration
 
