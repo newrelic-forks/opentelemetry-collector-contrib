@@ -32,8 +32,8 @@ func TestLogsBuilderAppendLogRecord(t *testing.T) {
 
 	rb := lb.NewResourceBuilder()
 	rb.SetHostName("host.name-val")
+	rb.SetOracleDbPdb("oracle.db.pdb-val")
 	rb.SetOracledbInstanceName("oracledb.instance.name-val")
-	rb.SetOracledbPdbName("oracledb.pdb.name-val")
 	rb.SetServiceInstanceID("service.instance.id-val")
 	res := rb.Emit()
 
@@ -139,8 +139,8 @@ func TestLogsBuilder(t *testing.T) {
 
 			rb := lb.NewResourceBuilder()
 			rb.SetHostName("host.name-val")
+			rb.SetOracleDbPdb("oracle.db.pdb-val")
 			rb.SetOracledbInstanceName("oracledb.instance.name-val")
-			rb.SetOracledbPdbName("oracledb.pdb.name-val")
 			rb.SetServiceInstanceID("service.instance.id-val")
 			res := rb.Emit()
 			logs := lb.Emit(WithLogsResource(res))

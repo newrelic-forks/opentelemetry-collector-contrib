@@ -425,8 +425,8 @@ $defs:
             type: array
             items:
               $ref: go.opentelemetry.io/collector/filter.config
-      oracledb.instance.name:
-        description: ResourceAttributeConfig provides common config for a oracledb.instance.name resource attribute.
+      oracle.db.pdb:
+        description: ResourceAttributeConfig provides common config for a oracle.db.pdb resource attribute.
         type: object
         properties:
           enabled:
@@ -452,8 +452,8 @@ $defs:
             type: array
             items:
               $ref: go.opentelemetry.io/collector/filter.config
-      oracledb.pdb.name:
-        description: ResourceAttributeConfig provides common config for a oracledb.pdb.name resource attribute.
+      oracledb.instance.name:
+        description: ResourceAttributeConfig provides common config for a oracledb.instance.name resource attribute.
         type: object
         properties:
           enabled:

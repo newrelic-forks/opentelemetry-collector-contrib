@@ -173,8 +173,8 @@ func TestMetricsBuilderConfig(t *testing.T) {
 				},
 				ResourceAttributes: ResourceAttributesConfig{
 					HostName:             ResourceAttributeConfig{Enabled: true},
+					OracleDbPdb:          ResourceAttributeConfig{Enabled: true},
 					OracledbInstanceName: ResourceAttributeConfig{Enabled: true},
-					OracledbPdbName:      ResourceAttributeConfig{Enabled: true},
 					ServiceInstanceID:    ResourceAttributeConfig{Enabled: true},
 				},
 			},
@@ -330,8 +330,8 @@ func TestMetricsBuilderConfig(t *testing.T) {
 				},
 				ResourceAttributes: ResourceAttributesConfig{
 					HostName:             ResourceAttributeConfig{Enabled: false},
+					OracleDbPdb:          ResourceAttributeConfig{Enabled: false},
 					OracledbInstanceName: ResourceAttributeConfig{Enabled: false},
-					OracledbPdbName:      ResourceAttributeConfig{Enabled: false},
 					ServiceInstanceID:    ResourceAttributeConfig{Enabled: false},
 				},
 			},
@@ -379,8 +379,8 @@ func TestResourceAttributesConfig(t *testing.T) {
 			name: "all_set",
 			want: ResourceAttributesConfig{
 				HostName:             ResourceAttributeConfig{Enabled: true},
+				OracleDbPdb:          ResourceAttributeConfig{Enabled: true},
 				OracledbInstanceName: ResourceAttributeConfig{Enabled: true},
-				OracledbPdbName:      ResourceAttributeConfig{Enabled: true},
 				ServiceInstanceID:    ResourceAttributeConfig{Enabled: true},
 			},
 		},
@@ -388,8 +388,8 @@ func TestResourceAttributesConfig(t *testing.T) {
 			name: "none_set",
 			want: ResourceAttributesConfig{
 				HostName:             ResourceAttributeConfig{Enabled: false},
+				OracleDbPdb:          ResourceAttributeConfig{Enabled: false},
 				OracledbInstanceName: ResourceAttributeConfig{Enabled: false},
-				OracledbPdbName:      ResourceAttributeConfig{Enabled: false},
 				ServiceInstanceID:    ResourceAttributeConfig{Enabled: false},
 			},
 		},

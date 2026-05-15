@@ -173,17 +173,17 @@ func NewLogsBuilder(lbc LogsBuilderConfig, settings receiver.Settings) *LogsBuil
 	if lbc.ResourceAttributes.HostName.EventsExclude != nil {
 		lb.resourceAttributeExcludeFilter["host.name"] = filter.CreateFilter(lbc.ResourceAttributes.HostName.EventsExclude)
 	}
+	if lbc.ResourceAttributes.OracleDbPdb.EventsInclude != nil {
+		lb.resourceAttributeIncludeFilter["oracle.db.pdb"] = filter.CreateFilter(lbc.ResourceAttributes.OracleDbPdb.EventsInclude)
+	}
+	if lbc.ResourceAttributes.OracleDbPdb.EventsExclude != nil {
+		lb.resourceAttributeExcludeFilter["oracle.db.pdb"] = filter.CreateFilter(lbc.ResourceAttributes.OracleDbPdb.EventsExclude)
+	}
 	if lbc.ResourceAttributes.OracledbInstanceName.EventsInclude != nil {
 		lb.resourceAttributeIncludeFilter["oracledb.instance.name"] = filter.CreateFilter(lbc.ResourceAttributes.OracledbInstanceName.EventsInclude)
 	}
 	if lbc.ResourceAttributes.OracledbInstanceName.EventsExclude != nil {
 		lb.resourceAttributeExcludeFilter["oracledb.instance.name"] = filter.CreateFilter(lbc.ResourceAttributes.OracledbInstanceName.EventsExclude)
-	}
-	if lbc.ResourceAttributes.OracledbPdbName.EventsInclude != nil {
-		lb.resourceAttributeIncludeFilter["oracledb.pdb.name"] = filter.CreateFilter(lbc.ResourceAttributes.OracledbPdbName.EventsInclude)
-	}
-	if lbc.ResourceAttributes.OracledbPdbName.EventsExclude != nil {
-		lb.resourceAttributeExcludeFilter["oracledb.pdb.name"] = filter.CreateFilter(lbc.ResourceAttributes.OracledbPdbName.EventsExclude)
 	}
 	if lbc.ResourceAttributes.ServiceInstanceID.EventsInclude != nil {
 		lb.resourceAttributeIncludeFilter["service.instance.id"] = filter.CreateFilter(lbc.ResourceAttributes.ServiceInstanceID.EventsInclude)

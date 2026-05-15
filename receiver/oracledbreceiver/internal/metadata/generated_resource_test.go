@@ -14,8 +14,8 @@ func TestResourceBuilder(t *testing.T) {
 			cfg := loadResourceAttributesConfig(t, tt)
 			rb := NewResourceBuilder(cfg)
 			rb.SetHostName("host.name-val")
+			rb.SetOracleDbPdb("oracle.db.pdb-val")
 			rb.SetOracledbInstanceName("oracledb.instance.name-val")
-			rb.SetOracledbPdbName("oracledb.pdb.name-val")
 			rb.SetServiceInstanceID("service.instance.id-val")
 
 			res := rb.Emit()
@@ -37,15 +37,15 @@ func TestResourceBuilder(t *testing.T) {
 			if ok {
 				assert.Equal(t, "host.name-val", hostNameAttrVal.Str())
 			}
+			oracleDbPdbAttrVal, ok := res.Attributes().Get("oracle.db.pdb")
+			assert.True(t, ok)
+			if ok {
+				assert.Equal(t, "oracle.db.pdb-val", oracleDbPdbAttrVal.Str())
+			}
 			oracledbInstanceNameAttrVal, ok := res.Attributes().Get("oracledb.instance.name")
 			assert.True(t, ok)
 			if ok {
 				assert.Equal(t, "oracledb.instance.name-val", oracledbInstanceNameAttrVal.Str())
-			}
-			oracledbPdbNameAttrVal, ok := res.Attributes().Get("oracledb.pdb.name")
-			assert.True(t, ok)
-			if ok {
-				assert.Equal(t, "oracledb.pdb.name-val", oracledbPdbNameAttrVal.Str())
 			}
 			serviceInstanceIDAttrVal, ok := res.Attributes().Get("service.instance.id")
 			assert.True(t, ok)

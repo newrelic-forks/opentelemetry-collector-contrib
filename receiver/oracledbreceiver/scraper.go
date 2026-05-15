@@ -203,9 +203,6 @@ func (s *oracleScraper) start(ctx context.Context, _ component.Host) error {
 	if err != nil {
 		return fmt.Errorf("failed to open db connection: %w", err)
 	}
-	// Detect Oracle version and multitenant topology. This is best-effort:
-	// failures are logged and leave instanceInfo at its zero value without
-	// preventing the receiver from starting or collecting other metrics.
 	if s.db != nil {
 		s.instanceInfo = detectInstanceInfo(
 			ctx,
@@ -981,7 +978,7 @@ func (s *oracleScraper) setupResourceBuilder(rb *metadata.ResourceBuilder) *meta
 	rb.SetHostName(s.hostName)
 	rb.SetServiceInstanceID(s.serviceInstanceID)
 	if s.instanceInfo.connectedToPDB && s.instanceInfo.pdbName != "" {
-		rb.SetOracledbPdbName(s.instanceInfo.pdbName)
+		rb.SetOracleDbPdb(s.instanceInfo.pdbName)
 	}
 	return rb
 }

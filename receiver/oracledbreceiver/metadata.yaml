@@ -20,16 +20,12 @@ resource_attributes:
     description: The host name of Oracle Server
     enabled: true
     type: string
-  oracledb.instance.name:
-    description: The name of the instance that data is coming from.
+  oracle.db.pdb:
+    description: The pluggable database (PDB) name associated with the connection.
     enabled: true
     type: string
-  oracledb.pdb.name:
-    description: >
-      The name of the Oracle Pluggable Database (PDB) that the monitoring user
-      is connected to. Only set when the database is a Container Database (CDB)
-      and the monitoring user is connected to a specific PDB rather than the
-      CDB root. Empty for non-CDB (traditional) Oracle instances.
+  oracledb.instance.name:
+    description: The name of the instance that data is coming from.
     enabled: true
     type: string
   service.instance.id:

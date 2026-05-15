@@ -104,9 +104,9 @@ all_set:
   resource_attributes:
     host.name:
       enabled: true
-    oracledb.instance.name:
+    oracle.db.pdb:
       enabled: true
-    oracledb.pdb.name:
+    oracledb.instance.name:
       enabled: true
     service.instance.id:
       enabled: true
@@ -215,9 +215,9 @@ reaggregate_set:
   resource_attributes:
     host.name:
       enabled: true
-    oracledb.instance.name:
+    oracle.db.pdb:
       enabled: true
-    oracledb.pdb.name:
+    oracledb.instance.name:
       enabled: true
     service.instance.id:
       enabled: true
@@ -326,9 +326,9 @@ none_set:
   resource_attributes:
     host.name:
       enabled: false
-    oracledb.instance.name:
+    oracle.db.pdb:
       enabled: false
-    oracledb.pdb.name:
+    oracledb.instance.name:
       enabled: false
     service.instance.id:
       enabled: false
@@ -340,13 +340,13 @@ filter_set_include:
         - regexp: ".*"
       events_include:
         - regexp: ".*"
-    oracledb.instance.name:
+    oracle.db.pdb:
       enabled: true
       metrics_include:
         - regexp: ".*"
       events_include:
         - regexp: ".*"
-    oracledb.pdb.name:
+    oracledb.instance.name:
       enabled: true
       metrics_include:
         - regexp: ".*"
@@ -366,18 +366,18 @@ filter_set_exclude:
         - strict: "host.name-val"
       events_exclude:
         - strict: "host.name-val"
+    oracle.db.pdb:
+      enabled: true
+      metrics_exclude:
+        - strict: "oracle.db.pdb-val"
+      events_exclude:
+        - strict: "oracle.db.pdb-val"
     oracledb.instance.name:
       enabled: true
       metrics_exclude:
         - strict: "oracledb.instance.name-val"
       events_exclude:
         - strict: "oracledb.instance.name-val"
-    oracledb.pdb.name:
-      enabled: true
-      metrics_exclude:
-        - strict: "oracledb.pdb.name-val"
-      events_exclude:
-        - strict: "oracledb.pdb.name-val"
     service.instance.id:
       enabled: true
       metrics_exclude:
