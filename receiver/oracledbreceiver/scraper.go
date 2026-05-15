@@ -896,10 +896,6 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 			scrapeErrors = append(scrapeErrors, fmt.Errorf("failed to parse int64 for Duration, value was %s: %w", row[duration], err))
 		}
 
-		waitTime, err := strconv.ParseFloat(row[waitTimeSec], 64)
-		if err != nil {
-			waitTime = 0
-		}
 		sessionDurationSec, err := strconv.ParseFloat(row[sessionDuration], 64)
 		if err != nil {
 			sessionDurationSec = 0
@@ -914,6 +910,12 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 		var objID int64
 		if row[objectID] != "" {
 			objID, _ = strconv.ParseInt(row[objectID], 10, 64)
+		}
+
+		// Parse wait time in seconds
+		waitTime, err := strconv.ParseFloat(row[waitTimeSec], 64)
+		if err != nil {
+			waitTime = 0
 		}
 
 		queryContext := propagator.Extract(context.Background(), propagation.MapCarrier{

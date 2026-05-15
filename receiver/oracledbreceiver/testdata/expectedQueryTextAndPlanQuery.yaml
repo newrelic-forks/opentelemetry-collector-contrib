@@ -99,10 +99,10 @@ resourceLogs:
                   stringValue: PROCEDURE
               - key: oracledb.plan_hash_value
                 value:
-                  stringValue: ""
+                  stringValue: "33313233343536373839"
               - key: oracledb.last_load_time
                 value:
-                  stringValue: ""
+                  stringValue: "2026-01-01/12:00:00"
               - key: query.comments
                 value:
                   stringValue: ""
@@ -112,12 +112,6 @@ resourceLogs:
               - key: oracledb.normalized_sql
                 value:
                   stringValue: SELECT COUNT(*) AS TOTALHIGHRATEEMPLOYEES FROM ADMIN."EMPLOYEE" E JOIN ADMIN."PERSON" P ON E."BUSINESSENTITYID" = "BUSID1?" JOIN ADMIN."EMPLOYEEPAYHISTORY" EPH ON E."BUSINESSENTITYID" = EPH."BUSINESSENTITYID" WHERE EPH."RATE" > (SELECT AVG("RATE") FROM ADMIN."EMPLOYEEPAYHISTORY")
-              - key: oracledb.last_load_time
-                value:
-                  stringValue: "2026-01-01/12:00:00"
-              - key: oracledb.plan_hash_value
-                value:
-                  stringValue: "33313233343536373839"
             body: {}
             eventName: db.server.top_query
             timeUnixNano: "1759142512777891000"
