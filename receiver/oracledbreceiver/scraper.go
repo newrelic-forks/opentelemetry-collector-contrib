@@ -837,8 +837,12 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 	const sqlText = "SQL_FULLTEXT"
 	const username = "USERNAME"
 	const waitclass = "WAIT_CLASS"
+	const waitTimeSec = "WAIT_TIME_SEC"
 	const port = "PORT"
 	const serviceName = "SERVICE_NAME"
+	const sqlExecStart = "SQL_EXEC_START"
+	const logonTime = "LOGON_TIME"
+	const sessionDuration = "SESSION_DURATION_SEC"
 
 	var scrapeErrors []error
 
@@ -871,6 +875,11 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 			scrapeErrors = append(scrapeErrors, fmt.Errorf("failed to parse int64 for Duration, value was %s: %w", row[duration], err))
 		}
 
+		sessionDurationSec, err := strconv.ParseFloat(row[sessionDuration], 64)
+		if err != nil {
+			sessionDurationSec = 0
+		}
+
 		clientPort, err := strconv.ParseInt(row[port], 10, 64)
 		if err != nil {
 			clientPort = 0
@@ -882,6 +891,12 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 			objID, _ = strconv.ParseInt(row[objectID], 10, 64)
 		}
 
+		// Parse wait time in seconds
+		waitTime, err := strconv.ParseFloat(row[waitTimeSec], 64)
+		if err != nil {
+			waitTime = 0
+		}
+
 		queryContext := propagator.Extract(context.Background(), propagation.MapCarrier{
 			"traceparent": row[action],
 		})
@@ -891,8 +906,8 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 
 		s.lb.RecordDbServerQuerySampleEvent(queryContext, timestamp, obfuscatedSQL, dbSystemNameVal, row[username], row[serviceName], row[hostName],
 			clientPort, row[hostName], clientPort, queryPlanHashVal, row[sqlID], row[sqlChildNumber], row[childAddress], row[sid], row[serialNumber], row[process],
-			row[schemaName], row[program], row[module], row[status], row[state], row[waitclass], row[event], objID, row[objectName], row[objectType],
-			row[osUser], queryDuration, queryComments)
+			row[schemaName], row[program], row[module], row[status], row[state], row[waitclass], row[event], waitTime, objID, row[objectName], row[objectType],
+			row[osUser], queryDuration, queryComments, row[sqlExecStart], row[logonTime], sessionDurationSec)
 	}
 
 	s.lb.Emit(metadata.WithLogsResource(rb.Emit())).ResourceLogs().MoveAndAppendTo(logs.ResourceLogs())
@@ -906,14 +921,15 @@ func asFloatInSeconds(value int64) float64 {
 
 func (s *oracleScraper) obfuscateCacheHits(hits []queryMetricCacheHit) []queryMetricCacheHit {
 	var obfuscatedHits []queryMetricCacheHit
-	for _, hit := range hits {
+	for i := range hits {
+		hit := &hits[i]
 		// obfuscate and normalize the query text
 		obfuscatedSQL, err := s.obfuscator.obfuscateSQLString(hit.queryText)
 		if err != nil {
 			s.logger.Warn("oracleScraper failed to obfuscate SQL query, skipping entry", zap.String("sql_id", hit.sqlID), zap.Error(err))
 		} else {
 			hit.queryText = obfuscatedSQL
-			obfuscatedHits = append(obfuscatedHits, hit)
+			obfuscatedHits = append(obfuscatedHits, *hit)
 		}
 	}
 	return obfuscatedHits
@@ -927,9 +943,9 @@ func (s *oracleScraper) getChildAddressToPlanMap(ctx context.Context, hits []que
 
 	var childAddressSlice []any
 	placeholders := make([]string, len(hits))
-	for i, hit := range hits {
+	for i := range hits {
 		placeholders[i] = fmt.Sprintf("HEXTORAW(:%d)", i+1)
-		childAddressSlice = append(childAddressSlice, hit.childAddress)
+		childAddressSlice = append(childAddressSlice, hits[i].childAddress)
 	}
 
 	placeholdersCombined := strings.Join(placeholders, ", ")
