@@ -17,7 +17,7 @@ issues: [48216]
 # Use pipe (|) for multiline entries.
 subtext: |
   Enhance db.server.top_query event with execution plan metadata:
-  - oracledb.last_load_time: Captures when the query execution plan was loaded
+  - oracledb.plan.last_load: Captures when the query execution plan was loaded
   - oracledb.plan_hash_value: Provides hash value for identifying similar execution plans
   These attributes enable plan stability monitoring, performance regression analysis, and query optimization workflows.
 
