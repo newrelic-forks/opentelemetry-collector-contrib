@@ -11,8 +11,6 @@ import (
 
 func TestObfuscateSQL(t *testing.T) {
 	// With the two-step approach:
-	// Step 1: Collect comments (none in this case)
-	// Step 2: Obfuscate literals with ? using obfuscate_only mode (preserves formatting)
 	expected := `SELECT e.employee_id, e.first_name, e.last_name, e.department_id, s.salary, d.department_name
                  FROM employees e
                  INNER JOIN
