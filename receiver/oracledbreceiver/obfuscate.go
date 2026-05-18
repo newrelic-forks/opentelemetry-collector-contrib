@@ -9,11 +9,12 @@ import (
 
 var (
 	obfuscateSQLConfig = obfuscate.SQLConfig{
-		DBMS:            "oracle",
-		ObfuscationMode: "obfuscate_only", // Obfuscate literals while preserving structure, comments, and formatting
-		KeepSQLAlias:    true,             // Preserve AS aliases
-		KeepBoolean:     true,             // Preserve TRUE/FALSE literals
-		KeepNull:        true,             // Preserve NULL literals
+		DBMS:                          "oracle",
+		ObfuscationMode:               "obfuscate_and_normalize",   // Obfuscate literals and normalize (removes comments)
+		KeepSQLAlias:                  true,                        // Preserve AS aliases
+		KeepBoolean:                   true,                        // Preserve TRUE/FALSE literals
+		KeepNull:                      true,                        // Preserve NULL literals
+		RemoveSpaceBetweenParentheses: true,                        // Remove spaces in parentheses for compact output
 	}
 )
 

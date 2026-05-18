@@ -949,27 +949,27 @@ func TestNormalizedSQLHashGeneration(t *testing.T) {
 		{
 			name:         "simple select query",
 			rawSQL:       "SELECT * FROM users WHERE id = 123",
-			expectedHash: "d1c08094cf228a33039e9ee0387ab83c",
+			expectedHash: "1e53ade8a45cf6d138fbbe83d85597e4",
 		},
 		{
 			name:         "query with string literal",
 			rawSQL:       "SELECT * FROM users WHERE name = 'John'",
-			expectedHash: "54fd7b74375736f22061cad3b7305d9e",
+			expectedHash: "b17f7758dd4ed76a64fb768bf337ca95",
 		},
 		{
 			name:         "complex query with multiple conditions",
 			rawSQL:       "SELECT * FROM users WHERE id = 123 AND name = 'John'",
-			expectedHash: "7f51338aa6d5fa3a27d698eb2f3fd166",
+			expectedHash: "e78f13a21009ebcb6fdef9e996a24c9d",
 		},
 		{
 			name:         "query with comments",
 			rawSQL:       "/* comment */ SELECT * FROM users WHERE id = 1",
-			expectedHash: "d1c08094cf228a33039e9ee0387ab83c",
+			expectedHash: "690b61bb71c40c8825f7206e7d9c63ec",
 		},
 		{
 			name:         "query with IN clause",
 			rawSQL:       "SELECT * FROM users WHERE id IN (1, 2, 3)",
-			expectedHash: "c7c2f8f231626f0b49d15cf40acf20a3",
+			expectedHash: "7e9c6b6624e039d8dfd1b81f8123dc9e",
 		},
 		{
 			name:         "empty SQL",
@@ -979,17 +979,17 @@ func TestNormalizedSQLHashGeneration(t *testing.T) {
 		{
 			name:         "query with Oracle-style placeholders",
 			rawSQL:       "SELECT * FROM users WHERE id = :userId",
-			expectedHash: "d1c08094cf228a33039e9ee0387ab83c",
+			expectedHash: "1e53ade8a45cf6d138fbbe83d85597e4", // Oracle placeholders are normalized to ? which results in same hash as simple query
 		},
 		{
 			name:         "query with mixed case",
 			rawSQL:       "select * from Users WHERE Id = 123",
-			expectedHash: "d1c08094cf228a33039e9ee0387ab83c",
+			expectedHash: "1e53ade8a45cf6d138fbbe83d85597e4",
 		},
 		{
 			name:         "query with extra whitespace",
 			rawSQL:       "SELECT  *   FROM    users   WHERE   id = 123",
-			expectedHash: "d1c08094cf228a33039e9ee0387ab83c",
+			expectedHash: "1e53ade8a45cf6d138fbbe83d85597e4",
 		},
 	}
 
