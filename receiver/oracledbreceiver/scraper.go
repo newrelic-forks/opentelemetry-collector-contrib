@@ -880,10 +880,10 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 			continue
 		}
 
-		normalizedSQL, sqlHash := sqlnormalizer.NormalizeSQLAndHash(row[sqlText])
-
+		
 		// Obfuscate SQL for display purposes (db.query.text)
 		obfuscatedSQL, err := s.obfuscator.obfuscateSQLString(row[sqlText])
+		normalizedSQL, sqlHash := sqlnormalizer.NormalizeSQLAndHash(obfuscatedSQL)
 		if err != nil {
 			s.logger.Error(fmt.Sprintf("oracleScraper failed updating this log record: %s", err))
 			continue
