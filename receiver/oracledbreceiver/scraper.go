@@ -626,7 +626,6 @@ type queryMetricCacheHit struct {
 	childNumber   string
 	childAddress  string
 	queryText     string // Obfuscated SQL for display
-	rawQueryText  string // Raw SQL for hash generation
 	queryComments string
 	metrics       map[string]int64
 	objectID      int64
@@ -714,8 +713,7 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 			hit := queryMetricCacheHit{
 				sqlID:         row[sqlIDAttr],
 				queryText:     row[sqlTextAttr],
-				rawQueryText:  row[sqlTextAttr], // Preserve raw SQL for hash generation
-				queryComments: queryComments,
+					queryComments: queryComments,
 				childNumber:   row[childNumberAttr],
 				childAddress:  row[childAddressAttr],
 				metrics:       make(map[string]int64, len(metricNames)),
@@ -784,7 +782,7 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 		planString := string(planBytes)
 
 		// Normalize raw SQL (not obfuscated) and generate MD5 hash for APM correlation
-		normalizedSQL, sqlHash := sqlnormalizer.NormalizeSQLAndHash(hit.rawQueryText)
+		normalizedSQL, sqlHash := sqlnormalizer.NormalizeSQLAndHash(hit.queryText)
 
 		s.lb.RecordDbServerTopQueryEvent(context.Background(),
 			pcommon.NewTimestampFromTime(collectionTime),
@@ -883,7 +881,7 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 		
 		// Obfuscate SQL for display purposes (db.query.text)
 		obfuscatedSQL, err := s.obfuscator.obfuscateSQLString(row[sqlText])
-		normalizedSQL, sqlHash := sqlnormalizer.NormalizeSQLAndHash(row[sqlText])
+		normalizedSQL, sqlHash := sqlnormalizer.NormalizeSQLAndHash(obfuscatedSQL)
 		if err != nil {
 			s.logger.Error(fmt.Sprintf("oracleScraper failed updating this log record: %s", err))
 			continue
