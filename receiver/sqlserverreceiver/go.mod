@@ -21,6 +21,7 @@ require (
 	go.opentelemetry.io/collector/confmap/xconfmap v0.152.0
 	go.opentelemetry.io/collector/consumer v1.58.0
 	go.opentelemetry.io/collector/consumer/consumertest v0.152.0
+	github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/sqlnormalizer v0.0.0-00010101000000-000000000000
 	go.opentelemetry.io/collector/featuregate v1.58.0
 	go.opentelemetry.io/collector/filter v0.152.0
 	go.opentelemetry.io/collector/pdata v1.58.0
@@ -148,3 +149,5 @@ replace github.com/open-telemetry/opentelemetry-collector-contrib/pkg/golden => 
 replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/sqlquery => ../../internal/sqlquery
 
 replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/common => ../../internal/common
+
+replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/sqlnormalizer => ../../internal/common/sqlnormalizer

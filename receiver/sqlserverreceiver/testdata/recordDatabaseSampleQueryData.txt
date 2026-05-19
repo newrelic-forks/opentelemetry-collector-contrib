@@ -37,6 +37,7 @@
     "context_info": "00-0af7651916cd43dd8448eb211c80319c-a7ad6a7169203331-01",
     "username": "sa",
     "procedure_id": "0",
-    "procedure_name": ""
+    "procedure_name": "",
+    "full_query_text": "/* nr_service_guid=test-guid-456 */ SELECT * FROM sys.dm_exec_requests r INNER JOIN sys.dm_exec_sessions s ON r.session_id = s.session_id"
   }
 ]
