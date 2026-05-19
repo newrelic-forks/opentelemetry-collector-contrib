@@ -7,21 +7,22 @@ change_type: enhancement
 component: receiver/oracledb
 
 # A brief description of the change.  Surround your text with quotes ("") if it needs to start with a backtick (`).
-note: Add SQL comment anonymization support to protect sensitive information in query telemetry
+note: Enhance SQL obfuscation to anonymize comments while preserving query structure
 
 # Mandatory: One or more tracking issues related to the change. You can use the PR number here if no issue exists.
-issues: []
+issues: [48338]
 
 # (Optional) One or more lines of additional information to render under the primary note.
 # These lines will be padded with 2 spaces and then inserted directly into the document.
 # Use pipe (|) for multiline entries.
 subtext: |
-  SQL queries now have comments anonymized by replacing them with `?` placeholders:
-  - Comments (/* */ and --) are collected and replaced with `?` to protect sensitive information
-  - Literals (strings, numbers) are replaced with `?` for data privacy
-  - Query structure, formatting, aliases (AS), and special values (NULL, TRUE, FALSE) are preserved
-  - Quoted identifiers are maintained for Oracle-specific syntax
-  This ensures that query telemetry does not expose sensitive information that might be present in SQL comments.
+  Improved SQL query obfuscation with a two-step approach:
+  - SQL comments (/* */ and --) are now collected and replaced with `?` placeholders to protect sensitive information
+  - Literal values (strings, numbers) continue to be replaced with `?` for data privacy
+  - Query structure, formatting, and whitespace are preserved for better readability
+  - SQL aliases (AS), special values (NULL, TRUE, FALSE), and quoted identifiers remain intact
+  - Upgraded DataDog obfuscate package from v0.77.0-devel to v0.78.4
+  This enhancement ensures that query telemetry does not expose sensitive information in SQL comments while maintaining query structure for performance analysis.
 
 # If your change doesn't affect end users or the exported elements of any package,
 # you should instead start your pull request title with [chore] or use the "Skip Changelog" label.
