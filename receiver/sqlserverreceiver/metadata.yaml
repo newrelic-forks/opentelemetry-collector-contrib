@@ -68,10 +68,18 @@ attributes:
     description: The database name.
     type: string
     requirement_level: recommended
+  db.query.full_text:
+    description: The full text of the SQL batch or stored procedure from which the statement was extracted. Only populated when collect_full_query_text is enabled.
+    type: string
+    requirement_level: opt_in
   db.query.text:
     description: The text of the database query being executed.
     type: string
     requirement_level: recommended
+  db.sql.comments:
+    description: Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys in allowed_comment_keys config. Used for APM trace correlation.
+    type: string
+    requirement_level: opt_in
   db.system.name:
     description: The database management system (DBMS) product as identified by the client instrumentation.
     type: string
@@ -173,6 +181,14 @@ attributes:
     description: Number of logical reads (data read from cache/memory).
     type: int
     requirement_level: recommended
+  sqlserver.normalised_sql_hash:
+    description: MD5 hash of the normalized full SQL query text. Used for correlation with APM slow query traces. Only populated when collect_full_query_text is enabled.
+    type: string
+    requirement_level: opt_in
+  sqlserver.normalized_sql:
+    description: Normalized SQL query text used to generate the normalised_sql_hash. Only populated when collect_full_query_text is enabled.
+    type: string
+    requirement_level: opt_in
   sqlserver.open_transaction_count:
     description: Number of transactions currently open in the session.
     type: int
@@ -380,6 +396,10 @@ events:
       - user.name
       - sqlserver.procedure_id
       - sqlserver.procedure_name
+      - db.query.full_text
+      - db.sql.comments
+      - sqlserver.normalised_sql_hash
+      - sqlserver.normalized_sql
 
   db.server.top_query:
     enabled: false
@@ -405,6 +425,10 @@ events:
       - sqlserver.procedure_id
       - sqlserver.procedure_name
       - sqlserver.query.last_started
+      - db.query.full_text
+      - db.sql.comments
+      - sqlserver.normalised_sql_hash
+      - sqlserver.normalized_sql
 
 metrics:
   sqlserver.batch.request.rate:

@@ -28,6 +28,8 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/priorityqueue"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/sqlcomments"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/sqlnormalizer"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/sqlquery"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/sqlserverreceiver/internal/metadata"
 )
@@ -874,9 +876,7 @@ func (s *sqlServerScraperHelper) recordDatabaseSizeMetrics(ctx context.Context) 
 		rb := s.setupResourceBuilder(s.mb.NewResourceBuilder(), row)
 		rb.SetSqlserverDatabaseName(row[databaseName])
 
-		measurementType := row[measurement]
-
-		switch measurementType {
+		switch row[measurement] {
 		case "sqlserver_database_file_size":
 			if err := s.mb.RecordSqlserverDatabaseFileSizeDataPoint(now, row[sizeBytes], row[fileType], row[databaseName]); err != nil {
 				errs = append(errs, fmt.Errorf("failed to parse database file size for row %d: %w", i, err))
@@ -906,6 +906,7 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 		queryPlan         = "query_plan"
 		queryPlanHash     = "query_plan_hash"
 		queryText         = "query_text"
+		fullQueryText     = "full_query_text"
 		rowsReturned      = "total_rows"
 		// the time returned from mssql is in microsecond
 		totalElapsedTime = "total_elapsed_time"
@@ -984,6 +985,19 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 		})
 
 		databaseNameVal := row[databaseName]
+
+		var fullQueryTextVal, dbSQLCommentsVal, normalisedSQLHashVal, normalizedSQLVal string
+		if s.config.CollectFullQueryText {
+			rawFullText := row[fullQueryText]
+			dbSQLCommentsVal = sqlcomments.ExtractAndFilterComments(rawFullText, s.config.AllowedCommentKeys)
+			obfuscated, err := s.obfuscator.obfuscateFullSQLString(rawFullText)
+			if err != nil {
+				s.logger.Error(fmt.Sprintf("failed to obfuscate full SQL text: %v", err))
+			} else {
+				fullQueryTextVal = obfuscated
+				normalizedSQLVal, normalisedSQLHashVal = sqlnormalizer.NormalizeSQLAndHash(obfuscated)
+			}
+		}
 
 		var cached bool
 
@@ -1076,6 +1090,10 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 			row[storedProcedureID],
 			row[storedProcedureName],
 			lastExecutionTimeVal,
+			fullQueryTextVal,
+			dbSQLCommentsVal,
+			normalisedSQLHashVal,
+			normalizedSQLVal,
 		)
 	}
 	return resources, errors.Join(errs...)
@@ -1220,6 +1238,7 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 	const sessionStarted = "session_started"
 	const sessionStatus = "session_status"
 	const statementText = "statement_text"
+	const fullQueryTextCol = "full_query_text"
 	const totalElapsedTimeMillisecond = "total_elapsed_time"
 	const transactionID = "transaction_id"
 	const transactionIsolationLevel = "transaction_isolation_level"
@@ -1321,6 +1340,20 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 			}
 			return obfuscated, nil
 		}).(string)
+
+		var fullQueryTextVal, dbSQLCommentsVal, normalisedSQLHashVal, normalizedSQLVal string
+		if s.config.CollectFullQueryText {
+			rawFullText := row[fullQueryTextCol]
+			dbSQLCommentsVal = sqlcomments.ExtractAndFilterComments(rawFullText, s.config.AllowedCommentKeys)
+			obfuscated, err := s.obfuscator.obfuscateFullSQLString(rawFullText)
+			if err != nil {
+				s.logger.Error(fmt.Sprintf("failed to obfuscate full SQL text: %v", err))
+			} else {
+				fullQueryTextVal = obfuscated
+				normalizedSQLVal, normalisedSQLHashVal = sqlnormalizer.NormalizeSQLAndHash(obfuscated)
+			}
+		}
+
 		networkPeerAddressVal := row[clientAddress]
 		networkPeerPortVal := s.retrieveValue(row, clientPort, &errs, retrieveInt).(int64)
 		blockSessionIDVal := s.retrieveValue(row, blockingSessionID, &errs, retrieveInt).(int64)
@@ -1403,6 +1436,8 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 			totalElapsedTimeSecondVal, transactionIDVal, transactionIsolationLevelVal,
 			waitResourceVal, waitTimeSecondVal, waitTypeVal, writesVal, usernameVal,
 			row[storedProcedureID], row[storedProcedureName],
+			fullQueryTextVal, dbSQLCommentsVal,
+			normalisedSQLHashVal, normalizedSQLVal,
 		)
 
 		if !resourcesAdded {
