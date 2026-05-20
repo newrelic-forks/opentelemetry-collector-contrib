@@ -472,6 +472,7 @@ type SqlserverDatabaseSecurityRoleMembersCountMetricAttributeKey string
 
 const (
 	SqlserverDatabaseSecurityRoleMembersCountMetricAttributeKeyDbNamespace SqlserverDatabaseSecurityRoleMembersCountMetricAttributeKey = "db.namespace"
+	SqlserverDatabaseSecurityRoleMembersCountMetricAttributeKeyRole        SqlserverDatabaseSecurityRoleMembersCountMetricAttributeKey = "role"
 )
 
 // SqlserverDatabaseSecurityRoleMembersCountMetricConfig provides config for the sqlserver.database.security.role_members.count metric.
@@ -500,9 +501,9 @@ func (ms *SqlserverDatabaseSecurityRoleMembersCountMetricConfig) Unmarshal(parse
 func (ms *SqlserverDatabaseSecurityRoleMembersCountMetricConfig) Validate() error {
 	for _, val := range ms.EnabledAttributes {
 		switch val {
-		case SqlserverDatabaseSecurityRoleMembersCountMetricAttributeKeyDbNamespace:
+		case SqlserverDatabaseSecurityRoleMembersCountMetricAttributeKeyDbNamespace, SqlserverDatabaseSecurityRoleMembersCountMetricAttributeKeyRole:
 		default:
-			return fmt.Errorf("metric sqlserver.database.security.role_members.count doesn't have an attribute %v, valid attributes: [db.namespace]", val)
+			return fmt.Errorf("metric sqlserver.database.security.role_members.count doesn't have an attribute %v, valid attributes: [db.namespace, role]", val)
 		}
 	}
 
@@ -1312,10 +1313,20 @@ func (ms *SqlserverSecurityPrincipalsCountMetricConfig) Unmarshal(parser *confma
 	return nil
 }
 
+// SqlserverSecurityRoleMembersCountMetricAttributeKey specifies the key of an attribute for the sqlserver.security.role_members.count metric.
+type SqlserverSecurityRoleMembersCountMetricAttributeKey string
+
+const (
+	SqlserverSecurityRoleMembersCountMetricAttributeKeyRole SqlserverSecurityRoleMembersCountMetricAttributeKey = "role"
+)
+
 // SqlserverSecurityRoleMembersCountMetricConfig provides config for the sqlserver.security.role_members.count metric.
 type SqlserverSecurityRoleMembersCountMetricConfig struct {
 	Enabled          bool `mapstructure:"enabled"`
 	enabledSetByUser bool
+
+	AggregationStrategy string                                                `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []SqlserverSecurityRoleMembersCountMetricAttributeKey `mapstructure:"attributes"`
 }
 
 func (ms *SqlserverSecurityRoleMembersCountMetricConfig) Unmarshal(parser *confmap.Conf) error {
@@ -1329,6 +1340,24 @@ func (ms *SqlserverSecurityRoleMembersCountMetricConfig) Unmarshal(parser *confm
 	}
 
 	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *SqlserverSecurityRoleMembersCountMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case SqlserverSecurityRoleMembersCountMetricAttributeKeyRole:
+		default:
+			return fmt.Errorf("metric sqlserver.security.role_members.count doesn't have an attribute %v, valid attributes: [role]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
 	return nil
 }
 
@@ -1722,7 +1751,7 @@ func DefaultMetricsConfig() MetricsConfig {
 		SqlserverDatabaseSecurityRoleMembersCount: SqlserverDatabaseSecurityRoleMembersCountMetricConfig{
 			Enabled:             false,
 			AggregationStrategy: AggregationStrategyAvg,
-			EnabledAttributes:   []SqlserverDatabaseSecurityRoleMembersCountMetricAttributeKey{SqlserverDatabaseSecurityRoleMembersCountMetricAttributeKeyDbNamespace},
+			EnabledAttributes:   []SqlserverDatabaseSecurityRoleMembersCountMetricAttributeKey{SqlserverDatabaseSecurityRoleMembersCountMetricAttributeKeyDbNamespace, SqlserverDatabaseSecurityRoleMembersCountMetricAttributeKeyRole},
 		},
 		SqlserverDatabaseTempdbSpace: SqlserverDatabaseTempdbSpaceMetricConfig{
 			Enabled:             false,
@@ -1829,7 +1858,9 @@ func DefaultMetricsConfig() MetricsConfig {
 			Enabled: false,
 		},
 		SqlserverSecurityRoleMembersCount: SqlserverSecurityRoleMembersCountMetricConfig{
-			Enabled: false,
+			Enabled:             false,
+			AggregationStrategy: AggregationStrategyAvg,
+			EnabledAttributes:   []SqlserverSecurityRoleMembersCountMetricAttributeKey{SqlserverSecurityRoleMembersCountMetricAttributeKeyRole},
 		},
 		SqlserverTableCount: SqlserverTableCountMetricConfig{
 			Enabled:             false,

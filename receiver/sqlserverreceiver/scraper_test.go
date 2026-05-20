@@ -189,6 +189,18 @@ func TestSuccessfulScrape(t *testing.T) {
 					expectedFile = filepath.Join("testdata", "expectedWaitStats")
 				case getSQLServerLatchWaitTimeQuery(scraper.config.InstanceName):
 					expectedFile = filepath.Join("testdata", "expectedLatchWaitTime")
+				case getSQLServerDatabaseSizeQuery(scraper.config.InstanceName):
+					expectedFile = filepath.Join("testdata", "expectedDatabaseSize")
+				case getSQLServerMemoryTargetQuery(scraper.config.InstanceName):
+					expectedFile = filepath.Join("testdata", "expectedMemoryTarget")
+				case getSQLServerSecurityPrincipalsQuery(scraper.config.InstanceName):
+					expectedFile = filepath.Join("testdata", "expectedSecurityPrincipals")
+				case getSQLServerSecurityRoleMembersQuery(scraper.config.InstanceName):
+					expectedFile = filepath.Join("testdata", "expectedSecurityRoleMembers")
+				case getSQLServerDatabaseSecurityPrincipalsQuery(scraper.config.InstanceName):
+					expectedFile = filepath.Join("testdata", "expectedDatabaseSecurityPrincipals")
+				case getSQLServerDatabaseSecurityRoleMembersQuery(scraper.config.InstanceName):
+					expectedFile = filepath.Join("testdata", "expectedDatabaseSecurityRoleMembers")
 				}
 				expectedFile += fileSuffix
 
@@ -432,6 +444,8 @@ func (mc mockClient) QueryRows(context.Context, ...any) ([]sqlquery.StringMap, e
 		queryResults, err = readFile("recordDatabaseSampleQueryData.txt")
 	case getSQLServerDatabaseSizeQuery(mc.instanceName):
 		queryResults, err = readFile("database_size_scraped_data.txt")
+	case getSQLServerMemoryTargetQuery(mc.instanceName):
+		queryResults, err = readFile("memory_target_scraped_data.txt")
 	case getSQLServerSecurityPrincipalsQuery(mc.instanceName):
 		queryResults, err = readFile("security_principals_scraped_data.txt")
 	case getSQLServerSecurityRoleMembersQuery(mc.instanceName):
