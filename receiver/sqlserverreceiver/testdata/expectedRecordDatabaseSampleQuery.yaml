@@ -148,7 +148,7 @@ resourceLogs:
               - key: db.query.full_text
                 value:
                   stringValue: ""
-              - key: db.sql.comments
+              - key: query.comments
                 value:
                   stringValue: ""
               - key: sqlserver.normalised_sql_hash

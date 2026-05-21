@@ -727,7 +727,7 @@ query sample
 | sqlserver.procedure_id | The SQL Server ID of the stored procedure, if any | Any Str | - |
 | sqlserver.procedure_name | The name of the stored procedure, if any | Any Str | - |
 | db.query.full_text | The full text of the SQL batch or stored procedure from which the statement was extracted. Only populated when collect_full_query_text is enabled. | Any Str | - |
-| db.sql.comments | Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys in allowed_comment_keys config. Used for APM trace correlation. | Any Str | - |
+| query.comments | Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys in allowed_comment_keys config. Used for APM trace correlation. | Any Str | - |
 | sqlserver.normalised_sql_hash | MD5 hash of the normalized full SQL query text. Used for correlation with APM slow query traces. Only populated when collect_full_query_text is enabled. | Any Str | - |
 | sqlserver.normalized_sql | Normalized SQL query text used to generate the normalised_sql_hash. Only populated when collect_full_query_text is enabled. | Any Str | - |
 
@@ -760,7 +760,7 @@ top query
 | sqlserver.procedure_name | The name of the stored procedure, if any | Any Str | - |
 | sqlserver.query.last_started | Timestamp of when the SQL query last started executing (ISO 8601 format). | Any Str | - |
 | db.query.full_text | The full text of the SQL batch or stored procedure from which the statement was extracted. Only populated when collect_full_query_text is enabled. | Any Str | - |
-| db.sql.comments | Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys in allowed_comment_keys config. Used for APM trace correlation. | Any Str | - |
+| query.comments | Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys in allowed_comment_keys config. Used for APM trace correlation. | Any Str | - |
 | sqlserver.normalised_sql_hash | MD5 hash of the normalized full SQL query text. Used for correlation with APM slow query traces. Only populated when collect_full_query_text is enabled. | Any Str | - |
 | sqlserver.normalized_sql | Normalized SQL query text used to generate the normalised_sql_hash. Only populated when collect_full_query_text is enabled. | Any Str | - |
 
