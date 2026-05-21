@@ -29,8 +29,8 @@ import (
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/priorityqueue"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/sqlcomments"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/sqlquery"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/sqlnormalizer"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/sqlquery"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/sqlserverreceiver/internal/metadata"
 )
 

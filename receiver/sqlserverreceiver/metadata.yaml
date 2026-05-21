@@ -76,10 +76,6 @@ attributes:
     description: The text of the database query being executed.
     type: string
     requirement_level: recommended
-  db.sql.comments:
-    description: Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys in allowed_comment_keys config. Used for APM trace correlation.
-    type: string
-    requirement_level: opt_in
   db.system.name:
     description: The database management system (DBMS) product as identified by the client instrumentation.
     type: string
@@ -120,6 +116,10 @@ attributes:
     description: The physical filename of the file being monitored.
     type: string
     requirement_level: recommended
+  query.comments:
+    description: Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys in allowed_comment_keys config. Used for APM trace correlation.
+    type: string
+    requirement_level: opt_in
   replica.direction:
     description: The direction of flow of bytes for replica.
     type: string
@@ -373,7 +373,7 @@ events:
       - sqlserver.procedure_id
       - sqlserver.procedure_name
       - db.query.full_text
-      - db.sql.comments
+      - query.comments
       - sqlserver.normalised_sql_hash
       - sqlserver.normalized_sql
 
@@ -400,7 +400,7 @@ events:
       - sqlserver.procedure_id
       - sqlserver.procedure_name
       - db.query.full_text
-      - db.sql.comments
+      - query.comments
       - sqlserver.normalised_sql_hash
       - sqlserver.normalized_sql
 
