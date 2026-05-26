@@ -876,13 +876,12 @@ func (s *sqlServerScraperHelper) recordDatabaseSizeMetrics(ctx context.Context) 
 
 		measurementType := row[measurement]
 
-		if measurementType == "sqlserver_database_file_size" {
-			// Record database.file.size metric with file_type and db.namespace attributes
+		switch measurementType {
+		case "sqlserver_database_file_size":
 			if err := s.mb.RecordSqlserverDatabaseFileSizeDataPoint(now, row[sizeBytes], row[fileType], row[databaseName]); err != nil {
 				errs = append(errs, fmt.Errorf("failed to parse database file size for row %d: %w", i, err))
 			}
-		} else if measurementType == "sqlserver_database_transactions_active" {
-			// Record database.transactions.active metric with db.namespace attribute
+		case "sqlserver_database_transactions_active":
 			if err := s.mb.RecordSqlserverDatabaseTransactionsActiveDataPoint(now, row[activeTransactions], row[databaseName]); err != nil {
 				errs = append(errs, fmt.Errorf("failed to parse active transactions for row %d: %w", i, err))
 			}
