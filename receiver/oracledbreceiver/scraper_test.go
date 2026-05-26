@@ -605,7 +605,7 @@ func TestScraper_ScrapeOSStat(t *testing.T) {
 				}
 				return &fakeDbClient{Responses: [][]metricRow{queryResponses[s]}}
 			},
-			errWanted: `failed to parse int64 for SystemMemoryLimit, value was bad`,
+			errWanted: `failed to parse SystemMemoryLimit, value was bad`,
 		},
 	}
 	for _, test := range tests {
