@@ -138,6 +138,20 @@ var queryCDBResponses = map[string][]metricRow{
 		{"NAME": "Free SGA Memory Available", "BYTES": "41943040"},
 	},
 	storageUsageSQL: {{"USED_DB_SIZE": "5368709120", "ALLOCATED_DB_SIZE": "10737418240"}},
+	sysmetricSQL: {
+		{"METRIC_NAME": "Buffer Cache Hit Ratio", "VALUE": "98.75"},
+		{"METRIC_NAME": "Host CPU Utilization (%)", "VALUE": "12.34"},
+		{"METRIC_NAME": "Database CPU Time Ratio", "VALUE": "55.66"},
+		{"METRIC_NAME": "Library Cache Hit Ratio", "VALUE": "99.10"},
+		{"METRIC_NAME": "Shared Pool Free %", "VALUE": "30.20"},
+		{"METRIC_NAME": "Database Wait Time Ratio", "VALUE": "44.55"},
+		{"METRIC_NAME": "Soft Parse Ratio", "VALUE": "88.90"},
+		{"METRIC_NAME": "SQL Service Response Time", "VALUE": "0.0042"},
+		{"METRIC_NAME": "Memory Sorts Ratio", "VALUE": "99.50"},
+		{"METRIC_NAME": "Redo Allocation Hit Ratio", "VALUE": "97.80"},
+		{"METRIC_NAME": "Parse Failure Count Per Sec", "VALUE": "0.25"},
+		{"METRIC_NAME": "Execute Without Parse Ratio", "VALUE": "75.30"},
+	},
 }
 
 var cacheValue = map[string]int64{
@@ -296,7 +310,7 @@ func TestScraper_ScrapeCDBRoot(t *testing.T) {
 	cfg := metadata.NewDefaultMetricsBuilderConfig()
 	cfg.Metrics.OracledbConsistentGets.Enabled = true
 	cfg.Metrics.OracledbDbBlockGets.Enabled = true
-	// Enable the opt_in pdb_name attribute so it is written to data points.
+	// Enable the opt-in pdb_name attribute on tablespace size metrics.
 	cfg.Metrics.OracledbTablespaceSizeLimit.EnabledAttributes = append(
 		cfg.Metrics.OracledbTablespaceSizeLimit.EnabledAttributes,
 		metadata.OracledbTablespaceSizeLimitMetricAttributeKeyOracleDbPdb,
@@ -304,6 +318,22 @@ func TestScraper_ScrapeCDBRoot(t *testing.T) {
 	cfg.Metrics.OracledbTablespaceSizeUsage.EnabledAttributes = append(
 		cfg.Metrics.OracledbTablespaceSizeUsage.EnabledAttributes,
 		metadata.OracledbTablespaceSizeUsageMetricAttributeKeyOracleDbPdb,
+	)
+	// Enable tablespace health metrics with the opt-in pdb_name attribute.
+	cfg.Metrics.OracledbTablespaceLimit.Enabled = true
+	cfg.Metrics.OracledbTablespaceLimit.EnabledAttributes = append(
+		cfg.Metrics.OracledbTablespaceLimit.EnabledAttributes,
+		metadata.OracledbTablespaceLimitMetricAttributeKeyOracleDbPdb,
+	)
+	cfg.Metrics.OracledbTablespaceStatus.Enabled = true
+	cfg.Metrics.OracledbTablespaceStatus.EnabledAttributes = append(
+		cfg.Metrics.OracledbTablespaceStatus.EnabledAttributes,
+		metadata.OracledbTablespaceStatusMetricAttributeKeyOracleDbPdb,
+	)
+	cfg.Metrics.OracledbTablespaceUtilization.Enabled = true
+	cfg.Metrics.OracledbTablespaceUtilization.EnabledAttributes = append(
+		cfg.Metrics.OracledbTablespaceUtilization.EnabledAttributes,
+		metadata.OracledbTablespaceUtilizationMetricAttributeKeyOracleDbPdb,
 	)
 
 	scrpr := oracleScraper{
@@ -332,17 +362,27 @@ func TestScraper_ScrapeCDBRoot(t *testing.T) {
 	require.NoError(t, err)
 
 	metrics := m.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
-	assert.Equal(t, 18, metrics.Len())
 
-	// Verify pdb_name is set on tablespace metrics.
+	// Verify pdb_name is set on all tablespace metrics (both size and health).
+	tablespaceMetricsWithPDB := map[string]bool{
+		"oracledb.tablespace_size.usage":    false,
+		"oracledb.tablespace_size.limit":    false,
+		"oracledb.tablespace.limit":         false,
+		"oracledb.tablespace.status":        false,
+		"oracledb.tablespace.utilization":   false,
+	}
 	for i := 0; i < metrics.Len(); i++ {
 		metric := metrics.At(i)
-		if metric.Name() == "oracledb.tablespace_size.usage" || metric.Name() == "oracledb.tablespace_size.limit" {
+		if _, ok := tablespaceMetricsWithPDB[metric.Name()]; ok {
 			dp := metric.Gauge().DataPoints().At(0)
-			pdbAttr, ok := dp.Attributes().Get("oracle.db.pdb")
-			assert.True(t, ok, "expected oracle.db.pdb attribute on %s", metric.Name())
+			pdbAttr, hasPDB := dp.Attributes().Get("oracle.db.pdb")
+			assert.True(t, hasPDB, "expected oracle.db.pdb attribute on %s", metric.Name())
 			assert.Equal(t, "PDB1", pdbAttr.Str())
+			tablespaceMetricsWithPDB[metric.Name()] = true
 		}
+	}
+	for name, seen := range tablespaceMetricsWithPDB {
+		assert.True(t, seen, "expected metric %s to be present", name)
 	}
 }
 

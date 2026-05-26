@@ -392,21 +392,21 @@ func TestMetricsBuilder(t *testing.T) {
 			mb.RecordOracledbSystemCPULoadDataPoint(ts, 1)
 
 			allMetricsCount++
-			mb.RecordOracledbTablespaceLimitDataPoint(ts, 1, "tablespace_name-val")
+			mb.RecordOracledbTablespaceLimitDataPoint(ts, 1, "tablespace_name-val", "oracle.db.pdb-val")
 			if tt.name == "reaggregate_set" {
-				mb.RecordOracledbTablespaceLimitDataPoint(ts, 3, "tablespace_name-val-2")
+				mb.RecordOracledbTablespaceLimitDataPoint(ts, 3, "tablespace_name-val-2", "oracle.db.pdb-val-2")
 			}
 
 			allMetricsCount++
-			mb.RecordOracledbTablespaceStatusDataPoint(ts, 1, "tablespace_name-val", "oracledb.tablespace.state-val")
+			mb.RecordOracledbTablespaceStatusDataPoint(ts, 1, "tablespace_name-val", "oracledb.tablespace.state-val", "oracle.db.pdb-val")
 			if tt.name == "reaggregate_set" {
-				mb.RecordOracledbTablespaceStatusDataPoint(ts, 3, "tablespace_name-val-2", "oracledb.tablespace.state-val-2")
+				mb.RecordOracledbTablespaceStatusDataPoint(ts, 3, "tablespace_name-val-2", "oracledb.tablespace.state-val-2", "oracle.db.pdb-val-2")
 			}
 
 			allMetricsCount++
-			mb.RecordOracledbTablespaceUtilizationDataPoint(ts, 1, "tablespace_name-val")
+			mb.RecordOracledbTablespaceUtilizationDataPoint(ts, 1, "tablespace_name-val", "oracle.db.pdb-val")
 			if tt.name == "reaggregate_set" {
-				mb.RecordOracledbTablespaceUtilizationDataPoint(ts, 3, "tablespace_name-val-2")
+				mb.RecordOracledbTablespaceUtilizationDataPoint(ts, 3, "tablespace_name-val-2", "oracle.db.pdb-val-2")
 			}
 
 			defaultMetricsCount++
@@ -2128,6 +2128,8 @@ func TestMetricsBuilder(t *testing.T) {
 						}
 						_, ok := dp.Attributes().Get("tablespace_name")
 						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("oracle.db.pdb")
+						assert.False(t, ok)
 					}
 				case "oracledb.tablespace.status":
 					if tt.name != "reaggregate_set" {
@@ -2173,6 +2175,8 @@ func TestMetricsBuilder(t *testing.T) {
 						assert.False(t, ok)
 						_, ok = dp.Attributes().Get("oracledb.tablespace.state")
 						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("oracle.db.pdb")
+						assert.False(t, ok)
 					}
 				case "oracledb.tablespace.utilization":
 					if tt.name != "reaggregate_set" {
@@ -2212,6 +2216,8 @@ func TestMetricsBuilder(t *testing.T) {
 							assert.InDelta(t, float64(3), dp.DoubleValue(), 0.01)
 						}
 						_, ok := dp.Attributes().Get("tablespace_name")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("oracle.db.pdb")
 						assert.False(t, ok)
 					}
 				case "oracledb.tablespace_size.limit":

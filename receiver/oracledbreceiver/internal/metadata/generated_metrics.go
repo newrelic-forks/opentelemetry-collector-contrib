@@ -4396,7 +4396,7 @@ func (m *metricOracledbTablespaceLimit) init() {
 	m.aggDataPoints = m.aggDataPoints[:0]
 }
 
-func (m *metricOracledbTablespaceLimit) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, tablespaceNameAttributeValue string) {
+func (m *metricOracledbTablespaceLimit) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, tablespaceNameAttributeValue string, oracleDbPdbAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
@@ -4406,6 +4406,9 @@ func (m *metricOracledbTablespaceLimit) recordDataPoint(start pcommon.Timestamp,
 	dp.SetTimestamp(ts)
 	if slices.Contains(m.config.EnabledAttributes, OracledbTablespaceLimitMetricAttributeKeyTablespaceName) {
 		dp.Attributes().PutStr("tablespace_name", tablespaceNameAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, OracledbTablespaceLimitMetricAttributeKeyOracleDbPdb) {
+		dp.Attributes().PutStr("oracle.db.pdb", oracleDbPdbAttributeValue)
 	}
 
 	var s string
@@ -4485,7 +4488,7 @@ func (m *metricOracledbTablespaceStatus) init() {
 	m.aggDataPoints = m.aggDataPoints[:0]
 }
 
-func (m *metricOracledbTablespaceStatus) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, tablespaceNameAttributeValue string, oracledbTablespaceStateAttributeValue string) {
+func (m *metricOracledbTablespaceStatus) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, tablespaceNameAttributeValue string, oracledbTablespaceStateAttributeValue string, oracleDbPdbAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
@@ -4498,6 +4501,9 @@ func (m *metricOracledbTablespaceStatus) recordDataPoint(start pcommon.Timestamp
 	}
 	if slices.Contains(m.config.EnabledAttributes, OracledbTablespaceStatusMetricAttributeKeyOracledbTablespaceState) {
 		dp.Attributes().PutStr("oracledb.tablespace.state", oracledbTablespaceStateAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, OracledbTablespaceStatusMetricAttributeKeyOracleDbPdb) {
+		dp.Attributes().PutStr("oracle.db.pdb", oracleDbPdbAttributeValue)
 	}
 
 	var s string
@@ -4577,7 +4583,7 @@ func (m *metricOracledbTablespaceUtilization) init() {
 	m.aggDataPoints = m.aggDataPoints[:0]
 }
 
-func (m *metricOracledbTablespaceUtilization) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64, tablespaceNameAttributeValue string) {
+func (m *metricOracledbTablespaceUtilization) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64, tablespaceNameAttributeValue string, oracleDbPdbAttributeValue string) {
 	if !m.config.Enabled {
 		return
 	}
@@ -4587,6 +4593,9 @@ func (m *metricOracledbTablespaceUtilization) recordDataPoint(start pcommon.Time
 	dp.SetTimestamp(ts)
 	if slices.Contains(m.config.EnabledAttributes, OracledbTablespaceUtilizationMetricAttributeKeyTablespaceName) {
 		dp.Attributes().PutStr("tablespace_name", tablespaceNameAttributeValue)
+	}
+	if slices.Contains(m.config.EnabledAttributes, OracledbTablespaceUtilizationMetricAttributeKeyOracleDbPdb) {
+		dp.Attributes().PutStr("oracle.db.pdb", oracleDbPdbAttributeValue)
 	}
 
 	var s string
@@ -6050,18 +6059,18 @@ func (mb *MetricsBuilder) RecordOracledbSystemCPULoadDataPoint(ts pcommon.Timest
 }
 
 // RecordOracledbTablespaceLimitDataPoint adds a data point to oracledb.tablespace.limit metric.
-func (mb *MetricsBuilder) RecordOracledbTablespaceLimitDataPoint(ts pcommon.Timestamp, val int64, tablespaceNameAttributeValue string) {
-	mb.metricOracledbTablespaceLimit.recordDataPoint(mb.startTime, ts, val, tablespaceNameAttributeValue)
+func (mb *MetricsBuilder) RecordOracledbTablespaceLimitDataPoint(ts pcommon.Timestamp, val int64, tablespaceNameAttributeValue string, oracleDbPdbAttributeValue string) {
+	mb.metricOracledbTablespaceLimit.recordDataPoint(mb.startTime, ts, val, tablespaceNameAttributeValue, oracleDbPdbAttributeValue)
 }
 
 // RecordOracledbTablespaceStatusDataPoint adds a data point to oracledb.tablespace.status metric.
-func (mb *MetricsBuilder) RecordOracledbTablespaceStatusDataPoint(ts pcommon.Timestamp, val int64, tablespaceNameAttributeValue string, oracledbTablespaceStateAttributeValue string) {
-	mb.metricOracledbTablespaceStatus.recordDataPoint(mb.startTime, ts, val, tablespaceNameAttributeValue, oracledbTablespaceStateAttributeValue)
+func (mb *MetricsBuilder) RecordOracledbTablespaceStatusDataPoint(ts pcommon.Timestamp, val int64, tablespaceNameAttributeValue string, oracledbTablespaceStateAttributeValue string, oracleDbPdbAttributeValue string) {
+	mb.metricOracledbTablespaceStatus.recordDataPoint(mb.startTime, ts, val, tablespaceNameAttributeValue, oracledbTablespaceStateAttributeValue, oracleDbPdbAttributeValue)
 }
 
 // RecordOracledbTablespaceUtilizationDataPoint adds a data point to oracledb.tablespace.utilization metric.
-func (mb *MetricsBuilder) RecordOracledbTablespaceUtilizationDataPoint(ts pcommon.Timestamp, val float64, tablespaceNameAttributeValue string) {
-	mb.metricOracledbTablespaceUtilization.recordDataPoint(mb.startTime, ts, val, tablespaceNameAttributeValue)
+func (mb *MetricsBuilder) RecordOracledbTablespaceUtilizationDataPoint(ts pcommon.Timestamp, val float64, tablespaceNameAttributeValue string, oracleDbPdbAttributeValue string) {
+	mb.metricOracledbTablespaceUtilization.recordDataPoint(mb.startTime, ts, val, tablespaceNameAttributeValue, oracleDbPdbAttributeValue)
 }
 
 // RecordOracledbTablespaceSizeLimitDataPoint adds a data point to oracledb.tablespace_size.limit metric.

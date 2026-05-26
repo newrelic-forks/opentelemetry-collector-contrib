@@ -646,7 +646,7 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 				if s.metricsBuilderConfig.Metrics.OracledbTablespaceUtilization.Enabled &&
 					tablespaceSizeBlockCount > 0 {
 					utilization := float64(usedSpaceBlockCount) / float64(tablespaceSizeBlockCount)
-					s.mb.RecordOracledbTablespaceUtilizationDataPoint(now, utilization, tablespaceName)
+					s.mb.RecordOracledbTablespaceUtilizationDataPoint(now, utilization, tablespaceName, pdbName)
 				}
 
 				if s.metricsBuilderConfig.Metrics.OracledbTablespaceStatus.Enabled {
@@ -654,7 +654,7 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 					if tablespaceStatus == "" {
 						tablespaceStatus = "unknown"
 					}
-					s.mb.RecordOracledbTablespaceStatusDataPoint(now, 1, tablespaceName, tablespaceStatus)
+					s.mb.RecordOracledbTablespaceStatusDataPoint(now, 1, tablespaceName, tablespaceStatus, pdbName)
 				}
 
 				if s.metricsBuilderConfig.Metrics.OracledbTablespaceLimit.Enabled {
@@ -663,7 +663,7 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 						scrapeErrors = append(scrapeErrors, fmt.Errorf("failed to parse int64 for OracledbTablespaceLimit, value was %s: %w", row["MAX_BYTES"], err))
 						continue
 					}
-					s.mb.RecordOracledbTablespaceLimitDataPoint(now, maxBytes, tablespaceName)
+					s.mb.RecordOracledbTablespaceLimitDataPoint(now, maxBytes, tablespaceName, pdbName)
 				}
 			}
 		}

@@ -144,13 +144,13 @@ all_set:
       enabled: true
     oracledb.tablespace.limit:
       enabled: true
-      attributes: ["tablespace_name"]
+      attributes: ["tablespace_name","oracle.db.pdb"]
     oracledb.tablespace.status:
       enabled: true
-      attributes: ["tablespace_name","oracledb.tablespace.state"]
+      attributes: ["tablespace_name","oracledb.tablespace.state","oracle.db.pdb"]
     oracledb.tablespace.utilization:
       enabled: true
-      attributes: ["tablespace_name"]
+      attributes: ["tablespace_name","oracle.db.pdb"]
     oracledb.tablespace_size.limit:
       enabled: true
       attributes: ["tablespace_name","oracle.db.pdb"]
@@ -532,13 +532,13 @@ none_set:
       enabled: false
     oracledb.tablespace.limit:
       enabled: false
-      attributes: ["tablespace_name"]
+      attributes: ["tablespace_name","oracle.db.pdb"]
     oracledb.tablespace.status:
       enabled: false
-      attributes: ["tablespace_name","oracledb.tablespace.state"]
+      attributes: ["tablespace_name","oracledb.tablespace.state","oracle.db.pdb"]
     oracledb.tablespace.utilization:
       enabled: false
-      attributes: ["tablespace_name"]
+      attributes: ["tablespace_name","oracle.db.pdb"]
     oracledb.tablespace_size.limit:
       enabled: false
       attributes: ["tablespace_name","oracle.db.pdb"]

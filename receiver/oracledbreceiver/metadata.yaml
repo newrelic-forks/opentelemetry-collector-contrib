@@ -887,6 +887,7 @@ metrics:
   oracledb.tablespace.limit:
     attributes:
       - tablespace_name
+      - oracle.db.pdb
     description: Maximum autoextend size of tablespace in bytes. Returns 0 for temporary tablespaces and tablespaces without autoextend enabled.
     enabled: false
     stability: development
@@ -897,6 +898,7 @@ metrics:
     attributes:
       - tablespace_name
       - oracledb.tablespace.state
+      - oracle.db.pdb
     description: Current status of tablespaces, broken down by state.
     enabled: false
     stability: development
@@ -906,6 +908,7 @@ metrics:
   oracledb.tablespace.utilization:
     attributes:
       - tablespace_name
+      - oracle.db.pdb
     description: Fraction of tablespace currently in use, expressed as a value between 0 and 1.
     enabled: false
     stability: development

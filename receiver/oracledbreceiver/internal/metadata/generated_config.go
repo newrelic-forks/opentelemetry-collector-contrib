@@ -1984,6 +1984,7 @@ type OracledbTablespaceLimitMetricAttributeKey string
 
 const (
 	OracledbTablespaceLimitMetricAttributeKeyTablespaceName OracledbTablespaceLimitMetricAttributeKey = "tablespace_name"
+	OracledbTablespaceLimitMetricAttributeKeyOracleDbPdb    OracledbTablespaceLimitMetricAttributeKey = "oracle.db.pdb"
 )
 
 // OracledbTablespaceLimitMetricConfig provides config for the oracledb.tablespace.limit metric.
@@ -2012,9 +2013,9 @@ func (ms *OracledbTablespaceLimitMetricConfig) Unmarshal(parser *confmap.Conf) e
 func (ms *OracledbTablespaceLimitMetricConfig) Validate() error {
 	for _, val := range ms.EnabledAttributes {
 		switch val {
-		case OracledbTablespaceLimitMetricAttributeKeyTablespaceName:
+		case OracledbTablespaceLimitMetricAttributeKeyTablespaceName, OracledbTablespaceLimitMetricAttributeKeyOracleDbPdb:
 		default:
-			return fmt.Errorf("metric oracledb.tablespace.limit doesn't have an attribute %v, valid attributes: [tablespace_name]", val)
+			return fmt.Errorf("metric oracledb.tablespace.limit doesn't have an attribute %v, valid attributes: [tablespace_name, oracle.db.pdb]", val)
 		}
 	}
 
@@ -2033,6 +2034,7 @@ type OracledbTablespaceStatusMetricAttributeKey string
 const (
 	OracledbTablespaceStatusMetricAttributeKeyTablespaceName          OracledbTablespaceStatusMetricAttributeKey = "tablespace_name"
 	OracledbTablespaceStatusMetricAttributeKeyOracledbTablespaceState OracledbTablespaceStatusMetricAttributeKey = "oracledb.tablespace.state"
+	OracledbTablespaceStatusMetricAttributeKeyOracleDbPdb             OracledbTablespaceStatusMetricAttributeKey = "oracle.db.pdb"
 )
 
 // OracledbTablespaceStatusMetricConfig provides config for the oracledb.tablespace.status metric.
@@ -2061,9 +2063,9 @@ func (ms *OracledbTablespaceStatusMetricConfig) Unmarshal(parser *confmap.Conf) 
 func (ms *OracledbTablespaceStatusMetricConfig) Validate() error {
 	for _, val := range ms.EnabledAttributes {
 		switch val {
-		case OracledbTablespaceStatusMetricAttributeKeyTablespaceName, OracledbTablespaceStatusMetricAttributeKeyOracledbTablespaceState:
+		case OracledbTablespaceStatusMetricAttributeKeyTablespaceName, OracledbTablespaceStatusMetricAttributeKeyOracledbTablespaceState, OracledbTablespaceStatusMetricAttributeKeyOracleDbPdb:
 		default:
-			return fmt.Errorf("metric oracledb.tablespace.status doesn't have an attribute %v, valid attributes: [tablespace_name, oracledb.tablespace.state]", val)
+			return fmt.Errorf("metric oracledb.tablespace.status doesn't have an attribute %v, valid attributes: [tablespace_name, oracledb.tablespace.state, oracle.db.pdb]", val)
 		}
 	}
 
@@ -2081,6 +2083,7 @@ type OracledbTablespaceUtilizationMetricAttributeKey string
 
 const (
 	OracledbTablespaceUtilizationMetricAttributeKeyTablespaceName OracledbTablespaceUtilizationMetricAttributeKey = "tablespace_name"
+	OracledbTablespaceUtilizationMetricAttributeKeyOracleDbPdb    OracledbTablespaceUtilizationMetricAttributeKey = "oracle.db.pdb"
 )
 
 // OracledbTablespaceUtilizationMetricConfig provides config for the oracledb.tablespace.utilization metric.
@@ -2109,9 +2112,9 @@ func (ms *OracledbTablespaceUtilizationMetricConfig) Unmarshal(parser *confmap.C
 func (ms *OracledbTablespaceUtilizationMetricConfig) Validate() error {
 	for _, val := range ms.EnabledAttributes {
 		switch val {
-		case OracledbTablespaceUtilizationMetricAttributeKeyTablespaceName:
+		case OracledbTablespaceUtilizationMetricAttributeKeyTablespaceName, OracledbTablespaceUtilizationMetricAttributeKeyOracleDbPdb:
 		default:
-			return fmt.Errorf("metric oracledb.tablespace.utilization doesn't have an attribute %v, valid attributes: [tablespace_name]", val)
+			return fmt.Errorf("metric oracledb.tablespace.utilization doesn't have an attribute %v, valid attributes: [tablespace_name, oracle.db.pdb]", val)
 		}
 	}
 
