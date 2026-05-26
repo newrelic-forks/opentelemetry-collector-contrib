@@ -722,7 +722,7 @@ type metricSqlserverDatabaseBackupOrRestoreRate struct {
 func (m *metricSqlserverDatabaseBackupOrRestoreRate) init() {
 	m.data.SetName("sqlserver.database.backup_or_restore.rate")
 	m.data.SetDescription("Total number of backups/restores.")
-	m.data.SetUnit("“{backups_or_restores}/s”")
+	m.data.SetUnit("{backups_or_restores}/s")
 	m.data.SetEmptyGauge()
 }
 
@@ -1535,7 +1535,7 @@ type metricSqlserverDatabaseTempdbSpace struct {
 func (m *metricSqlserverDatabaseTempdbSpace) init() {
 	m.data.SetName("sqlserver.database.tempdb.space")
 	m.data.SetDescription("Total free space in temporary DB.")
-	m.data.SetUnit("“KB”")
+	m.data.SetUnit("KB")
 	m.data.SetEmptySum()
 	m.data.Sum().SetIsMonotonic(false)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
@@ -1764,7 +1764,7 @@ type metricSqlserverDeadlockRate struct {
 func (m *metricSqlserverDeadlockRate) init() {
 	m.data.SetName("sqlserver.deadlock.rate")
 	m.data.SetDescription("Total number of deadlocks.")
-	m.data.SetUnit("“{deadlocks}/s”")
+	m.data.SetUnit("{deadlocks}/s")
 	m.data.SetEmptyGauge()
 }
 
@@ -1814,7 +1814,7 @@ type metricSqlserverIndexSearchRate struct {
 func (m *metricSqlserverIndexSearchRate) init() {
 	m.data.SetName("sqlserver.index.search.rate")
 	m.data.SetDescription("Total number of index searches.")
-	m.data.SetUnit("“{searches}/s”")
+	m.data.SetUnit("{searches}/s")
 	m.data.SetEmptyGauge()
 }
 
@@ -2116,7 +2116,7 @@ type metricSqlserverLoginRate struct {
 func (m *metricSqlserverLoginRate) init() {
 	m.data.SetName("sqlserver.login.rate")
 	m.data.SetDescription("Total number of logins.")
-	m.data.SetUnit("“{logins}/s”")
+	m.data.SetUnit("{logins}/s")
 	m.data.SetEmptyGauge()
 }
 
@@ -2166,7 +2166,7 @@ type metricSqlserverLogoutRate struct {
 func (m *metricSqlserverLogoutRate) init() {
 	m.data.SetName("sqlserver.logout.rate")
 	m.data.SetDescription("Total number of logouts.")
-	m.data.SetUnit("“{logouts}/s”")
+	m.data.SetUnit("{logouts}/s")
 	m.data.SetEmptyGauge()
 }
 
@@ -2464,7 +2464,7 @@ type metricSqlserverPageBufferCacheFreeListStallsRate struct {
 func (m *metricSqlserverPageBufferCacheFreeListStallsRate) init() {
 	m.data.SetName("sqlserver.page.buffer_cache.free_list.stalls.rate")
 	m.data.SetDescription("Number of free list stalls.")
-	m.data.SetUnit("“{stalls}/s”")
+	m.data.SetUnit("{stalls}/s")
 	m.data.SetEmptyGauge()
 }
 
@@ -2753,7 +2753,7 @@ type metricSqlserverPageLookupRate struct {
 func (m *metricSqlserverPageLookupRate) init() {
 	m.data.SetName("sqlserver.page.lookup.rate")
 	m.data.SetDescription("Total number of page lookups.")
-	m.data.SetUnit("“{lookups}/s”")
+	m.data.SetUnit("{lookups}/s")
 	m.data.SetEmptyGauge()
 }
 
@@ -3410,7 +3410,7 @@ type metricSqlserverTableCount struct {
 func (m *metricSqlserverTableCount) init() {
 	m.data.SetName("sqlserver.table.count")
 	m.data.SetDescription("The number of tables.")
-	m.data.SetUnit("“{tables}”")
+	m.data.SetUnit("{tables}")
 	m.data.SetEmptySum()
 	m.data.Sum().SetIsMonotonic(false)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
@@ -3555,7 +3555,7 @@ type metricSqlserverTransactionMirrorWriteRate struct {
 func (m *metricSqlserverTransactionMirrorWriteRate) init() {
 	m.data.SetName("sqlserver.transaction.mirror_write.rate")
 	m.data.SetDescription("Total number of mirror write transactions.")
-	m.data.SetUnit("“{transactions}/s”")
+	m.data.SetUnit("{transactions}/s")
 	m.data.SetEmptyGauge()
 }
 

@@ -242,7 +242,7 @@ Total number of backups/restores.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
-| “{backups_or_restores}/s” | Gauge | Double | Development |
+| {backups_or_restores}/s | Gauge | Double | Development |
 
 ### sqlserver.database.count
 
@@ -389,7 +389,7 @@ Total free space in temporary DB.
 
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
-| “KB” | Sum | Int | Cumulative | false | Development |
+| KB | Sum | Int | Cumulative | false | Development |
 
 #### Attributes
 
@@ -427,7 +427,7 @@ Total number of deadlocks.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
-| “{deadlocks}/s” | Gauge | Double | Development |
+| {deadlocks}/s | Gauge | Double | Development |
 
 ### sqlserver.index.search.rate
 
@@ -435,7 +435,7 @@ Total number of index searches.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
-| “{searches}/s” | Gauge | Double | Development |
+| {searches}/s | Gauge | Double | Development |
 
 ### sqlserver.latch.wait_time.avg
 
@@ -471,7 +471,7 @@ Total number of logins.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
-| “{logins}/s” | Gauge | Double | Development |
+| {logins}/s | Gauge | Double | Development |
 
 ### sqlserver.logout.rate
 
@@ -479,7 +479,7 @@ Total number of logouts.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
-| “{logouts}/s” | Gauge | Double | Development |
+| {logouts}/s | Gauge | Double | Development |
 
 ### sqlserver.memory.grants.pending.count
 
@@ -530,7 +530,7 @@ Number of free list stalls.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
-| “{stalls}/s” | Gauge | Int | Development |
+| {stalls}/s | Gauge | Int | Development |
 
 ### sqlserver.page.lookup.rate
 
@@ -538,7 +538,7 @@ Total number of page lookups.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
-| “{lookups}/s” | Gauge | Double | Development |
+| {lookups}/s | Gauge | Double | Development |
 
 ### sqlserver.processes.blocked
 
@@ -632,7 +632,7 @@ The number of tables.
 
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
-| “{tables}” | Sum | Int | Cumulative | false | Development |
+| {tables} | Sum | Int | Cumulative | false | Development |
 
 #### Attributes
 
@@ -655,7 +655,7 @@ Total number of mirror write transactions.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
-| “{transactions}/s” | Gauge | Double | Development |
+| {transactions}/s | Gauge | Double | Development |
 
 ## Default Events
 
