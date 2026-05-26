@@ -100,16 +100,18 @@ const (
 	// tablespaceUsageCDBSQL extends tablespaceUsageSQL for CDB root, using CDB_ views to cover all PDBs.
 	tablespaceUsageCDBSQL = `
 		SELECT c.name AS PDB_NAME, t.TABLESPACE_NAME, m.USED_SPACE, m.TABLESPACE_SIZE, t.BLOCK_SIZE, t.STATUS
-		FROM CDB_TABLESPACE_USAGE_METRICS m, CDB_TABLESPACES t, v$containers c
-		WHERE m.con_id(+) = t.con_id AND t.con_id = c.con_id AND m.TABLESPACE_NAME(+) = t.TABLESPACE_NAME`
+		FROM CDB_TABLESPACES t
+		JOIN v$containers c ON t.con_id = c.con_id
+		LEFT JOIN CDB_TABLESPACE_USAGE_METRICS m ON m.con_id = t.con_id AND m.TABLESPACE_NAME = t.TABLESPACE_NAME`
 	// tablespaceUsageCDBWithMaxSQL extends tablespaceUsageCDBSQL with autoextend max size.
 	tablespaceUsageCDBWithMaxSQL = `
 		SELECT c.name AS PDB_NAME, t.TABLESPACE_NAME, m.USED_SPACE, m.TABLESPACE_SIZE, t.BLOCK_SIZE, t.STATUS,
 		       NVL(mxb.MAX_BYTES, 0) as MAX_BYTES
-		FROM CDB_TABLESPACE_USAGE_METRICS m, CDB_TABLESPACES t, v$containers c
+		FROM CDB_TABLESPACES t
+		JOIN v$containers c ON t.con_id = c.con_id
+		LEFT JOIN CDB_TABLESPACE_USAGE_METRICS m ON m.con_id = t.con_id AND m.TABLESPACE_NAME = t.TABLESPACE_NAME
 		LEFT JOIN (SELECT TABLESPACE_NAME, con_id, SUM(NVL(MAXBYTES, 0)) as MAX_BYTES FROM CDB_DATA_FILES GROUP BY TABLESPACE_NAME, con_id) mxb
-		    ON t.TABLESPACE_NAME = mxb.TABLESPACE_NAME AND t.con_id = mxb.con_id
-		WHERE m.con_id(+) = t.con_id AND t.con_id = c.con_id AND m.TABLESPACE_NAME(+) = t.TABLESPACE_NAME`
+		    ON t.TABLESPACE_NAME = mxb.TABLESPACE_NAME AND t.con_id = mxb.con_id`
 	// statsCDBSQL extends statsSQL for CDB root using v$con_sysstat (a Container Data Object)
 	// which returns per-PDB rows with correct CON_IDs; v$sysstat always returns CON_ID=0 from CDB root.
 	statsCDBSQL = `
@@ -742,12 +744,14 @@ func (s *oracleScraper) collectOSStat(ctx context.Context, scrapeErrors *[]error
 			}
 		case osStatNamePhysicalMemory:
 			if s.metricsBuilderConfig.Metrics.SystemMemoryLimit.Enabled {
-				val, err := strconv.ParseInt(statValue, 10, 64)
+				// Oracle may return PHYSICAL_MEMORY_BYTES in scientific notation (e.g. 6.6878E+10),
+				// so parse as float64 first then convert to int64.
+				fval, err := strconv.ParseFloat(statValue, 64)
 				if err != nil {
-					*scrapeErrors = append(*scrapeErrors, fmt.Errorf("failed to parse int64 for SystemMemoryLimit, value was %s: %w", statValue, err))
+					*scrapeErrors = append(*scrapeErrors, fmt.Errorf("failed to parse SystemMemoryLimit, value was %s: %w", statValue, err))
 					continue
 				}
-				s.mb.RecordSystemMemoryLimitDataPoint(now, val)
+				s.mb.RecordSystemMemoryLimitDataPoint(now, int64(fval))
 			}
 		}
 	}

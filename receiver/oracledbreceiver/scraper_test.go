@@ -365,11 +365,11 @@ func TestScraper_ScrapeCDBRoot(t *testing.T) {
 
 	// Verify pdb_name is set on all tablespace metrics (both size and health).
 	tablespaceMetricsWithPDB := map[string]bool{
-		"oracledb.tablespace_size.usage":    false,
-		"oracledb.tablespace_size.limit":    false,
-		"oracledb.tablespace.limit":         false,
-		"oracledb.tablespace.status":        false,
-		"oracledb.tablespace.utilization":   false,
+		"oracledb.tablespace_size.usage":  false,
+		"oracledb.tablespace_size.limit":  false,
+		"oracledb.tablespace.limit":       false,
+		"oracledb.tablespace.status":      false,
+		"oracledb.tablespace.utilization": false,
 	}
 	for i := 0; i < metrics.Len(); i++ {
 		metric := metrics.At(i)
