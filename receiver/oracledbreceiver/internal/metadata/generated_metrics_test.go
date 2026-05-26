@@ -96,6 +96,7 @@ func TestMetricsBuilder(t *testing.T) {
 			aggMap["oracledb.physical_writes_direct"] = mb.metricOracledbPhysicalWritesDirect.config.AggregationStrategy
 			aggMap["oracledb.queries_parallelized"] = mb.metricOracledbQueriesParallelized.config.AggregationStrategy
 			aggMap["oracledb.sessions.usage"] = mb.metricOracledbSessionsUsage.config.AggregationStrategy
+			aggMap["oracledb.sga.usage"] = mb.metricOracledbSgaUsage.config.AggregationStrategy
 			aggMap["oracledb.sort.ratio"] = mb.metricOracledbSortRatio.config.AggregationStrategy
 			aggMap["oracledb.tablespace.limit"] = mb.metricOracledbTablespaceLimit.config.AggregationStrategy
 			aggMap["oracledb.tablespace.status"] = mb.metricOracledbTablespaceStatus.config.AggregationStrategy
@@ -361,6 +362,15 @@ func TestMetricsBuilder(t *testing.T) {
 			}
 
 			allMetricsCount++
+			mb.RecordOracledbSgaLimitDataPoint(ts, 1)
+
+			allMetricsCount++
+			mb.RecordOracledbSgaUsageDataPoint(ts, 1, "oracledb.sga.component.name-val")
+			if tt.name == "reaggregate_set" {
+				mb.RecordOracledbSgaUsageDataPoint(ts, 3, "oracledb.sga.component.name-val-2")
+			}
+
+			allMetricsCount++
 			mb.RecordOracledbSharedPoolUtilizationDataPoint(ts, 1)
 
 			allMetricsCount++
@@ -482,6 +492,7 @@ func TestMetricsBuilder(t *testing.T) {
 				assert.Empty(t, mb.metricOracledbPhysicalWritesDirect.aggDataPoints)
 				assert.Empty(t, mb.metricOracledbQueriesParallelized.aggDataPoints)
 				assert.Empty(t, mb.metricOracledbSessionsUsage.aggDataPoints)
+				assert.Empty(t, mb.metricOracledbSgaUsage.aggDataPoints)
 				assert.Empty(t, mb.metricOracledbSortRatio.aggDataPoints)
 				assert.Empty(t, mb.metricOracledbTablespaceLimit.aggDataPoints)
 				assert.Empty(t, mb.metricOracledbTablespaceStatus.aggDataPoints)
@@ -1924,6 +1935,58 @@ func TestMetricsBuilder(t *testing.T) {
 						_, ok = dp.Attributes().Get("session_status")
 						assert.False(t, ok)
 						_, ok = dp.Attributes().Get("oracle.db.pdb")
+						assert.False(t, ok)
+					}
+				case "oracledb.sga.limit":
+					assert.False(t, validatedMetrics["oracledb.sga.limit"], "Found a duplicate in the metrics slice: oracledb.sga.limit")
+					validatedMetrics["oracledb.sga.limit"] = true
+					assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
+					assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
+					assert.Equal(t, "Maximum size of the System Global Area (SGA) in bytes as reported by V$SGAINFO (Maximum SGA Size).", mi.Description())
+					assert.Equal(t, "By", mi.Unit())
+					dp := mi.Gauge().DataPoints().At(0)
+					assert.Equal(t, start, dp.StartTimestamp())
+					assert.Equal(t, ts, dp.Timestamp())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+					assert.Equal(t, int64(1), dp.IntValue())
+				case "oracledb.sga.usage":
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["oracledb.sga.usage"], "Found a duplicate in the metrics slice: oracledb.sga.usage")
+						validatedMetrics["oracledb.sga.usage"] = true
+						assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
+						assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
+						assert.Equal(t, "Size in bytes of each component of the System Global Area (SGA) as reported by V$SGAINFO.", mi.Description())
+						assert.Equal(t, "By", mi.Unit())
+						dp := mi.Gauge().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						assert.Equal(t, int64(1), dp.IntValue())
+						oracledbSgaComponentNameAttrVal, ok := dp.Attributes().Get("oracledb.sga.component.name")
+						assert.True(t, ok)
+						assert.Equal(t, "oracledb.sga.component.name-val", oracledbSgaComponentNameAttrVal.Str())
+					} else {
+						assert.False(t, validatedMetrics["oracledb.sga.usage"], "Found a duplicate in the metrics slice: oracledb.sga.usage")
+						validatedMetrics["oracledb.sga.usage"] = true
+						assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
+						assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
+						assert.Equal(t, "Size in bytes of each component of the System Global Area (SGA) as reported by V$SGAINFO.", mi.Description())
+						assert.Equal(t, "By", mi.Unit())
+						dp := mi.Gauge().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						switch aggMap["oracledb.sga.usage"] {
+						case "sum":
+							assert.Equal(t, int64(4), dp.IntValue())
+						case "avg":
+							assert.Equal(t, int64(2), dp.IntValue())
+						case "min":
+							assert.Equal(t, int64(1), dp.IntValue())
+						case "max":
+							assert.Equal(t, int64(3), dp.IntValue())
+						}
+						_, ok := dp.Attributes().Get("oracledb.sga.component.name")
 						assert.False(t, ok)
 					}
 				case "oracledb.shared_pool.utilization":

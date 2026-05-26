@@ -119,6 +119,7 @@ const (
 	dataDictHitRatioSQL = "SELECT (1-(SUM(getmisses)/SUM(gets))) * 100 as DATA_DICTIONARY_HIT_RATIO FROM v$rowcache WHERE getmisses + gets <> 0"
 	osStatSQL           = "SELECT STAT_NAME, VALUE FROM v$osstat WHERE STAT_NAME IN ('LOAD', 'NUM_CPUS', 'PHYSICAL_MEMORY_BYTES')"
 	recycleBinSizeSQL   = "SELECT nvl(SUM(SPACE*(SELECT value FROM v$parameter WHERE name = 'db_block_size')),0) as RECYCLE_BIN_SIZE_BYTES FROM dba_recyclebin"
+	sgaInfoSQL          = "SELECT NAME, BYTES FROM v$sgainfo"
 	storageUsageSQL     = "WITH total_bytes AS (SELECT SUM(bytes) AS total FROM dba_data_files) SELECT (total - (SELECT SUM(bytes) FROM dba_free_space)) AS USED_DB_SIZE, total AS ALLOCATED_DB_SIZE FROM total_bytes"
 
 	osStatNameLoad           = "LOAD"
@@ -129,6 +130,8 @@ const (
 
 	colDataDictHitRatio    = "DATA_DICTIONARY_HIT_RATIO"
 	colRecycleBinSizeBytes = "RECYCLE_BIN_SIZE_BYTES"
+	colSGAInfoName         = "NAME"
+	colSGAInfoBytes        = "BYTES"
 	colUsedDBSize          = "USED_DB_SIZE"
 	colAllocatedDBSize     = "ALLOCATED_DB_SIZE"
 
@@ -189,6 +192,7 @@ type oracleScraper struct {
 	dataDictHitRatioClient   dbClient
 	osStatClient             dbClient
 	recycleBinSizeClient     dbClient
+	sgaInfoClient            dbClient
 	storageUsageClient       dbClient
 	sysmetricClient          dbClient
 	db                       *sql.DB
@@ -301,6 +305,7 @@ func (s *oracleScraper) start(ctx context.Context, _ component.Host) error {
 	s.dataDictHitRatioClient = s.clientProviderFunc(s.db, dataDictHitRatioSQL, s.logger)
 	s.osStatClient = s.clientProviderFunc(s.db, osStatSQL, s.logger)
 	s.recycleBinSizeClient = s.clientProviderFunc(s.db, recycleBinSizeSQL, s.logger)
+	s.sgaInfoClient = s.clientProviderFunc(s.db, sgaInfoSQL, s.logger)
 	s.storageUsageClient = s.clientProviderFunc(s.db, storageUsageSQL, s.logger)
 	s.sysmetricClient = s.clientProviderFunc(s.db, sysmetricSQL, s.logger)
 	return nil
@@ -667,6 +672,7 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 	s.collectDataDictHitRatio(ctx, &scrapeErrors)
 	s.collectOSStat(ctx, &scrapeErrors)
 	s.collectRecycleBinSize(ctx, &scrapeErrors)
+	s.collectSGAInfo(ctx, &scrapeErrors)
 	s.collectStorageUsage(ctx, &scrapeErrors)
 	s.collectSysMetrics(ctx, &scrapeErrors)
 
@@ -764,6 +770,35 @@ func (s *oracleScraper) collectRecycleBinSize(ctx context.Context, scrapeErrors 
 			continue
 		}
 		s.mb.RecordOracledbRecycleBinLimitDataPoint(now, val)
+	}
+}
+
+const sgaMaxComponentName = "Maximum SGA Size"
+
+func (s *oracleScraper) collectSGAInfo(ctx context.Context, scrapeErrors *[]error) {
+	if !s.metricsBuilderConfig.Metrics.OracledbSgaUsage.Enabled &&
+		!s.metricsBuilderConfig.Metrics.OracledbSgaLimit.Enabled {
+		return
+	}
+	now := pcommon.NewTimestampFromTime(time.Now())
+	rows, err := s.sgaInfoClient.metricRows(ctx)
+	if err != nil {
+		*scrapeErrors = append(*scrapeErrors, fmt.Errorf("error executing %s: %w", sgaInfoSQL, err))
+		return
+	}
+	for _, row := range rows {
+		val, err := strconv.ParseInt(row[colSGAInfoBytes], 10, 64)
+		if err != nil {
+			*scrapeErrors = append(*scrapeErrors, fmt.Errorf("failed to parse int64 for OracledbSgaUsage, value was %s: %w", row[colSGAInfoBytes], err))
+			continue
+		}
+		if row[colSGAInfoName] == sgaMaxComponentName {
+			if s.metricsBuilderConfig.Metrics.OracledbSgaLimit.Enabled {
+				s.mb.RecordOracledbSgaLimitDataPoint(now, val)
+			}
+		} else if s.metricsBuilderConfig.Metrics.OracledbSgaUsage.Enabled {
+			s.mb.RecordOracledbSgaUsageDataPoint(now, val, row[colSGAInfoName])
+		}
 	}
 }
 

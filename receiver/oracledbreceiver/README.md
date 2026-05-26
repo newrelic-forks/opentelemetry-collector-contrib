@@ -84,6 +84,7 @@ GRANT SELECT ON V_$RESOURCE_LIMIT TO <username>;
 GRANT SELECT ON V_$OSSTAT TO <username>;
 GRANT SELECT ON DBA_TABLESPACE_USAGE_METRICS TO <username>;
 GRANT SELECT ON DBA_TABLESPACES TO <username>;
+GRANT SELECT ON V_$SGAINFO TO <username>;
 
 -- Optional metrics (disabled by default)
 GRANT SELECT ON V_$ROWCACHE TO <username>;      -- oracledb.data_dictionary.hit_ratio
