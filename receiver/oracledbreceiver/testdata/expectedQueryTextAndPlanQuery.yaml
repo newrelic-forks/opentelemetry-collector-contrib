@@ -103,6 +103,9 @@ resourceLogs:
               - key: oracledb.plan.last_load
                 value:
                   stringValue: "2026-01-01/12:00:00"
+              - key: query.comments
+                value:
+                  stringValue: ""
             body: {}
             eventName: db.server.top_query
             timeUnixNano: "1759142512777891000"
