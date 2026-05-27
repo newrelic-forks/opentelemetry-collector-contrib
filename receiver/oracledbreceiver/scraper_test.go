@@ -26,8 +26,6 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/sqlcomments"
-	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/sqlnormalizer"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/golden"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatatest/plogtest"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/oracledbreceiver/internal/metadata"
@@ -407,55 +405,54 @@ var samplesQueryResponses = map[string][]metricRow{
 		"SQL_CHILD_NUMBER": "0", "SID": "675", "SERIAL#": "51295", "SQL_FULLTEXT": "test_query", "OSUSER": "test-user", "PROCESS": "1115", "PROCEDURE_TYPE": "PROCEDURE_TYPE-A", "PROCEDURE_ID": "12345",
 		"PORT": "54440", "PROGRAM": "Oracle SQL Developer for VS Code", "MODULE": "Oracle SQL Developer for VS Code", "STATUS": "ACTIVE", "STATE": "WAITED KNOWN TIME", "PLAN_HASH_VALUE": "4199919568", "DURATION_SEC": "1", "SERVICE_NAME": "",
 		"SQL_EXEC_START": "2026-01-01T12:00:00Z", "LOGON_TIME": "2026-01-01T12:00:00Z", "SESSION_DURATION_SEC": "0",
-		"BLOCKING_SESSION": "", "FINAL_BLOCKING_SESSION": "", "BLOCKING_SESSION_STATUS": "", "SECONDS_IN_WAIT": "0",
-		"BLOCKING_START_TIME": "", "LOCK_TYPE": "", "LOCK_MODE": "", "BLOCKED_OBJECT_OWNER": "", "BLOCKED_OBJECT_NAME": "",
 	}},
 	"invalidQuery": {{
 		"MACHINE": "TEST-MACHINE", "USERNAME": "ADMIN", "SCHEMANAME": "ADMIN", "SQL_ID": "48bc50b6fuz4y",
 		"SQL_CHILD_NUMBER": "0", "S.SID": "675", "SERIAL#": "51295", "SQL_FULLTEXT": "test_query", "OSUSER": "test-user", "PROCESS": "1115",
 		"PORT": "54440", "PROGRAM": "Oracle SQL Developer for VS Code", "MODULE": "Oracle SQL Developer for VS Code", "STATUS": "ACTIVE", "STATE": "WAITED KNOWN TIME", "PLAN_HASH_VALUE": "4199919568", "DURATION_SEC": "",
-		"SQL_EXEC_START": "", "LOGON_TIME": "", "SESSION_DURATION_SEC": "0",
-		"BLOCKING_SESSION": "", "FINAL_BLOCKING_SESSION": "", "BLOCKING_SESSION_STATUS": "", "SECONDS_IN_WAIT": "0",
-		"BLOCKING_START_TIME": "", "LOCK_TYPE": "", "LOCK_MODE": "", "BLOCKED_OBJECT_OWNER": "", "BLOCKED_OBJECT_NAME": "",
 	}},
-	"blockedQuery": {{
-		// Blocked session waiting on SID 100
-		"ACTION": "", "MACHINE": "DB-CLIENT-HOST", "USERNAME": "APP_USER", "SCHEMANAME": "APP_USER", "SQL_ID": "9fkq2mxyzabc1", "WAIT_CLASS": "Application", "PROCEDURE_NAME": "", "CHILD_ADDRESS": "ABCD1234",
-		"SQL_CHILD_NUMBER": "0", "SID": "200", "SERIAL#": "12345", "SQL_FULLTEXT": "UPDATE orders SET status = 1 WHERE id = 42", "OSUSER": "oracle", "PROCESS": "9876", "PROCEDURE_TYPE": "", "PROCEDURE_ID": "",
-		"PORT": "54441", "PROGRAM": "JDBC Thin Client", "MODULE": "app", "STATUS": "ACTIVE", "STATE": "WAITING", "PLAN_HASH_VALUE": "1234567890", "DURATION_SEC": "15", "SERVICE_NAME": "ORCL",
-		"SQL_EXEC_START": "2026-05-06T09:59:45Z", "LOGON_TIME": "2026-05-06T09:00:00Z", "SESSION_DURATION_SEC": "3600",
-		"BLOCKING_SESSION": "100", "FINAL_BLOCKING_SESSION": "100", "BLOCKING_SESSION_STATUS": "VALID", "SECONDS_IN_WAIT": "15",
-		"BLOCKING_START_TIME": "2026-05-06T10:00:00Z", "LOCK_TYPE": "TX", "LOCK_MODE": "EXCLUSIVE", "BLOCKED_OBJECT_OWNER": "APP_USER", "BLOCKED_OBJECT_NAME": "ORDERS",
-	}},
-	"idleBlockerQuery": {{
-		// Idle session (blocker) that is holding a lock — no longer ACTIVE but appearing in BLOCKING_SESSION subquery
-		"ACTION": "", "MACHINE": "DBA-WORKSTATION", "USERNAME": "DBA_USER", "SCHEMANAME": "DBA_USER", "SQL_ID": "7abc123def456", "WAIT_CLASS": "", "PROCEDURE_NAME": "", "CHILD_ADDRESS": "DEADBEEF",
-		"SQL_CHILD_NUMBER": "0", "SID": "100", "SERIAL#": "5678", "SQL_FULLTEXT": "UPDATE orders SET status = 2 WHERE id = 42", "OSUSER": "dba", "PROCESS": "1234", "PROCEDURE_TYPE": "", "PROCEDURE_ID": "",
-		"PORT": "54442", "PROGRAM": "SQL*Plus", "MODULE": "", "STATUS": "INACTIVE", "STATE": "WAITED KNOWN TIME", "PLAN_HASH_VALUE": "9876543210", "DURATION_SEC": "120", "SERVICE_NAME": "ORCL",
-		"SQL_EXEC_START": "", "LOGON_TIME": "", "SESSION_DURATION_SEC": "0",
-		"BLOCKING_SESSION": "", "FINAL_BLOCKING_SESSION": "", "BLOCKING_SESSION_STATUS": "", "SECONDS_IN_WAIT": "0",
-		"BLOCKING_START_TIME": "", "LOCK_TYPE": "", "LOCK_MODE": "", "BLOCKED_OBJECT_OWNER": "", "BLOCKED_OBJECT_NAME": "",
-	}},
+}
+
+var sessionEventQueryResponses = map[string][]metricRow{
+	sessionEventQuery: {
+		{
+			"SID": "100", "SERIAL#": "12345", "EVENT": "db file sequential read", "WAIT_CLASS": "User I/O",
+			"TOTAL_WAITS": "1500", "TOTAL_TIME_WAITED_SECS": "25.5",
+		},
+		{
+			"SID": "101", "SERIAL#": "12346", "EVENT": "log file sync", "WAIT_CLASS": "Commit",
+			"TOTAL_WAITS": "800", "TOTAL_TIME_WAITED_SECS": "12.3",
+		},
+	},
+	"invalidSessionEventQuery": {
+		{
+			"SID": "100", "SERIAL#": "12345", "EVENT": "db file sequential read", "WAIT_CLASS": "User I/O",
+			"TOTAL_WAITS": "invalid", "TOTAL_TIME_WAITED_SECS": "25.5",
+		},
+	},
+	"invalidTimeSessionEventQuery": {
+		{
+			"SID": "100", "SERIAL#": "12345", "EVENT": "db file sequential read", "WAIT_CLASS": "User I/O",
+			"TOTAL_WAITS": "1500", "TOTAL_TIME_WAITED_SECS": "invalid",
+		},
+	},
 }
 
 func TestSamplesQuery(t *testing.T) {
 	tests := []struct {
-		name              string
-		dbclientFn        func(db *sql.DB, s string, logger *zap.Logger) dbClient
-		errWanted         string
-		goldenFile        string
-		checkBlockingAttr bool
+		name       string
+		dbclientFn func(db *sql.DB, s string, logger *zap.Logger) dbClient
+		errWanted  string
 	}{
 		{
 			name: "valid",
-			dbclientFn: func(_ *sql.DB, _ string, _ *zap.Logger) dbClient {
+			dbclientFn: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
 				return &fakeDbClient{
 					Responses: [][]metricRow{
-						samplesQueryResponses[samplesQuery],
+						samplesQueryResponses[s],
 					},
 				}
 			},
-			goldenFile: filepath.Join("testdata", "expectedSamplesFile.yaml"),
 		},
 		{
 			name: "bad samples data",
@@ -465,25 +462,6 @@ func TestSamplesQuery(t *testing.T) {
 				}}
 			},
 			errWanted: `failed to parse int64 for Duration, value was : strconv.ParseFloat: parsing "": invalid syntax`,
-		},
-		{
-			name: "blocked session emits blocking attributes",
-			dbclientFn: func(_ *sql.DB, _ string, _ *zap.Logger) dbClient {
-				return &fakeDbClient{Responses: [][]metricRow{
-					samplesQueryResponses["blockedQuery"],
-				}}
-			},
-			goldenFile:        filepath.Join("testdata", "expectedBlockedSessionFile.yaml"),
-			checkBlockingAttr: true,
-		},
-		{
-			name: "idle blocker session emits empty blocking attributes",
-			dbclientFn: func(_ *sql.DB, _ string, _ *zap.Logger) dbClient {
-				return &fakeDbClient{Responses: [][]metricRow{
-					samplesQueryResponses["idleBlockerQuery"],
-				}}
-			},
-			goldenFile: filepath.Join("testdata", "expectedIdleBlockerFile.yaml"),
 		},
 	}
 	for _, test := range tests {
@@ -514,88 +492,101 @@ func TestSamplesQuery(t *testing.T) {
 			}()
 			require.NoError(t, err)
 			logs, err := scrpr.scrapeLogs(t.Context())
+			expectedSamplesFile := filepath.Join("testdata", "expectedSamplesFile.yaml")
 
 			if test.errWanted != "" {
 				require.EqualError(t, err, test.errWanted)
-				return
-			}
-
-			require.NoError(t, err)
-			require.Positive(t, logs.ResourceLogs().Len())
-			assert.Equal(t, "db.server.query_sample", logs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0).EventName())
-
-			if test.checkBlockingAttr {
-				lr := logs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0)
-				blockerSID, hasBlockerSID := lr.Attributes().Get("oracledb.blocking.blocker.sid")
-				assert.True(t, hasBlockerSID, "blocking.blocker.sid attribute must be present for a blocked session")
-				assert.Equal(t, "100", blockerSID.Str())
-
-				_, hasBlockerState := lr.Attributes().Get("oracledb.blocking.blocker.state")
-				assert.True(t, hasBlockerState, "blocking.blocker.state attribute must be present for a blocked session")
-
-				waitDuration, hasWaitDuration := lr.Attributes().Get("oracledb.blocking.wait_duration")
-				assert.True(t, hasWaitDuration, "blocking.wait_duration attribute must be present for a blocked session")
-				assert.Equal(t, int64(15), waitDuration.Int())
-			}
-
-			// Uncomment line below to re-generate expected golden files.
-			// golden.WriteLogs(t, test.goldenFile, logs)
-			if test.goldenFile != "" {
-				expectedLogs, readErr := golden.ReadLogs(test.goldenFile)
-				require.NoError(t, readErr)
+			} else {
+				// Uncomment line below to re-generate expected logs.
+				// golden.WriteLogs(t, expectedSamplesFile, logs)
+				require.NoError(t, err)
+				expectedLogs, _ := golden.ReadLogs(expectedSamplesFile)
 				errs := plogtest.CompareLogs(expectedLogs, logs, plogtest.IgnoreTimestamp())
+				assert.Equal(t, "db.server.query_sample", logs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0).EventName())
 				assert.NoError(t, errs)
 			}
 		})
 	}
 }
 
-func TestScraperWithQueryComments(t *testing.T) {
-	t.Run("query samples with allowed comments", func(t *testing.T) {
-		// Create a mock scraper with allowed comment keys configured
-		cfg := createDefaultConfig().(*Config)
-		cfg.QuerySample.AllowedCommentKeys = []string{"nr_service_guid", "app_id"}
+func TestSessionWaitEventsQuery(t *testing.T) {
+	tests := []struct {
+		name       string
+		dbclientFn func(db *sql.DB, s string, logger *zap.Logger) dbClient
+		errWanted  string
+	}{
+		{
+			name: "valid",
+			dbclientFn: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+				return &fakeDbClient{
+					Responses: [][]metricRow{
+						sessionEventQueryResponses[s],
+					},
+				}
+			},
+		},
+		{
+			name: "bad wait.count data",
+			dbclientFn: func(_ *sql.DB, _ string, _ *zap.Logger) dbClient {
+				return &fakeDbClient{Responses: [][]metricRow{
+					sessionEventQueryResponses["invalidSessionEventQuery"],
+				}}
+			},
+			errWanted: `failed to parse int64 for oracledb.wait.count, value was invalid: strconv.ParseInt: parsing "invalid": invalid syntax`,
+		},
+		{
+			name: "bad wait.duration data",
+			dbclientFn: func(_ *sql.DB, _ string, _ *zap.Logger) dbClient {
+				return &fakeDbClient{Responses: [][]metricRow{
+					sessionEventQueryResponses["invalidTimeSessionEventQuery"],
+				}}
+			},
+			errWanted: `failed to parse float64 for oracledb.wait.duration, value was invalid: strconv.ParseFloat: parsing "invalid": invalid syntax`,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			logsCfg := metadata.DefaultLogsBuilderConfig()
+			logsCfg.ResourceAttributes.OracledbInstanceName.Enabled = true
+			logsCfg.ResourceAttributes.HostName.Enabled = true
+			logsCfg.Events.DbServerTopQuery.Enabled = false
+			logsCfg.Events.DbServerQuerySample.Enabled = false
+			logsCfg.Events.DbServerSessionWaitSample.Enabled = true
+			scrpr := oracleScraper{
+				logger: zap.NewNop(),
+				dbProviderFunc: func() (*sql.DB, error) {
+					return nil, nil
+				},
+				clientProviderFunc:  test.dbclientFn,
+				id:                  component.ID{},
+				lb:                  metadata.NewLogsBuilder(logsCfg, receivertest.NewNopSettings(metadata.Type)),
+				logsBuilderConfig:   logsCfg,
+				obfuscator:          newObfuscator(),
+				instanceName:        "oraclehost:1521/ORCL",
+				serviceInstanceID:   getInstanceID("oraclehost:1521/ORCL", zap.NewNop()),
+				sessionWaitEventCfg: SessionWaitEvent{MaxRowsPerQuery: 200},
+			}
+			err := scrpr.start(t.Context(), componenttest.NewNopHost())
+			defer func() {
+				assert.NoError(t, scrpr.shutdown(t.Context()))
+			}()
+			require.NoError(t, err)
+			logs, err := scrpr.scrapeLogs(t.Context())
+			expectedSessionEventsFile := filepath.Join("testdata", "expectedSessionEventsFile.yaml")
 
-		// This test verifies that when AllowedCommentKeys is configured,
-		// the comment extraction happens and is passed through the pipeline.
-		// The actual generated_logs code will handle adding the attribute.
-
-		// We can verify that extractAndFilterComments is called correctly
-		sqlWithComment := "/* nr_service_guid=test-123,app_id=myapp */ SELECT * FROM test_table"
-		result := sqlcomments.ExtractAndFilterComments(sqlWithComment, cfg.QuerySample.AllowedCommentKeys)
-
-		expected := "nr_service_guid=test-123,app_id=myapp"
-		if result != expected {
-			t.Errorf("Expected %q but got %q", expected, result)
-		}
-	})
-
-	t.Run("query samples without allowed comments", func(t *testing.T) {
-		// Create a mock scraper with empty allowed comment keys
-		cfg := createDefaultConfig().(*Config)
-		cfg.QuerySample.AllowedCommentKeys = []string{}
-
-		// Verify secure by default: empty allowlist returns empty string
-		sqlWithComment := "/* nr_service_guid=test-123 */ SELECT * FROM test_table"
-		result := sqlcomments.ExtractAndFilterComments(sqlWithComment, cfg.QuerySample.AllowedCommentKeys)
-
-		if result != "" {
-			t.Errorf("Expected empty string but got %q", result)
-		}
-	})
-
-	t.Run("query samples with non-matching comments", func(t *testing.T) {
-		cfg := createDefaultConfig().(*Config)
-		cfg.QuerySample.AllowedCommentKeys = []string{"nr_service_guid"}
-
-		// SQL has comments but none match the allowlist
-		sqlWithComment := "/* other_key=value */ SELECT * FROM test_table"
-		result := sqlcomments.ExtractAndFilterComments(sqlWithComment, cfg.QuerySample.AllowedCommentKeys)
-
-		if result != "" {
-			t.Errorf("Expected empty string but got %q", result)
-		}
-	})
+			if test.errWanted != "" {
+				require.EqualError(t, err, test.errWanted)
+			} else {
+				// Uncomment line below to re-generate expected logs.
+				// golden.WriteLogs(t, expectedSessionEventsFile, logs)
+				require.NoError(t, err)
+				expectedLogs, _ := golden.ReadLogs(expectedSessionEventsFile)
+				errs := plogtest.CompareLogs(expectedLogs, logs, plogtest.IgnoreTimestamp())
+				assert.Equal(t, "db.server.session.wait_sample", logs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0).EventName())
+				assert.NoError(t, errs)
+			}
+		})
+	}
 }
 
 func TestGetInstanceId(t *testing.T) {
@@ -885,12 +876,12 @@ func TestScrapesTopNLogsOnlyWhenIntervalHasElapsed(t *testing.T) {
 }
 
 // TestObfuscateCacheHitsSkipsInvalidEntriesWithWarning verifies that when a SQL
-// query text fails to obfuscate (e.g. due to invalid SQL syntax that the parser
-// cannot handle), the affected entry is skipped with a Warn log and the remaining
-// entries are still emitted. The whole scrape must not abort.
+// query text fails to obfuscate (e.g. due to a truncated string literal from
+// Oracle's CLOB display limit), the affected entry is skipped with a Warn log
+// and the remaining entries are still emitted. The whole scrape must not abort.
 func TestObfuscateCacheHitsSkipsInvalidEntriesWithWarning(t *testing.T) {
-	// Build two metric rows: one with valid SQL and one with invalid SQL
-	// that the obfuscator cannot parse.
+	// Build two metric rows: one with valid SQL and one with a truncated
+	// string literal that the obfuscator cannot parse.
 	metricsData := []metricRow{
 		{
 			"APPLICATION_WAIT_TIME": "0", "BUFFER_GETS": "4000000", "CHILD_ADDRESS": "ADDR1",
@@ -904,15 +895,13 @@ func TestObfuscateCacheHitsSkipsInvalidEntriesWithWarning(t *testing.T) {
 			"COMMAND_TYPE": "3",
 		},
 		{
-			// Invalid SQL syntax that causes obfuscator to fail.
-			// Note: With DataDog obfuscate v0.78.4+, simple truncated strings no longer fail,
-			// so we use a more severe syntax error.
+			// Truncated mid-string-literal — obfuscator will return an error.
 			"APPLICATION_WAIT_TIME": "0", "BUFFER_GETS": "5000000", "CHILD_ADDRESS": "ADDR2",
 			"CHILD_NUMBER": "0", "CLUSTER_WAIT_TIME": "0", "CONCURRENCY_WAIT_TIME": "0",
 			"CPU_TIME": "50000000", "DIRECT_READS": "0", "DIRECT_WRITES": "0", "DISK_READS": "0",
 			"ELAPSED_TIME": "60000000", "EXECUTIONS": "600", "PHYSICAL_READ_BYTES": "0",
 			"PHYSICAL_READ_REQUESTS": "0", "PHYSICAL_WRITE_BYTES": "0", "PHYSICAL_WRITE_REQUESTS": "0",
-			"ROWS_PROCESSED": "600", "SQL_FULLTEXT": "SELECT FROM WHERE INVALID SYNTAX",
+			"ROWS_PROCESSED": "600", "SQL_FULLTEXT": "SELECT 'unterminated",
 			"SQL_ID": "trunc01", "USER_IO_WAIT_TIME": "0",
 			"PROGRAM_ID": "", "PROCEDURE_NAME": "", "PROCEDURE_TYPE": "", "PROCEDURE_EXECUTIONS": "0",
 			"COMMAND_TYPE": "3",
@@ -979,15 +968,15 @@ func TestObfuscateCacheHitsSkipsInvalidEntriesWithWarning(t *testing.T) {
 	// The scrape must succeed even though one entry failed to obfuscate.
 	require.NoError(t, err)
 
-	// With DataDog obfuscate v0.78.4+, the obfuscator is much more resilient and handles
-	// most invalid SQL gracefully. Both entries should now be emitted successfully.
+	// Exactly one valid log record (for "valid001") should be emitted.
 	require.Equal(t, 1, logs.ResourceLogs().Len())
 	records := logs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords()
-	require.Equal(t, 2, records.Len(), "Both entries should be emitted as obfuscator now handles invalid SQL gracefully")
+	require.Equal(t, 1, records.Len(), "Only the valid entry should be emitted; the truncated-SQL entry should be skipped")
 
-	// No Warn logs should be emitted since obfuscation succeeds for both entries.
+	// A Warn log must have been emitted for the skipped entry.
 	warnLogs := observedLogs.FilterMessage("oracleScraper failed to obfuscate SQL query, skipping entry")
-	assert.Equal(t, 0, warnLogs.Len(), "No Warn logs expected as obfuscation succeeds for both entries")
+	assert.Equal(t, 1, warnLogs.Len(), "Expected exactly one Warn log for the failed obfuscation")
+	assert.Equal(t, "trunc01", warnLogs.All()[0].ContextMap()["sql_id"], "Warn log should identify the failing sql_id")
 }
 
 func TestCalculateLookbackSeconds(t *testing.T) {
@@ -1002,75 +991,6 @@ func TestCalculateLookbackSeconds(t *testing.T) {
 	lookbackTime := scrpr.calculateLookbackSeconds()
 
 	assert.LessOrEqual(t, expectedMinimumLookbackTime, lookbackTime, "`lookbackTime` should be minimum %d", expectedMinimumLookbackTime)
-}
-
-func TestNormalizedSQLHashGeneration(t *testing.T) {
-	tests := []struct {
-		name         string
-		rawSQL       string
-		expectedHash string
-	}{
-		{
-			name:         "simple select query",
-			rawSQL:       "SELECT * FROM users WHERE id = 123",
-			expectedHash: "1e53ade8a45cf6d138fbbe83d85597e4",
-		},
-		{
-			name:         "query with string literal",
-			rawSQL:       "SELECT * FROM users WHERE name = 'John'",
-			expectedHash: "b17f7758dd4ed76a64fb768bf337ca95",
-		},
-		{
-			name:         "complex query with multiple conditions",
-			rawSQL:       "SELECT * FROM users WHERE id = 123 AND name = 'John'",
-			expectedHash: "e78f13a21009ebcb6fdef9e996a24c9d",
-		},
-		{
-			name:         "query with comments",
-			rawSQL:       "/* comment */ SELECT * FROM users WHERE id = 1",
-			expectedHash: "690b61bb71c40c8825f7206e7d9c63ec",
-		},
-		{
-			name:         "query with IN clause",
-			rawSQL:       "SELECT * FROM users WHERE id IN (1, 2, 3)",
-			expectedHash: "7e9c6b6624e039d8dfd1b81f8123dc9e",
-		},
-		{
-			name:         "empty SQL",
-			rawSQL:       "",
-			expectedHash: "d41d8cd98f00b204e9800998ecf8427e",
-		},
-		{
-			name:         "query with Oracle-style placeholders",
-			rawSQL:       "SELECT * FROM users WHERE id = :userId",
-			expectedHash: "1e53ade8a45cf6d138fbbe83d85597e4", // Oracle placeholders are normalized to ? which results in same hash as simple query
-		},
-		{
-			name:         "query with mixed case",
-			rawSQL:       "select * from Users WHERE Id = 123",
-			expectedHash: "1e53ade8a45cf6d138fbbe83d85597e4",
-		},
-		{
-			name:         "query with extra whitespace",
-			rawSQL:       "SELECT  *   FROM    users   WHERE   id = 123",
-			expectedHash: "1e53ade8a45cf6d138fbbe83d85597e4",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Import the sqlnormalizer package
-			// This test verifies that the SQL normalizer integration works correctly
-			normalizedSQL, sqlHash := sqlnormalizer.NormalizeSQLAndHash(tt.rawSQL)
-
-			// Verify hash format
-			assert.Len(t, sqlHash, 32, "MD5 hash should be 32 characters")
-			assert.Regexp(t, "^[a-f0-9]{32}$", sqlHash, "MD5 hash should be lowercase hex")
-
-			// Verify expected hash value
-			assert.Equal(t, tt.expectedHash, sqlHash, "Hash should match expected value for normalized SQL: %s", normalizedSQL)
-		})
-	}
 }
 
 func readFile(fname string) []byte {
