@@ -106,6 +106,12 @@ resourceLogs:
               - key: query.comments
                 value:
                   stringValue: ""
+              - key: oracledb.normalised_sql_hash
+                value:
+                  stringValue: bcb07525735e64570267726f900f042a
+              - key: oracledb.normalized_sql
+                value:
+                  stringValue: SELECTCOUNT(*)ASTOTALHIGHRATEEMPLOYEESFROMADMIN."EMPLOYEE"EJOINADMIN."PERSON"PONE."BUSINESSENTITYID"="BUSID1?"JOINADMIN."EMPLOYEEPAYHISTORY"EPHONE."BUSINESSENTITYID"=EPH."BUSINESSENTITYID"WHEREEPH."RATE">(SELECTAVG("RATE")FROMADMIN."EMPLOYEEPAYHISTORY")
             body: {}
             eventName: db.server.top_query
             timeUnixNano: "1759142512777891000"

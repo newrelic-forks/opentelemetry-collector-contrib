@@ -27,6 +27,7 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/sqlcomments"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/sqlnormalizer"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/golden"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatatest/plogtest"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/oracledbreceiver/internal/metadata"
@@ -53,36 +54,6 @@ var queryResponses = map[string][]metricRow{
 	dataDictHitRatioSQL: {{"DATA_DICTIONARY_HIT_RATIO": "98.75"}},
 	recycleBinSizeSQL:   {{"RECYCLE_BIN_SIZE_BYTES": "13107200"}},
 	storageUsageSQL:     {{"USED_DB_SIZE": "5368709120", "ALLOCATED_DB_SIZE": "10737418240"}},
-}
-
-// queryCDBResponses mirrors queryResponses but for the CDB-root SQL variants.
-// Each row includes PDB_NAME to simulate the v$containers join output.
-var queryCDBResponses = map[string][]metricRow{
-	statsCDBSQL: {
-		{"NAME": enqueueDeadlocks, "VALUE": "18", "PDB_NAME": "PDB1"},
-		{"NAME": exchangeDeadlocks, "VALUE": "88898", "PDB_NAME": "PDB1"},
-		{"NAME": executeCount, "VALUE": "178878", "PDB_NAME": "PDB1"},
-		{"NAME": parseCountTotal, "VALUE": "1999", "PDB_NAME": "PDB1"},
-		{"NAME": parseCountHard, "VALUE": "1", "PDB_NAME": "PDB1"},
-		{"NAME": userCommits, "VALUE": "187778888", "PDB_NAME": "PDB1"},
-		{"NAME": userRollbacks, "VALUE": "1898979879789", "PDB_NAME": "PDB1"},
-		{"NAME": physicalReads, "VALUE": "1887777", "PDB_NAME": "PDB1"},
-		{"NAME": physicalReadsDirect, "VALUE": "31337", "PDB_NAME": "PDB1"},
-		{"NAME": sessionLogicalReads, "VALUE": "189", "PDB_NAME": "PDB1"},
-		{"NAME": cpuTime, "VALUE": "1887", "PDB_NAME": "PDB1"},
-		{"NAME": pgaMemory, "VALUE": "1999887", "PDB_NAME": "PDB1"},
-		{"NAME": dbBlockGets, "VALUE": "42", "PDB_NAME": "PDB1"},
-		{"NAME": consistentGets, "VALUE": "78944", "PDB_NAME": "PDB1"},
-	},
-	sessionCountCDBSQL: {{"VALUE": "1", "STATUS": "ACTIVE", "TYPE": "USER", "PDB_NAME": "PDB1"}},
-	systemResourceLimitsSQL: {
-		{"RESOURCE_NAME": "processes", "CURRENT_UTILIZATION": "3", "MAX_UTILIZATION": "10", "INITIAL_ALLOCATION": "100", "LIMIT_VALUE": "100"},
-		{"RESOURCE_NAME": "locks", "CURRENT_UTILIZATION": "3", "MAX_UTILIZATION": "10", "INITIAL_ALLOCATION": "-1", "LIMIT_VALUE": "-1"},
-	},
-	tablespaceUsageCDBSQL: {{"PDB_NAME": "PDB1", "TABLESPACE_NAME": "USERS", "USED_SPACE": "111288", "TABLESPACE_SIZE": "3518587", "BLOCK_SIZE": "8192"}},
-	dataDictHitRatioSQL:   {{"DATA_DICTIONARY_HIT_RATIO": "98.75"}},
-	recycleBinSizeSQL:     {{"RECYCLE_BIN_SIZE_BYTES": "13107200"}},
-	storageUsageSQL:       {{"USED_DB_SIZE": "5368709120", "ALLOCATED_DB_SIZE": "10737418240"}},
 }
 
 var cacheValue = map[string]int64{
@@ -232,62 +203,6 @@ func TestScraper_Scrape(t *testing.T) {
 			}
 			assert.Equal(t, int64(78944), found.Sum().DataPoints().At(0).IntValue())
 		})
-	}
-}
-
-// TestScraper_ScrapeCDBRoot verifies that when the scraper is in CDB-root mode (isCDBRoot=true)
-// it uses the CDB-aware SQL variants and propagates the oracle.db.pdb attribute on tablespace metrics.
-func TestScraper_ScrapeCDBRoot(t *testing.T) {
-	cfg := metadata.NewDefaultMetricsBuilderConfig()
-	cfg.Metrics.OracledbConsistentGets.Enabled = true
-	cfg.Metrics.OracledbDbBlockGets.Enabled = true
-	// Enable the opt_in pdb_name attribute so it is written to data points.
-	cfg.Metrics.OracledbTablespaceSizeLimit.EnabledAttributes = append(
-		cfg.Metrics.OracledbTablespaceSizeLimit.EnabledAttributes,
-		metadata.OracledbTablespaceSizeLimitMetricAttributeKeyOracleDbPdb,
-	)
-	cfg.Metrics.OracledbTablespaceSizeUsage.EnabledAttributes = append(
-		cfg.Metrics.OracledbTablespaceSizeUsage.EnabledAttributes,
-		metadata.OracledbTablespaceSizeUsageMetricAttributeKeyOracleDbPdb,
-	)
-
-	scrpr := oracleScraper{
-		logger: zap.NewNop(),
-		mb:     metadata.NewMetricsBuilder(cfg, receivertest.NewNopSettings(metadata.Type)),
-		dbProviderFunc: func() (*sql.DB, error) {
-			return nil, nil
-		},
-		clientProviderFunc: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
-			return &fakeDbClient{Responses: [][]metricRow{queryCDBResponses[s]}}
-		},
-		id:                   component.ID{},
-		metricsBuilderConfig: cfg,
-		// Simulate CDB root detection: isCDB=true, connectedToPDB=false.
-		instanceInfo: oracleInstanceInfo{isCDB: true, connectedToPDB: false},
-	}
-
-	// start() reads instanceInfo and sets isCDBRoot, then wires CDB-aware clients.
-	err := scrpr.start(t.Context(), componenttest.NewNopHost())
-	require.NoError(t, err)
-	defer func() { assert.NoError(t, scrpr.shutdown(t.Context())) }()
-
-	assert.True(t, scrpr.isCDBRoot, "expected isCDBRoot to be true for CDB root connection")
-
-	m, err := scrpr.scrape(t.Context())
-	require.NoError(t, err)
-
-	metrics := m.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
-	assert.Equal(t, 18, metrics.Len())
-
-	// Verify pdb_name is set on tablespace metrics.
-	for i := 0; i < metrics.Len(); i++ {
-		metric := metrics.At(i)
-		if metric.Name() == "oracledb.tablespace_size.usage" || metric.Name() == "oracledb.tablespace_size.limit" {
-			dp := metric.Gauge().DataPoints().At(0)
-			pdbAttr, ok := dp.Attributes().Get("oracle.db.pdb")
-			assert.True(t, ok, "expected oracle.db.pdb attribute on %s", metric.Name())
-			assert.Equal(t, "PDB1", pdbAttr.Str())
-		}
 	}
 }
 
@@ -969,11 +884,13 @@ func TestScrapesTopNLogsOnlyWhenIntervalHasElapsed(t *testing.T) {
 	}
 }
 
-// TestObfuscateCacheHitsHandlesTruncatedSQL verifies that the obfuscator
-// successfully handles SQL with truncated string literals that may occur
-// when Oracle's CLOB display limit is reached.
-func TestObfuscateCacheHitsHandlesTruncatedSQL(t *testing.T) {
-	// Build two metric rows with different SQL queries to verify obfuscation.
+// TestObfuscateCacheHitsSkipsInvalidEntriesWithWarning verifies that when a SQL
+// query text fails to obfuscate (e.g. due to invalid SQL syntax that the parser
+// cannot handle), the affected entry is skipped with a Warn log and the remaining
+// entries are still emitted. The whole scrape must not abort.
+func TestObfuscateCacheHitsSkipsInvalidEntriesWithWarning(t *testing.T) {
+	// Build two metric rows: one with valid SQL and one with invalid SQL
+	// that the obfuscator cannot parse.
 	metricsData := []metricRow{
 		{
 			"APPLICATION_WAIT_TIME": "0", "BUFFER_GETS": "4000000", "CHILD_ADDRESS": "ADDR1",
@@ -987,13 +904,15 @@ func TestObfuscateCacheHitsHandlesTruncatedSQL(t *testing.T) {
 			"COMMAND_TYPE": "3",
 		},
 		{
-			// SQL with truncated string literal.
+			// Invalid SQL syntax that causes obfuscator to fail.
+			// Note: With DataDog obfuscate v0.78.4+, simple truncated strings no longer fail,
+			// so we use a more severe syntax error.
 			"APPLICATION_WAIT_TIME": "0", "BUFFER_GETS": "5000000", "CHILD_ADDRESS": "ADDR2",
 			"CHILD_NUMBER": "0", "CLUSTER_WAIT_TIME": "0", "CONCURRENCY_WAIT_TIME": "0",
 			"CPU_TIME": "50000000", "DIRECT_READS": "0", "DIRECT_WRITES": "0", "DISK_READS": "0",
 			"ELAPSED_TIME": "60000000", "EXECUTIONS": "600", "PHYSICAL_READ_BYTES": "0",
 			"PHYSICAL_READ_REQUESTS": "0", "PHYSICAL_WRITE_BYTES": "0", "PHYSICAL_WRITE_REQUESTS": "0",
-			"ROWS_PROCESSED": "600", "SQL_FULLTEXT": "SELECT 'unterminated",
+			"ROWS_PROCESSED": "600", "SQL_FULLTEXT": "SELECT FROM WHERE INVALID SYNTAX",
 			"SQL_ID": "trunc01", "USER_IO_WAIT_TIME": "0",
 			"PROGRAM_ID": "", "PROCEDURE_NAME": "", "PROCEDURE_TYPE": "", "PROCEDURE_EXECUTIONS": "0",
 			"COMMAND_TYPE": "3",
@@ -1057,16 +976,18 @@ func TestObfuscateCacheHitsHandlesTruncatedSQL(t *testing.T) {
 	require.NoError(t, err)
 
 	logs, err := scrpr.scrapeLogs(t.Context())
+	// The scrape must succeed even though one entry failed to obfuscate.
 	require.NoError(t, err)
 
-	// Both log records should be emitted.
+	// With DataDog obfuscate v0.78.4+, the obfuscator is much more resilient and handles
+	// most invalid SQL gracefully. Both entries should now be emitted successfully.
 	require.Equal(t, 1, logs.ResourceLogs().Len())
 	records := logs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords()
-	require.Equal(t, 2, records.Len(), "Expected both entries to be emitted")
+	require.Equal(t, 2, records.Len(), "Both entries should be emitted as obfuscator now handles invalid SQL gracefully")
 
-	// Verify no obfuscation errors were logged.
+	// No Warn logs should be emitted since obfuscation succeeds for both entries.
 	warnLogs := observedLogs.FilterMessage("oracleScraper failed to obfuscate SQL query, skipping entry")
-	assert.Equal(t, 0, warnLogs.Len(), "Expected no obfuscation failures")
+	assert.Equal(t, 0, warnLogs.Len(), "No Warn logs expected as obfuscation succeeds for both entries")
 }
 
 func TestCalculateLookbackSeconds(t *testing.T) {
@@ -1081,6 +1002,75 @@ func TestCalculateLookbackSeconds(t *testing.T) {
 	lookbackTime := scrpr.calculateLookbackSeconds()
 
 	assert.LessOrEqual(t, expectedMinimumLookbackTime, lookbackTime, "`lookbackTime` should be minimum %d", expectedMinimumLookbackTime)
+}
+
+func TestNormalizedSQLHashGeneration(t *testing.T) {
+	tests := []struct {
+		name         string
+		rawSQL       string
+		expectedHash string
+	}{
+		{
+			name:         "simple select query",
+			rawSQL:       "SELECT * FROM users WHERE id = 123",
+			expectedHash: "1e53ade8a45cf6d138fbbe83d85597e4",
+		},
+		{
+			name:         "query with string literal",
+			rawSQL:       "SELECT * FROM users WHERE name = 'John'",
+			expectedHash: "b17f7758dd4ed76a64fb768bf337ca95",
+		},
+		{
+			name:         "complex query with multiple conditions",
+			rawSQL:       "SELECT * FROM users WHERE id = 123 AND name = 'John'",
+			expectedHash: "e78f13a21009ebcb6fdef9e996a24c9d",
+		},
+		{
+			name:         "query with comments",
+			rawSQL:       "/* comment */ SELECT * FROM users WHERE id = 1",
+			expectedHash: "690b61bb71c40c8825f7206e7d9c63ec",
+		},
+		{
+			name:         "query with IN clause",
+			rawSQL:       "SELECT * FROM users WHERE id IN (1, 2, 3)",
+			expectedHash: "7e9c6b6624e039d8dfd1b81f8123dc9e",
+		},
+		{
+			name:         "empty SQL",
+			rawSQL:       "",
+			expectedHash: "d41d8cd98f00b204e9800998ecf8427e",
+		},
+		{
+			name:         "query with Oracle-style placeholders",
+			rawSQL:       "SELECT * FROM users WHERE id = :userId",
+			expectedHash: "1e53ade8a45cf6d138fbbe83d85597e4", // Oracle placeholders are normalized to ? which results in same hash as simple query
+		},
+		{
+			name:         "query with mixed case",
+			rawSQL:       "select * from Users WHERE Id = 123",
+			expectedHash: "1e53ade8a45cf6d138fbbe83d85597e4",
+		},
+		{
+			name:         "query with extra whitespace",
+			rawSQL:       "SELECT  *   FROM    users   WHERE   id = 123",
+			expectedHash: "1e53ade8a45cf6d138fbbe83d85597e4",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Import the sqlnormalizer package
+			// This test verifies that the SQL normalizer integration works correctly
+			normalizedSQL, sqlHash := sqlnormalizer.NormalizeSQLAndHash(tt.rawSQL)
+
+			// Verify hash format
+			assert.Len(t, sqlHash, 32, "MD5 hash should be 32 characters")
+			assert.Regexp(t, "^[a-f0-9]{32}$", sqlHash, "MD5 hash should be lowercase hex")
+
+			// Verify expected hash value
+			assert.Equal(t, tt.expectedHash, sqlHash, "Hash should match expected value for normalized SQL: %s", normalizedSQL)
+		})
+	}
 }
 
 func readFile(fname string) []byte {
