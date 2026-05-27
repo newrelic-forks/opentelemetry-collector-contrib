@@ -31,6 +31,8 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/sqlcomments"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/sqlnormalizer"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/oracledbreceiver/internal/metadata"
 )
 
@@ -166,6 +168,10 @@ const (
 	objectNameAttr  = "PROCEDURE_NAME"
 	objectTypeAttr  = "PROCEDURE_TYPE"
 	commandTypeAttr = "COMMAND_TYPE"
+
+	// Plan metadata columns
+	lastLoadTimeAttr  = "LAST_LOAD_TIME"
+	planHashValueAttr = "PLAN_HASH_VALUE"
 )
 
 var (
@@ -175,6 +181,8 @@ var (
 	oracleQueryMetricsSQL string
 	//go:embed templates/oracleQueryPlanSql.tmpl
 	oracleQueryPlanDataSQL string
+	//go:embed templates/oracleSessionEventSql.tmpl
+	sessionEventQuery string
 )
 
 type dbProviderFunc func() (*sql.DB, error)
@@ -191,6 +199,7 @@ type oracleScraper struct {
 	oracleQueryMetricsClient dbClient
 	oraclePlanDataClient     dbClient
 	samplesQueryClient       dbClient
+	sessionEventClient       dbClient
 	dataDictHitRatioClient   dbClient
 	osStatClient             dbClient
 	recycleBinSizeClient     dbClient
@@ -214,6 +223,7 @@ type oracleScraper struct {
 	topQueryCollectCfg       TopQueryCollection
 	obfuscator               *obfuscator
 	querySampleCfg           QuerySample
+	sessionWaitEventCfg      SessionWaitEvent
 	serviceInstanceID        string
 	lastExecutionTimestamp   time.Time
 	// instanceInfo holds Oracle deployment metadata detected once at startup (best-effort).
@@ -237,22 +247,23 @@ func newScraper(metricsBuilder *metadata.MetricsBuilder, metricsBuilderConfig me
 
 func newLogsScraper(logsBuilder *metadata.LogsBuilder, logsBuilderConfig metadata.LogsBuilderConfig, scrapeCfg scraperhelper.ControllerConfig,
 	logger *zap.Logger, providerFunc dbProviderFunc, clientProviderFunc clientProviderFunc, instanceName string, metricCache *lru.Cache[string, map[string]int64],
-	topQueryCollectCfg TopQueryCollection, querySampleCfg QuerySample, hostName string,
+	topQueryCollectCfg TopQueryCollection, querySampleCfg QuerySample, sessionWaitEventCfg SessionWaitEvent, hostName string,
 ) (scraper.Logs, error) {
 	s := &oracleScraper{
-		lb:                 logsBuilder,
-		logsBuilderConfig:  logsBuilderConfig,
-		scrapeCfg:          scrapeCfg,
-		logger:             logger,
-		dbProviderFunc:     providerFunc,
-		clientProviderFunc: clientProviderFunc,
-		instanceName:       instanceName,
-		metricCache:        metricCache,
-		topQueryCollectCfg: topQueryCollectCfg,
-		querySampleCfg:     querySampleCfg,
-		hostName:           hostName,
-		obfuscator:         newObfuscator(),
-		serviceInstanceID:  getInstanceID(instanceName, logger),
+		lb:                  logsBuilder,
+		logsBuilderConfig:   logsBuilderConfig,
+		scrapeCfg:           scrapeCfg,
+		logger:              logger,
+		dbProviderFunc:      providerFunc,
+		clientProviderFunc:  clientProviderFunc,
+		instanceName:        instanceName,
+		metricCache:         metricCache,
+		topQueryCollectCfg:  topQueryCollectCfg,
+		querySampleCfg:      querySampleCfg,
+		sessionWaitEventCfg: sessionWaitEventCfg,
+		hostName:            hostName,
+		obfuscator:          newObfuscator(),
+		serviceInstanceID:   getInstanceID(instanceName, logger),
 	}
 	return scraper.NewLogs(s.scrapeLogs, scraper.WithShutdown(s.shutdown), scraper.WithStart(s.start))
 }
@@ -304,6 +315,7 @@ func (s *oracleScraper) start(ctx context.Context, _ component.Host) error {
 	s.tablespaceUsageClient = s.clientProviderFunc(s.db, s.buildTablespaceSQL(), s.logger)
 	s.systemResourceLimitsClient = s.clientProviderFunc(s.db, systemResourceLimitsSQL, s.logger)
 	s.samplesQueryClient = s.clientProviderFunc(s.db, samplesQuery, s.logger)
+	s.sessionEventClient = s.clientProviderFunc(s.db, sessionEventQuery, s.logger)
 	s.dataDictHitRatioClient = s.clientProviderFunc(s.db, dataDictHitRatioSQL, s.logger)
 	s.osStatClient = s.clientProviderFunc(s.db, osStatSQL, s.logger)
 	s.recycleBinSizeClient = s.clientProviderFunc(s.db, recycleBinSizeSQL, s.logger)
@@ -925,15 +937,18 @@ func (s *oracleScraper) collectSysMetrics(ctx context.Context, scrapeErrors *[]e
 }
 
 type queryMetricCacheHit struct {
-	sqlID        string
-	childNumber  string
-	childAddress string
-	queryText    string
-	metrics      map[string]int64
-	objectID     int64
-	objectName   string
-	objectType   string
-	commandType  int64
+	sqlID         string
+	childNumber   string
+	childAddress  string
+	queryText     string
+	queryComments string
+	metrics       map[string]int64
+	objectID      int64
+	objectName    string
+	objectType    string
+	commandType   int64
+	lastLoadTime  string
+	planHashValue string
 }
 
 func (s *oracleScraper) scrapeLogs(ctx context.Context) (plog.Logs, error) {
@@ -958,6 +973,13 @@ func (s *oracleScraper) scrapeLogs(ctx context.Context) (plog.Logs, error) {
 		samplesCollectionErrors := s.collectQuerySamples(ctx, logs)
 		if samplesCollectionErrors != nil {
 			scrapeErrors = append(scrapeErrors, samplesCollectionErrors)
+		}
+	}
+
+	if s.logsBuilderConfig.Events.DbServerSessionWaitSample.Enabled {
+		sessionEventErrors := s.collectSessionWaitEvents(ctx, logs)
+		if sessionEventErrors != nil {
+			scrapeErrors = append(scrapeErrors, sessionEventErrors)
 		}
 	}
 
@@ -1007,16 +1029,22 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 				commandType, _ = strconv.ParseInt(row[commandTypeAttr], 10, 64)
 			}
 
+			// Extract and filter comments from original SQL before obfuscation
+			queryComments := sqlcomments.ExtractAndFilterComments(row[sqlTextAttr], s.topQueryCollectCfg.AllowedCommentKeys)
+
 			hit := queryMetricCacheHit{
-				sqlID:        row[sqlIDAttr],
-				queryText:    row[sqlTextAttr],
-				childNumber:  row[childNumberAttr],
-				childAddress: row[childAddressAttr],
-				metrics:      make(map[string]int64, len(metricNames)),
-				objectID:     objectID,
-				objectName:   row[objectNameAttr],
-				objectType:   row[objectTypeAttr],
-				commandType:  commandType,
+				sqlID:         row[sqlIDAttr],
+				queryText:     row[sqlTextAttr],
+				queryComments: queryComments,
+				childNumber:   row[childNumberAttr],
+				childAddress:  row[childAddressAttr],
+				metrics:       make(map[string]int64, len(metricNames)),
+				objectID:      objectID,
+				objectName:    row[objectNameAttr],
+				objectType:    row[objectTypeAttr],
+				commandType:   commandType,
+				lastLoadTime:  row[lastLoadTimeAttr],
+				planHashValue: hex.EncodeToString([]byte(row[planHashValueAttr])),
 			}
 
 			var possiblePurge bool
@@ -1067,12 +1095,16 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 
 	rb := s.setupResourceBuilder(s.lb.NewResourceBuilder())
 
-	for _, hit := range hits {
+	for i := range hits {
+		hit := &hits[i]
 		planBytes, err := json.Marshal(childAddressToPlanMap[hit.childAddress])
 		if err != nil {
 			s.logger.Error("Error marshaling plan data to JSON", zap.Error(err))
 		}
 		planString := string(planBytes)
+
+		// Normalize raw SQL (not obfuscated) and generate MD5 hash for APM correlation
+		normalizedSQL, sqlHash := sqlnormalizer.NormalizeSQLAndHash(hit.queryText)
 
 		s.lb.RecordDbServerTopQueryEvent(context.Background(),
 			pcommon.NewTimestampFromTime(collectionTime),
@@ -1101,7 +1133,12 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 			hit.metrics[procedureExecutionsMetric],
 			hit.objectID,
 			hit.objectName,
-			hit.objectType)
+			hit.objectType,
+			hit.planHashValue,
+			hit.lastLoadTime,
+			hit.queryComments,
+			sqlHash,
+			normalizedSQL)
 	}
 
 	hitCount := len(hits)
@@ -1173,11 +1210,16 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 			continue
 		}
 
+		
+		// Obfuscate SQL for display purposes (db.query.text)
 		obfuscatedSQL, err := s.obfuscator.obfuscateSQLString(row[sqlText])
 		if err != nil {
 			s.logger.Error(fmt.Sprintf("oracleScraper failed updating this log record: %s", err))
 			continue
 		}
+
+		// Normalize raw SQL (not obfuscated) and generate MD5 hash for APM correlation
+		normalizedSQL, sqlHash := sqlnormalizer.NormalizeSQLAndHash(obfuscatedSQL)
 
 		queryPlanHashVal := hex.EncodeToString([]byte(row[planHashValue]))
 
@@ -1220,12 +1262,55 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 			"traceparent": row[action],
 		})
 
+		// Extract and filter query comments from original SQL (before obfuscation)
+		queryComments := sqlcomments.ExtractAndFilterComments(row[sqlText], s.querySampleCfg.AllowedCommentKeys)
+
 		s.lb.RecordDbServerQuerySampleEvent(queryContext, timestamp, obfuscatedSQL, dbSystemNameVal, row[username], row[serviceName], row[hostName],
 			clientPort, row[hostName], clientPort, queryPlanHashVal, row[sqlID], row[sqlChildNumber], row[childAddress], row[sid], row[serialNumber], row[process],
 			row[schemaName], row[program], row[module], row[status], row[state], row[waitclass], row[event], waitTime, objID, row[objectName], row[objectType],
-			row[osUser], queryDuration, row[sqlExecStart], row[logonTime], sessionDurationSec,
+			row[osUser], queryDuration, waitTime, queryComments, sqlHash, normalizedSQL, row[sqlExecStart], row[logonTime], sessionDurationSec,
 			row[blockingSession], row[finalBlockingSession], row[blockingSessionStatus], row[blockingStartTime], secondsInWaitVal,
 			row[lockMode], row[lockType], row[blockedObjectOwner], row[blockedObjectName])
+	}
+
+	s.lb.Emit(metadata.WithLogsResource(rb.Emit())).ResourceLogs().MoveAndAppendTo(logs.ResourceLogs())
+
+	return errors.Join(scrapeErrors...)
+}
+
+func (s *oracleScraper) collectSessionWaitEvents(ctx context.Context, logs plog.Logs) error {
+	const sid = "SID"
+	const serial = "SERIAL#"
+	const event = "EVENT"
+	const waitClass = "WAIT_CLASS"
+	const totalWaits = "TOTAL_WAITS"
+	const totalTimeWaitedSecs = "TOTAL_TIME_WAITED_SECS"
+
+	var scrapeErrors []error
+
+	timestamp := pcommon.NewTimestampFromTime(time.Now())
+
+	rows, err := s.sessionEventClient.metricRows(ctx, s.sessionWaitEventCfg.MaxRowsPerQuery)
+	if err != nil {
+		scrapeErrors = append(scrapeErrors, fmt.Errorf("error executing %s: %w", sessionEventQuery, err))
+	}
+
+	rb := s.setupResourceBuilder(s.lb.NewResourceBuilder())
+
+	for _, row := range rows {
+		totalWaitsVal, err := strconv.ParseInt(row[totalWaits], 10, 64)
+		if err != nil {
+			scrapeErrors = append(scrapeErrors, fmt.Errorf("failed to parse int64 for oracledb.wait.count, value was %s: %w", row[totalWaits], err))
+			continue
+		}
+
+		totalTimeWaitedSecsVal, err := strconv.ParseFloat(row[totalTimeWaitedSecs], 64)
+		if err != nil {
+			scrapeErrors = append(scrapeErrors, fmt.Errorf("failed to parse float64 for oracledb.wait.duration, value was %s: %w", row[totalTimeWaitedSecs], err))
+			continue
+		}
+
+		s.lb.RecordDbServerSessionWaitSampleEvent(ctx, timestamp, row[sid], row[serial], row[event], row[waitClass], totalWaitsVal, totalTimeWaitedSecsVal)
 	}
 
 	s.lb.Emit(metadata.WithLogsResource(rb.Emit())).ResourceLogs().MoveAndAppendTo(logs.ResourceLogs())
@@ -1239,14 +1324,15 @@ func asFloatInSeconds(value int64) float64 {
 
 func (s *oracleScraper) obfuscateCacheHits(hits []queryMetricCacheHit) []queryMetricCacheHit {
 	var obfuscatedHits []queryMetricCacheHit
-	for _, hit := range hits {
+	for i := range hits {
+		hit := &hits[i]
 		// obfuscate and normalize the query text
 		obfuscatedSQL, err := s.obfuscator.obfuscateSQLString(hit.queryText)
 		if err != nil {
 			s.logger.Warn("oracleScraper failed to obfuscate SQL query, skipping entry", zap.String("sql_id", hit.sqlID), zap.Error(err))
 		} else {
 			hit.queryText = obfuscatedSQL
-			obfuscatedHits = append(obfuscatedHits, hit)
+			obfuscatedHits = append(obfuscatedHits, *hit)
 		}
 	}
 	return obfuscatedHits
@@ -1260,9 +1346,9 @@ func (s *oracleScraper) getChildAddressToPlanMap(ctx context.Context, hits []que
 
 	var childAddressSlice []any
 	placeholders := make([]string, len(hits))
-	for i, hit := range hits {
+	for i := range hits {
 		placeholders[i] = fmt.Sprintf("HEXTORAW(:%d)", i+1)
-		childAddressSlice = append(childAddressSlice, hit.childAddress)
+		childAddressSlice = append(childAddressSlice, hits[i].childAddress)
 	}
 
 	placeholdersCombined := strings.Join(placeholders, ", ")

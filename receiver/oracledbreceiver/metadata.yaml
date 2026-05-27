@@ -154,6 +154,12 @@ attributes:
   oracledb.module:
     description: Logical module name of the client application that initiated a query or session.
     type: string
+  oracledb.normalised_sql_hash:
+    description: "MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Used for correlation with APM slow query traces."
+    type: string
+  oracledb.normalized_sql:
+    description: "Normalized SQL query text for debugging hash generation. Shows the exact SQL string that was hashed."
+    type: string
   oracledb.osuser:
     description: Name of the operating system user that initiated or is running the Oracle database session.
     type: string
@@ -177,6 +183,9 @@ attributes:
   oracledb.physical_write_requests:
     description: The number of times a query requested to write data to disk (reporting delta).
     type: int
+  oracledb.plan.last_load:
+    description: "Plan load time in the server's local timezone. Format: YYYY-MM-DD/HH:MM:SS"
+    type: string
   oracledb.plan_hash_value:
     description: Binary hash value calculated on the query execution plan and used to identify similar query execution plans, reported in the HEX format.
     type: string
@@ -249,8 +258,20 @@ attributes:
   oracledb.user_io_wait_time:
     description: The total time (in seconds) a query spent waiting for user I/O operations—such as reading or writing data to disk or network file systems (reporting delta).
     type: double
+  oracledb.wait.count:
+    description: Total number of waits for the wait event across all sessions.
+    type: int
+  oracledb.wait.duration:
+    description: Total time waited in seconds for the wait event.
+    type: double
   oracledb.wait_class:
     description: The category of wait events a query or session is currently experiencing in Oracle Database.
+    type: string
+  oracledb.wait_time_sec:
+    description: The time (in seconds) that the session has been waiting on its current wait event.
+    type: double
+  query.comments:
+    description: Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys specified in allowed_comment_keys configuration. Used for correlation with APM traces.
     type: string
   session_status:
     description: Session status
@@ -303,6 +324,10 @@ events:
       - oracledb.procedure_type
       - oracledb.osuser
       - oracledb.duration_sec
+      - oracledb.wait_time_sec
+      - query.comments
+      - oracledb.normalised_sql_hash
+      - oracledb.normalized_sql
       - oracledb.query.started
       - oracledb.session.started
       - oracledb.session.duration
@@ -315,6 +340,16 @@ events:
       - oracledb.blocking.lock.type
       - oracledb.blocking.object.owner
       - oracledb.blocking.object.name
+  db.server.session.wait_sample:
+    enabled: false
+    description: Per-session wait event statistics from v$session_event showing total time waited and total waits per event.
+    attributes:
+      - oracledb.sid
+      - oracledb.serial
+      - oracledb.event
+      - oracledb.wait_class
+      - oracledb.wait.count
+      - oracledb.wait.duration
   db.server.top_query:
     enabled: false
     description: Collection of event metrics for top N queries, filtered based on the highest CPU time consumed (oracledb.elapsed_time).
@@ -347,6 +382,11 @@ events:
       - oracledb.procedure_id
       - oracledb.procedure_name
       - oracledb.procedure_type
+      - oracledb.plan_hash_value
+      - oracledb.plan.last_load
+      - query.comments
+      - oracledb.normalised_sql_hash
+      - oracledb.normalized_sql
 metrics:
   oracledb.buffer_cache.utilization:
     description: Fraction of logical reads served from the buffer cache without physical I/O, as computed by Oracle V$SYSMETRIC (% (LogRead - PhyRead)/LogRead).
