@@ -48,10 +48,45 @@ var queryResponses = map[string][]metricRow{
 		{"RESOURCE_NAME": "processes", "CURRENT_UTILIZATION": "3", "MAX_UTILIZATION": "10", "INITIAL_ALLOCATION": "100", "LIMIT_VALUE": "100"},
 		{"RESOURCE_NAME": "locks", "CURRENT_UTILIZATION": "3", "MAX_UTILIZATION": "10", "INITIAL_ALLOCATION": "-1", "LIMIT_VALUE": "-1"},
 	},
-	tablespaceUsageSQL:  {{"TABLESPACE_NAME": "SYS", "USED_SPACE": "111288", "TABLESPACE_SIZE": "3518587", "BLOCK_SIZE": "8192"}},
-	dataDictHitRatioSQL: {{"DATA_DICTIONARY_HIT_RATIO": "98.75"}},
-	recycleBinSizeSQL:   {{"RECYCLE_BIN_SIZE_BYTES": "13107200"}},
-	storageUsageSQL:     {{"USED_DB_SIZE": "5368709120", "ALLOCATED_DB_SIZE": "10737418240"}},
+	tablespaceUsageSQL:        {{"TABLESPACE_NAME": "SYS", "USED_SPACE": "111288", "TABLESPACE_SIZE": "3518587", "BLOCK_SIZE": "8192", "STATUS": "ONLINE"}},
+	tablespaceUsageWithMaxSQL: {{"TABLESPACE_NAME": "SYS", "USED_SPACE": "111288", "TABLESPACE_SIZE": "3518587", "BLOCK_SIZE": "8192", "STATUS": "ONLINE", "MAX_BYTES": "1073741824"}},
+	dataDictHitRatioSQL:       {{"DATA_DICTIONARY_HIT_RATIO": "98.75"}},
+	osStatSQL: {
+		{"STAT_NAME": "NUM_CPUS", "VALUE": "8"},
+		{"STAT_NAME": "LOAD", "VALUE": "1.5"},
+		{"STAT_NAME": "PHYSICAL_MEMORY_BYTES", "VALUE": "17179869184"},
+	},
+	recycleBinSizeSQL: {{"RECYCLE_BIN_SIZE_BYTES": "13107200"}},
+	sgaInfoSQL: {
+		{"NAME": "Fixed SGA Size", "BYTES": "9292416"},
+		{"NAME": "Redo Buffers", "BYTES": "14598144"},
+		{"NAME": "Buffer Cache Size", "BYTES": "1375731712"},
+		{"NAME": "Shared Pool Size", "BYTES": "536870912"},
+		{"NAME": "Large Pool Size", "BYTES": "33554432"},
+		{"NAME": "Java Pool Size", "BYTES": "0"},
+		{"NAME": "Streams Pool Size", "BYTES": "0"},
+		{"NAME": "Shared IO Pool Size", "BYTES": "134217728"},
+		{"NAME": "Data Transfer Cache Size", "BYTES": "0"},
+		{"NAME": "Granule Size", "BYTES": "16777216"},
+		{"NAME": "Maximum SGA Size", "BYTES": "2147483648"},
+		{"NAME": "Startup overhead in Shared Pool", "BYTES": "209715200"},
+		{"NAME": "Free SGA Memory Available", "BYTES": "41943040"},
+	},
+	storageUsageSQL: {{"USED_DB_SIZE": "5368709120", "ALLOCATED_DB_SIZE": "10737418240"}},
+	sysmetricSQL: {
+		{"METRIC_NAME": "Buffer Cache Hit Ratio", "VALUE": "98.75"},
+		{"METRIC_NAME": "Host CPU Utilization (%)", "VALUE": "12.34"},
+		{"METRIC_NAME": "Database CPU Time Ratio", "VALUE": "55.66"},
+		{"METRIC_NAME": "Library Cache Hit Ratio", "VALUE": "99.10"},
+		{"METRIC_NAME": "Shared Pool Free %", "VALUE": "30.20"},
+		{"METRIC_NAME": "Database Wait Time Ratio", "VALUE": "44.55"},
+		{"METRIC_NAME": "Soft Parse Ratio", "VALUE": "88.90"},
+		{"METRIC_NAME": "SQL Service Response Time", "VALUE": "0.0042"},
+		{"METRIC_NAME": "Memory Sorts Ratio", "VALUE": "99.50"},
+		{"METRIC_NAME": "Redo Allocation Hit Ratio", "VALUE": "97.80"},
+		{"METRIC_NAME": "Parse Failure Count Per Sec", "VALUE": "0.25"},
+		{"METRIC_NAME": "Execute Without Parse Ratio", "VALUE": "75.30"},
+	},
 }
 
 // queryCDBResponses mirrors queryResponses but for the CDB-root SQL variants.
@@ -78,10 +113,45 @@ var queryCDBResponses = map[string][]metricRow{
 		{"RESOURCE_NAME": "processes", "CURRENT_UTILIZATION": "3", "MAX_UTILIZATION": "10", "INITIAL_ALLOCATION": "100", "LIMIT_VALUE": "100"},
 		{"RESOURCE_NAME": "locks", "CURRENT_UTILIZATION": "3", "MAX_UTILIZATION": "10", "INITIAL_ALLOCATION": "-1", "LIMIT_VALUE": "-1"},
 	},
-	tablespaceUsageCDBSQL: {{"PDB_NAME": "PDB1", "TABLESPACE_NAME": "USERS", "USED_SPACE": "111288", "TABLESPACE_SIZE": "3518587", "BLOCK_SIZE": "8192"}},
-	dataDictHitRatioSQL:   {{"DATA_DICTIONARY_HIT_RATIO": "98.75"}},
-	recycleBinSizeSQL:     {{"RECYCLE_BIN_SIZE_BYTES": "13107200"}},
-	storageUsageSQL:       {{"USED_DB_SIZE": "5368709120", "ALLOCATED_DB_SIZE": "10737418240"}},
+	tablespaceUsageCDBSQL:        {{"PDB_NAME": "PDB1", "TABLESPACE_NAME": "USERS", "USED_SPACE": "111288", "TABLESPACE_SIZE": "3518587", "BLOCK_SIZE": "8192", "STATUS": "ONLINE"}},
+	tablespaceUsageCDBWithMaxSQL: {{"PDB_NAME": "PDB1", "TABLESPACE_NAME": "USERS", "USED_SPACE": "111288", "TABLESPACE_SIZE": "3518587", "BLOCK_SIZE": "8192", "STATUS": "ONLINE", "MAX_BYTES": "1073741824"}},
+	dataDictHitRatioSQL:          {{"DATA_DICTIONARY_HIT_RATIO": "98.75"}},
+	osStatSQL: {
+		{"STAT_NAME": "NUM_CPUS", "VALUE": "8"},
+		{"STAT_NAME": "LOAD", "VALUE": "1.5"},
+		{"STAT_NAME": "PHYSICAL_MEMORY_BYTES", "VALUE": "17179869184"},
+	},
+	recycleBinSizeSQL: {{"RECYCLE_BIN_SIZE_BYTES": "13107200"}},
+	sgaInfoSQL: {
+		{"NAME": "Fixed SGA Size", "BYTES": "9292416"},
+		{"NAME": "Redo Buffers", "BYTES": "14598144"},
+		{"NAME": "Buffer Cache Size", "BYTES": "1375731712"},
+		{"NAME": "Shared Pool Size", "BYTES": "536870912"},
+		{"NAME": "Large Pool Size", "BYTES": "33554432"},
+		{"NAME": "Java Pool Size", "BYTES": "0"},
+		{"NAME": "Streams Pool Size", "BYTES": "0"},
+		{"NAME": "Shared IO Pool Size", "BYTES": "134217728"},
+		{"NAME": "Data Transfer Cache Size", "BYTES": "0"},
+		{"NAME": "Granule Size", "BYTES": "16777216"},
+		{"NAME": "Maximum SGA Size", "BYTES": "2147483648"},
+		{"NAME": "Startup overhead in Shared Pool", "BYTES": "209715200"},
+		{"NAME": "Free SGA Memory Available", "BYTES": "41943040"},
+	},
+	storageUsageSQL: {{"USED_DB_SIZE": "5368709120", "ALLOCATED_DB_SIZE": "10737418240"}},
+	sysmetricSQL: {
+		{"METRIC_NAME": "Buffer Cache Hit Ratio", "VALUE": "98.75"},
+		{"METRIC_NAME": "Host CPU Utilization (%)", "VALUE": "12.34"},
+		{"METRIC_NAME": "Database CPU Time Ratio", "VALUE": "55.66"},
+		{"METRIC_NAME": "Library Cache Hit Ratio", "VALUE": "99.10"},
+		{"METRIC_NAME": "Shared Pool Free %", "VALUE": "30.20"},
+		{"METRIC_NAME": "Database Wait Time Ratio", "VALUE": "44.55"},
+		{"METRIC_NAME": "Soft Parse Ratio", "VALUE": "88.90"},
+		{"METRIC_NAME": "SQL Service Response Time", "VALUE": "0.0042"},
+		{"METRIC_NAME": "Memory Sorts Ratio", "VALUE": "99.50"},
+		{"METRIC_NAME": "Redo Allocation Hit Ratio", "VALUE": "97.80"},
+		{"METRIC_NAME": "Parse Failure Count Per Sec", "VALUE": "0.25"},
+		{"METRIC_NAME": "Execute Without Parse Ratio", "VALUE": "75.30"},
+	},
 }
 
 var cacheValue = map[string]int64{
@@ -240,7 +310,7 @@ func TestScraper_ScrapeCDBRoot(t *testing.T) {
 	cfg := metadata.NewDefaultMetricsBuilderConfig()
 	cfg.Metrics.OracledbConsistentGets.Enabled = true
 	cfg.Metrics.OracledbDbBlockGets.Enabled = true
-	// Enable the opt_in pdb_name attribute so it is written to data points.
+	// Enable the opt-in pdb_name attribute on tablespace size metrics.
 	cfg.Metrics.OracledbTablespaceSizeLimit.EnabledAttributes = append(
 		cfg.Metrics.OracledbTablespaceSizeLimit.EnabledAttributes,
 		metadata.OracledbTablespaceSizeLimitMetricAttributeKeyOracleDbPdb,
@@ -248,6 +318,22 @@ func TestScraper_ScrapeCDBRoot(t *testing.T) {
 	cfg.Metrics.OracledbTablespaceSizeUsage.EnabledAttributes = append(
 		cfg.Metrics.OracledbTablespaceSizeUsage.EnabledAttributes,
 		metadata.OracledbTablespaceSizeUsageMetricAttributeKeyOracleDbPdb,
+	)
+	// Enable tablespace health metrics with the opt-in pdb_name attribute.
+	cfg.Metrics.OracledbTablespaceLimit.Enabled = true
+	cfg.Metrics.OracledbTablespaceLimit.EnabledAttributes = append(
+		cfg.Metrics.OracledbTablespaceLimit.EnabledAttributes,
+		metadata.OracledbTablespaceLimitMetricAttributeKeyOracleDbPdb,
+	)
+	cfg.Metrics.OracledbTablespaceStatus.Enabled = true
+	cfg.Metrics.OracledbTablespaceStatus.EnabledAttributes = append(
+		cfg.Metrics.OracledbTablespaceStatus.EnabledAttributes,
+		metadata.OracledbTablespaceStatusMetricAttributeKeyOracleDbPdb,
+	)
+	cfg.Metrics.OracledbTablespaceUtilization.Enabled = true
+	cfg.Metrics.OracledbTablespaceUtilization.EnabledAttributes = append(
+		cfg.Metrics.OracledbTablespaceUtilization.EnabledAttributes,
+		metadata.OracledbTablespaceUtilizationMetricAttributeKeyOracleDbPdb,
 	)
 
 	scrpr := oracleScraper{
@@ -276,17 +362,27 @@ func TestScraper_ScrapeCDBRoot(t *testing.T) {
 	require.NoError(t, err)
 
 	metrics := m.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
-	assert.Equal(t, 18, metrics.Len())
 
-	// Verify pdb_name is set on tablespace metrics.
+	// Verify pdb_name is set on all tablespace metrics (both size and health).
+	tablespaceMetricsWithPDB := map[string]bool{
+		"oracledb.tablespace_size.usage":  false,
+		"oracledb.tablespace_size.limit":  false,
+		"oracledb.tablespace.limit":       false,
+		"oracledb.tablespace.status":      false,
+		"oracledb.tablespace.utilization": false,
+	}
 	for i := 0; i < metrics.Len(); i++ {
 		metric := metrics.At(i)
-		if metric.Name() == "oracledb.tablespace_size.usage" || metric.Name() == "oracledb.tablespace_size.limit" {
+		if _, ok := tablespaceMetricsWithPDB[metric.Name()]; ok {
 			dp := metric.Gauge().DataPoints().At(0)
-			pdbAttr, ok := dp.Attributes().Get("oracle.db.pdb")
-			assert.True(t, ok, "expected oracle.db.pdb attribute on %s", metric.Name())
+			pdbAttr, hasPDB := dp.Attributes().Get("oracle.db.pdb")
+			assert.True(t, hasPDB, "expected oracle.db.pdb attribute on %s", metric.Name())
 			assert.Equal(t, "PDB1", pdbAttr.Str())
+			tablespaceMetricsWithPDB[metric.Name()] = true
 		}
+	}
+	for name, seen := range tablespaceMetricsWithPDB {
+		assert.True(t, seen, "expected metric %s to be present", name)
 	}
 }
 
@@ -365,6 +461,199 @@ func TestScraper_ScrapeOperationalMetrics(t *testing.T) {
 				assert.InDelta(t, 13107200.0, metricMap["oracledb.recycle_bin.limit"], floatDelta)
 				assert.InDelta(t, 5368709120.0, metricMap["oracledb.storage.usage"], floatDelta)
 				assert.InDelta(t, 0.5, metricMap["oracledb.storage.utilization"], floatDelta)
+			}
+		})
+	}
+}
+
+func TestScraper_ScrapeTablespaceHealthMetrics(t *testing.T) {
+	const floatDelta = 0.0001
+
+	tests := []struct {
+		name       string
+		dbclientFn func(db *sql.DB, s string, logger *zap.Logger) dbClient
+		errWanted  string
+	}{
+		{
+			name: "valid tablespace health metrics",
+			dbclientFn: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+				return &fakeDbClient{
+					Responses: [][]metricRow{
+						queryResponses[s],
+					},
+				}
+			},
+		},
+		{
+			name: "bad max_bytes value",
+			dbclientFn: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+				if s == tablespaceUsageWithMaxSQL {
+					return &fakeDbClient{Responses: [][]metricRow{
+						{
+							{"TABLESPACE_NAME": "SYS", "USED_SPACE": "111288", "TABLESPACE_SIZE": "3518587", "BLOCK_SIZE": "8192", "STATUS": "ONLINE", "MAX_BYTES": "bad"},
+						},
+					}}
+				}
+				return &fakeDbClient{Responses: [][]metricRow{
+					queryResponses[s],
+				}}
+			},
+			errWanted: `failed to parse int64 for OracledbTablespaceLimit, value was bad`,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := metadata.NewDefaultMetricsBuilderConfig()
+			cfg.Metrics.OracledbTablespaceUtilization.Enabled = true
+			cfg.Metrics.OracledbTablespaceStatus.Enabled = true
+			cfg.Metrics.OracledbTablespaceLimit.Enabled = true
+
+			scrpr := oracleScraper{
+				logger: zap.NewNop(),
+				mb:     metadata.NewMetricsBuilder(cfg, receivertest.NewNopSettings(metadata.Type)),
+				dbProviderFunc: func() (*sql.DB, error) {
+					return nil, nil
+				},
+				clientProviderFunc:   test.dbclientFn,
+				id:                   component.ID{},
+				metricsBuilderConfig: cfg,
+			}
+			err := scrpr.start(t.Context(), componenttest.NewNopHost())
+			defer func() {
+				assert.NoError(t, scrpr.shutdown(t.Context()))
+			}()
+			require.NoError(t, err)
+			m, err := scrpr.scrape(t.Context())
+			if test.errWanted != "" {
+				require.True(t, scrapererror.IsPartialScrapeError(err))
+				require.Contains(t, err.Error(), test.errWanted)
+			} else {
+				require.NoError(t, err)
+				metrics := m.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
+
+				doubleMetricMap := make(map[string]float64)
+				intMetricMap := make(map[string]int64)
+				for i := 0; i < metrics.Len(); i++ {
+					metric := metrics.At(i)
+					if metric.Type() == pmetric.MetricTypeGauge && metric.Gauge().DataPoints().Len() > 0 {
+						dp := metric.Gauge().DataPoints().At(0)
+						if dp.ValueType() == pmetric.NumberDataPointValueTypeDouble {
+							doubleMetricMap[metric.Name()] = dp.DoubleValue()
+						} else {
+							intMetricMap[metric.Name()] = dp.IntValue()
+						}
+					}
+				}
+				// utilization = 111288 / 3518587 ≈ 0.031629
+				assert.InDelta(t, 0.031629, doubleMetricMap["oracledb.tablespace.utilization"], floatDelta)
+				assert.Equal(t, int64(1), intMetricMap["oracledb.tablespace.status"])
+				assert.Equal(t, int64(1073741824), intMetricMap["oracledb.tablespace.limit"])
+			}
+		})
+	}
+}
+
+func TestScraper_ScrapeOSStat(t *testing.T) {
+	const floatDelta = 0.01
+
+	tests := []struct {
+		name       string
+		dbclientFn func(db *sql.DB, s string, logger *zap.Logger) dbClient
+		errWanted  string
+	}{
+		{
+			name: "valid os stat metrics",
+			dbclientFn: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+				return &fakeDbClient{
+					Responses: [][]metricRow{
+						queryResponses[s],
+					},
+				}
+			},
+		},
+		{
+			name: "bad NUM_CPUS value",
+			dbclientFn: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+				if s == osStatSQL {
+					return &fakeDbClient{Responses: [][]metricRow{
+						{{"STAT_NAME": "NUM_CPUS", "VALUE": "bad"}},
+					}}
+				}
+				return &fakeDbClient{Responses: [][]metricRow{queryResponses[s]}}
+			},
+			errWanted: `failed to parse int64 for SystemCPUPhysicalCount, value was bad`,
+		},
+		{
+			name: "bad LOAD value",
+			dbclientFn: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+				if s == osStatSQL {
+					return &fakeDbClient{Responses: [][]metricRow{
+						{{"STAT_NAME": "LOAD", "VALUE": "bad"}},
+					}}
+				}
+				return &fakeDbClient{Responses: [][]metricRow{queryResponses[s]}}
+			},
+			errWanted: `failed to parse float64 for OracledbSystemCPULoad, value was bad`,
+		},
+		{
+			name: "bad PHYSICAL_MEMORY_BYTES value",
+			dbclientFn: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+				if s == osStatSQL {
+					return &fakeDbClient{Responses: [][]metricRow{
+						{{"STAT_NAME": "PHYSICAL_MEMORY_BYTES", "VALUE": "bad"}},
+					}}
+				}
+				return &fakeDbClient{Responses: [][]metricRow{queryResponses[s]}}
+			},
+			errWanted: `failed to parse SystemMemoryLimit, value was bad`,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := metadata.NewDefaultMetricsBuilderConfig()
+			cfg.Metrics.SystemCPUPhysicalCount.Enabled = true
+			cfg.Metrics.OracledbSystemCPULoad.Enabled = true
+			cfg.Metrics.SystemMemoryLimit.Enabled = true
+
+			scrpr := oracleScraper{
+				logger: zap.NewNop(),
+				mb:     metadata.NewMetricsBuilder(cfg, receivertest.NewNopSettings(metadata.Type)),
+				dbProviderFunc: func() (*sql.DB, error) {
+					return nil, nil
+				},
+				clientProviderFunc:   test.dbclientFn,
+				id:                   component.ID{},
+				metricsBuilderConfig: cfg,
+			}
+			err := scrpr.start(t.Context(), componenttest.NewNopHost())
+			defer func() {
+				assert.NoError(t, scrpr.shutdown(t.Context()))
+			}()
+			require.NoError(t, err)
+			m, err := scrpr.scrape(t.Context())
+			if test.errWanted != "" {
+				require.True(t, scrapererror.IsPartialScrapeError(err))
+				require.Contains(t, err.Error(), test.errWanted)
+			} else {
+				require.NoError(t, err)
+				metrics := m.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
+
+				intMetricMap := make(map[string]int64)
+				doubleMetricMap := make(map[string]float64)
+				for i := 0; i < metrics.Len(); i++ {
+					metric := metrics.At(i)
+					if metric.Type() == pmetric.MetricTypeGauge && metric.Gauge().DataPoints().Len() > 0 {
+						dp := metric.Gauge().DataPoints().At(0)
+						if dp.ValueType() == pmetric.NumberDataPointValueTypeDouble {
+							doubleMetricMap[metric.Name()] = dp.DoubleValue()
+						} else {
+							intMetricMap[metric.Name()] = dp.IntValue()
+						}
+					}
+				}
+				assert.Equal(t, int64(8), intMetricMap["system.cpu.physical.count"])
+				assert.InDelta(t, 1.5, doubleMetricMap["oracledb.system.cpu.load"], floatDelta)
+				assert.Equal(t, int64(17179869184), intMetricMap["system.memory.limit"])
 			}
 		})
 	}
@@ -630,6 +919,113 @@ func TestSamplesQuery(t *testing.T) {
 				errs := plogtest.CompareLogs(expectedLogs, logs, plogtest.IgnoreTimestamp())
 				assert.NoError(t, errs)
 			}
+		})
+	}
+}
+
+func TestScraper_ScrapeSysMetrics(t *testing.T) {
+	const floatDelta = 0.001
+
+	tests := []struct {
+		name      string
+		clientFn  func(db *sql.DB, s string, logger *zap.Logger) dbClient
+		errWanted string
+	}{
+		{
+			name: "valid sysmetric data",
+			clientFn: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+				return &fakeDbClient{
+					Responses: [][]metricRow{queryResponses[s]},
+				}
+			},
+		},
+		{
+			name: "bad sysmetric value",
+			clientFn: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+				if s == sysmetricSQL {
+					return &fakeDbClient{Responses: [][]metricRow{
+						{{"METRIC_NAME": "Buffer Cache Hit Ratio", "VALUE": "not_a_number"}},
+					}}
+				}
+				return &fakeDbClient{Responses: [][]metricRow{queryResponses[s]}}
+			},
+			errWanted: `sysmetric "Buffer Cache Hit Ratio": failed to parse float64`,
+		},
+		{
+			name: "sysmetric query error",
+			clientFn: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+				if s == sysmetricSQL {
+					return &fakeDbClient{Err: errors.New("db connection lost")}
+				}
+				return &fakeDbClient{Responses: [][]metricRow{queryResponses[s]}}
+			},
+			errWanted: "error executing SELECT metric_name",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := metadata.NewDefaultMetricsBuilderConfig()
+			cfg.Metrics.OracledbBufferCacheUtilization.Enabled = true
+			cfg.Metrics.OracledbHostCPUUtilization.Enabled = true
+			cfg.Metrics.OracledbDatabaseCPUUtilization.Enabled = true
+			cfg.Metrics.OracledbLibraryCacheUtilization.Enabled = true
+			cfg.Metrics.OracledbSharedPoolUtilization.Enabled = true
+			cfg.Metrics.OracledbDatabaseWaitUtilization.Enabled = true
+			cfg.Metrics.OracledbParseUtilization.Enabled = true
+			cfg.Metrics.OracledbSQLServiceResponseDuration.Enabled = true
+			cfg.Metrics.OracledbSortRatio.Enabled = true
+			cfg.Metrics.OracledbRedoAllocationUtilization.Enabled = true
+			cfg.Metrics.OracledbParseRate.Enabled = true
+			cfg.Metrics.OracledbExecutionUtilization.Enabled = true
+
+			scrpr := oracleScraper{
+				logger: zap.NewNop(),
+				mb:     metadata.NewMetricsBuilder(cfg, receivertest.NewNopSettings(metadata.Type)),
+				dbProviderFunc: func() (*sql.DB, error) {
+					return nil, nil
+				},
+				clientProviderFunc:   test.clientFn,
+				id:                   component.ID{},
+				metricsBuilderConfig: cfg,
+			}
+			err := scrpr.start(t.Context(), componenttest.NewNopHost())
+			require.NoError(t, err)
+			defer func() {
+				assert.NoError(t, scrpr.shutdown(t.Context()))
+			}()
+
+			m, err := scrpr.scrape(t.Context())
+
+			if test.errWanted != "" {
+				require.True(t, scrapererror.IsPartialScrapeError(err))
+				require.Contains(t, err.Error(), test.errWanted)
+				return
+			}
+
+			require.NoError(t, err)
+
+			metrics := m.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
+			metricMap := make(map[string]float64)
+			for i := 0; i < metrics.Len(); i++ {
+				metric := metrics.At(i)
+				if metric.Type() == pmetric.MetricTypeGauge && metric.Gauge().DataPoints().Len() > 0 {
+					metricMap[metric.Name()] = metric.Gauge().DataPoints().At(0).DoubleValue()
+				}
+			}
+
+			assert.InDelta(t, 98.75, metricMap["oracledb.buffer_cache.utilization"], floatDelta)
+			assert.InDelta(t, 12.34, metricMap["oracledb.host.cpu.utilization"], floatDelta)
+			assert.InDelta(t, 55.66, metricMap["oracledb.database.cpu.utilization"], floatDelta)
+			assert.InDelta(t, 99.10, metricMap["oracledb.library_cache.utilization"], floatDelta)
+			assert.InDelta(t, 30.20, metricMap["oracledb.shared_pool.utilization"], floatDelta)
+			assert.InDelta(t, 44.55, metricMap["oracledb.database.wait.utilization"], floatDelta)
+			assert.InDelta(t, 88.90, metricMap["oracledb.parse.utilization"], floatDelta)
+			assert.InDelta(t, 0.000042, metricMap["oracledb.sql_service.response.duration"], floatDelta)
+			assert.InDelta(t, 99.50, metricMap["oracledb.sort.ratio"], floatDelta)
+			assert.InDelta(t, 97.80, metricMap["oracledb.redo_allocation.utilization"], floatDelta)
+			assert.InDelta(t, 0.25, metricMap["oracledb.parse.rate"], floatDelta)
+			assert.InDelta(t, 75.30, metricMap["oracledb.execution.utilization"], floatDelta)
 		})
 	}
 }
@@ -1036,6 +1432,85 @@ func TestCalculateLookbackSeconds(t *testing.T) {
 	lookbackTime := scrpr.calculateLookbackSeconds()
 
 	assert.LessOrEqual(t, expectedMinimumLookbackTime, lookbackTime, "`lookbackTime` should be minimum %d", expectedMinimumLookbackTime)
+}
+
+func TestScraper_ScrapeSGAInfo(t *testing.T) {
+	tests := []struct {
+		name       string
+		dbclientFn func(db *sql.DB, s string, logger *zap.Logger) dbClient
+		errWanted  string
+	}{
+		{
+			name: "valid",
+			dbclientFn: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+				return &fakeDbClient{Responses: [][]metricRow{queryResponses[s]}}
+			},
+		},
+		{
+			name: "bad bytes value",
+			dbclientFn: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+				if s == sgaInfoSQL {
+					return &fakeDbClient{Responses: [][]metricRow{
+						{{"NAME": "Buffer Cache Size", "BYTES": "not_a_number"}},
+					}}
+				}
+				return &fakeDbClient{Responses: [][]metricRow{queryResponses[s]}}
+			},
+			errWanted: `failed to parse int64 for OracledbSgaUsage, value was not_a_number`,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := metadata.NewDefaultMetricsBuilderConfig()
+			cfg.Metrics.OracledbSgaUsage.Enabled = true
+			cfg.Metrics.OracledbSgaLimit.Enabled = true
+
+			scrpr := oracleScraper{
+				logger: zap.NewNop(),
+				mb:     metadata.NewMetricsBuilder(cfg, receivertest.NewNopSettings(metadata.Type)),
+				dbProviderFunc: func() (*sql.DB, error) {
+					return nil, nil
+				},
+				clientProviderFunc:   test.dbclientFn,
+				id:                   component.ID{},
+				metricsBuilderConfig: cfg,
+			}
+			err := scrpr.start(t.Context(), componenttest.NewNopHost())
+			defer func() {
+				assert.NoError(t, scrpr.shutdown(t.Context()))
+			}()
+			require.NoError(t, err)
+			m, err := scrpr.scrape(t.Context())
+			if test.errWanted != "" {
+				require.True(t, scrapererror.IsPartialScrapeError(err))
+				require.Contains(t, err.Error(), test.errWanted)
+			} else {
+				require.NoError(t, err)
+				metrics := m.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
+				sgaUsageMap := make(map[string]int64)
+				var sgaLimit int64
+				for i := 0; i < metrics.Len(); i++ {
+					metric := metrics.At(i)
+					switch metric.Name() {
+					case "oracledb.sga.usage":
+						for j := 0; j < metric.Gauge().DataPoints().Len(); j++ {
+							dp := metric.Gauge().DataPoints().At(j)
+							component, _ := dp.Attributes().Get("oracledb.sga.component.name")
+							sgaUsageMap[component.Str()] = dp.IntValue()
+						}
+					case "oracledb.sga.limit":
+						sgaLimit = metric.Gauge().DataPoints().At(0).IntValue()
+					}
+				}
+				assert.Equal(t, int64(1375731712), sgaUsageMap["Buffer Cache Size"])
+				assert.Equal(t, int64(536870912), sgaUsageMap["Shared Pool Size"])
+				assert.Equal(t, int64(14598144), sgaUsageMap["Redo Buffers"])
+				assert.Equal(t, int64(2147483648), sgaLimit)
+				// Maximum SGA Size row should not appear in usage map
+				assert.NotContains(t, sgaUsageMap, "Maximum SGA Size")
+			}
+		})
+	}
 }
 
 func readFile(fname string) []byte {
