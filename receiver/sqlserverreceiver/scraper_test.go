@@ -42,21 +42,27 @@ func configureAllScraperMetricsAndEvents(cfg *Config, enabled bool) {
 	cfg.Metrics.SqlserverDatabaseBackupOrRestoreRate.Enabled = enabled
 	cfg.Metrics.SqlserverDatabaseCount.Enabled = enabled
 	cfg.Metrics.SqlserverDatabaseExecutionErrors.Enabled = enabled
+	cfg.Metrics.SqlserverDatabaseFileSize.Enabled = enabled
 	cfg.Metrics.SqlserverDatabaseFullScanRate.Enabled = enabled
 	cfg.Metrics.SqlserverDatabaseIo.Enabled = enabled
 	cfg.Metrics.SqlserverDatabaseLatency.Enabled = enabled
 	cfg.Metrics.SqlserverDatabaseOperations.Enabled = enabled
+	cfg.Metrics.SqlserverDatabaseSecurityPrincipalCount.Enabled = enabled
+	cfg.Metrics.SqlserverDatabaseSecurityRoleMembershipCount.Enabled = enabled
 	cfg.Metrics.SqlserverDatabaseTempdbSpace.Enabled = enabled
 	cfg.Metrics.SqlserverDatabaseTempdbVersionStoreSize.Enabled = enabled
+	cfg.Metrics.SqlserverDatabaseTransactionsActive.Enabled = enabled
 	cfg.Metrics.SqlserverDeadlockRate.Enabled = enabled
 	cfg.Metrics.SqlserverIndexSearchRate.Enabled = enabled
 	cfg.Metrics.SqlserverLockTimeoutRate.Enabled = enabled
+	cfg.Metrics.SqlserverLatchWaitTimeAvg.Enabled = enabled
 	cfg.Metrics.SqlserverLockWaitCount.Enabled = enabled
 	cfg.Metrics.SqlserverLockWaitRate.Enabled = enabled
 	cfg.Metrics.SqlserverLockWaitTimeAvg.Enabled = enabled
 	cfg.Metrics.SqlserverLoginRate.Enabled = enabled
 	cfg.Metrics.SqlserverLogoutRate.Enabled = enabled
 	cfg.Metrics.SqlserverMemoryGrantsPendingCount.Enabled = enabled
+	cfg.Metrics.SqlserverMemoryTarget.Enabled = enabled
 	cfg.Metrics.SqlserverMemoryUsage.Enabled = enabled
 	cfg.Metrics.SqlserverOsWaitDuration.Enabled = enabled
 	cfg.Metrics.SqlserverPageBufferCacheFreeListStallsRate.Enabled = enabled
@@ -72,6 +78,8 @@ func configureAllScraperMetricsAndEvents(cfg *Config, enabled bool) {
 	cfg.Metrics.SqlserverResourcePoolDiskOperations.Enabled = enabled
 	cfg.Metrics.SqlserverResourcePoolDiskThrottledReadRate.Enabled = enabled
 	cfg.Metrics.SqlserverResourcePoolDiskThrottledWriteRate.Enabled = enabled
+	cfg.Metrics.SqlserverServerSecurityPrincipalCount.Enabled = enabled
+	cfg.Metrics.SqlserverServerSecurityRoleMembershipCount.Enabled = enabled
 	cfg.Metrics.SqlserverTableCount.Enabled = enabled
 	cfg.Metrics.SqlserverTransactionDelay.Enabled = enabled
 	cfg.Metrics.SqlserverTransactionLogFlushDataRate.Enabled = enabled
@@ -179,6 +187,20 @@ func TestSuccessfulScrape(t *testing.T) {
 					expectedFile = filepath.Join("testdata", "expectedProperties")
 				case getSQLServerWaitStatsQuery(scraper.config.InstanceName):
 					expectedFile = filepath.Join("testdata", "expectedWaitStats")
+				case getSQLServerLatchWaitTimeQuery(scraper.config.InstanceName):
+					expectedFile = filepath.Join("testdata", "expectedLatchWaitTime")
+				case getSQLServerDatabaseSizeQuery(scraper.config.InstanceName):
+					expectedFile = filepath.Join("testdata", "expectedDatabaseSize")
+				case getSQLServerMemoryTargetQuery(scraper.config.InstanceName):
+					expectedFile = filepath.Join("testdata", "expectedMemoryTarget")
+				case getSQLServerSecurityPrincipalsQuery(scraper.config.InstanceName):
+					expectedFile = filepath.Join("testdata", "expectedSecurityPrincipals")
+				case getSQLServerSecurityRoleMembersQuery(scraper.config.InstanceName):
+					expectedFile = filepath.Join("testdata", "expectedSecurityRoleMembers")
+				case getSQLServerDatabaseSecurityPrincipalsQuery(scraper.config.InstanceName):
+					expectedFile = filepath.Join("testdata", "expectedDatabaseSecurityPrincipals")
+				case getSQLServerDatabaseSecurityRoleMembersQuery(scraper.config.InstanceName):
+					expectedFile = filepath.Join("testdata", "expectedDatabaseSecurityRoleMembers")
 				}
 				expectedFile += fileSuffix
 
@@ -414,10 +436,24 @@ func (mc mockClient) QueryRows(context.Context, ...any) ([]sqlquery.StringMap, e
 		queryResults, err = readFile("propertyQueryData.txt")
 	case getSQLServerWaitStatsQuery(mc.instanceName):
 		queryResults, err = readFile("waitStatsQueryData.txt")
+	case getSQLServerLatchWaitTimeQuery(mc.instanceName):
+		queryResults, err = readFile("latch_wait_time_scraped_data.txt")
 	case getSQLServerQueryTextAndPlanQuery():
 		queryResults, err = readFile("queryTextAndPlanQueryData.txt")
 	case getSQLServerQuerySamplesQuery():
 		queryResults, err = readFile("recordDatabaseSampleQueryData.txt")
+	case getSQLServerDatabaseSizeQuery(mc.instanceName):
+		queryResults, err = readFile("database_size_scraped_data.txt")
+	case getSQLServerMemoryTargetQuery(mc.instanceName):
+		queryResults, err = readFile("memory_target_scraped_data.txt")
+	case getSQLServerSecurityPrincipalsQuery(mc.instanceName):
+		queryResults, err = readFile("security_principals_scraped_data.txt")
+	case getSQLServerSecurityRoleMembersQuery(mc.instanceName):
+		queryResults, err = readFile("security_role_members_scraped_data.txt")
+	case getSQLServerDatabaseSecurityPrincipalsQuery(mc.instanceName):
+		queryResults, err = readFile("database_security_principals_scraped_data.txt")
+	case getSQLServerDatabaseSecurityRoleMembersQuery(mc.instanceName):
+		queryResults, err = readFile("database_security_role_members_scraped_data.txt")
 	default:
 		return nil, errors.New("No valid query found")
 	}
@@ -818,6 +854,9 @@ func buildQuerySampleRow(sessionID, blockingSessionID, command, statement string
 		"query_plan_hash":             "0x140210F64B788CB9",
 		"context_info":                "",
 		"username":                    "sa",
+		"client_app_name":             "SSMS",
+		"session_started":             "2025-02-12T15:00:00.000+08:00",
+		"session_duration":            "720456",
 		"procedure_id":                "0",
 		"procedure_name":              "",
 		"blocking_start_time":         "",
