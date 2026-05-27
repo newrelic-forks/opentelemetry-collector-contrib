@@ -443,8 +443,8 @@ func TestNormalizeSQL_EdgeCases(t *testing.T) {
 		},
 		{
 			name:     "multiple consecutive placeholders",
-			input:    "SELECT * FROM users WHERE a = ? AND b = :param AND c = $1 AND d = @var",
-			expected: "SELECT*FROMUSERSWHEREA=?ANDB=?ANDC=?ANDD=?",
+			input:    "SELECT * FROM users WHERE a = ? AND b = :param AND c = $1 AND e = @var",
+			expected: "SELECT*FROMUSERSWHEREA=?ANDB=?ANDC=?ANDE=?",
 		},
 	}
 
