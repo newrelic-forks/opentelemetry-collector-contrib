@@ -18,17 +18,17 @@ func TestNormalizeSQL_BasicUppercase(t *testing.T) {
 		{
 			name:     "simple select",
 			input:    "select * from users",
-			expected: "SELECT*FROMUSERS",
+			expected: "SELECT * FROM USERS",
 		},
 		{
 			name:     "already uppercase",
 			input:    "SELECT * FROM USERS",
-			expected: "SELECT*FROMUSERS",
+			expected: "SELECT * FROM USERS",
 		},
 		{
 			name:     "mixed case",
 			input:    "SeLeCt * FrOm UsErS",
-			expected: "SELECT*FROMUSERS",
+			expected: "SELECT * FROM USERS",
 		},
 	}
 
@@ -49,22 +49,22 @@ func TestNormalizeSQL_StringLiterals(t *testing.T) {
 		{
 			name:     "single string literal",
 			input:    "SELECT * FROM users WHERE name = 'John'",
-			expected: "SELECT*FROMUSERSWHERENAME=?",
+			expected: "SELECT * FROM USERS WHERE NAME = ?",
 		},
 		{
 			name:     "multiple string literals",
 			input:    "SELECT * FROM users WHERE name = 'John' AND email = 'john@example.com'",
-			expected: "SELECT*FROMUSERSWHERENAME=?ANDEMAIL=?",
+			expected: "SELECT * FROM USERS WHERE NAME = ? AND EMAIL = ?",
 		},
 		{
 			name:     "string with escaped quote",
 			input:    "SELECT * FROM users WHERE name = 'O''Brien'",
-			expected: "SELECT*FROMUSERSWHERENAME=?",
+			expected: "SELECT * FROM USERS WHERE NAME = ?",
 		},
 		{
 			name:     "empty string",
 			input:    "SELECT * FROM users WHERE name = ''",
-			expected: "SELECT*FROMUSERSWHERENAME=?",
+			expected: "SELECT * FROM USERS WHERE NAME = ?",
 		},
 	}
 
@@ -85,27 +85,27 @@ func TestNormalizeSQL_NumericLiterals(t *testing.T) {
 		{
 			name:     "integer literal",
 			input:    "SELECT * FROM users WHERE id = 123",
-			expected: "SELECT*FROMUSERSWHEREID=?",
+			expected: "SELECT * FROM USERS WHERE ID = ?",
 		},
 		{
 			name:     "decimal literal",
 			input:    "SELECT * FROM data WHERE value = 45.67",
-			expected: "SELECT*FROMDATAWHEREVALUE=?",
+			expected: "SELECT * FROM DATA WHERE VALUE = ?",
 		},
 		{
 			name:     "negative number",
 			input:    "SELECT * FROM data WHERE value = -123.45",
-			expected: "SELECT*FROMDATAWHEREVALUE=?",
+			expected: "SELECT * FROM DATA WHERE VALUE = ?",
 		},
 		{
 			name:     "scientific notation",
 			input:    "SELECT * FROM data WHERE value = 1.5E-10",
-			expected: "SELECT*FROMDATAWHEREVALUE=?",
+			expected: "SELECT * FROM DATA WHERE VALUE = ?",
 		},
 		{
 			name:     "number in column name not replaced",
 			input:    "SELECT column1 FROM table WHERE column1 = 123",
-			expected: "SELECTCOLUMN1FROMTABLEWHERECOLUMN1=?",
+			expected: "SELECT COLUMN1 FROM TABLE WHERE COLUMN1 = ?",
 		},
 	}
 
@@ -126,37 +126,37 @@ func TestNormalizeSQL_Placeholders(t *testing.T) {
 		{
 			name:     "JDBC placeholder already normalized",
 			input:    "SELECT * FROM users WHERE id = ?",
-			expected: "SELECT*FROMUSERSWHEREID=?",
+			expected: "SELECT * FROM USERS WHERE ID = ?",
 		},
 		{
 			name:     "Oracle named bind variable",
 			input:    "SELECT * FROM users WHERE id = :userId",
-			expected: "SELECT*FROMUSERSWHEREID=?",
+			expected: "SELECT * FROM USERS WHERE ID = ?",
 		},
 		{
 			name:     "Oracle numeric bind variable",
 			input:    "SELECT * FROM users WHERE id = :1",
-			expected: "SELECT*FROMUSERSWHEREID=?",
+			expected: "SELECT * FROM USERS WHERE ID = ?",
 		},
 		{
 			name:     "PostgreSQL placeholder",
 			input:    "SELECT * FROM users WHERE id = $1 AND age = $2",
-			expected: "SELECT*FROMUSERSWHEREID=?ANDAGE=?",
+			expected: "SELECT * FROM USERS WHERE ID = ? AND AGE = ?",
 		},
 		{
 			name:     "SQL Server placeholder",
 			input:    "SELECT * FROM users WHERE id = @userId",
-			expected: "SELECT*FROMUSERSWHEREID=?",
+			expected: "SELECT * FROM USERS WHERE ID = ?",
 		},
 		{
 			name:     "Python placeholder",
 			input:    "SELECT * FROM users WHERE id = %(userId)s",
-			expected: "SELECT*FROMUSERSWHEREID=?",
+			expected: "SELECT * FROM USERS WHERE ID = ?",
 		},
 		{
 			name:     "multiple different placeholders",
 			input:    "SELECT * FROM users WHERE id = :id AND age = @age",
-			expected: "SELECT*FROMUSERSWHEREID=?ANDAGE=?",
+			expected: "SELECT * FROM USERS WHERE ID = ? AND AGE = ?",
 		},
 	}
 
@@ -177,37 +177,37 @@ func TestNormalizeSQL_InClause(t *testing.T) {
 		{
 			name:     "IN with multiple numeric literals",
 			input:    "SELECT * FROM users WHERE id IN (1, 2, 3)",
-			expected: "SELECT*FROMUSERSWHEREIDIN(?)",
+			expected: "SELECT * FROM USERS WHERE ID IN (?)",
 		},
 		{
 			name:     "IN with multiple string literals",
 			input:    "SELECT * FROM users WHERE name IN ('Alice', 'Bob', 'Charlie')",
-			expected: "SELECT*FROMUSERSWHERENAMEIN(?)",
+			expected: "SELECT * FROM USERS WHERE NAME IN (?)",
 		},
 		{
 			name:     "IN with placeholders",
 			input:    "SELECT * FROM users WHERE id IN (?, ?, ?)",
-			expected: "SELECT*FROMUSERSWHEREIDIN(?)",
+			expected: "SELECT * FROM USERS WHERE ID IN (?)",
 		},
 		{
 			name:     "IN with mixed literals",
 			input:    "SELECT * FROM data WHERE value IN (1, 'text', 3.14)",
-			expected: "SELECT*FROMDATAWHEREVALUEIN(?)",
+			expected: "SELECT * FROM DATA WHERE VALUE IN (?)",
 		},
 		{
 			name:     "IN with single value not normalized",
 			input:    "SELECT * FROM users WHERE id IN (1)",
-			expected: "SELECT*FROMUSERSWHEREIDIN(?)",
+			expected: "SELECT * FROM USERS WHERE ID IN (?)",
 		},
 		{
 			name:     "IN with subquery not normalized",
 			input:    "SELECT * FROM users WHERE id IN (SELECT id FROM admins)",
-			expected: "SELECT*FROMUSERSWHEREIDIN(SELECTIDFROMADMINS)",
+			expected: "SELECT * FROM USERS WHERE ID IN (SELECT ID FROM ADMINS)",
 		},
 		{
 			name:     "parentheses not preceded by IN",
 			input:    "SELECT (a + b) FROM users WHERE id = 1",
-			expected: "SELECT(A+B)FROMUSERSWHEREID=?",
+			expected: "SELECT (A + B) FROM USERS WHERE ID = ?",
 		},
 	}
 
@@ -279,22 +279,22 @@ func TestNormalizeSQL_Whitespace(t *testing.T) {
 		{
 			name:     "multiple spaces collapsed",
 			input:    "SELECT  *    FROM     users",
-			expected: "SELECT*FROMUSERS",
+			expected: "SELECT * FROM USERS",
 		},
 		{
 			name:     "leading whitespace trimmed",
 			input:    "   SELECT * FROM users",
-			expected: "SELECT*FROMUSERS",
+			expected: "SELECT * FROM USERS",
 		},
 		{
 			name:     "trailing whitespace trimmed",
 			input:    "SELECT * FROM users   ",
-			expected: "SELECT*FROMUSERS",
+			expected: "SELECT * FROM USERS",
 		},
 		{
 			name:     "tabs and newlines normalized",
 			input:    "SELECT\t*\nFROM\r\nusers",
-			expected: "SELECT*FROMUSERS",
+			expected: "SELECT * FROM USERS",
 		},
 	}
 
@@ -342,22 +342,22 @@ func TestGenerateMD5Hash(t *testing.T) {
 
 func TestNormalizeSQLAndHash(t *testing.T) {
 	tests := []struct {
-		name               string
-		input              string
+		name              string
+		input             string
 		expectedNormalized string
 		expectedHash       string
 	}{
 		{
-			name:               "complete normalization and hash",
-			input:              "SELECT * FROM users WHERE id = 123 AND name = 'John'",
-			expectedNormalized: "SELECT*FROMUSERSWHEREID=?ANDNAME=?",
-			expectedHash:       "e78f13a21009ebcb6fdef9e996a24c9d",
+			name:              "complete normalization and hash",
+			input:             "SELECT * FROM users WHERE id = 123 AND name = 'John'",
+			expectedNormalized: "SELECT * FROM USERS WHERE ID = ? AND NAME = ?",
+			expectedHash:       "7f51338aa6d5fa3a27d698eb2f3fd166",
 		},
 		{
-			name:               "with comments",
-			input:              "/* comment */ SELECT * FROM users WHERE id = 1",
-			expectedNormalized: "?SELECT*FROMUSERSWHEREID=?",
-			expectedHash:       "690b61bb71c40c8825f7206e7d9c63ec",
+			name:              "with comments",
+			input:             "/* comment */ SELECT * FROM users WHERE id = 1",
+			expectedNormalized: "? SELECT * FROM USERS WHERE ID = ?",
+			expectedHash:       "391e9733f47f76127165173ceeaf9d71",
 		},
 	}
 
@@ -389,42 +389,42 @@ func TestNormalizeSQL_EdgeCases(t *testing.T) {
 		{
 			name:     "only comments",
 			input:    "/* comment */ -- another comment",
-			expected: "??",
+			expected: "?",
 		},
 		{
 			name:     "string with escaped quotes",
 			input:    "SELECT * FROM users WHERE name = 'O''Brien'",
-			expected: "SELECT*FROMUSERSWHERENAME=?",
+			expected: "SELECT * FROM USERS WHERE NAME = ?",
 		},
 		{
 			name:     "string with backslash escape",
 			input:    "SELECT * FROM users WHERE path = 'C:\\\\Users\\\\John'",
-			expected: "SELECT*FROMUSERSWHEREPATH=?",
+			expected: "SELECT * FROM USERS WHERE PATH = ?",
 		},
 		{
 			name:     "negative numbers",
 			input:    "SELECT * FROM data WHERE value = -123.45",
-			expected: "SELECT*FROMDATAWHEREVALUE=?",
+			expected: "SELECT * FROM DATA WHERE VALUE = ?",
 		},
 		{
 			name:     "positive sign",
 			input:    "SELECT * FROM data WHERE value = +123.45",
-			expected: "SELECT*FROMDATAWHEREVALUE=?",
+			expected: "SELECT * FROM DATA WHERE VALUE = ?",
 		},
 		{
 			name:     "scientific notation variations",
 			input:    "SELECT * FROM data WHERE a = 1.5E-10 AND b = 2E+5 AND c = 3E10",
-			expected: "SELECT*FROMDATAWHEREA=?ANDB=?ANDC=?",
+			expected: "SELECT * FROM DATA WHERE A = ? AND B = ? AND C = ?",
 		},
 		{
 			name:     "decimal without leading digit",
 			input:    "SELECT * FROM data WHERE value = .5",
-			expected: "SELECT*FROMDATAWHEREVALUE=?",
+			expected: "SELECT * FROM DATA WHERE VALUE = ?",
 		},
 		{
 			name:     "number in column name not replaced",
 			input:    "SELECT column1, table2.field3 FROM table2 WHERE column1 = 123",
-			expected: "SELECTCOLUMN1,TABLE2.FIELD3FROMTABLE2WHERECOLUMN1=?",
+			expected: "SELECT COLUMN1, TABLE2.FIELD3 FROM TABLE2 WHERE COLUMN1 = ?",
 		},
 		{
 			name:     "complex query with everything",
@@ -434,17 +434,17 @@ func TestNormalizeSQL_EdgeCases(t *testing.T) {
 		{
 			name:     "nested parentheses",
 			input:    "SELECT ((a + b) * c) FROM data WHERE x = 1",
-			expected: "SELECT((A+B)*C)FROMDATAWHEREX=?",
+			expected: "SELECT ((A + B) * C) FROM DATA WHERE X = ?",
 		},
 		{
 			name:     "unclosed string literal",
 			input:    "SELECT * FROM users WHERE name = 'unclosed",
-			expected: "SELECT*FROMUSERSWHERENAME=?",
+			expected: "SELECT * FROM USERS WHERE NAME = ?",
 		},
 		{
 			name:     "multiple consecutive placeholders",
-			input:    "SELECT * FROM users WHERE a = ? AND b = :param AND c = $1 AND e = @var",
-			expected: "SELECT*FROMUSERSWHEREA=?ANDB=?ANDC=?ANDE=?",
+			input:    "SELECT * FROM users WHERE a = ? AND b = :param AND c = $1 AND d = @var",
+			expected: "SELECT * FROM USERS WHERE A = ? AND B = ? AND C = ? AND D = ?",
 		},
 	}
 
@@ -471,27 +471,27 @@ func TestNormalizeSQL_SpaceBeforeComma(t *testing.T) {
 		{
 			name:     "Oracle bind variable with space before comma",
 			input:    "UPDATE ORDERS SET status = :1 , updated_at = CURRENT_TIMESTAMP WHERE order_id = :2",
-			expected: "UPDATEORDERSSETSTATUS=?,UPDATED_AT=CURRENT_TIMESTAMPWHEREORDER_ID=?",
+			expected: "UPDATE ORDERS SET STATUS = ?, UPDATED_AT = CURRENT_TIMESTAMP WHERE ORDER_ID = ?",
 		},
 		{
 			name:     "Multiple spaces before comma",
 			input:    "SELECT col1   , col2  , col3 FROM table",
-			expected: "SELECTCOL1,COL2,COL3FROMTABLE",
+			expected: "SELECT COL1, COL2, COL3 FROM TABLE",
 		},
 		{
 			name:     "No space before comma (should not change)",
 			input:    "SELECT col1, col2, col3 FROM table",
-			expected: "SELECTCOL1,COL2,COL3FROMTABLE",
+			expected: "SELECT COL1, COL2, COL3 FROM TABLE",
 		},
 		{
 			name:     "Tab before comma",
 			input:    "SELECT col1\t, col2 FROM table",
-			expected: "SELECTCOL1,COL2FROMTABLE",
+			expected: "SELECT COL1, COL2 FROM TABLE",
 		},
 		{
 			name:     "Space before comma in IN clause",
 			input:    "SELECT * FROM users WHERE id IN (1 , 2 , 3)",
-			expected: "SELECT*FROMUSERSWHEREIDIN(?)",
+			expected: "SELECT * FROM USERS WHERE ID IN (?)",
 		},
 	}
 

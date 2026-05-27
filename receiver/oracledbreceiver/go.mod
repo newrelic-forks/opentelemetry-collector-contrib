@@ -6,6 +6,8 @@ require (
 	github.com/DataDog/datadog-agent/pkg/obfuscate v0.77.0-devel.0.20260213154712-e02b9359151a
 	github.com/google/go-cmp v0.7.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
+	github.com/open-telemetry/opentelemetry-collector-contrib/internal/common v0.153.0
+	github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/sqlnormalizer v0.0.0-00010101000000-000000000000
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/golden v0.153.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatatest v0.153.0
 	github.com/sijms/go-ora/v2 v2.9.0
@@ -27,6 +29,8 @@ require (
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.28.0
 )
+
+require go.opentelemetry.io/otel v1.43.0
 
 require (
 	github.com/DataDog/datadog-go/v5 v5.8.3 // indirect
@@ -87,3 +91,7 @@ replace github.com/open-telemetry/opentelemetry-collector-contrib/pkg/golden => 
 replace github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatautil => ../../pkg/pdatautil
 
 replace github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatatest => ../../pkg/pdatatest
+
+replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/common => ../../internal/common
+
+replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/sqlnormalizer => ../../internal/common/sqlnormalizer

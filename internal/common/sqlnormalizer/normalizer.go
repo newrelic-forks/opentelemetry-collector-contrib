@@ -10,7 +10,7 @@
 // Reference implementation:
 // - apm-trace-consumer: SqlStatementNormalizer.java
 // - apm-trace-consumer: SqlHashUtil.java
-package sqlnormalizer // import "github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/sqlnormalizer"
+package sqlnormalizer // import "go.opentelemetry.io/collector/contrib/internal/common/sqlnormalizer"
 
 import (
 	"crypto/md5"
@@ -266,7 +266,7 @@ func skipPlaceholder(state *sqlNormalizerState) {
 // - Normalizes all parameter placeholders to '?'
 // - Replaces string and numeric literals with '?'
 // - Removes comments (/* */, --, #)
-// - Strips ALL whitespace
+// - Strips ALL whitespace 
 // - Normalizes IN clauses: IN (1,2,3) → IN (?)
 //
 // This function implements the exact same algorithm as SqlStatementNormalizer.normalizeSql()
@@ -467,6 +467,7 @@ func skipToEndOfLine(state *sqlNormalizerState) {
 	}
 }
 
+
 // processStringLiteral handles string literal in comment removal phase.
 // This is defensive code - literals should already be replaced in phase 1.
 
@@ -552,12 +553,10 @@ func removeCommentsAndNormalizeWhitespace(sql string) string {
 // This is an acceptable use case despite MD5's known collision vulnerabilities.
 //
 // Parameters:
-//
-//	normalizedSQL: The normalized SQL query text
+//   normalizedSQL: The normalized SQL query text
 //
 // Returns:
-//
-//	Lowercase hex string of MD5 hash (32 characters)
+//   Lowercase hex string of MD5 hash (32 characters)
 func GenerateMD5Hash(normalizedSQL string) string {
 	// #nosec G401 - MD5 is used for SQL fingerprinting, not cryptographic security
 	hash := md5.Sum([]byte(normalizedSQL))
@@ -572,20 +571,17 @@ func GenerateMD5Hash(normalizedSQL string) string {
 // See NormalizeSQL for detailed normalization rules.
 //
 // Parameters:
-//
-//	sql: The raw SQL query text
+//   sql: The raw SQL query text
 //
 // Returns:
-//
-//	normalizedSQL: The normalized SQL query text
-//	md5Hash: Lowercase hex string of MD5 hash (32 characters)
+//   normalizedSQL: The normalized SQL query text
+//   md5Hash: Lowercase hex string of MD5 hash (32 characters)
 //
 // Example:
-//
-//	input := "SELECT * FROM users WHERE id = 123 AND name = 'John'"
-//	normalized, hash := NormalizeSQLAndHash(input)
-//	// normalized: "SELECT * FROM USERS WHERE ID = ? AND NAME = ?"
-//	// hash: "62c441c38800ff82bffa5c57dd4f4059"
+//   input := "SELECT * FROM users WHERE id = 123 AND name = 'John'"
+//   normalized, hash := NormalizeSQLAndHash(input)
+//   // normalized: "SELECT * FROM USERS WHERE ID = ? AND NAME = ?"
+//   // hash: "62c441c38800ff82bffa5c57dd4f4059"
 func NormalizeSQLAndHash(sql string) (normalizedSQL, md5Hash string) {
 	normalizedSQL = NormalizeSQL(sql)
 	md5Hash = GenerateMD5Hash(normalizedSQL)
