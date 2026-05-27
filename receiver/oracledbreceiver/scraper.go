@@ -37,7 +37,23 @@ import (
 )
 
 const (
-	statsSQL                       = "select * from v$sysstat"
+	statsSQL     = "select * from v$sysstat"
+	sysmetricSQL = "SELECT metric_name, value FROM v$sysmetric WHERE group_id = 2"
+
+	// V$SYSMETRIC metric_name values (group_id=2, 60-second interval)
+	sysmetricBufferCacheHitRatio      = "Buffer Cache Hit Ratio"
+	sysmetricHostCPUUtilization       = "Host CPU Utilization (%)"
+	sysmetricDatabaseCPUTimeRatio     = "Database CPU Time Ratio"
+	sysmetricLibraryCacheHitRatio     = "Library Cache Hit Ratio"
+	sysmetricSharedPoolFreePct        = "Shared Pool Free %"
+	sysmetricDatabaseWaitTimeRatio    = "Database Wait Time Ratio"
+	sysmetricSoftParseRatio           = "Soft Parse Ratio"
+	sysmetricSQLServiceResponseTime   = "SQL Service Response Time"
+	sysmetricMemorySortsRatio         = "Memory Sorts Ratio"
+	sysmetricRedoAllocationHitRatio   = "Redo Allocation Hit Ratio"
+	sysmetricParseFailureCount        = "Parse Failure Count Per Sec"
+	sysmetricExecuteWithoutParseRatio = "Execute Without Parse Ratio"
+
 	enqueueDeadlocks               = "enqueue deadlocks"
 	exchangeDeadlocks              = "exchange deadlocks"
 	executeCount                   = "execute count"
@@ -70,15 +86,34 @@ const (
 	// sessionCountCDBSQL extends sessionCountSQL with per-PDB breakdown via v$containers join.
 	sessionCountCDBSQL      = "select s.status, s.type, c.name as PDB_NAME, count(*) as VALUE FROM v$session s, v$containers c WHERE s.con_id = c.con_id(+) GROUP BY s.status, s.type, c.name"
 	systemResourceLimitsSQL = "select RESOURCE_NAME, CURRENT_UTILIZATION, LIMIT_VALUE, CASE WHEN TRIM(INITIAL_ALLOCATION) LIKE 'UNLIMITED' THEN '-1' ELSE TRIM(INITIAL_ALLOCATION) END as INITIAL_ALLOCATION, CASE WHEN TRIM(LIMIT_VALUE) LIKE 'UNLIMITED' THEN '-1' ELSE TRIM(LIMIT_VALUE) END as LIMIT_VALUE from v$resource_limit"
-	tablespaceUsageSQL      = `
-		select um.TABLESPACE_NAME, um.USED_SPACE, um.TABLESPACE_SIZE, ts.BLOCK_SIZE
-		FROM DBA_TABLESPACE_USAGE_METRICS um INNER JOIN DBA_TABLESPACES ts
-		ON um.TABLESPACE_NAME = ts.TABLESPACE_NAME`
+	// tablespaceUsageSQL is the base query; includes ts.STATUS for oracledb.tablespace.status.
+	tablespaceUsageSQL = `
+		select um.TABLESPACE_NAME, um.USED_SPACE, um.TABLESPACE_SIZE, ts.BLOCK_SIZE, ts.STATUS
+		FROM DBA_TABLESPACE_USAGE_METRICS um
+		INNER JOIN DBA_TABLESPACES ts ON um.TABLESPACE_NAME = ts.TABLESPACE_NAME`
+	// tablespaceUsageWithMaxSQL extends the base query with a LEFT JOIN on DBA_DATA_FILES for autoextend max size.
+	tablespaceUsageWithMaxSQL = `
+		select um.TABLESPACE_NAME, um.USED_SPACE, um.TABLESPACE_SIZE, ts.BLOCK_SIZE, ts.STATUS,
+		       NVL(mxb.MAX_BYTES, 0) as MAX_BYTES
+		FROM DBA_TABLESPACE_USAGE_METRICS um
+		INNER JOIN DBA_TABLESPACES ts ON um.TABLESPACE_NAME = ts.TABLESPACE_NAME
+		LEFT JOIN (SELECT TABLESPACE_NAME, SUM(NVL(MAXBYTES, 0)) as MAX_BYTES FROM DBA_DATA_FILES GROUP BY TABLESPACE_NAME) mxb
+		    ON um.TABLESPACE_NAME = mxb.TABLESPACE_NAME`
 	// tablespaceUsageCDBSQL extends tablespaceUsageSQL for CDB root, using CDB_ views to cover all PDBs.
 	tablespaceUsageCDBSQL = `
-		SELECT c.name AS PDB_NAME, t.TABLESPACE_NAME, m.USED_SPACE, m.TABLESPACE_SIZE, t.BLOCK_SIZE
-		FROM CDB_TABLESPACE_USAGE_METRICS m, CDB_TABLESPACES t, v$containers c
-		WHERE m.con_id(+) = t.con_id AND t.con_id = c.con_id AND m.TABLESPACE_NAME(+) = t.TABLESPACE_NAME`
+		SELECT c.name AS PDB_NAME, t.TABLESPACE_NAME, m.USED_SPACE, m.TABLESPACE_SIZE, t.BLOCK_SIZE, t.STATUS
+		FROM CDB_TABLESPACES t
+		JOIN v$containers c ON t.con_id = c.con_id
+		LEFT JOIN CDB_TABLESPACE_USAGE_METRICS m ON m.con_id = t.con_id AND m.TABLESPACE_NAME = t.TABLESPACE_NAME`
+	// tablespaceUsageCDBWithMaxSQL extends tablespaceUsageCDBSQL with autoextend max size.
+	tablespaceUsageCDBWithMaxSQL = `
+		SELECT c.name AS PDB_NAME, t.TABLESPACE_NAME, m.USED_SPACE, m.TABLESPACE_SIZE, t.BLOCK_SIZE, t.STATUS,
+		       NVL(mxb.MAX_BYTES, 0) as MAX_BYTES
+		FROM CDB_TABLESPACES t
+		JOIN v$containers c ON t.con_id = c.con_id
+		LEFT JOIN CDB_TABLESPACE_USAGE_METRICS m ON m.con_id = t.con_id AND m.TABLESPACE_NAME = t.TABLESPACE_NAME
+		LEFT JOIN (SELECT TABLESPACE_NAME, con_id, SUM(NVL(MAXBYTES, 0)) as MAX_BYTES FROM CDB_DATA_FILES GROUP BY TABLESPACE_NAME, con_id) mxb
+		    ON t.TABLESPACE_NAME = mxb.TABLESPACE_NAME AND t.con_id = mxb.con_id`
 	// statsCDBSQL extends statsSQL for CDB root using v$con_sysstat (a Container Data Object)
 	// which returns per-PDB rows with correct CON_IDs; v$sysstat always returns CON_ID=0 from CDB root.
 	statsCDBSQL = `
@@ -86,11 +121,21 @@ const (
 		FROM v$con_sysstat s
 		JOIN v$containers c ON s.con_id = c.con_id`
 	dataDictHitRatioSQL = "SELECT (1-(SUM(getmisses)/SUM(gets))) * 100 as DATA_DICTIONARY_HIT_RATIO FROM v$rowcache WHERE getmisses + gets <> 0"
+	osStatSQL           = "SELECT STAT_NAME, VALUE FROM v$osstat WHERE STAT_NAME IN ('LOAD', 'NUM_CPUS', 'PHYSICAL_MEMORY_BYTES')"
 	recycleBinSizeSQL   = "SELECT nvl(SUM(SPACE*(SELECT value FROM v$parameter WHERE name = 'db_block_size')),0) as RECYCLE_BIN_SIZE_BYTES FROM dba_recyclebin"
+	sgaInfoSQL          = "SELECT NAME, BYTES FROM v$sgainfo"
 	storageUsageSQL     = "WITH total_bytes AS (SELECT SUM(bytes) AS total FROM dba_data_files) SELECT (total - (SELECT SUM(bytes) FROM dba_free_space)) AS USED_DB_SIZE, total AS ALLOCATED_DB_SIZE FROM total_bytes"
+
+	osStatNameLoad           = "LOAD"
+	osStatNameNumCPUs        = "NUM_CPUS"
+	osStatNamePhysicalMemory = "PHYSICAL_MEMORY_BYTES"
+	colOSStatName            = "STAT_NAME"
+	colOSStatValue           = "VALUE"
 
 	colDataDictHitRatio    = "DATA_DICTIONARY_HIT_RATIO"
 	colRecycleBinSizeBytes = "RECYCLE_BIN_SIZE_BYTES"
+	colSGAInfoName         = "NAME"
+	colSGAInfoBytes        = "BYTES"
 	colUsedDBSize          = "USED_DB_SIZE"
 	colAllocatedDBSize     = "ALLOCATED_DB_SIZE"
 
@@ -156,8 +201,11 @@ type oracleScraper struct {
 	samplesQueryClient       dbClient
 	sessionEventClient       dbClient
 	dataDictHitRatioClient   dbClient
+	osStatClient             dbClient
 	recycleBinSizeClient     dbClient
+	sgaInfoClient            dbClient
 	storageUsageClient       dbClient
+	sysmetricClient          dbClient
 	db                       *sql.DB
 	clientProviderFunc       clientProviderFunc
 	mb                       *metadata.MetricsBuilder
@@ -220,6 +268,20 @@ func newLogsScraper(logsBuilder *metadata.LogsBuilder, logsBuilderConfig metadat
 	return scraper.NewLogs(s.scrapeLogs, scraper.WithShutdown(s.shutdown), scraper.WithStart(s.start))
 }
 
+// buildTablespaceSQL returns the appropriate tablespace query based on enabled metrics and CDB mode.
+func (s *oracleScraper) buildTablespaceSQL() string {
+	if s.isCDBRoot {
+		if s.metricsBuilderConfig.Metrics.OracledbTablespaceLimit.Enabled {
+			return tablespaceUsageCDBWithMaxSQL
+		}
+		return tablespaceUsageCDBSQL
+	}
+	if s.metricsBuilderConfig.Metrics.OracledbTablespaceLimit.Enabled {
+		return tablespaceUsageWithMaxSQL
+	}
+	return tablespaceUsageSQL
+}
+
 func (s *oracleScraper) start(ctx context.Context, _ component.Host) error {
 	s.startTime = pcommon.NewTimestampFromTime(time.Now())
 	var err error
@@ -246,18 +308,20 @@ func (s *oracleScraper) start(ctx context.Context, _ component.Host) error {
 		s.logger.Info("oracledbreceiver: connected to CDB root; using CDB-aware queries for per-PDB metrics")
 		s.statsClient = s.clientProviderFunc(s.db, statsCDBSQL, s.logger)
 		s.sessionCountClient = s.clientProviderFunc(s.db, sessionCountCDBSQL, s.logger)
-		s.tablespaceUsageClient = s.clientProviderFunc(s.db, tablespaceUsageCDBSQL, s.logger)
 	} else {
 		s.statsClient = s.clientProviderFunc(s.db, statsSQL, s.logger)
 		s.sessionCountClient = s.clientProviderFunc(s.db, sessionCountSQL, s.logger)
-		s.tablespaceUsageClient = s.clientProviderFunc(s.db, tablespaceUsageSQL, s.logger)
 	}
+	s.tablespaceUsageClient = s.clientProviderFunc(s.db, s.buildTablespaceSQL(), s.logger)
 	s.systemResourceLimitsClient = s.clientProviderFunc(s.db, systemResourceLimitsSQL, s.logger)
 	s.samplesQueryClient = s.clientProviderFunc(s.db, samplesQuery, s.logger)
 	s.sessionEventClient = s.clientProviderFunc(s.db, sessionEventQuery, s.logger)
 	s.dataDictHitRatioClient = s.clientProviderFunc(s.db, dataDictHitRatioSQL, s.logger)
+	s.osStatClient = s.clientProviderFunc(s.db, osStatSQL, s.logger)
 	s.recycleBinSizeClient = s.clientProviderFunc(s.db, recycleBinSizeSQL, s.logger)
+	s.sgaInfoClient = s.clientProviderFunc(s.db, sgaInfoSQL, s.logger)
 	s.storageUsageClient = s.clientProviderFunc(s.db, storageUsageSQL, s.logger)
+	s.sysmetricClient = s.clientProviderFunc(s.db, sysmetricSQL, s.logger)
 	return nil
 }
 
@@ -546,14 +610,13 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 	}
 
 	if s.metricsBuilderConfig.Metrics.OracledbTablespaceSizeUsage.Enabled ||
-		s.metricsBuilderConfig.Metrics.OracledbTablespaceSizeLimit.Enabled {
-		tablespaceQueryName := tablespaceUsageSQL
-		if s.isCDBRoot {
-			tablespaceQueryName = tablespaceUsageCDBSQL
-		}
+		s.metricsBuilderConfig.Metrics.OracledbTablespaceSizeLimit.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbTablespaceUtilization.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbTablespaceStatus.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbTablespaceLimit.Enabled {
 		rows, err := s.tablespaceUsageClient.metricRows(ctx)
 		if err != nil {
-			scrapeErrors = append(scrapeErrors, fmt.Errorf("error executing %s: %w", tablespaceQueryName, err))
+			scrapeErrors = append(scrapeErrors, fmt.Errorf("error executing tablespace usage query: %w", err))
 		} else {
 			now := pcommon.NewTimestampFromTime(time.Now())
 			for _, row := range rows {
@@ -593,13 +656,39 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 				} else {
 					s.mb.RecordOracledbTablespaceSizeLimitDataPoint(now, tablespaceSizeBlockCount*blockSize, tablespaceName, pdbName)
 				}
+
+				if s.metricsBuilderConfig.Metrics.OracledbTablespaceUtilization.Enabled &&
+					tablespaceSizeBlockCount > 0 {
+					utilization := float64(usedSpaceBlockCount) / float64(tablespaceSizeBlockCount)
+					s.mb.RecordOracledbTablespaceUtilizationDataPoint(now, utilization, tablespaceName, pdbName)
+				}
+
+				if s.metricsBuilderConfig.Metrics.OracledbTablespaceStatus.Enabled {
+					tablespaceStatus := strings.ToLower(row["STATUS"])
+					if tablespaceStatus == "" {
+						tablespaceStatus = "unknown"
+					}
+					s.mb.RecordOracledbTablespaceStatusDataPoint(now, 1, tablespaceName, tablespaceStatus, pdbName)
+				}
+
+				if s.metricsBuilderConfig.Metrics.OracledbTablespaceLimit.Enabled {
+					maxBytes, err := strconv.ParseInt(row["MAX_BYTES"], 10, 64)
+					if err != nil {
+						scrapeErrors = append(scrapeErrors, fmt.Errorf("failed to parse int64 for OracledbTablespaceLimit, value was %s: %w", row["MAX_BYTES"], err))
+						continue
+					}
+					s.mb.RecordOracledbTablespaceLimitDataPoint(now, maxBytes, tablespaceName, pdbName)
+				}
 			}
 		}
 	}
 
 	s.collectDataDictHitRatio(ctx, &scrapeErrors)
+	s.collectOSStat(ctx, &scrapeErrors)
 	s.collectRecycleBinSize(ctx, &scrapeErrors)
+	s.collectSGAInfo(ctx, &scrapeErrors)
 	s.collectStorageUsage(ctx, &scrapeErrors)
+	s.collectSysMetrics(ctx, &scrapeErrors)
 
 	rb := s.setupResourceBuilder(s.mb.NewResourceBuilder())
 
@@ -631,6 +720,55 @@ func (s *oracleScraper) collectDataDictHitRatio(ctx context.Context, scrapeError
 	}
 }
 
+func (s *oracleScraper) collectOSStat(ctx context.Context, scrapeErrors *[]error) {
+	if !s.metricsBuilderConfig.Metrics.SystemCPUPhysicalCount.Enabled &&
+		!s.metricsBuilderConfig.Metrics.OracledbSystemCPULoad.Enabled &&
+		!s.metricsBuilderConfig.Metrics.SystemMemoryLimit.Enabled {
+		return
+	}
+	now := pcommon.NewTimestampFromTime(time.Now())
+	rows, err := s.osStatClient.metricRows(ctx)
+	if err != nil {
+		*scrapeErrors = append(*scrapeErrors, fmt.Errorf("error executing %s: %w", osStatSQL, err))
+		return
+	}
+	for _, row := range rows {
+		statName := row[colOSStatName]
+		statValue := row[colOSStatValue]
+		switch statName {
+		case osStatNameNumCPUs:
+			if s.metricsBuilderConfig.Metrics.SystemCPUPhysicalCount.Enabled {
+				val, err := strconv.ParseInt(statValue, 10, 64)
+				if err != nil {
+					*scrapeErrors = append(*scrapeErrors, fmt.Errorf("failed to parse int64 for SystemCPUPhysicalCount, value was %s: %w", statValue, err))
+					continue
+				}
+				s.mb.RecordSystemCPUPhysicalCountDataPoint(now, val)
+			}
+		case osStatNameLoad:
+			if s.metricsBuilderConfig.Metrics.OracledbSystemCPULoad.Enabled {
+				val, err := strconv.ParseFloat(statValue, 64)
+				if err != nil {
+					*scrapeErrors = append(*scrapeErrors, fmt.Errorf("failed to parse float64 for OracledbSystemCPULoad, value was %s: %w", statValue, err))
+					continue
+				}
+				s.mb.RecordOracledbSystemCPULoadDataPoint(now, val)
+			}
+		case osStatNamePhysicalMemory:
+			if s.metricsBuilderConfig.Metrics.SystemMemoryLimit.Enabled {
+				// Oracle may return PHYSICAL_MEMORY_BYTES in scientific notation (e.g. 6.6878E+10),
+				// so parse as float64 first then convert to int64.
+				fval, err := strconv.ParseFloat(statValue, 64)
+				if err != nil {
+					*scrapeErrors = append(*scrapeErrors, fmt.Errorf("failed to parse SystemMemoryLimit, value was %s: %w", statValue, err))
+					continue
+				}
+				s.mb.RecordSystemMemoryLimitDataPoint(now, int64(fval))
+			}
+		}
+	}
+}
+
 func (s *oracleScraper) collectRecycleBinSize(ctx context.Context, scrapeErrors *[]error) {
 	if !s.metricsBuilderConfig.Metrics.OracledbRecycleBinLimit.Enabled {
 		return
@@ -648,6 +786,35 @@ func (s *oracleScraper) collectRecycleBinSize(ctx context.Context, scrapeErrors 
 			continue
 		}
 		s.mb.RecordOracledbRecycleBinLimitDataPoint(now, val)
+	}
+}
+
+const sgaMaxComponentName = "Maximum SGA Size"
+
+func (s *oracleScraper) collectSGAInfo(ctx context.Context, scrapeErrors *[]error) {
+	if !s.metricsBuilderConfig.Metrics.OracledbSgaUsage.Enabled &&
+		!s.metricsBuilderConfig.Metrics.OracledbSgaLimit.Enabled {
+		return
+	}
+	now := pcommon.NewTimestampFromTime(time.Now())
+	rows, err := s.sgaInfoClient.metricRows(ctx)
+	if err != nil {
+		*scrapeErrors = append(*scrapeErrors, fmt.Errorf("error executing %s: %w", sgaInfoSQL, err))
+		return
+	}
+	for _, row := range rows {
+		val, err := strconv.ParseInt(row[colSGAInfoBytes], 10, 64)
+		if err != nil {
+			*scrapeErrors = append(*scrapeErrors, fmt.Errorf("failed to parse int64 for OracledbSgaUsage, value was %s: %w", row[colSGAInfoBytes], err))
+			continue
+		}
+		if row[colSGAInfoName] == sgaMaxComponentName {
+			if s.metricsBuilderConfig.Metrics.OracledbSgaLimit.Enabled {
+				s.mb.RecordOracledbSgaLimitDataPoint(now, val)
+			}
+		} else if s.metricsBuilderConfig.Metrics.OracledbSgaUsage.Enabled {
+			s.mb.RecordOracledbSgaUsageDataPoint(now, val, row[colSGAInfoName])
+		}
 	}
 }
 
@@ -679,6 +846,92 @@ func (s *oracleScraper) collectStorageUsage(ctx context.Context, scrapeErrors *[
 		if s.metricsBuilderConfig.Metrics.OracledbStorageUtilization.Enabled && allocatedBytes > 0 {
 			utilization := usedBytes / allocatedBytes
 			s.mb.RecordOracledbStorageUtilizationDataPoint(now, utilization)
+		}
+	}
+}
+
+func (s *oracleScraper) collectSysMetrics(ctx context.Context, scrapeErrors *[]error) {
+	anySysmetricEnabled := s.metricsBuilderConfig.Metrics.OracledbBufferCacheUtilization.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbHostCPUUtilization.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbDatabaseCPUUtilization.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbLibraryCacheUtilization.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbSharedPoolUtilization.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbDatabaseWaitUtilization.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbParseUtilization.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbSQLServiceResponseDuration.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbSortRatio.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbRedoAllocationUtilization.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbParseRate.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbExecutionUtilization.Enabled
+	if !anySysmetricEnabled {
+		return
+	}
+
+	now := pcommon.NewTimestampFromTime(time.Now())
+	rows, err := s.sysmetricClient.metricRows(ctx)
+	if err != nil {
+		*scrapeErrors = append(*scrapeErrors, fmt.Errorf("error executing %s: %w", sysmetricSQL, err))
+		return
+	}
+
+	for _, row := range rows {
+		metricName := row["METRIC_NAME"]
+		rawVal := row["VALUE"]
+		val, parseErr := strconv.ParseFloat(rawVal, 64)
+		if parseErr != nil {
+			*scrapeErrors = append(*scrapeErrors, fmt.Errorf("sysmetric %q: failed to parse float64 from %q: %w", metricName, rawVal, parseErr))
+			continue
+		}
+		switch metricName {
+		case sysmetricBufferCacheHitRatio:
+			if s.metricsBuilderConfig.Metrics.OracledbBufferCacheUtilization.Enabled {
+				s.mb.RecordOracledbBufferCacheUtilizationDataPoint(now, val)
+			}
+		case sysmetricHostCPUUtilization:
+			if s.metricsBuilderConfig.Metrics.OracledbHostCPUUtilization.Enabled {
+				s.mb.RecordOracledbHostCPUUtilizationDataPoint(now, val)
+			}
+		case sysmetricDatabaseCPUTimeRatio:
+			if s.metricsBuilderConfig.Metrics.OracledbDatabaseCPUUtilization.Enabled {
+				s.mb.RecordOracledbDatabaseCPUUtilizationDataPoint(now, val)
+			}
+		case sysmetricLibraryCacheHitRatio:
+			if s.metricsBuilderConfig.Metrics.OracledbLibraryCacheUtilization.Enabled {
+				s.mb.RecordOracledbLibraryCacheUtilizationDataPoint(now, val)
+			}
+		case sysmetricSharedPoolFreePct:
+			if s.metricsBuilderConfig.Metrics.OracledbSharedPoolUtilization.Enabled {
+				s.mb.RecordOracledbSharedPoolUtilizationDataPoint(now, val)
+			}
+		case sysmetricDatabaseWaitTimeRatio:
+			if s.metricsBuilderConfig.Metrics.OracledbDatabaseWaitUtilization.Enabled {
+				s.mb.RecordOracledbDatabaseWaitUtilizationDataPoint(now, val)
+			}
+		case sysmetricSoftParseRatio:
+			if s.metricsBuilderConfig.Metrics.OracledbParseUtilization.Enabled {
+				s.mb.RecordOracledbParseUtilizationDataPoint(now, val)
+			}
+		case sysmetricSQLServiceResponseTime:
+			if s.metricsBuilderConfig.Metrics.OracledbSQLServiceResponseDuration.Enabled {
+				// Oracle reports SQL Service Response Time in centiseconds; convert to seconds.
+				s.mb.RecordOracledbSQLServiceResponseDurationDataPoint(now, val/100)
+			}
+		case sysmetricMemorySortsRatio:
+			if s.metricsBuilderConfig.Metrics.OracledbSortRatio.Enabled {
+				s.mb.RecordOracledbSortRatioDataPoint(now, val, metadata.AttributeOracledbSortTypeMemory)
+			}
+		case sysmetricRedoAllocationHitRatio:
+			if s.metricsBuilderConfig.Metrics.OracledbRedoAllocationUtilization.Enabled {
+				s.mb.RecordOracledbRedoAllocationUtilizationDataPoint(now, val)
+			}
+		case sysmetricParseFailureCount:
+			if s.metricsBuilderConfig.Metrics.OracledbParseRate.Enabled {
+				s.mb.RecordOracledbParseRateDataPoint(now, val, metadata.AttributeOracledbParseResultFailure)
+			}
+		case sysmetricExecuteWithoutParseRatio:
+			if s.metricsBuilderConfig.Metrics.OracledbExecutionUtilization.Enabled {
+				s.mb.RecordOracledbExecutionUtilizationDataPoint(now, val, metadata.AttributeOracledbParseTypeSoft)
+			}
 		}
 	}
 }

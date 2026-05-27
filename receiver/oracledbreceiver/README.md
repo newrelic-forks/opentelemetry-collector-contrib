@@ -64,16 +64,18 @@ receivers:
 
 ## Permissions
 
-The receiver connects as a read-only user. The grants required depend on the
-Oracle deployment type: **Non-CDB** (single-tenant, all versions) or
-**Multitenant CDB** (Oracle 12c+, connected to the CDB root).
+The receiver connects as a read-only user. Detection is best-effort; failures are logged
+at warn level and the receiver continues. The grants required depend on the Oracle deployment
+type: **Non-CDB** (single-tenant, all versions) or **Multitenant CDB** (Oracle 12c+,
+connected to the CDB root).
 
 ### Non-CDB (single-tenant, all versions)
 
 Connect to the database as `sysdba` and run:
 
 ```sql
--- Instance detection (always required)
+-- Required to populate the oracle.db.version, oracle.db.role, oracle.db.open_mode
+-- and oracle.db.pdb resource attributes.
 GRANT SELECT ON V_$INSTANCE TO <username>;
 GRANT SELECT ON V_$DATABASE TO <username>;
 
@@ -81,8 +83,10 @@ GRANT SELECT ON V_$DATABASE TO <username>;
 GRANT SELECT ON V_$SYSSTAT TO <username>;
 GRANT SELECT ON V_$SESSION TO <username>;
 GRANT SELECT ON V_$RESOURCE_LIMIT TO <username>;
+GRANT SELECT ON V_$OSSTAT TO <username>;
 GRANT SELECT ON DBA_TABLESPACE_USAGE_METRICS TO <username>;
 GRANT SELECT ON DBA_TABLESPACES TO <username>;
+GRANT SELECT ON V_$SGAINFO TO <username>;
 
 -- Optional metrics (disabled by default)
 GRANT SELECT ON V_$ROWCACHE TO <username>;      -- oracledb.data_dictionary.hit_ratio
@@ -116,13 +120,13 @@ Connect as `sysdba` and run:
 CREATE USER c##otel IDENTIFIED BY <password> CONTAINER = ALL;
 ALTER USER c##otel SET CONTAINER_DATA = ALL CONTAINER = CURRENT;
 
--- Instance detection (always required)
+-- Required to populate the oracle.db.version, oracle.db.role, oracle.db.open_mode,
+-- and oracle.db.pdb resource attributes.
 GRANT CREATE SESSION TO c##otel CONTAINER = ALL;
 GRANT SELECT ON V_$INSTANCE TO c##otel CONTAINER = ALL;
 GRANT SELECT ON V_$DATABASE TO c##otel CONTAINER = ALL;
 
--- CDB/PDB structure detection (always required for multitenant)
--- Used to detect isCDB, connectedToPDB, databaseRole, openMode at startup.
+-- Required to detect CDB/PDB structure (isCDB, connectedToPDB) at startup.
 GRANT SELECT ON V_$CONTAINERS TO c##otel CONTAINER = ALL;
 
 -- Metrics collection
