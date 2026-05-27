@@ -10,7 +10,7 @@
 // Reference implementation:
 // - apm-trace-consumer: SqlStatementNormalizer.java
 // - apm-trace-consumer: SqlHashUtil.java
-package sqlnormalizer // import "go.opentelemetry.io/collector/contrib/internal/common/sqlnormalizer"
+package sqlnormalizer // import "github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/sqlnormalizer"
 
 import (
 	"crypto/md5"

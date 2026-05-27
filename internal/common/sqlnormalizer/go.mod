@@ -1,6 +1,6 @@
-module go.opentelemetry.io/collector/contrib/internal/common/sqlnormalizer
+module github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/sqlnormalizer
 
-go 1.21
+go 1.25.0
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
