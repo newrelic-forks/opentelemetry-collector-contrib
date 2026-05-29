@@ -97,9 +97,18 @@ resourceLogs:
               - key: oracledb.duration_sec
                 value:
                   doubleValue: 120
+              - key: oracledb.wait_time_sec
+                value:
+                  doubleValue: 0
               - key: query.comments
                 value:
                   stringValue: ""
+              - key: oracledb.normalised_sql_hash
+                value:
+                  stringValue: "935a5fc83824aadeb67aea0839016db6"
+              - key: oracledb.normalized_sql
+                value:
+                  stringValue: "UPDATEORDERSSETSTATUS=?WHEREID=?"
               - key: oracledb.query.started
                 value:
                   stringValue: ""
