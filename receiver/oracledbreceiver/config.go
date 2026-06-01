@@ -51,6 +51,13 @@ type SessionWaitEvent struct {
 	_ struct{}
 }
 
+type SessionWaitEvent struct {
+	MaxRowsPerQuery uint64 `mapstructure:"max_rows_per_query"`
+
+	// prevent unkeyed literal initialization
+	_ struct{}
+}
+
 type Config struct {
 	DataSource                     string `mapstructure:"datasource"`
 	Endpoint                       string `mapstructure:"endpoint"`
