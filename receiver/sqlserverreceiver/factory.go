@@ -42,7 +42,8 @@ func NewFactory() receiver.Factory {
 		metadata.Type,
 		createDefaultConfig,
 		receiver.WithMetrics(createMetricsReceiver, metadata.MetricsStability),
-		receiver.WithLogs(createLogsReceiver, metadata.LogsStability))
+		receiver.WithLogs(createLogsReceiver, metadata.LogsStability),
+	)
 }
 
 func createDefaultConfig() component.Config {
@@ -80,6 +81,34 @@ func setupQueries(cfg *Config) []string {
 
 	if isWaitStatsQueryEnabled(&cfg.Metrics) {
 		queries = append(queries, getSQLServerWaitStatsQuery(cfg.InstanceName))
+	}
+
+	if cfg.Metrics.SqlserverLatchWaitTimeAvg.Enabled {
+		queries = append(queries, getSQLServerLatchWaitTimeQuery(cfg.InstanceName))
+	}
+
+	if cfg.Metrics.SqlserverMemoryTarget.Enabled {
+		queries = append(queries, getSQLServerMemoryTargetQuery(cfg.InstanceName))
+	}
+
+	if cfg.Metrics.SqlserverDatabaseFileSize.Enabled || cfg.Metrics.SqlserverDatabaseTransactionsActive.Enabled {
+		queries = append(queries, getSQLServerDatabaseSizeQuery(cfg.InstanceName))
+	}
+
+	if cfg.Metrics.SqlserverServerSecurityPrincipalCount.Enabled {
+		queries = append(queries, getSQLServerSecurityPrincipalsQuery(cfg.InstanceName))
+	}
+
+	if cfg.Metrics.SqlserverServerSecurityRoleMembershipCount.Enabled {
+		queries = append(queries, getSQLServerSecurityRoleMembersQuery(cfg.InstanceName))
+	}
+
+	if cfg.Metrics.SqlserverDatabaseSecurityPrincipalCount.Enabled {
+		queries = append(queries, getSQLServerDatabaseSecurityPrincipalsQuery(cfg.InstanceName))
+	}
+
+	if cfg.Metrics.SqlserverDatabaseSecurityRoleMembershipCount.Enabled {
+		queries = append(queries, getSQLServerDatabaseSecurityRoleMembersQuery(cfg.InstanceName))
 	}
 
 	return queries
@@ -237,7 +266,8 @@ func setupLogsScrapers(params receiver.Settings, cfg *Config) ([]scraperhelper.C
 			scraper.NewFactory(metadata.Type, nil,
 				scraper.WithLogs(func(context.Context, scraper.Settings, component.Config) (scraper.Logs, error) {
 					return s, nil
-				}, component.StabilityLevelAlpha)), nil)
+				}, component.StabilityLevelAlpha)), nil,
+		)
 		opts = append(opts, opt)
 	}
 

@@ -8,6 +8,7 @@ require (
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/microsoft/go-mssqldb v1.9.6
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/common v0.153.0
+	github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/sqlnormalizer v0.0.0-00010101000000-000000000000
 	github.com/open-telemetry/opentelemetry-collector-contrib/internal/sqlquery v0.153.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/golden v0.153.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatatest v0.153.0
@@ -148,3 +149,5 @@ replace github.com/open-telemetry/opentelemetry-collector-contrib/pkg/golden => 
 replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/sqlquery => ../../internal/sqlquery
 
 replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/common => ../../internal/common
+
+replace github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/sqlnormalizer => ../../internal/common/sqlnormalizer

@@ -548,6 +548,44 @@ Fraction of parse calls that were soft parses, as computed by Oracle V$SYSMETRIC
 | ---- | ----------- | ---------- | --------- |
 | % | Gauge | Double | Development |
 
+### oracledb.physical_io.cache_writes
+
+Number of physical writes from the buffer cache to disk by DBWR. Sourced from v$sysstat name physical writes from cache.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
+| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
+| {writes} | Sum | Int | Cumulative | true | Development |
+
+### oracledb.physical_io.requests
+
+Number of physical I/O requests issued to storage. Sourced from v$sysstat names physical read/write total IO requests (disk.io.block_size=all) and physical read/write total multi block requests (disk.io.block_size=multi).
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
+| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
+| {requests} | Sum | Int | Cumulative | true | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| disk.io.direction | Direction of the storage I/O operation. | Str: ``read``, ``write`` | Recommended | - |
+| disk.io.block_size | Multi-block vs single-block (all) I/O request grouping. | Str: ``all``, ``multi`` | Recommended | - |
+
+### oracledb.physical_io.transferred
+
+Total physical I/O bytes transferred between Oracle and storage. Sums across all data files. Sourced from v$sysstat names physical read/write bytes (disk.io.type=buffered) and physical read/write total bytes (disk.io.type=total).
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
+| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
+| By | Sum | Int | Cumulative | true | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| disk.io.direction | Direction of the storage I/O operation. | Str: ``read``, ``write`` | Recommended | - |
+| disk.io.type | Whether the I/O bytes are buffered (cache-mediated) or total (raw transfer count). | Str: ``buffered``, ``total`` | Recommended | - |
+
 ### oracledb.physical_read_io_requests
 
 Number of read requests for application activity
@@ -700,6 +738,21 @@ Average SQL service response time in seconds, converted from centiseconds as rep
 | ---- | ----------- | ---------- | --------- |
 | s | Gauge | Double | Development |
 
+### oracledb.sqlnet.io.transferred
+
+Bytes transferred via SQL*Net between Oracle and clients/dblinks. Sourced from v$sysstat names bytes received/sent via SQL*Net from/to client/dblink.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
+| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
+| By | Sum | Int | Cumulative | true | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| network.io.direction | Direction of the SQL*Net network transfer. | Str: ``receive``, ``transmit`` | Recommended | - |
+| destination.type | Type of the SQL*Net destination endpoint (client application or remote database link). | Str: ``client``, ``dblink`` | Recommended | - |
+
 ### oracledb.storage.usage
 
 Used database storage size from dba_data_files and dba_free_space.
@@ -842,6 +895,10 @@ sample query
 | oracledb.procedure_type | Type of the database object that a query is accessing. | Any Str | - |
 | oracledb.osuser | Name of the operating system user that initiated or is running the Oracle database session. | Any Str | - |
 | oracledb.duration_sec | Total time taken by a database query to execute. | Any Double | - |
+| oracledb.wait_time_sec | The time (in seconds) that the session has been waiting on its current wait event. | Any Double | - |
+| query.comments | Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys specified in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
+| oracledb.normalised_sql_hash | MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Used for correlation with APM slow query traces. | Any Str | - |
+| oracledb.normalized_sql | Normalized SQL query text for debugging hash generation. Shows the exact SQL string that was hashed. | Any Str | - |
 | oracledb.query.started | The timestamp when the SQL statement started execution, in ISO 8601 format (UTC). | Any Str | - |
 | oracledb.session.started | The timestamp when the session logged on, in ISO 8601 format (UTC). | Any Str | - |
 | oracledb.session.duration | The total time in seconds that the session has been connected. | Any Double | - |
@@ -857,7 +914,7 @@ sample query
 
 ### db.server.session.wait_sample
 
-Per-session wait event statistics from v$session_event.
+Per-session wait event statistics from v$session_event showing total time waited and total waits per event.
 
 #### Attributes
 
@@ -906,6 +963,11 @@ Collection of event metrics for top N queries, filtered based on the highest CPU
 | oracledb.procedure_id | The identifier of the stored procedure or function being executed by the query. | Any Int | - |
 | oracledb.procedure_name | Name of the database object that a query is accessing. | Any Str | - |
 | oracledb.procedure_type | Type of the database object that a query is accessing. | Any Str | - |
+| oracledb.plan_hash_value | Binary hash value calculated on the query execution plan and used to identify similar query execution plans, reported in the HEX format. | Any Str | - |
+| oracledb.plan.last_load | Plan load time in the server's local timezone. Format: YYYY-MM-DD/HH:MM:SS | Any Str | - |
+| query.comments | Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys specified in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
+| oracledb.normalised_sql_hash | MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Used for correlation with APM slow query traces. | Any Str | - |
+| oracledb.normalized_sql | Normalized SQL query text for debugging hash generation. Shows the exact SQL string that was hashed. | Any Str | - |
 
 ## Resource Attributes
 

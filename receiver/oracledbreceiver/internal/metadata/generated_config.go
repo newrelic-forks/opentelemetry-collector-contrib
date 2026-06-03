@@ -1277,6 +1277,124 @@ func (ms *OracledbPgaMemoryMetricConfig) Validate() error {
 	return nil
 }
 
+// OracledbPhysicalIoCacheWritesMetricConfig provides config for the oracledb.physical_io.cache_writes metric.
+type OracledbPhysicalIoCacheWritesMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+}
+
+func (ms *OracledbPhysicalIoCacheWritesMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+// OracledbPhysicalIoRequestsMetricAttributeKey specifies the key of an attribute for the oracledb.physical_io.requests metric.
+type OracledbPhysicalIoRequestsMetricAttributeKey string
+
+const (
+	OracledbPhysicalIoRequestsMetricAttributeKeyDiskIoDirection OracledbPhysicalIoRequestsMetricAttributeKey = "disk.io.direction"
+	OracledbPhysicalIoRequestsMetricAttributeKeyDiskIoBlockSize OracledbPhysicalIoRequestsMetricAttributeKey = "disk.io.block_size"
+)
+
+// OracledbPhysicalIoRequestsMetricConfig provides config for the oracledb.physical_io.requests metric.
+type OracledbPhysicalIoRequestsMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                                         `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []OracledbPhysicalIoRequestsMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *OracledbPhysicalIoRequestsMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *OracledbPhysicalIoRequestsMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case OracledbPhysicalIoRequestsMetricAttributeKeyDiskIoDirection, OracledbPhysicalIoRequestsMetricAttributeKeyDiskIoBlockSize:
+		default:
+			return fmt.Errorf("metric oracledb.physical_io.requests doesn't have an attribute %v, valid attributes: [disk.io.direction, disk.io.block_size]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
+// OracledbPhysicalIoTransferredMetricAttributeKey specifies the key of an attribute for the oracledb.physical_io.transferred metric.
+type OracledbPhysicalIoTransferredMetricAttributeKey string
+
+const (
+	OracledbPhysicalIoTransferredMetricAttributeKeyDiskIoDirection OracledbPhysicalIoTransferredMetricAttributeKey = "disk.io.direction"
+	OracledbPhysicalIoTransferredMetricAttributeKeyDiskIoType      OracledbPhysicalIoTransferredMetricAttributeKey = "disk.io.type"
+)
+
+// OracledbPhysicalIoTransferredMetricConfig provides config for the oracledb.physical_io.transferred metric.
+type OracledbPhysicalIoTransferredMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                                            `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []OracledbPhysicalIoTransferredMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *OracledbPhysicalIoTransferredMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *OracledbPhysicalIoTransferredMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case OracledbPhysicalIoTransferredMetricAttributeKeyDiskIoDirection, OracledbPhysicalIoTransferredMetricAttributeKeyDiskIoType:
+		default:
+			return fmt.Errorf("metric oracledb.physical_io.transferred doesn't have an attribute %v, valid attributes: [disk.io.direction, disk.io.type]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
 // OracledbPhysicalReadIoRequestsMetricAttributeKey specifies the key of an attribute for the oracledb.physical_read_io_requests metric.
 type OracledbPhysicalReadIoRequestsMetricAttributeKey string
 
@@ -1919,6 +2037,55 @@ func (ms *OracledbSQLServiceResponseDurationMetricConfig) Unmarshal(parser *conf
 	return nil
 }
 
+// OracledbSqlnetIoTransferredMetricAttributeKey specifies the key of an attribute for the oracledb.sqlnet.io.transferred metric.
+type OracledbSqlnetIoTransferredMetricAttributeKey string
+
+const (
+	OracledbSqlnetIoTransferredMetricAttributeKeyNetworkIoDirection OracledbSqlnetIoTransferredMetricAttributeKey = "network.io.direction"
+	OracledbSqlnetIoTransferredMetricAttributeKeyDestinationType    OracledbSqlnetIoTransferredMetricAttributeKey = "destination.type"
+)
+
+// OracledbSqlnetIoTransferredMetricConfig provides config for the oracledb.sqlnet.io.transferred metric.
+type OracledbSqlnetIoTransferredMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                                          `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []OracledbSqlnetIoTransferredMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *OracledbSqlnetIoTransferredMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *OracledbSqlnetIoTransferredMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case OracledbSqlnetIoTransferredMetricAttributeKeyNetworkIoDirection, OracledbSqlnetIoTransferredMetricAttributeKeyDestinationType:
+		default:
+			return fmt.Errorf("metric oracledb.sqlnet.io.transferred doesn't have an attribute %v, valid attributes: [network.io.direction, destination.type]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
 // OracledbStorageUsageMetricConfig provides config for the oracledb.storage.usage metric.
 type OracledbStorageUsageMetricConfig struct {
 	Enabled          bool `mapstructure:"enabled"`
@@ -2437,6 +2604,9 @@ type MetricsConfig struct {
 	OracledbParseUtilization                      OracledbParseUtilizationMetricConfig                      `mapstructure:"oracledb.parse.utilization"`
 	OracledbParseCalls                            OracledbParseCallsMetricConfig                            `mapstructure:"oracledb.parse_calls"`
 	OracledbPgaMemory                             OracledbPgaMemoryMetricConfig                             `mapstructure:"oracledb.pga_memory"`
+	OracledbPhysicalIoCacheWrites                 OracledbPhysicalIoCacheWritesMetricConfig                 `mapstructure:"oracledb.physical_io.cache_writes"`
+	OracledbPhysicalIoRequests                    OracledbPhysicalIoRequestsMetricConfig                    `mapstructure:"oracledb.physical_io.requests"`
+	OracledbPhysicalIoTransferred                 OracledbPhysicalIoTransferredMetricConfig                 `mapstructure:"oracledb.physical_io.transferred"`
 	OracledbPhysicalReadIoRequests                OracledbPhysicalReadIoRequestsMetricConfig                `mapstructure:"oracledb.physical_read_io_requests"`
 	OracledbPhysicalReads                         OracledbPhysicalReadsMetricConfig                         `mapstructure:"oracledb.physical_reads"`
 	OracledbPhysicalReadsDirect                   OracledbPhysicalReadsDirectMetricConfig                   `mapstructure:"oracledb.physical_reads_direct"`
@@ -2455,6 +2625,7 @@ type MetricsConfig struct {
 	OracledbSharedPoolUtilization                 OracledbSharedPoolUtilizationMetricConfig                 `mapstructure:"oracledb.shared_pool.utilization"`
 	OracledbSortRatio                             OracledbSortRatioMetricConfig                             `mapstructure:"oracledb.sort.ratio"`
 	OracledbSQLServiceResponseDuration            OracledbSQLServiceResponseDurationMetricConfig            `mapstructure:"oracledb.sql_service.response.duration"`
+	OracledbSqlnetIoTransferred                   OracledbSqlnetIoTransferredMetricConfig                   `mapstructure:"oracledb.sqlnet.io.transferred"`
 	OracledbStorageUsage                          OracledbStorageUsageMetricConfig                          `mapstructure:"oracledb.storage.usage"`
 	OracledbStorageUtilization                    OracledbStorageUtilizationMetricConfig                    `mapstructure:"oracledb.storage.utilization"`
 	OracledbSystemCPULoad                         OracledbSystemCPULoadMetricConfig                         `mapstructure:"oracledb.system.cpu.load"`
@@ -2617,6 +2788,19 @@ func DefaultMetricsConfig() MetricsConfig {
 			AggregationStrategy: AggregationStrategySum,
 			EnabledAttributes:   []OracledbPgaMemoryMetricAttributeKey{},
 		},
+		OracledbPhysicalIoCacheWrites: OracledbPhysicalIoCacheWritesMetricConfig{
+			Enabled: false,
+		},
+		OracledbPhysicalIoRequests: OracledbPhysicalIoRequestsMetricConfig{
+			Enabled:             false,
+			AggregationStrategy: AggregationStrategySum,
+			EnabledAttributes:   []OracledbPhysicalIoRequestsMetricAttributeKey{OracledbPhysicalIoRequestsMetricAttributeKeyDiskIoDirection, OracledbPhysicalIoRequestsMetricAttributeKeyDiskIoBlockSize},
+		},
+		OracledbPhysicalIoTransferred: OracledbPhysicalIoTransferredMetricConfig{
+			Enabled:             false,
+			AggregationStrategy: AggregationStrategySum,
+			EnabledAttributes:   []OracledbPhysicalIoTransferredMetricAttributeKey{OracledbPhysicalIoTransferredMetricAttributeKeyDiskIoDirection, OracledbPhysicalIoTransferredMetricAttributeKeyDiskIoType},
+		},
 		OracledbPhysicalReadIoRequests: OracledbPhysicalReadIoRequestsMetricConfig{
 			Enabled:             false,
 			AggregationStrategy: AggregationStrategySum,
@@ -2690,6 +2874,11 @@ func DefaultMetricsConfig() MetricsConfig {
 		},
 		OracledbSQLServiceResponseDuration: OracledbSQLServiceResponseDurationMetricConfig{
 			Enabled: false,
+		},
+		OracledbSqlnetIoTransferred: OracledbSqlnetIoTransferredMetricConfig{
+			Enabled:             false,
+			AggregationStrategy: AggregationStrategySum,
+			EnabledAttributes:   []OracledbSqlnetIoTransferredMetricAttributeKey{OracledbSqlnetIoTransferredMetricAttributeKeyNetworkIoDirection, OracledbSqlnetIoTransferredMetricAttributeKeyDestinationType},
 		},
 		OracledbStorageUsage: OracledbStorageUsageMetricConfig{
 			Enabled: false,

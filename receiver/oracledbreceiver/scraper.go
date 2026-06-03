@@ -82,7 +82,23 @@ const (
 	pgaMemory                      = "session pga memory"
 	dbBlockGets                    = "db block gets"
 	consistentGets                 = "consistent gets"
-	sessionCountSQL                = "select status, type, count(*) as VALUE FROM v$session GROUP BY status, type"
+
+	// I/O performance v$sysstat names
+	physicalReadBytesStat            = "physical read bytes"
+	physicalWriteBytesStat           = "physical write bytes"
+	physicalReadTotalBytesStat       = "physical read total bytes"
+	physicalWriteTotalBytesStat      = "physical write total bytes"
+	physicalReadTotalIORequestsStat  = "physical read total IO requests"
+	physicalWriteTotalIORequestsStat = "physical write total IO requests"
+	physicalReadMultiBlockReqStat    = "physical read total multi block requests"
+	physicalWriteMultiBlockReqStat   = "physical write total multi block requests"
+	physicalWritesFromCacheStat      = "physical writes from cache"
+	sqlnetBytesRecvFromClient        = "bytes received via SQL*Net from client"
+	sqlnetBytesSentToClient          = "bytes sent via SQL*Net to client"
+	sqlnetBytesRecvFromDBLink        = "bytes received via SQL*Net from dblink"
+	sqlnetBytesSentToDBLink          = "bytes sent via SQL*Net to dblink"
+
+	sessionCountSQL = "select status, type, count(*) as VALUE FROM v$session GROUP BY status, type"
 	// sessionCountCDBSQL extends sessionCountSQL with per-PDB breakdown via v$containers join.
 	sessionCountCDBSQL      = "select s.status, s.type, c.name as PDB_NAME, count(*) as VALUE FROM v$session s, v$containers c WHERE s.con_id = c.con_id(+) GROUP BY s.status, s.type, c.name"
 	systemResourceLimitsSQL = "select RESOURCE_NAME, CURRENT_UTILIZATION, LIMIT_VALUE, CASE WHEN TRIM(INITIAL_ALLOCATION) LIKE 'UNLIMITED' THEN '-1' ELSE TRIM(INITIAL_ALLOCATION) END as INITIAL_ALLOCATION, CASE WHEN TRIM(LIMIT_VALUE) LIKE 'UNLIMITED' THEN '-1' ELSE TRIM(LIMIT_VALUE) END as LIMIT_VALUE from v$resource_limit"
@@ -1210,7 +1226,6 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 			continue
 		}
 
-		
 		// Obfuscate SQL for display purposes (db.query.text)
 		obfuscatedSQL, err := s.obfuscator.obfuscateSQLString(row[sqlText])
 		if err != nil {

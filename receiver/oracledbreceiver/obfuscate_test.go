@@ -122,8 +122,8 @@ FROM users WHERE age > 21`,
 FROM users WHERE age > ?`,
 		},
 		{
-			name: "comment with query hints",
-			input: `SELECT /*+ INDEX(emp emp_idx) */ * FROM employees WHERE dept_id = 10`,
+			name:     "comment with query hints",
+			input:    `SELECT /*+ INDEX(emp emp_idx) */ * FROM employees WHERE dept_id = 10`,
 			expected: `SELECT ? * FROM employees WHERE dept_id = ?`,
 		},
 		{

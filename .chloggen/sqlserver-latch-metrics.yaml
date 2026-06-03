@@ -1,7 +1,7 @@
 change_type: enhancement
-component: receiver/sqlserver
-note: Add Latch metrics for SQL Server receiver.
-issues: [48032]
+component: sqlserverreceiver
+note: Add support for latch wait time metric to monitor SQL Server internal contention
+issues: [48445]
 subtext: |
   Added five new opt-in metrics:
   - `sqlserver.latch.wait.rate` — latch waits per second
