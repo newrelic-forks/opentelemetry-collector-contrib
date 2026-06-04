@@ -342,20 +342,20 @@ func TestGenerateMD5Hash(t *testing.T) {
 
 func TestNormalizeSQLAndHash(t *testing.T) {
 	tests := []struct {
-		name              string
-		input             string
+		name               string
+		input              string
 		expectedNormalized string
 		expectedHash       string
 	}{
 		{
-			name:              "complete normalization and hash",
-			input:             "SELECT * FROM users WHERE id = 123 AND name = 'John'",
+			name:               "complete normalization and hash",
+			input:              "SELECT * FROM users WHERE id = 123 AND name = 'John'",
 			expectedNormalized: "SELECT * FROM USERS WHERE ID = ? AND NAME = ?",
 			expectedHash:       "7f51338aa6d5fa3a27d698eb2f3fd166",
 		},
 		{
-			name:              "with comments",
-			input:             "/* comment */ SELECT * FROM users WHERE id = 1",
+			name:               "with comments",
+			input:              "/* comment */ SELECT * FROM users WHERE id = 1",
 			expectedNormalized: "? SELECT * FROM USERS WHERE ID = ?",
 			expectedHash:       "391e9733f47f76127165173ceeaf9d71",
 		},

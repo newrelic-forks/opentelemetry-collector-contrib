@@ -305,8 +305,6 @@ receivers:
       allowed_comment_keys: ["nr_service_guid"]
 ```
 
-See [Query Comments Design](../../docs/superpowers/specs/2026-04-15-oracledb-query-comments-design.md)
-for details.
 
 ### 2. Normalized SQL Hash
 

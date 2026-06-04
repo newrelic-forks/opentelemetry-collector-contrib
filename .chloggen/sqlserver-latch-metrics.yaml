@@ -1,5 +1,5 @@
 change_type: enhancement
-component: sqlserverreceiver
+component: receiver/sqlserver
 note: Add support for latch wait time metric to monitor SQL Server internal contention
 issues: [48445]
 subtext: |
