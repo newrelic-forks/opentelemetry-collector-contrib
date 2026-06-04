@@ -90,7 +90,7 @@ func setupQueries(cfg *Config) []string {
 		queries = append(queries, getSQLServerMemoryTargetQuery(cfg.InstanceName))
 	}
 
-	if cfg.Metrics.SqlserverDatabaseFileSize.Enabled || cfg.Metrics.SqlserverDatabaseTransactionsActive.Enabled {
+	if cfg.Metrics.SqlserverDatabaseFileSize.Enabled {
 		queries = append(queries, getSQLServerDatabaseSizeQuery(cfg.InstanceName))
 	}
 
@@ -102,11 +102,7 @@ func setupQueries(cfg *Config) []string {
 		queries = append(queries, getSQLServerSecurityRoleMembersQuery(cfg.InstanceName))
 	}
 
-	if cfg.Metrics.SqlserverDatabaseSecurityPrincipalCount.Enabled {
-		queries = append(queries, getSQLServerDatabaseSecurityPrincipalsQuery(cfg.InstanceName))
-	}
-
-	if cfg.Metrics.SqlserverDatabaseSecurityRoleMembershipCount.Enabled {
+if cfg.Metrics.SqlserverDatabaseSecurityRoleMembershipCount.Enabled {
 		queries = append(queries, getSQLServerDatabaseSecurityRoleMembersQuery(cfg.InstanceName))
 	}
 

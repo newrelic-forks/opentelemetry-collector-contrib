@@ -419,54 +419,6 @@ func (ms *SqlserverDatabaseOperationsMetricConfig) Validate() error {
 	return nil
 }
 
-// SqlserverDatabaseSecurityPrincipalCountMetricAttributeKey specifies the key of an attribute for the sqlserver.database.security.principal.count metric.
-type SqlserverDatabaseSecurityPrincipalCountMetricAttributeKey string
-
-const (
-	SqlserverDatabaseSecurityPrincipalCountMetricAttributeKeyDbNamespace SqlserverDatabaseSecurityPrincipalCountMetricAttributeKey = "db.namespace"
-)
-
-// SqlserverDatabaseSecurityPrincipalCountMetricConfig provides config for the sqlserver.database.security.principal.count metric.
-type SqlserverDatabaseSecurityPrincipalCountMetricConfig struct {
-	Enabled          bool `mapstructure:"enabled"`
-	enabledSetByUser bool
-
-	AggregationStrategy string                                                      `mapstructure:"aggregation_strategy"`
-	EnabledAttributes   []SqlserverDatabaseSecurityPrincipalCountMetricAttributeKey `mapstructure:"attributes"`
-}
-
-func (ms *SqlserverDatabaseSecurityPrincipalCountMetricConfig) Unmarshal(parser *confmap.Conf) error {
-	if parser == nil {
-		return nil
-	}
-
-	err := parser.Unmarshal(ms)
-	if err != nil {
-		return err
-	}
-
-	ms.enabledSetByUser = parser.IsSet("enabled")
-	return nil
-}
-
-func (ms *SqlserverDatabaseSecurityPrincipalCountMetricConfig) Validate() error {
-	for _, val := range ms.EnabledAttributes {
-		switch val {
-		case SqlserverDatabaseSecurityPrincipalCountMetricAttributeKeyDbNamespace:
-		default:
-			return fmt.Errorf("metric sqlserver.database.security.principal.count doesn't have an attribute %v, valid attributes: [db.namespace]", val)
-		}
-	}
-
-	switch ms.AggregationStrategy {
-	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
-	default:
-		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
-	}
-
-	return nil
-}
-
 // SqlserverDatabaseSecurityRoleMembershipCountMetricAttributeKey specifies the key of an attribute for the sqlserver.database.security.role_membership.count metric.
 type SqlserverDatabaseSecurityRoleMembershipCountMetricAttributeKey string
 
@@ -581,54 +533,6 @@ func (ms *SqlserverDatabaseTempdbVersionStoreSizeMetricConfig) Unmarshal(parser 
 	}
 
 	ms.enabledSetByUser = parser.IsSet("enabled")
-	return nil
-}
-
-// SqlserverDatabaseTransactionsActiveMetricAttributeKey specifies the key of an attribute for the sqlserver.database.transactions.active metric.
-type SqlserverDatabaseTransactionsActiveMetricAttributeKey string
-
-const (
-	SqlserverDatabaseTransactionsActiveMetricAttributeKeyDbNamespace SqlserverDatabaseTransactionsActiveMetricAttributeKey = "db.namespace"
-)
-
-// SqlserverDatabaseTransactionsActiveMetricConfig provides config for the sqlserver.database.transactions.active metric.
-type SqlserverDatabaseTransactionsActiveMetricConfig struct {
-	Enabled          bool `mapstructure:"enabled"`
-	enabledSetByUser bool
-
-	AggregationStrategy string                                                  `mapstructure:"aggregation_strategy"`
-	EnabledAttributes   []SqlserverDatabaseTransactionsActiveMetricAttributeKey `mapstructure:"attributes"`
-}
-
-func (ms *SqlserverDatabaseTransactionsActiveMetricConfig) Unmarshal(parser *confmap.Conf) error {
-	if parser == nil {
-		return nil
-	}
-
-	err := parser.Unmarshal(ms)
-	if err != nil {
-		return err
-	}
-
-	ms.enabledSetByUser = parser.IsSet("enabled")
-	return nil
-}
-
-func (ms *SqlserverDatabaseTransactionsActiveMetricConfig) Validate() error {
-	for _, val := range ms.EnabledAttributes {
-		switch val {
-		case SqlserverDatabaseTransactionsActiveMetricAttributeKeyDbNamespace:
-		default:
-			return fmt.Errorf("metric sqlserver.database.transactions.active doesn't have an attribute %v, valid attributes: [db.namespace]", val)
-		}
-	}
-
-	switch ms.AggregationStrategy {
-	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
-	default:
-		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
-	}
-
 	return nil
 }
 
@@ -1645,11 +1549,9 @@ type MetricsConfig struct {
 	SqlserverDatabaseIo                          SqlserverDatabaseIoMetricConfig                          `mapstructure:"sqlserver.database.io"`
 	SqlserverDatabaseLatency                     SqlserverDatabaseLatencyMetricConfig                     `mapstructure:"sqlserver.database.latency"`
 	SqlserverDatabaseOperations                  SqlserverDatabaseOperationsMetricConfig                  `mapstructure:"sqlserver.database.operations"`
-	SqlserverDatabaseSecurityPrincipalCount      SqlserverDatabaseSecurityPrincipalCountMetricConfig      `mapstructure:"sqlserver.database.security.principal.count"`
 	SqlserverDatabaseSecurityRoleMembershipCount SqlserverDatabaseSecurityRoleMembershipCountMetricConfig `mapstructure:"sqlserver.database.security.role_membership.count"`
 	SqlserverDatabaseTempdbSpace                 SqlserverDatabaseTempdbSpaceMetricConfig                 `mapstructure:"sqlserver.database.tempdb.space"`
 	SqlserverDatabaseTempdbVersionStoreSize      SqlserverDatabaseTempdbVersionStoreSizeMetricConfig      `mapstructure:"sqlserver.database.tempdb.version_store.size"`
-	SqlserverDatabaseTransactionsActive          SqlserverDatabaseTransactionsActiveMetricConfig          `mapstructure:"sqlserver.database.transactions.active"`
 	SqlserverDeadlockRate                        SqlserverDeadlockRateMetricConfig                        `mapstructure:"sqlserver.deadlock.rate"`
 	SqlserverIndexSearchRate                     SqlserverIndexSearchRateMetricConfig                     `mapstructure:"sqlserver.index.search.rate"`
 	SqlserverLatchWaitTimeAvg                    SqlserverLatchWaitTimeAvgMetricConfig                    `mapstructure:"sqlserver.latch.wait_time.avg"`
@@ -1743,11 +1645,6 @@ func DefaultMetricsConfig() MetricsConfig {
 			AggregationStrategy: AggregationStrategySum,
 			EnabledAttributes:   []SqlserverDatabaseOperationsMetricAttributeKey{SqlserverDatabaseOperationsMetricAttributeKeyPhysicalFilename, SqlserverDatabaseOperationsMetricAttributeKeyLogicalFilename, SqlserverDatabaseOperationsMetricAttributeKeyFileType, SqlserverDatabaseOperationsMetricAttributeKeyDirection},
 		},
-		SqlserverDatabaseSecurityPrincipalCount: SqlserverDatabaseSecurityPrincipalCountMetricConfig{
-			Enabled:             false,
-			AggregationStrategy: AggregationStrategyAvg,
-			EnabledAttributes:   []SqlserverDatabaseSecurityPrincipalCountMetricAttributeKey{SqlserverDatabaseSecurityPrincipalCountMetricAttributeKeyDbNamespace},
-		},
 		SqlserverDatabaseSecurityRoleMembershipCount: SqlserverDatabaseSecurityRoleMembershipCountMetricConfig{
 			Enabled:             false,
 			AggregationStrategy: AggregationStrategyAvg,
@@ -1760,11 +1657,6 @@ func DefaultMetricsConfig() MetricsConfig {
 		},
 		SqlserverDatabaseTempdbVersionStoreSize: SqlserverDatabaseTempdbVersionStoreSizeMetricConfig{
 			Enabled: false,
-		},
-		SqlserverDatabaseTransactionsActive: SqlserverDatabaseTransactionsActiveMetricConfig{
-			Enabled:             false,
-			AggregationStrategy: AggregationStrategyAvg,
-			EnabledAttributes:   []SqlserverDatabaseTransactionsActiveMetricAttributeKey{SqlserverDatabaseTransactionsActiveMetricAttributeKeyDbNamespace},
 		},
 		SqlserverDeadlockRate: SqlserverDeadlockRateMetricConfig{
 			Enabled: false,

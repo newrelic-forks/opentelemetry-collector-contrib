@@ -1134,18 +1134,6 @@ IF @EngineEdition = 5 BEGIN -- Azure SQL Database
 		SUM(CAST(mf.size AS BIGINT) * 8 * 1024) AS [size_bytes]
 	FROM sys.database_files mf
 	GROUP BY mf.type
-	{filter_instance_name}
-
-	UNION ALL
-
-	SELECT
-		'sqlserver_database_transactions_active' AS [measurement],
-		REPLACE(@@SERVERNAME,'\',':') AS [sql_instance],
-		DB_NAME() AS [database_name],
-		'N/A' AS [file_type],
-		ISNULL(COUNT(*), 0) AS [active_transactions]
-	FROM sys.dm_tran_database_transactions
-	WHERE database_id = DB_ID()
 	{filter_instance_name};
 END
 ELSE BEGIN -- Instance-level editions (on-premises, managed instance)
@@ -1159,19 +1147,6 @@ ELSE BEGIN -- Instance-level editions (on-premises, managed instance)
 	FROM sys.master_files mf
 	WHERE mf.database_id > 4  -- Exclude system databases (master, tempdb, model, msdb)
 	GROUP BY mf.database_id, mf.type
-	{filter_instance_name}
-
-	UNION ALL
-
-	SELECT
-		'sqlserver_database_transactions_active' AS [measurement],
-		REPLACE(@@SERVERNAME,'\',':') AS [sql_instance],
-		DB_NAME(dt.database_id) AS [database_name],
-		'N/A' AS [file_type],
-		COUNT(*) AS [active_transactions]
-	FROM sys.dm_tran_database_transactions dt
-	WHERE dt.database_id > 4
-	GROUP BY dt.database_id
 	{filter_instance_name};
 END
 `
@@ -1247,54 +1222,6 @@ func getSQLServerSecurityRoleMembersQuery(instanceName string) string {
 	return r.Replace(sqlServerSecurityRoleMembersQuery)
 }
 
-const sqlServerDatabaseSecurityPrincipalsQuery = `
-SET DEADLOCK_PRIORITY -10;
-IF SERVERPROPERTY('EngineEdition') NOT IN (2,3,4,5,8) BEGIN
-	DECLARE @ErrorMessage AS nvarchar(500) = 'Connection string Server:'+ @@ServerName + ',Database:' + DB_NAME() +' is not a SQL Server Standard, Enterprise, Express, Azure SQL Database or Azure SQL Managed Instance. This query is only supported on these editions.';
-	RAISERROR (@ErrorMessage,11,1)
-	RETURN
-END
-
-DECLARE @EngineEdition AS INT = CAST(SERVERPROPERTY('EngineEdition') AS INT)
-
-IF @EngineEdition = 5 BEGIN -- Azure SQL Database
-	SELECT
-		'sqlserver_database_security_principals' AS [measurement],
-		REPLACE(@@SERVERNAME,'\',':') AS [sql_instance],
-		DB_NAME() AS [database_name],
-		COUNT(*) AS [principal_count]
-	FROM sys.database_principals WITH (NOLOCK)
-	WHERE type IN ('S', 'U', 'G', 'R', 'A')  -- SQL user, Windows user, Windows group, Database role, Application role
-	{filter_instance_name};
-END
-ELSE BEGIN
-	SELECT
-		'sqlserver_database_security_principals' AS [measurement],
-		REPLACE(@@SERVERNAME,'\',':') AS [sql_instance],
-		DB_NAME(d.database_id) AS [database_name],
-		(
-			SELECT COUNT(*)
-			FROM sys.database_principals dp WITH (NOLOCK)
-			WHERE dp.type IN ('S', 'U', 'G', 'R', 'A')
-				AND dp.database_id = d.database_id
-		) AS [principal_count]
-	FROM sys.databases d WITH (NOLOCK)
-	WHERE d.database_id > 4  -- Exclude system databases
-		AND d.state = 0  -- Online only
-	{filter_instance_name};
-END
-`
-
-func getSQLServerDatabaseSecurityPrincipalsQuery(instanceName string) string {
-	if instanceName != "" {
-		whereClause := fmt.Sprintf("\tAND @@SERVERNAME = '%s'", instanceName)
-		r := strings.NewReplacer("{filter_instance_name}", whereClause)
-		return r.Replace(sqlServerDatabaseSecurityPrincipalsQuery)
-	}
-
-	r := strings.NewReplacer("{filter_instance_name}", "")
-	return r.Replace(sqlServerDatabaseSecurityPrincipalsQuery)
-}
 
 const sqlServerDatabaseSecurityRoleMembersQuery = `
 SET DEADLOCK_PRIORITY -10;

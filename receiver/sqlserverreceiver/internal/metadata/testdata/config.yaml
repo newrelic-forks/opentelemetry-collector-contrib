@@ -32,9 +32,6 @@ all_set:
     sqlserver.database.operations:
       enabled: true
       attributes: ["physical_filename","logical_filename","file_type","direction"]
-    sqlserver.database.security.principal.count:
-      enabled: true
-      attributes: ["db.namespace"]
     sqlserver.database.security.role_membership.count:
       enabled: true
       attributes: ["db.namespace","role"]
@@ -43,9 +40,6 @@ all_set:
       attributes: ["tempdb.state"]
     sqlserver.database.tempdb.version_store.size:
       enabled: true
-    sqlserver.database.transactions.active:
-      enabled: true
-      attributes: ["db.namespace"]
     sqlserver.deadlock.rate:
       enabled: true
     sqlserver.index.search.rate:
@@ -186,9 +180,6 @@ reaggregate_set:
     sqlserver.database.operations:
       enabled: true
       attributes: []
-    sqlserver.database.security.principal.count:
-      enabled: true
-      attributes: []
     sqlserver.database.security.role_membership.count:
       enabled: true
       attributes: []
@@ -197,9 +188,6 @@ reaggregate_set:
       attributes: []
     sqlserver.database.tempdb.version_store.size:
       enabled: true
-    sqlserver.database.transactions.active:
-      enabled: true
-      attributes: []
     sqlserver.deadlock.rate:
       enabled: true
     sqlserver.index.search.rate:
@@ -340,9 +328,6 @@ none_set:
     sqlserver.database.operations:
       enabled: false
       attributes: ["physical_filename","logical_filename","file_type","direction"]
-    sqlserver.database.security.principal.count:
-      enabled: false
-      attributes: ["db.namespace"]
     sqlserver.database.security.role_membership.count:
       enabled: false
       attributes: ["db.namespace","role"]
@@ -351,9 +336,6 @@ none_set:
       attributes: ["tempdb.state"]
     sqlserver.database.tempdb.version_store.size:
       enabled: false
-    sqlserver.database.transactions.active:
-      enabled: false
-      attributes: ["db.namespace"]
     sqlserver.deadlock.rate:
       enabled: false
     sqlserver.index.search.rate:
