@@ -1,4 +1,12 @@
 change_type: enhancement
-component: sqlserverreceiver
+component: receiver/sqlserver
 note: Add support for latch wait time metric to monitor SQL Server internal contention
 issues: [48445]
+subtext: |
+  Added five new opt-in metrics:
+  - `sqlserver.latch.wait.rate` — latch waits per second
+  - `sqlserver.latch.wait_time.avg` — average latch wait time
+  - `sqlserver.latch.wait_time.total` — total cumulative latch wait time
+  - `sqlserver.latch.superlatch.count` — active superlatch count
+  - `sqlserver.latch.superlatch.transition.rate` — superlatch promotions/demotions with `transition.direction` attribute
+change_logs: [user]

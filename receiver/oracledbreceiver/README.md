@@ -64,141 +64,45 @@ receivers:
 
 ## Permissions
 
-The receiver connects as a read-only user. Detection is best-effort; failures are logged
-at warn level and the receiver continues. The grants required depend on the Oracle deployment
-type: **Non-CDB** (single-tenant, all versions) or **Multitenant CDB** (Oracle 12c+,
-connected to the CDB root).
+### Instance detection
 
-### Non-CDB (single-tenant, all versions)
-
-Connect to the database as `sysdba` and run:
+These grants are required to populate the `oracle.db.version`, `oracle.db.role`,
+`oracle.db.open_mode`, and `oracle.db.pdb` resource attributes.
+Detection is best-effort; failures are logged at warn level and the receiver continues.
 
 ```sql
--- Required to populate the oracle.db.version, oracle.db.role, oracle.db.open_mode
--- and oracle.db.pdb resource attributes.
 GRANT SELECT ON V_$INSTANCE TO <username>;
 GRANT SELECT ON V_$DATABASE TO <username>;
-
--- Metrics collection
-GRANT SELECT ON V_$SYSSTAT TO <username>;
-GRANT SELECT ON V_$SESSION TO <username>;
-GRANT SELECT ON V_$RESOURCE_LIMIT TO <username>;
-GRANT SELECT ON V_$OSSTAT TO <username>;
-GRANT SELECT ON DBA_TABLESPACE_USAGE_METRICS TO <username>;
-GRANT SELECT ON DBA_TABLESPACES TO <username>;
-GRANT SELECT ON V_$SGAINFO TO <username>;
-
--- Optional metrics (disabled by default)
-GRANT SELECT ON V_$ROWCACHE TO <username>;      -- oracledb.data_dictionary.hit_ratio
-GRANT SELECT ON DBA_RECYCLEBIN TO <username>;   -- oracledb.recycle_bin.limit
-GRANT SELECT ON V_$PARAMETER TO <username>;     -- oracledb.recycle_bin.limit (db_block_size)
-GRANT SELECT ON DBA_DATA_FILES TO <username>;   -- oracledb.storage.usage / oracledb.storage.utilization
-GRANT SELECT ON DBA_FREE_SPACE TO <username>;   -- oracledb.storage.utilization
-
--- Hosting type detection (Oracle 19c+ only)
--- Required to populate the oracle.db.hosting_type resource attribute.
-GRANT SELECT ON V_$DATAFILE TO <username>;
-
--- Log collection (db.server.query_sample and db.server.top_query events)
-GRANT SELECT ON V_$SQL TO <username>;
-GRANT SELECT ON V_$SQL_PLAN TO <username>;
-GRANT SELECT ON V_$LOCK TO <username>;
-GRANT SELECT ON DBA_PROCEDURES TO <username>;
-GRANT SELECT ON DBA_OBJECTS TO <username>;
 ```
 
-### Multitenant CDB (Oracle 12c+, connected to CDB root)
+> **Note:** `sys_context('USERENV', ...)` queries against `DUAL` require no
+> additional grant and are available to all database users.
 
-The receiver must connect to the **CDB root** using a common user (`c##`).
-It queries all PDBs from a single connection — do not create connections
-to individual PDBs.
+### Hosting type detection (Oracle >=19c only)
 
-Connect as `sysdba` and run:
+These grants are required to populate the `oracle.db.hosting_type` resource attribute.
+Only applies to Oracle 19c and later. Detection is best-effort; failures are logged at
+warn level and the receiver continues.
 
 ```sql
--- Create the common user (skip if already exists)
-CREATE USER c##otel IDENTIFIED BY <password> CONTAINER = ALL;
-ALTER USER c##otel SET CONTAINER_DATA = ALL CONTAINER = CURRENT;
-
--- Required to populate the oracle.db.version, oracle.db.role, oracle.db.open_mode,
--- and oracle.db.pdb resource attributes.
-GRANT CREATE SESSION TO c##otel CONTAINER = ALL;
-GRANT SELECT ON V_$INSTANCE TO c##otel CONTAINER = ALL;
-GRANT SELECT ON V_$DATABASE TO c##otel CONTAINER = ALL;
-
--- Required to detect CDB/PDB structure (isCDB, connectedToPDB) at startup.
-GRANT SELECT ON V_$CONTAINERS TO c##otel CONTAINER = ALL;
-
--- Metrics collection
-GRANT SELECT ON V_$CON_SYSSTAT TO c##otel CONTAINER = ALL;  -- per-PDB sysstat (CDB root only)
-GRANT SELECT ON V_$SYSSTAT TO c##otel CONTAINER = ALL;
-GRANT SELECT ON V_$SESSION TO c##otel CONTAINER = ALL;
-GRANT SELECT ON V_$RESOURCE_LIMIT TO c##otel CONTAINER = ALL;
-GRANT SELECT ON CDB_TABLESPACE_USAGE_METRICS TO c##otel CONTAINER = ALL;
-GRANT SELECT ON CDB_TABLESPACES TO c##otel CONTAINER = ALL;
-
--- Optional metrics (disabled by default)
-GRANT SELECT ON V_$ROWCACHE TO c##otel CONTAINER = ALL;      -- oracledb.data_dictionary.hit_ratio
-GRANT SELECT ON DBA_RECYCLEBIN TO c##otel CONTAINER = ALL;   -- oracledb.recycle_bin.limit
-GRANT SELECT ON V_$PARAMETER TO c##otel CONTAINER = ALL;     -- oracledb.recycle_bin.limit (db_block_size)
-GRANT SELECT ON DBA_DATA_FILES TO c##otel CONTAINER = ALL;   -- oracledb.storage.usage / oracledb.storage.utilization
-GRANT SELECT ON DBA_FREE_SPACE TO c##otel CONTAINER = ALL;   -- oracledb.storage.utilization
-
--- Hosting type detection (Oracle 19c+ only)
-GRANT SELECT ON V_$DATAFILE TO c##otel CONTAINER = ALL;
-GRANT SELECT ON V_$PDBS TO c##otel CONTAINER = ALL;        -- OCI detection (connected to PDB only)
-GRANT SELECT ON CDB_SERVICES TO c##otel CONTAINER = ALL;   -- OCI confirmation (connected to PDB only)
-
--- Log collection (db.server.query_sample and db.server.top_query events)
-GRANT SELECT ON V_$SQL TO c##otel CONTAINER = ALL;
-GRANT SELECT ON V_$SQL_PLAN TO c##otel CONTAINER = ALL;
-GRANT SELECT ON V_$LOCK TO c##otel CONTAINER = ALL;
-GRANT SELECT ON DBA_PROCEDURES TO c##otel CONTAINER = ALL;
-GRANT SELECT ON DBA_OBJECTS TO c##otel CONTAINER = ALL;
+GRANT SELECT ON V_$DATAFILE TO <username>;
+GRANT SELECT ON V_$PDBS TO <username>;        -- OCI detection, connected to PDB only
+GRANT SELECT ON CDB_SERVICES TO <username>;   -- OCI confirmation, connected to PDB only
 ```
 
-> **Note:** `sys_context('USERENV', ...)` queries against `DUAL` and
-> `V_$ROWCACHE` require no additional grant beyond `CREATE SESSION` and are
-> available to all database users.
+### Metrics collection
 
-#### Per-PDB metrics (`oracle.db.pdb` attribute)
+Depending on which metrics you collect, you will need to assign these
+permissions to the database user:
 
-When connected to the CDB root, the receiver automatically collects
-per-PDB breakdowns of sysstat and tablespace metrics. These are tagged with
-the `oracle.db.pdb` attribute, which is **opt-in** (not emitted by default).
-To enable it, list the attribute explicitly in your collector config:
-
-```yaml
-metrics:
-  oracledb.tablespace_size.usage:
-    enabled: true
-    attributes: ["tablespace_name", "oracle.db.pdb"]
-  oracledb.tablespace_size.limit:
-    enabled: true
-    attributes: ["tablespace_name", "oracle.db.pdb"]
-  oracledb.executions:
-    enabled: true
-    attributes: ["oracle.db.pdb"]
-  # ... repeat for any other metric where per-PDB breakdown is desired
+```sql
+GRANT SELECT ON V_$SESSION TO <username>;
+GRANT SELECT ON V_$SYSSTAT TO <username>;
+GRANT SELECT ON V_$RESOURCE_LIMIT TO <username>;
+GRANT SELECT ON DBA_TABLESPACES TO <username>;
+GRANT SELECT ON DBA_DATA_FILES TO <username>;
+GRANT SELECT ON DBA_TABLESPACE_USAGE_METRICS TO <username>;
 ```
-
-The `V_$CONTAINERS` grant (listed above) is what enables this per-PDB
-tagging — no additional grants are needed.
-
-> **Important — avoid duplicate data:** When using a CDB root connection to
-> collect per-PDB metrics, do **not** also configure a separate receiver
-> instance connecting directly to the same PDB. Doing so results in duplicate
-> metric series for the same PDB: one tagged with `oracle.db.pdb` from the
-> CDB root receiver, and one without the attribute from the direct PDB
-> receiver. The two series may also report slightly different values due to
-> timing and Oracle's internal counter scoping.
->
-> **Recommended setup:**
-> - Use a **single CDB root receiver** to monitor all PDBs at once (enables
->   `oracle.db.pdb` per-PDB breakdown).
-> - Use a **direct PDB receiver** only for PDBs that are **not** already
->   covered by a CDB root receiver (e.g. when CDB root access is not
->   available).
 
 ## Enabling metrics.
 
@@ -239,130 +143,6 @@ receivers:
       max_query_sample_count: 1000               # maximum number of samples collected from db to filter the top N
       top_query_count: 200                       # The maximum number of queries (N) for which the metrics would be reported
       collection_interval: 60s                   # collection interval for top query collection specifically
-      allowed_comment_keys: ["nr_service_guid", "app_id", "trace_id"]  # optional: keys to extract from SQL comments
     query_sample_collection:                     # this collection exports the currently (relate to the query time) executing queries as logs
-      max_rows_per_query: 100                    # the maximum number of samples to be reported.
-      allowed_comment_keys: ["nr_service_guid", "app_id", "trace_id"]  # optional: keys to extract from SQL comments
+      max_rows_per_query: 100                     # the maximum number of samples to bre reported.
 ```
-
-### Query Comment Extraction
-
-The `allowed_comment_keys` configuration option enables extraction of metadata from SQL comments for correlation with APM traces. This feature is available for both `db.server.query_sample` and `db.server.top_query` events.
-
-**Configuration:**
-
-```yaml
-top_query_collection:
-  max_query_sample_count: 1000
-  top_query_count: 200
-  collection_interval: 60s
-  allowed_comment_keys: ["nr_service_guid", "app_id", "trace_id"]
-
-query_sample_collection:
-  max_rows_per_query: 100
-  allowed_comment_keys: ["nr_service_guid", "app_id", "trace_id"]
-```
-
-**How it works:**
-
-- Extracts leading `/* */` block comments from SQL queries (before the first SQL keyword)
-- Parses comments as comma-separated `key=value` pairs
-- Filters to include only keys specified in `allowed_comment_keys`
-- Adds filtered pairs as a `query.comments` attribute to both `db.server.query_sample` and `db.server.top_query` events
-- **Secure by default**: If `allowed_comment_keys` is empty or not configured, no comments are extracted
-
-**Example:**
-
-SQL query:
-```sql
-/* nr_service_guid=abc-123,app_id=my-app,internal_key=secret */ SELECT * FROM users WHERE id = 1
-```
-
-With `allowed_comment_keys: ["nr_service_guid", "app_id"]`:
-- Extracted attribute: `query.comments="nr_service_guid=abc-123,app_id=my-app"`
-- The `internal_key` is filtered out (not in allowlist)
-
-**Use case:**
-
-APM agents can add SQL comments containing service identifiers. When users click on a slow query in the APM UI, the `query.comments` attribute enables navigation to database dashboards showing metrics for that specific query and service.
-
-## APM Integration and Query Correlation
-
-The OracleDB receiver supports correlation with New Relic APM slow query traces
-through two complementary mechanisms:
-
-### 1. Query Comments Extraction
-
-APM agents inject metadata into SQL query comments (e.g., `/* nr_service_guid="abc-123" */`).
-The receiver extracts these comments and includes them in metrics.
-
-**Configuration:**
-
-```yaml
-receivers:
-  oracledb:
-    query_sample_collection:
-      allowed_comment_keys: ["nr_service_guid"]
-```
-
-See [Query Comments Design](../../docs/superpowers/specs/2026-04-15-oracledb-query-comments-design.md)
-for details.
-
-### 2. Normalized SQL Hash
-
-The receiver generates an MD5 hash of normalized SQL that matches the APM agent's
-normalization logic. This enables exact correlation between APM traces and DB metrics.
-
-The `oracledb.normalised_sql_hash` attribute is automatically included in query
-sample events (`db.server.query_sample`) and can be used to link APM slow queries
-to database metrics.
-
-**How it works:**
-
-1. Raw SQL from Oracle: `SELECT * FROM users WHERE id = 123 AND name = 'John'`
-2. Normalized SQL: `SELECT * FROM USERS WHERE ID = ? AND NAME = ?`
-3. MD5 Hash: `62c441c38800ff82bffa5c57dd4f4059`
-4. Same hash is generated by APM agent for the same query
-5. Both systems use `nr_service_guid + normalised_sql_hash` for correlation
-
-**No configuration required** - the hash is automatically generated for all queries.
-
-### Deep Linking from APM to QPM
-
-When viewing slow queries in the APM UI, you can link directly to the Query Performance
-Monitoring (QPM) dashboard using:
-
-```
-https://one.newrelic.com/dashboards/<dashboard-id>?
-  var-nr_service_guid=<guid>&
-  var-normalised_sql_hash=<hash>&
-  from=<timestamp>&
-  to=<timestamp>
-```
-
-The QPM dashboard filters by these variables to show metrics for the specific query:
-
-- `nr_service_guid` - Links to the specific APM service
-- `normalised_sql_hash` - Identifies the exact SQL query
-- Time range - Shows metrics during the slow query window
-
-**Example Dashboard Setup:**
-
-1. Create a New Relic dashboard with template variables:
-   - `$nr_service_guid`
-   - `$normalised_sql_hash`
-   - `$from` and `$to` (time range)
-
-2. Filter queries using NRQL:
-
-```sql
-SELECT * FROM Log
-WHERE oracledb.normalised_sql_hash = {{normalised_sql_hash}}
-  AND query.comments LIKE '%{{nr_service_guid}}%'
-SINCE {{from}} UNTIL {{to}}
-```
-
-3. Configure APM UI to generate links with these parameters
-
-See [SQL Normalizer Documentation](../../internal/common/sqlnormalizer/README.md)
-for normalization rules and examples.

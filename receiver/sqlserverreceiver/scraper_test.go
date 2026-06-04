@@ -52,6 +52,11 @@ func configureAllScraperMetricsAndEvents(cfg *Config, enabled bool) {
 	cfg.Metrics.SqlserverDatabaseTempdbVersionStoreSize.Enabled = enabled
 	cfg.Metrics.SqlserverDeadlockRate.Enabled = enabled
 	cfg.Metrics.SqlserverIndexSearchRate.Enabled = enabled
+	cfg.Metrics.SqlserverLatchSuperlatchCount.Enabled = enabled
+	cfg.Metrics.SqlserverLatchSuperlatchTransitionRate.Enabled = enabled
+	cfg.Metrics.SqlserverLatchWaitRate.Enabled = enabled
+	cfg.Metrics.SqlserverLatchWaitTimeAvg.Enabled = enabled
+	cfg.Metrics.SqlserverLatchWaitTimeTotal.Enabled = enabled
 	cfg.Metrics.SqlserverLockTimeoutRate.Enabled = enabled
 	cfg.Metrics.SqlserverLatchWaitTimeAvg.Enabled = enabled
 	cfg.Metrics.SqlserverLockWaitCount.Enabled = enabled
@@ -59,8 +64,11 @@ func configureAllScraperMetricsAndEvents(cfg *Config, enabled bool) {
 	cfg.Metrics.SqlserverLockWaitTimeAvg.Enabled = enabled
 	cfg.Metrics.SqlserverLoginRate.Enabled = enabled
 	cfg.Metrics.SqlserverLogoutRate.Enabled = enabled
+	cfg.Metrics.SqlserverMemoryArea.Enabled = enabled
+	cfg.Metrics.SqlserverMemoryCacheObjectCount.Enabled = enabled
 	cfg.Metrics.SqlserverMemoryGrantsPendingCount.Enabled = enabled
 	cfg.Metrics.SqlserverMemoryTarget.Enabled = enabled
+	cfg.Metrics.SqlserverMemoryPageCount.Enabled = enabled
 	cfg.Metrics.SqlserverMemoryUsage.Enabled = enabled
 	cfg.Metrics.SqlserverOsWaitDuration.Enabled = enabled
 	cfg.Metrics.SqlserverPageBufferCacheFreeListStallsRate.Enabled = enabled
@@ -289,17 +297,20 @@ func TestSortRows(t *testing.T) {
 	assert.Equal(
 		t,
 		[]sqlquery.StringMap{{"ghi": "56"}, {"def": "34"}, {"abc": "12"}},
-		sortRows([]sqlquery.StringMap{{"abc": "12"}, {"ghi": "56"}, {"def": "34"}}, []int64{1, 2, 2}, 3))
+		sortRows([]sqlquery.StringMap{{"abc": "12"}, {"ghi": "56"}, {"def": "34"}}, []int64{1, 2, 2}, 3),
+	)
 
 	assert.Equal(
 		t,
 		[]sqlquery.StringMap{{"ghi": "56"}, {"def": "34"}},
-		sortRows([]sqlquery.StringMap{{"abc": "12"}, {"ghi": "56"}, {"def": "34"}}, []int64{1, 2, 2}, 2))
+		sortRows([]sqlquery.StringMap{{"abc": "12"}, {"ghi": "56"}, {"def": "34"}}, []int64{1, 2, 2}, 2),
+	)
 
 	assert.Equal(
 		t,
 		[]sqlquery.StringMap{{"ghi": "56"}},
-		sortRows([]sqlquery.StringMap{{"abc": "12"}, {"ghi": "56"}, {"def": "34"}}, []int64{1, 2, 2}, 1))
+		sortRows([]sqlquery.StringMap{{"abc": "12"}, {"ghi": "56"}, {"def": "34"}}, []int64{1, 2, 2}, 1),
+	)
 
 	weights := make([]int64, 50)
 
