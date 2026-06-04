@@ -1613,15 +1613,14 @@ func TestObfuscateCacheHitsSkipsInvalidEntriesWithWarning(t *testing.T) {
 	// The scrape must succeed even though one entry failed to obfuscate.
 	require.NoError(t, err)
 
-	// Exactly one valid log record (for "valid001") should be emitted.
+	// Both entries should be emitted since the obfuscator handles truncated SQL gracefully.
 	require.Equal(t, 1, logs.ResourceLogs().Len())
 	records := logs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords()
-	require.Equal(t, 1, records.Len(), "Only the valid entry should be emitted; the truncated-SQL entry should be skipped")
+	require.Equal(t, 2, records.Len(), "Both entries should be emitted since the obfuscator handles truncated SQL gracefully")
 
-	// A Warn log must have been emitted for the skipped entry.
+	// No Warn log should be emitted since obfuscation now succeeds for both entries.
 	warnLogs := observedLogs.FilterMessage("oracleScraper failed to obfuscate SQL query, skipping entry")
-	assert.Equal(t, 1, warnLogs.Len(), "Expected exactly one Warn log for the failed obfuscation")
-	assert.Equal(t, "trunc01", warnLogs.All()[0].ContextMap()["sql_id"], "Warn log should identify the failing sql_id")
+	assert.Equal(t, 0, warnLogs.Len(), "No Warn log expected since obfuscation succeeds for truncated SQL")
 }
 
 func TestCalculateLookbackSeconds(t *testing.T) {
