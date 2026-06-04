@@ -4,13 +4,6 @@ $defs:
     description: MetricsConfig provides config for oracledb metrics.
     type: object
     properties:
-      oracledb.buffer_cache.utilization:
-        description: "OracledbBufferCacheUtilizationMetricConfig provides config for the oracledb.buffer_cache.utilization metric."
-        type: object
-        properties:
-          enabled:
-            type: boolean
-            default: false
       oracledb.consistent_gets:
         description: "OracledbConsistentGetsMetricConfig provides config for the oracledb.consistent_gets metric."
         type: object
@@ -27,20 +20,6 @@ $defs:
             default: true
       oracledb.data_dictionary.hit_ratio:
         description: "OracledbDataDictionaryHitRatioMetricConfig provides config for the oracledb.data_dictionary.hit_ratio metric."
-        type: object
-        properties:
-          enabled:
-            type: boolean
-            default: false
-      oracledb.database.cpu.utilization:
-        description: "OracledbDatabaseCPUUtilizationMetricConfig provides config for the oracledb.database.cpu.utilization metric."
-        type: object
-        properties:
-          enabled:
-            type: boolean
-            default: false
-      oracledb.database.wait.utilization:
-        description: "OracledbDatabaseWaitUtilizationMetricConfig provides config for the oracledb.database.wait.utilization metric."
         type: object
         properties:
           enabled:
@@ -123,29 +102,6 @@ $defs:
           enabled:
             type: boolean
             default: true
-      oracledb.execution.utilization:
-        description: "OracledbExecutionUtilizationMetricConfig provides config for the oracledb.execution.utilization metric."
-        type: object
-        properties:
-          enabled:
-            type: boolean
-            default: false
-          aggregation_strategy:
-            type: string
-            enum:
-              - "sum"
-              - "avg"
-              - "min"
-              - "max"
-            default: "avg"
-          attributes:
-            type: array
-            items:
-              type: string
-              enum:
-                - "oracledb.parse.type"
-            default:
-              - "oracledb.parse.type"
       oracledb.executions:
         description: "OracledbExecutionsMetricConfig provides config for the oracledb.executions metric."
         type: object
@@ -160,20 +116,6 @@ $defs:
           enabled:
             type: boolean
             default: true
-      oracledb.host.cpu.utilization:
-        description: "OracledbHostCPUUtilizationMetricConfig provides config for the oracledb.host.cpu.utilization metric."
-        type: object
-        properties:
-          enabled:
-            type: boolean
-            default: false
-      oracledb.library_cache.utilization:
-        description: "OracledbLibraryCacheUtilizationMetricConfig provides config for the oracledb.library_cache.utilization metric."
-        type: object
-        properties:
-          enabled:
-            type: boolean
-            default: false
       oracledb.logical_reads:
         description: "OracledbLogicalReadsMetricConfig provides config for the oracledb.logical_reads metric."
         type: object
@@ -230,36 +172,6 @@ $defs:
           enabled:
             type: boolean
             default: false
-      oracledb.parse.rate:
-        description: "OracledbParseRateMetricConfig provides config for the oracledb.parse.rate metric."
-        type: object
-        properties:
-          enabled:
-            type: boolean
-            default: false
-          aggregation_strategy:
-            type: string
-            enum:
-              - "sum"
-              - "avg"
-              - "min"
-              - "max"
-            default: "avg"
-          attributes:
-            type: array
-            items:
-              type: string
-              enum:
-                - "oracledb.parse.result"
-            default:
-              - "oracledb.parse.result"
-      oracledb.parse.utilization:
-        description: "OracledbParseUtilizationMetricConfig provides config for the oracledb.parse.utilization metric."
-        type: object
-        properties:
-          enabled:
-            type: boolean
-            default: false
       oracledb.parse_calls:
         description: "OracledbParseCallsMetricConfig provides config for the oracledb.parse_calls metric."
         type: object
@@ -274,6 +186,63 @@ $defs:
           enabled:
             type: boolean
             default: true
+      oracledb.physical_io.cache_writes:
+        description: "OracledbPhysicalIoCacheWritesMetricConfig provides config for the oracledb.physical_io.cache_writes metric."
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: false
+      oracledb.physical_io.requests:
+        description: "OracledbPhysicalIoRequestsMetricConfig provides config for the oracledb.physical_io.requests metric."
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: false
+          aggregation_strategy:
+            type: string
+            enum:
+              - "sum"
+              - "avg"
+              - "min"
+              - "max"
+            default: "sum"
+          attributes:
+            type: array
+            items:
+              type: string
+              enum:
+                - "disk.io.direction"
+                - "disk.io.block_size"
+            default:
+              - "disk.io.direction"
+              - "disk.io.block_size"
+      oracledb.physical_io.transferred:
+        description: "OracledbPhysicalIoTransferredMetricConfig provides config for the oracledb.physical_io.transferred metric."
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: false
+          aggregation_strategy:
+            type: string
+            enum:
+              - "sum"
+              - "avg"
+              - "min"
+              - "max"
+            default: "sum"
+          attributes:
+            type: array
+            items:
+              type: string
+              enum:
+                - "disk.io.direction"
+                - "disk.io.type"
+            default:
+              - "disk.io.direction"
+              - "disk.io.type"
       oracledb.physical_read_io_requests:
         description: "OracledbPhysicalReadIoRequestsMetricConfig provides config for the oracledb.physical_read_io_requests metric."
         type: object
@@ -344,13 +313,6 @@ $defs:
           enabled:
             type: boolean
             default: false
-      oracledb.redo_allocation.utilization:
-        description: "OracledbRedoAllocationUtilizationMetricConfig provides config for the oracledb.redo_allocation.utilization metric."
-        type: object
-        properties:
-          enabled:
-            type: boolean
-            default: false
       oracledb.sessions.limit:
         description: "OracledbSessionsLimitMetricConfig provides config for the oracledb.sessions.limit metric."
         type: object
@@ -383,15 +345,8 @@ $defs:
             default:
               - "session_type"
               - "session_status"
-      oracledb.shared_pool.utilization:
-        description: "OracledbSharedPoolUtilizationMetricConfig provides config for the oracledb.shared_pool.utilization metric."
-        type: object
-        properties:
-          enabled:
-            type: boolean
-            default: false
-      oracledb.sort.ratio:
-        description: "OracledbSortRatioMetricConfig provides config for the oracledb.sort.ratio metric."
+      oracledb.sqlnet.io.transferred:
+        description: "OracledbSqlnetIoTransferredMetricConfig provides config for the oracledb.sqlnet.io.transferred metric."
         type: object
         properties:
           enabled:
@@ -404,22 +359,17 @@ $defs:
               - "avg"
               - "min"
               - "max"
-            default: "avg"
+            default: "sum"
           attributes:
             type: array
             items:
               type: string
               enum:
-                - "oracledb.sort.type"
+                - "network.io.direction"
+                - "destination.type"
             default:
-              - "oracledb.sort.type"
-      oracledb.sql_service.response.duration:
-        description: "OracledbSQLServiceResponseDurationMetricConfig provides config for the oracledb.sql_service.response.duration metric."
-        type: object
-        properties:
-          enabled:
-            type: boolean
-            default: false
+              - "network.io.direction"
+              - "destination.type"
       oracledb.storage.usage:
         description: "OracledbStorageUsageMetricConfig provides config for the oracledb.storage.usage metric."
         type: object
@@ -434,77 +384,6 @@ $defs:
           enabled:
             type: boolean
             default: false
-      oracledb.tablespace.limit:
-        description: "OracledbTablespaceLimitMetricConfig provides config for the oracledb.tablespace.limit metric."
-        type: object
-        properties:
-          enabled:
-            type: boolean
-            default: false
-          aggregation_strategy:
-            type: string
-            enum:
-              - "sum"
-              - "avg"
-              - "min"
-              - "max"
-            default: "avg"
-          attributes:
-            type: array
-            items:
-              type: string
-              enum:
-                - "tablespace_name"
-            default:
-              - "tablespace_name"
-      oracledb.tablespace.status:
-        description: "OracledbTablespaceStatusMetricConfig provides config for the oracledb.tablespace.status metric."
-        type: object
-        properties:
-          enabled:
-            type: boolean
-            default: false
-          aggregation_strategy:
-            type: string
-            enum:
-              - "sum"
-              - "avg"
-              - "min"
-              - "max"
-            default: "avg"
-          attributes:
-            type: array
-            items:
-              type: string
-              enum:
-                - "tablespace_name"
-                - "oracledb.tablespace.state"
-            default:
-              - "tablespace_name"
-              - "oracledb.tablespace.state"
-      oracledb.tablespace.utilization:
-        description: "OracledbTablespaceUtilizationMetricConfig provides config for the oracledb.tablespace.utilization metric."
-        type: object
-        properties:
-          enabled:
-            type: boolean
-            default: false
-          aggregation_strategy:
-            type: string
-            enum:
-              - "sum"
-              - "avg"
-              - "min"
-              - "max"
-            default: "avg"
-          attributes:
-            type: array
-            items:
-              type: string
-              enum:
-                - "tablespace_name"
-            default:
-              - "tablespace_name"
       oracledb.tablespace_size.limit:
         description: "OracledbTablespaceSizeLimitMetricConfig provides config for the oracledb.tablespace_size.limit metric."
         type: object
@@ -610,6 +489,141 @@ $defs:
     properties:
       host.name:
         description: ResourceAttributeConfig provides common config for a host.name resource attribute.
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: true
+          metrics_include:
+            description: "Experimental: MetricsInclude defines a list of filters for attribute values. If the list is not empty, only metrics with matching resource attribute values will be emitted."
+            type: array
+            items:
+              $ref: go.opentelemetry.io/collector/filter.config
+          metrics_exclude:
+            description: "Experimental: MetricsExclude defines a list of filters for attribute values. If the list is not empty, metrics with matching resource attribute values will not be emitted. MetricsInclude has higher priority than MetricsExclude."
+            type: array
+            items:
+              $ref: go.opentelemetry.io/collector/filter.config
+          events_include:
+            description: "Experimental: EventsInclude defines a list of filters for attribute values. If the list is not empty, only events with matching resource attribute values will be emitted."
+            type: array
+            items:
+              $ref: go.opentelemetry.io/collector/filter.config
+          events_exclude:
+            description: "Experimental: EventsExclude defines a list of filters for attribute values. If the list is not empty, events with matching resource attribute values will not be emitted. EventsInclude has higher priority than EventsExclude."
+            type: array
+            items:
+              $ref: go.opentelemetry.io/collector/filter.config
+      oracle.db.hosting_type:
+        description: ResourceAttributeConfig provides common config for a oracle.db.hosting_type resource attribute.
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: true
+          metrics_include:
+            description: "Experimental: MetricsInclude defines a list of filters for attribute values. If the list is not empty, only metrics with matching resource attribute values will be emitted."
+            type: array
+            items:
+              $ref: go.opentelemetry.io/collector/filter.config
+          metrics_exclude:
+            description: "Experimental: MetricsExclude defines a list of filters for attribute values. If the list is not empty, metrics with matching resource attribute values will not be emitted. MetricsInclude has higher priority than MetricsExclude."
+            type: array
+            items:
+              $ref: go.opentelemetry.io/collector/filter.config
+          events_include:
+            description: "Experimental: EventsInclude defines a list of filters for attribute values. If the list is not empty, only events with matching resource attribute values will be emitted."
+            type: array
+            items:
+              $ref: go.opentelemetry.io/collector/filter.config
+          events_exclude:
+            description: "Experimental: EventsExclude defines a list of filters for attribute values. If the list is not empty, events with matching resource attribute values will not be emitted. EventsInclude has higher priority than EventsExclude."
+            type: array
+            items:
+              $ref: go.opentelemetry.io/collector/filter.config
+      oracle.db.open_mode:
+        description: ResourceAttributeConfig provides common config for a oracle.db.open_mode resource attribute.
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: true
+          metrics_include:
+            description: "Experimental: MetricsInclude defines a list of filters for attribute values. If the list is not empty, only metrics with matching resource attribute values will be emitted."
+            type: array
+            items:
+              $ref: go.opentelemetry.io/collector/filter.config
+          metrics_exclude:
+            description: "Experimental: MetricsExclude defines a list of filters for attribute values. If the list is not empty, metrics with matching resource attribute values will not be emitted. MetricsInclude has higher priority than MetricsExclude."
+            type: array
+            items:
+              $ref: go.opentelemetry.io/collector/filter.config
+          events_include:
+            description: "Experimental: EventsInclude defines a list of filters for attribute values. If the list is not empty, only events with matching resource attribute values will be emitted."
+            type: array
+            items:
+              $ref: go.opentelemetry.io/collector/filter.config
+          events_exclude:
+            description: "Experimental: EventsExclude defines a list of filters for attribute values. If the list is not empty, events with matching resource attribute values will not be emitted. EventsInclude has higher priority than EventsExclude."
+            type: array
+            items:
+              $ref: go.opentelemetry.io/collector/filter.config
+      oracle.db.pdb:
+        description: ResourceAttributeConfig provides common config for a oracle.db.pdb resource attribute.
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: true
+          metrics_include:
+            description: "Experimental: MetricsInclude defines a list of filters for attribute values. If the list is not empty, only metrics with matching resource attribute values will be emitted."
+            type: array
+            items:
+              $ref: go.opentelemetry.io/collector/filter.config
+          metrics_exclude:
+            description: "Experimental: MetricsExclude defines a list of filters for attribute values. If the list is not empty, metrics with matching resource attribute values will not be emitted. MetricsInclude has higher priority than MetricsExclude."
+            type: array
+            items:
+              $ref: go.opentelemetry.io/collector/filter.config
+          events_include:
+            description: "Experimental: EventsInclude defines a list of filters for attribute values. If the list is not empty, only events with matching resource attribute values will be emitted."
+            type: array
+            items:
+              $ref: go.opentelemetry.io/collector/filter.config
+          events_exclude:
+            description: "Experimental: EventsExclude defines a list of filters for attribute values. If the list is not empty, events with matching resource attribute values will not be emitted. EventsInclude has higher priority than EventsExclude."
+            type: array
+            items:
+              $ref: go.opentelemetry.io/collector/filter.config
+      oracle.db.role:
+        description: ResourceAttributeConfig provides common config for a oracle.db.role resource attribute.
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: true
+          metrics_include:
+            description: "Experimental: MetricsInclude defines a list of filters for attribute values. If the list is not empty, only metrics with matching resource attribute values will be emitted."
+            type: array
+            items:
+              $ref: go.opentelemetry.io/collector/filter.config
+          metrics_exclude:
+            description: "Experimental: MetricsExclude defines a list of filters for attribute values. If the list is not empty, metrics with matching resource attribute values will not be emitted. MetricsInclude has higher priority than MetricsExclude."
+            type: array
+            items:
+              $ref: go.opentelemetry.io/collector/filter.config
+          events_include:
+            description: "Experimental: EventsInclude defines a list of filters for attribute values. If the list is not empty, only events with matching resource attribute values will be emitted."
+            type: array
+            items:
+              $ref: go.opentelemetry.io/collector/filter.config
+          events_exclude:
+            description: "Experimental: EventsExclude defines a list of filters for attribute values. If the list is not empty, events with matching resource attribute values will not be emitted. EventsInclude has higher priority than EventsExclude."
+            type: array
+            items:
+              $ref: go.opentelemetry.io/collector/filter.config
+      oracle.db.version:
+        description: ResourceAttributeConfig provides common config for a oracle.db.version resource attribute.
         type: object
         properties:
           enabled:
