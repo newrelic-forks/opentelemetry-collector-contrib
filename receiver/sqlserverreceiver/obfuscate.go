@@ -36,6 +36,27 @@ var xmlPlanObfuscationAttrs = []string{
 	"ParameterCompiledValue",
 }
 
+// stripParameterDeclarations removes the leading parameter declaration block
+// from sp_executesql-style queries. SQL Server returns prepared statements with
+// declarations like "(@P0 varchar(8000))SELECT ..." — strip to get the actual query.
+func stripParameterDeclarations(sql string) string {
+	if !strings.HasPrefix(sql, "(@") {
+		return sql
+	}
+	depth := 0
+	for i, ch := range sql {
+		if ch == '(' {
+			depth++
+		} else if ch == ')' {
+			depth--
+			if depth == 0 {
+				return sql[i+1:]
+			}
+		}
+	}
+	return sql
+}
+
 type obfuscator obfuscate.Obfuscator
 
 func newObfuscator() *obfuscator {
@@ -47,6 +68,7 @@ func newObfuscator() *obfuscator {
 }
 
 func (o *obfuscator) obfuscateSQLString(sql string) (string, error) {
+	sql = stripParameterDeclarations(sql)
 	obfuscatedQuery, err := (*obfuscate.Obfuscator)(o).ObfuscateSQLString(sql)
 	if err != nil {
 		return "", err
@@ -58,6 +80,7 @@ func (o *obfuscator) obfuscateSQLString(sql string) (string, error) {
 // Step 1: collect comments and replace them with ? placeholders
 // Step 2: obfuscate literals using obfuscate_only mode
 func (o *obfuscator) obfuscateFullSQLString(sql string) (string, error) {
+	sql = stripParameterDeclarations(sql)
 	collectResult, err := (*obfuscate.Obfuscator)(o).ObfuscateSQLStringWithOptions(sql, &collectCommentsConfig, "")
 	if err != nil {
 		return "", err
