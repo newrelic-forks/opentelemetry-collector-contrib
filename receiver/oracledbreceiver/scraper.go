@@ -31,11 +31,29 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/sqlcomments"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/sqlnormalizer"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/oracledbreceiver/internal/metadata"
 )
 
 const (
-	statsSQL                       = "select * from v$sysstat"
+	statsSQL     = "select * from v$sysstat"
+	sysmetricSQL = "SELECT metric_name, value FROM v$sysmetric WHERE group_id = 2"
+
+	// V$SYSMETRIC metric_name values (group_id=2, 60-second interval)
+	sysmetricBufferCacheHitRatio      = "Buffer Cache Hit Ratio"
+	sysmetricHostCPUUtilization       = "Host CPU Utilization (%)"
+	sysmetricDatabaseCPUTimeRatio     = "Database CPU Time Ratio"
+	sysmetricLibraryCacheHitRatio     = "Library Cache Hit Ratio"
+	sysmetricSharedPoolFreePct        = "Shared Pool Free %"
+	sysmetricDatabaseWaitTimeRatio    = "Database Wait Time Ratio"
+	sysmetricSoftParseRatio           = "Soft Parse Ratio"
+	sysmetricSQLServiceResponseTime   = "SQL Service Response Time"
+	sysmetricMemorySortsRatio         = "Memory Sorts Ratio"
+	sysmetricRedoAllocationHitRatio   = "Redo Allocation Hit Ratio"
+	sysmetricParseFailureCount        = "Parse Failure Count Per Sec"
+	sysmetricExecuteWithoutParseRatio = "Execute Without Parse Ratio"
+
 	enqueueDeadlocks               = "enqueue deadlocks"
 	exchangeDeadlocks              = "exchange deadlocks"
 	executeCount                   = "execute count"
@@ -80,18 +98,60 @@ const (
 	sqlnetBytesRecvFromDBLink        = "bytes received via SQL*Net from dblink"
 	sqlnetBytesSentToDBLink          = "bytes sent via SQL*Net to dblink"
 
-	sessionCountSQL         = "select status, type, count(*) as VALUE FROM v$session GROUP BY status, type"
+	sessionCountSQL = "select status, type, count(*) as VALUE FROM v$session GROUP BY status, type"
+	// sessionCountCDBSQL extends sessionCountSQL with per-PDB breakdown via v$containers join.
+	sessionCountCDBSQL      = "select s.status, s.type, c.name as PDB_NAME, count(*) as VALUE FROM v$session s, v$containers c WHERE s.con_id = c.con_id(+) GROUP BY s.status, s.type, c.name"
 	systemResourceLimitsSQL = "select RESOURCE_NAME, CURRENT_UTILIZATION, LIMIT_VALUE, CASE WHEN TRIM(INITIAL_ALLOCATION) LIKE 'UNLIMITED' THEN '-1' ELSE TRIM(INITIAL_ALLOCATION) END as INITIAL_ALLOCATION, CASE WHEN TRIM(LIMIT_VALUE) LIKE 'UNLIMITED' THEN '-1' ELSE TRIM(LIMIT_VALUE) END as LIMIT_VALUE from v$resource_limit"
-	tablespaceUsageSQL      = `
-		select um.TABLESPACE_NAME, um.USED_SPACE, um.TABLESPACE_SIZE, ts.BLOCK_SIZE
-		FROM DBA_TABLESPACE_USAGE_METRICS um INNER JOIN DBA_TABLESPACES ts
-		ON um.TABLESPACE_NAME = ts.TABLESPACE_NAME`
+	// tablespaceUsageSQL is the base query; includes ts.STATUS for oracledb.tablespace.status.
+	tablespaceUsageSQL = `
+		select um.TABLESPACE_NAME, um.USED_SPACE, um.TABLESPACE_SIZE, ts.BLOCK_SIZE, ts.STATUS
+		FROM DBA_TABLESPACE_USAGE_METRICS um
+		INNER JOIN DBA_TABLESPACES ts ON um.TABLESPACE_NAME = ts.TABLESPACE_NAME`
+	// tablespaceUsageWithMaxSQL extends the base query with a LEFT JOIN on DBA_DATA_FILES for autoextend max size.
+	tablespaceUsageWithMaxSQL = `
+		select um.TABLESPACE_NAME, um.USED_SPACE, um.TABLESPACE_SIZE, ts.BLOCK_SIZE, ts.STATUS,
+		       NVL(mxb.MAX_BYTES, 0) as MAX_BYTES
+		FROM DBA_TABLESPACE_USAGE_METRICS um
+		INNER JOIN DBA_TABLESPACES ts ON um.TABLESPACE_NAME = ts.TABLESPACE_NAME
+		LEFT JOIN (SELECT TABLESPACE_NAME, SUM(NVL(MAXBYTES, 0)) as MAX_BYTES FROM DBA_DATA_FILES GROUP BY TABLESPACE_NAME) mxb
+		    ON um.TABLESPACE_NAME = mxb.TABLESPACE_NAME`
+	// tablespaceUsageCDBSQL extends tablespaceUsageSQL for CDB root, using CDB_ views to cover all PDBs.
+	tablespaceUsageCDBSQL = `
+		SELECT c.name AS PDB_NAME, t.TABLESPACE_NAME, m.USED_SPACE, m.TABLESPACE_SIZE, t.BLOCK_SIZE, t.STATUS
+		FROM CDB_TABLESPACES t
+		JOIN v$containers c ON t.con_id = c.con_id
+		LEFT JOIN CDB_TABLESPACE_USAGE_METRICS m ON m.con_id = t.con_id AND m.TABLESPACE_NAME = t.TABLESPACE_NAME`
+	// tablespaceUsageCDBWithMaxSQL extends tablespaceUsageCDBSQL with autoextend max size.
+	tablespaceUsageCDBWithMaxSQL = `
+		SELECT c.name AS PDB_NAME, t.TABLESPACE_NAME, m.USED_SPACE, m.TABLESPACE_SIZE, t.BLOCK_SIZE, t.STATUS,
+		       NVL(mxb.MAX_BYTES, 0) as MAX_BYTES
+		FROM CDB_TABLESPACES t
+		JOIN v$containers c ON t.con_id = c.con_id
+		LEFT JOIN CDB_TABLESPACE_USAGE_METRICS m ON m.con_id = t.con_id AND m.TABLESPACE_NAME = t.TABLESPACE_NAME
+		LEFT JOIN (SELECT TABLESPACE_NAME, con_id, SUM(NVL(MAXBYTES, 0)) as MAX_BYTES FROM CDB_DATA_FILES GROUP BY TABLESPACE_NAME, con_id) mxb
+		    ON t.TABLESPACE_NAME = mxb.TABLESPACE_NAME AND t.con_id = mxb.con_id`
+	// statsCDBSQL extends statsSQL for CDB root using v$con_sysstat (a Container Data Object)
+	// which returns per-PDB rows with correct CON_IDs; v$sysstat always returns CON_ID=0 from CDB root.
+	statsCDBSQL = `
+		SELECT s.name AS NAME, s.value AS VALUE, c.name AS PDB_NAME
+		FROM v$con_sysstat s
+		JOIN v$containers c ON s.con_id = c.con_id`
 	dataDictHitRatioSQL = "SELECT (1-(SUM(getmisses)/SUM(gets))) * 100 as DATA_DICTIONARY_HIT_RATIO FROM v$rowcache WHERE getmisses + gets <> 0"
+	osStatSQL           = "SELECT STAT_NAME, VALUE FROM v$osstat WHERE STAT_NAME IN ('LOAD', 'NUM_CPUS', 'PHYSICAL_MEMORY_BYTES')"
 	recycleBinSizeSQL   = "SELECT nvl(SUM(SPACE*(SELECT value FROM v$parameter WHERE name = 'db_block_size')),0) as RECYCLE_BIN_SIZE_BYTES FROM dba_recyclebin"
+	sgaInfoSQL          = "SELECT NAME, BYTES FROM v$sgainfo"
 	storageUsageSQL     = "WITH total_bytes AS (SELECT SUM(bytes) AS total FROM dba_data_files) SELECT (total - (SELECT SUM(bytes) FROM dba_free_space)) AS USED_DB_SIZE, total AS ALLOCATED_DB_SIZE FROM total_bytes"
+
+	osStatNameLoad           = "LOAD"
+	osStatNameNumCPUs        = "NUM_CPUS"
+	osStatNamePhysicalMemory = "PHYSICAL_MEMORY_BYTES"
+	colOSStatName            = "STAT_NAME"
+	colOSStatValue           = "VALUE"
 
 	colDataDictHitRatio    = "DATA_DICTIONARY_HIT_RATIO"
 	colRecycleBinSizeBytes = "RECYCLE_BIN_SIZE_BYTES"
+	colSGAInfoName         = "NAME"
+	colSGAInfoBytes        = "BYTES"
 	colUsedDBSize          = "USED_DB_SIZE"
 	colAllocatedDBSize     = "ALLOCATED_DB_SIZE"
 
@@ -150,33 +210,42 @@ type oracleScraper struct {
 	tablespaceUsageClient      dbClient
 	systemResourceLimitsClient dbClient
 	sessionCountClient         dbClient
-	oracleQueryMetricsClient   dbClient
-	oraclePlanDataClient       dbClient
-	samplesQueryClient         dbClient
-	sessionEventClient         dbClient
-	dataDictHitRatioClient     dbClient
-	recycleBinSizeClient       dbClient
-	storageUsageClient         dbClient
-	db                         *sql.DB
-	clientProviderFunc         clientProviderFunc
-	mb                         *metadata.MetricsBuilder
-	lb                         *metadata.LogsBuilder
-	dbProviderFunc             dbProviderFunc
-	logger                     *zap.Logger
-	id                         component.ID
-	instanceName               string
-	hostName                   string
-	scrapeCfg                  scraperhelper.ControllerConfig
-	startTime                  pcommon.Timestamp
-	metricsBuilderConfig       metadata.MetricsBuilderConfig
-	logsBuilderConfig          metadata.LogsBuilderConfig
-	metricCache                *lru.Cache[string, map[string]int64]
-	topQueryCollectCfg         TopQueryCollection
-	obfuscator                 *obfuscator
-	querySampleCfg             QuerySample
-	sessionWaitEventCfg        SessionWaitEvent
-	serviceInstanceID          string
-	lastExecutionTimestamp     time.Time
+	// isCDBRoot is true when connected to a CDB root (Oracle 12c+); enables per-PDB queries.
+	isCDBRoot                bool
+	oracleQueryMetricsClient dbClient
+	oraclePlanDataClient     dbClient
+	samplesQueryClient       dbClient
+	sessionEventClient       dbClient
+	dataDictHitRatioClient   dbClient
+	osStatClient             dbClient
+	recycleBinSizeClient     dbClient
+	sgaInfoClient            dbClient
+	storageUsageClient       dbClient
+	sysmetricClient          dbClient
+	db                       *sql.DB
+	clientProviderFunc       clientProviderFunc
+	mb                       *metadata.MetricsBuilder
+	lb                       *metadata.LogsBuilder
+	dbProviderFunc           dbProviderFunc
+	logger                   *zap.Logger
+	id                       component.ID
+	instanceName             string
+	hostName                 string
+	scrapeCfg                scraperhelper.ControllerConfig
+	startTime                pcommon.Timestamp
+	metricsBuilderConfig     metadata.MetricsBuilderConfig
+	logsBuilderConfig        metadata.LogsBuilderConfig
+	metricCache              *lru.Cache[string, map[string]int64]
+	topQueryCollectCfg       TopQueryCollection
+	obfuscator               *obfuscator
+	querySampleCfg           QuerySample
+	sessionWaitEventCfg      SessionWaitEvent
+	serviceInstanceID        string
+	lastExecutionTimestamp   time.Time
+	// instanceInfo holds Oracle deployment metadata detected once at start().
+	// All fields are best-effort: detection failures are logged and leave the
+	// field at its zero value; they never prevent the receiver from starting.
+	instanceInfo oracleInstanceInfo
 }
 
 func newScraper(metricsBuilder *metadata.MetricsBuilder, metricsBuilderConfig metadata.MetricsBuilderConfig, scrapeCfg scraperhelper.ControllerConfig, logger *zap.Logger, providerFunc dbProviderFunc, clientProviderFunc clientProviderFunc, instanceName, hostName string) (scraper.Metrics, error) {
@@ -217,22 +286,60 @@ func newLogsScraper(logsBuilder *metadata.LogsBuilder, logsBuilderConfig metadat
 	return scraper.NewLogs(s.scrapeLogs, scraper.WithShutdown(s.shutdown), scraper.WithStart(s.start))
 }
 
-func (s *oracleScraper) start(context.Context, component.Host) error {
+// buildTablespaceSQL returns the appropriate tablespace query based on enabled metrics and CDB mode.
+func (s *oracleScraper) buildTablespaceSQL() string {
+	if s.isCDBRoot {
+		if s.metricsBuilderConfig.Metrics.OracledbTablespaceLimit.Enabled {
+			return tablespaceUsageCDBWithMaxSQL
+		}
+		return tablespaceUsageCDBSQL
+	}
+	if s.metricsBuilderConfig.Metrics.OracledbTablespaceLimit.Enabled {
+		return tablespaceUsageWithMaxSQL
+	}
+	return tablespaceUsageSQL
+}
+
+func (s *oracleScraper) start(ctx context.Context, _ component.Host) error {
 	s.startTime = pcommon.NewTimestampFromTime(time.Now())
 	var err error
 	s.db, err = s.dbProviderFunc()
 	if err != nil {
 		return fmt.Errorf("failed to open db connection: %w", err)
 	}
-	s.statsClient = s.clientProviderFunc(s.db, statsSQL, s.logger)
-	s.sessionCountClient = s.clientProviderFunc(s.db, sessionCountSQL, s.logger)
+	if s.db != nil {
+		s.instanceInfo = detectInstanceInfo(
+			ctx,
+			s.clientProviderFunc(s.db, instanceVersionSQL, s.logger),
+			s.clientProviderFunc(s.db, instanceCDBSQL, s.logger),
+			s.clientProviderFunc(s.db, instanceConTypeSQL, s.logger),
+			s.clientProviderFunc(s.db, instanceConNameSQL, s.logger),
+			s.clientProviderFunc(s.db, instanceRDSSQL, s.logger),
+			s.clientProviderFunc(s.db, instanceOCISQL, s.logger),
+			s.clientProviderFunc(s.db, instanceOCICDBServicesSQL, s.logger),
+			s.logger,
+		)
+	}
+	// Use CDB-aware queries when connected to a CDB root; fall back to single-container queries otherwise.
+	s.isCDBRoot = s.instanceInfo.isCDB && !s.instanceInfo.connectedToPDB
+	if s.isCDBRoot {
+		s.logger.Info("oracledbreceiver: connected to CDB root; using CDB-aware queries for per-PDB metrics")
+		s.statsClient = s.clientProviderFunc(s.db, statsCDBSQL, s.logger)
+		s.sessionCountClient = s.clientProviderFunc(s.db, sessionCountCDBSQL, s.logger)
+	} else {
+		s.statsClient = s.clientProviderFunc(s.db, statsSQL, s.logger)
+		s.sessionCountClient = s.clientProviderFunc(s.db, sessionCountSQL, s.logger)
+	}
+	s.tablespaceUsageClient = s.clientProviderFunc(s.db, s.buildTablespaceSQL(), s.logger)
 	s.systemResourceLimitsClient = s.clientProviderFunc(s.db, systemResourceLimitsSQL, s.logger)
-	s.tablespaceUsageClient = s.clientProviderFunc(s.db, tablespaceUsageSQL, s.logger)
 	s.samplesQueryClient = s.clientProviderFunc(s.db, samplesQuery, s.logger)
 	s.sessionEventClient = s.clientProviderFunc(s.db, sessionEventQuery, s.logger)
 	s.dataDictHitRatioClient = s.clientProviderFunc(s.db, dataDictHitRatioSQL, s.logger)
+	s.osStatClient = s.clientProviderFunc(s.db, osStatSQL, s.logger)
 	s.recycleBinSizeClient = s.clientProviderFunc(s.db, recycleBinSizeSQL, s.logger)
+	s.sgaInfoClient = s.clientProviderFunc(s.db, sgaInfoSQL, s.logger)
 	s.storageUsageClient = s.clientProviderFunc(s.db, storageUsageSQL, s.logger)
+	s.sysmetricClient = s.clientProviderFunc(s.db, sysmetricSQL, s.logger)
 	return nil
 }
 
@@ -275,125 +382,131 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 		s.metricsBuilderConfig.Metrics.OracledbSqlnetIoTransferred.Enabled
 	if runStats {
 		now := pcommon.NewTimestampFromTime(time.Now())
+		statsQueryName := statsSQL
+		if s.isCDBRoot {
+			statsQueryName = statsCDBSQL
+		}
 		rows, execError := s.statsClient.metricRows(ctx)
 		if execError != nil {
-			scrapeErrors = append(scrapeErrors, fmt.Errorf("error executing %s: %w", statsSQL, execError))
+			scrapeErrors = append(scrapeErrors, fmt.Errorf("error executing %s: %w", statsQueryName, execError))
 		}
 
 		for _, row := range rows {
+			// pdbName is set for CDB-root queries; empty for non-CDB or direct-PDB connections.
+			pdbName := row["PDB_NAME"]
 			switch row["NAME"] {
 			case enqueueDeadlocks:
-				err := s.mb.RecordOracledbEnqueueDeadlocksDataPoint(now, row["VALUE"])
+				err := s.mb.RecordOracledbEnqueueDeadlocksDataPoint(now, row["VALUE"], pdbName)
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, err)
 				}
 			case exchangeDeadlocks:
-				err := s.mb.RecordOracledbExchangeDeadlocksDataPoint(now, row["VALUE"])
+				err := s.mb.RecordOracledbExchangeDeadlocksDataPoint(now, row["VALUE"], pdbName)
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, err)
 				}
 			case executeCount:
-				err := s.mb.RecordOracledbExecutionsDataPoint(now, row["VALUE"])
+				err := s.mb.RecordOracledbExecutionsDataPoint(now, row["VALUE"], pdbName)
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, err)
 				}
 			case parseCountTotal:
-				err := s.mb.RecordOracledbParseCallsDataPoint(now, row["VALUE"])
+				err := s.mb.RecordOracledbParseCallsDataPoint(now, row["VALUE"], pdbName)
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, err)
 				}
 			case parseCountHard:
-				err := s.mb.RecordOracledbHardParsesDataPoint(now, row["VALUE"])
+				err := s.mb.RecordOracledbHardParsesDataPoint(now, row["VALUE"], pdbName)
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, err)
 				}
 			case userCommits:
-				err := s.mb.RecordOracledbUserCommitsDataPoint(now, row["VALUE"])
+				err := s.mb.RecordOracledbUserCommitsDataPoint(now, row["VALUE"], pdbName)
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, err)
 				}
 			case userRollbacks:
-				err := s.mb.RecordOracledbUserRollbacksDataPoint(now, row["VALUE"])
+				err := s.mb.RecordOracledbUserRollbacksDataPoint(now, row["VALUE"], pdbName)
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, err)
 				}
 			case physicalReads:
-				err := s.mb.RecordOracledbPhysicalReadsDataPoint(now, row["VALUE"])
+				err := s.mb.RecordOracledbPhysicalReadsDataPoint(now, row["VALUE"], pdbName)
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, err)
 				}
 			case physicalReadsDirect:
-				err := s.mb.RecordOracledbPhysicalReadsDirectDataPoint(now, row["VALUE"])
+				err := s.mb.RecordOracledbPhysicalReadsDirectDataPoint(now, row["VALUE"], pdbName)
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, err)
 				}
 			case physicalReadIORequests:
-				err := s.mb.RecordOracledbPhysicalReadIoRequestsDataPoint(now, row["VALUE"])
+				err := s.mb.RecordOracledbPhysicalReadIoRequestsDataPoint(now, row["VALUE"], pdbName)
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, err)
 				}
 			case physicalWrites:
-				err := s.mb.RecordOracledbPhysicalWritesDataPoint(now, row["VALUE"])
+				err := s.mb.RecordOracledbPhysicalWritesDataPoint(now, row["VALUE"], pdbName)
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, err)
 				}
 			case physicalWritesDirect:
-				err := s.mb.RecordOracledbPhysicalWritesDirectDataPoint(now, row["VALUE"])
+				err := s.mb.RecordOracledbPhysicalWritesDirectDataPoint(now, row["VALUE"], pdbName)
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, err)
 				}
 			case physicalWriteIORequests:
-				err := s.mb.RecordOracledbPhysicalWriteIoRequestsDataPoint(now, row["VALUE"])
+				err := s.mb.RecordOracledbPhysicalWriteIoRequestsDataPoint(now, row["VALUE"], pdbName)
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, err)
 				}
 			case queriesParallelized:
-				err := s.mb.RecordOracledbQueriesParallelizedDataPoint(now, row["VALUE"])
+				err := s.mb.RecordOracledbQueriesParallelizedDataPoint(now, row["VALUE"], pdbName)
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, err)
 				}
 			case ddlStatementsParallelized:
-				err := s.mb.RecordOracledbDdlStatementsParallelizedDataPoint(now, row["VALUE"])
+				err := s.mb.RecordOracledbDdlStatementsParallelizedDataPoint(now, row["VALUE"], pdbName)
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, err)
 				}
 			case dmlStatementsParallelized:
-				err := s.mb.RecordOracledbDmlStatementsParallelizedDataPoint(now, row["VALUE"])
+				err := s.mb.RecordOracledbDmlStatementsParallelizedDataPoint(now, row["VALUE"], pdbName)
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, err)
 				}
 			case parallelOpsNotDowngraded:
-				err := s.mb.RecordOracledbParallelOperationsNotDowngradedDataPoint(now, row["VALUE"])
+				err := s.mb.RecordOracledbParallelOperationsNotDowngradedDataPoint(now, row["VALUE"], pdbName)
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, err)
 				}
 			case parallelOpsDowngradedToSerial:
-				err := s.mb.RecordOracledbParallelOperationsDowngradedToSerialDataPoint(now, row["VALUE"])
+				err := s.mb.RecordOracledbParallelOperationsDowngradedToSerialDataPoint(now, row["VALUE"], pdbName)
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, err)
 				}
 			case parallelOpsDowngraded1To25Pct:
-				err := s.mb.RecordOracledbParallelOperationsDowngraded1To25PctDataPoint(now, row["VALUE"])
+				err := s.mb.RecordOracledbParallelOperationsDowngraded1To25PctDataPoint(now, row["VALUE"], pdbName)
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, err)
 				}
 			case parallelOpsDowngraded25To50Pct:
-				err := s.mb.RecordOracledbParallelOperationsDowngraded25To50PctDataPoint(now, row["VALUE"])
+				err := s.mb.RecordOracledbParallelOperationsDowngraded25To50PctDataPoint(now, row["VALUE"], pdbName)
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, err)
 				}
 			case parallelOpsDowngraded50To75Pct:
-				err := s.mb.RecordOracledbParallelOperationsDowngraded50To75PctDataPoint(now, row["VALUE"])
+				err := s.mb.RecordOracledbParallelOperationsDowngraded50To75PctDataPoint(now, row["VALUE"], pdbName)
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, err)
 				}
 			case parallelOpsDowngraded75To99Pct:
-				err := s.mb.RecordOracledbParallelOperationsDowngraded75To99PctDataPoint(now, row["VALUE"])
+				err := s.mb.RecordOracledbParallelOperationsDowngraded75To99PctDataPoint(now, row["VALUE"], pdbName)
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, err)
 				}
 			case sessionLogicalReads:
-				err := s.mb.RecordOracledbLogicalReadsDataPoint(now, row["VALUE"])
+				err := s.mb.RecordOracledbLogicalReadsDataPoint(now, row["VALUE"], pdbName)
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, err)
 				}
@@ -404,25 +517,25 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 				} else {
 					// divide by 100 as the value is expressed in tens of milliseconds
 					value /= 100
-					s.mb.RecordOracledbCPUTimeDataPoint(now, value)
+					s.mb.RecordOracledbCPUTimeDataPoint(now, value, pdbName)
 				}
 			case pgaMemory:
-				err := s.mb.RecordOracledbPgaMemoryDataPoint(pcommon.NewTimestampFromTime(time.Now()), row["VALUE"])
+				err := s.mb.RecordOracledbPgaMemoryDataPoint(pcommon.NewTimestampFromTime(time.Now()), row["VALUE"], pdbName)
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, err)
 				}
 			case dbBlockGets:
-				err := s.mb.RecordOracledbDbBlockGetsDataPoint(now, row["VALUE"])
+				err := s.mb.RecordOracledbDbBlockGetsDataPoint(now, row["VALUE"], pdbName)
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, err)
 				}
 			case consistentGets:
-				err := s.mb.RecordOracledbConsistentGetsDataPoint(now, row["VALUE"])
+				err := s.mb.RecordOracledbConsistentGetsDataPoint(now, row["VALUE"], pdbName)
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, err)
 				}
 			case logons:
-				err := s.mb.RecordOracledbLogonsDataPoint(now, row["VALUE"])
+				err := s.mb.RecordOracledbLogonsDataPoint(now, row["VALUE"], pdbName)
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, err)
 				}
@@ -483,13 +596,18 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 	}
 
 	if s.metricsBuilderConfig.Metrics.OracledbSessionsUsage.Enabled {
+		sessionQueryName := sessionCountSQL
+		if s.isCDBRoot {
+			sessionQueryName = sessionCountCDBSQL
+		}
 		rows, err := s.sessionCountClient.metricRows(ctx)
 		if err != nil {
-			scrapeErrors = append(scrapeErrors, fmt.Errorf("error executing %s: %w", sessionCountSQL, err))
+			scrapeErrors = append(scrapeErrors, fmt.Errorf("error executing %s: %w", sessionQueryName, err))
 		}
 		for _, row := range rows {
+			// pdbName is populated from PDB_NAME in CDB-root queries; empty for non-CDB.
 			err := s.mb.RecordOracledbSessionsUsageDataPoint(pcommon.NewTimestampFromTime(time.Now()), row["VALUE"],
-				row["TYPE"], row["STATUS"])
+				row["TYPE"], row["STATUS"], row["PDB_NAME"])
 			if err != nil {
 				scrapeErrors = append(scrapeErrors, err)
 			}
@@ -566,14 +684,19 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 	}
 
 	if s.metricsBuilderConfig.Metrics.OracledbTablespaceSizeUsage.Enabled ||
-		s.metricsBuilderConfig.Metrics.OracledbTablespaceSizeLimit.Enabled {
+		s.metricsBuilderConfig.Metrics.OracledbTablespaceSizeLimit.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbTablespaceUtilization.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbTablespaceStatus.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbTablespaceLimit.Enabled {
 		rows, err := s.tablespaceUsageClient.metricRows(ctx)
 		if err != nil {
-			scrapeErrors = append(scrapeErrors, fmt.Errorf("error executing %s: %w", tablespaceUsageSQL, err))
+			scrapeErrors = append(scrapeErrors, fmt.Errorf("error executing tablespace usage query: %w", err))
 		} else {
 			now := pcommon.NewTimestampFromTime(time.Now())
 			for _, row := range rows {
 				tablespaceName := row["TABLESPACE_NAME"]
+				// pdbName is set for CDB-root queries; empty for non-CDB or direct-PDB connections.
+				pdbName := row["PDB_NAME"]
 				usedSpaceBlockCount, err := strconv.ParseInt(row["USED_SPACE"], 10, 64)
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, fmt.Errorf("failed to parse int64 for OracledbTablespaceSizeUsage, value was %s: %w", row["USED_SPACE"], err))
@@ -600,20 +723,46 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 					continue
 				}
 
-				s.mb.RecordOracledbTablespaceSizeUsageDataPoint(now, usedSpaceBlockCount*blockSize, tablespaceName)
+				s.mb.RecordOracledbTablespaceSizeUsageDataPoint(now, usedSpaceBlockCount*blockSize, tablespaceName, pdbName)
 
 				if tablespaceSizeBlockCount < 0 {
-					s.mb.RecordOracledbTablespaceSizeLimitDataPoint(now, -1, tablespaceName)
+					s.mb.RecordOracledbTablespaceSizeLimitDataPoint(now, -1, tablespaceName, pdbName)
 				} else {
-					s.mb.RecordOracledbTablespaceSizeLimitDataPoint(now, tablespaceSizeBlockCount*blockSize, tablespaceName)
+					s.mb.RecordOracledbTablespaceSizeLimitDataPoint(now, tablespaceSizeBlockCount*blockSize, tablespaceName, pdbName)
+				}
+
+				if s.metricsBuilderConfig.Metrics.OracledbTablespaceUtilization.Enabled &&
+					tablespaceSizeBlockCount > 0 {
+					utilization := float64(usedSpaceBlockCount) / float64(tablespaceSizeBlockCount)
+					s.mb.RecordOracledbTablespaceUtilizationDataPoint(now, utilization, tablespaceName, pdbName)
+				}
+
+				if s.metricsBuilderConfig.Metrics.OracledbTablespaceStatus.Enabled {
+					tablespaceStatus := strings.ToLower(row["STATUS"])
+					if tablespaceStatus == "" {
+						tablespaceStatus = "unknown"
+					}
+					s.mb.RecordOracledbTablespaceStatusDataPoint(now, 1, tablespaceName, tablespaceStatus, pdbName)
+				}
+
+				if s.metricsBuilderConfig.Metrics.OracledbTablespaceLimit.Enabled {
+					maxBytes, err := strconv.ParseInt(row["MAX_BYTES"], 10, 64)
+					if err != nil {
+						scrapeErrors = append(scrapeErrors, fmt.Errorf("failed to parse int64 for OracledbTablespaceLimit, value was %s: %w", row["MAX_BYTES"], err))
+						continue
+					}
+					s.mb.RecordOracledbTablespaceLimitDataPoint(now, maxBytes, tablespaceName, pdbName)
 				}
 			}
 		}
 	}
 
 	s.collectDataDictHitRatio(ctx, &scrapeErrors)
+	s.collectOSStat(ctx, &scrapeErrors)
 	s.collectRecycleBinSize(ctx, &scrapeErrors)
+	s.collectSGAInfo(ctx, &scrapeErrors)
 	s.collectStorageUsage(ctx, &scrapeErrors)
+	s.collectSysMetrics(ctx, &scrapeErrors)
 
 	rb := s.setupResourceBuilder(s.mb.NewResourceBuilder())
 
@@ -645,6 +794,55 @@ func (s *oracleScraper) collectDataDictHitRatio(ctx context.Context, scrapeError
 	}
 }
 
+func (s *oracleScraper) collectOSStat(ctx context.Context, scrapeErrors *[]error) {
+	if !s.metricsBuilderConfig.Metrics.SystemCPUPhysicalCount.Enabled &&
+		!s.metricsBuilderConfig.Metrics.OracledbSystemCPULoad.Enabled &&
+		!s.metricsBuilderConfig.Metrics.SystemMemoryLimit.Enabled {
+		return
+	}
+	now := pcommon.NewTimestampFromTime(time.Now())
+	rows, err := s.osStatClient.metricRows(ctx)
+	if err != nil {
+		*scrapeErrors = append(*scrapeErrors, fmt.Errorf("error executing %s: %w", osStatSQL, err))
+		return
+	}
+	for _, row := range rows {
+		statName := row[colOSStatName]
+		statValue := row[colOSStatValue]
+		switch statName {
+		case osStatNameNumCPUs:
+			if s.metricsBuilderConfig.Metrics.SystemCPUPhysicalCount.Enabled {
+				val, err := strconv.ParseInt(statValue, 10, 64)
+				if err != nil {
+					*scrapeErrors = append(*scrapeErrors, fmt.Errorf("failed to parse int64 for SystemCPUPhysicalCount, value was %s: %w", statValue, err))
+					continue
+				}
+				s.mb.RecordSystemCPUPhysicalCountDataPoint(now, val)
+			}
+		case osStatNameLoad:
+			if s.metricsBuilderConfig.Metrics.OracledbSystemCPULoad.Enabled {
+				val, err := strconv.ParseFloat(statValue, 64)
+				if err != nil {
+					*scrapeErrors = append(*scrapeErrors, fmt.Errorf("failed to parse float64 for OracledbSystemCPULoad, value was %s: %w", statValue, err))
+					continue
+				}
+				s.mb.RecordOracledbSystemCPULoadDataPoint(now, val)
+			}
+		case osStatNamePhysicalMemory:
+			if s.metricsBuilderConfig.Metrics.SystemMemoryLimit.Enabled {
+				// Oracle may return PHYSICAL_MEMORY_BYTES in scientific notation (e.g. 6.6878E+10),
+				// so parse as float64 first then convert to int64.
+				fval, err := strconv.ParseFloat(statValue, 64)
+				if err != nil {
+					*scrapeErrors = append(*scrapeErrors, fmt.Errorf("failed to parse SystemMemoryLimit, value was %s: %w", statValue, err))
+					continue
+				}
+				s.mb.RecordSystemMemoryLimitDataPoint(now, int64(fval))
+			}
+		}
+	}
+}
+
 func (s *oracleScraper) collectRecycleBinSize(ctx context.Context, scrapeErrors *[]error) {
 	if !s.metricsBuilderConfig.Metrics.OracledbRecycleBinLimit.Enabled {
 		return
@@ -662,6 +860,35 @@ func (s *oracleScraper) collectRecycleBinSize(ctx context.Context, scrapeErrors 
 			continue
 		}
 		s.mb.RecordOracledbRecycleBinLimitDataPoint(now, val)
+	}
+}
+
+const sgaMaxComponentName = "Maximum SGA Size"
+
+func (s *oracleScraper) collectSGAInfo(ctx context.Context, scrapeErrors *[]error) {
+	if !s.metricsBuilderConfig.Metrics.OracledbSgaUsage.Enabled &&
+		!s.metricsBuilderConfig.Metrics.OracledbSgaLimit.Enabled {
+		return
+	}
+	now := pcommon.NewTimestampFromTime(time.Now())
+	rows, err := s.sgaInfoClient.metricRows(ctx)
+	if err != nil {
+		*scrapeErrors = append(*scrapeErrors, fmt.Errorf("error executing %s: %w", sgaInfoSQL, err))
+		return
+	}
+	for _, row := range rows {
+		val, err := strconv.ParseInt(row[colSGAInfoBytes], 10, 64)
+		if err != nil {
+			*scrapeErrors = append(*scrapeErrors, fmt.Errorf("failed to parse int64 for OracledbSgaUsage, value was %s: %w", row[colSGAInfoBytes], err))
+			continue
+		}
+		if row[colSGAInfoName] == sgaMaxComponentName {
+			if s.metricsBuilderConfig.Metrics.OracledbSgaLimit.Enabled {
+				s.mb.RecordOracledbSgaLimitDataPoint(now, val)
+			}
+		} else if s.metricsBuilderConfig.Metrics.OracledbSgaUsage.Enabled {
+			s.mb.RecordOracledbSgaUsageDataPoint(now, val, row[colSGAInfoName])
+		}
 	}
 }
 
@@ -697,11 +924,98 @@ func (s *oracleScraper) collectStorageUsage(ctx context.Context, scrapeErrors *[
 	}
 }
 
+func (s *oracleScraper) collectSysMetrics(ctx context.Context, scrapeErrors *[]error) {
+	anySysmetricEnabled := s.metricsBuilderConfig.Metrics.OracledbBufferCacheUtilization.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbHostCPUUtilization.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbDatabaseCPUUtilization.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbLibraryCacheUtilization.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbSharedPoolUtilization.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbDatabaseWaitUtilization.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbParseUtilization.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbSQLServiceResponseDuration.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbSortRatio.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbRedoAllocationUtilization.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbParseRate.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbExecutionUtilization.Enabled
+	if !anySysmetricEnabled {
+		return
+	}
+
+	now := pcommon.NewTimestampFromTime(time.Now())
+	rows, err := s.sysmetricClient.metricRows(ctx)
+	if err != nil {
+		*scrapeErrors = append(*scrapeErrors, fmt.Errorf("error executing %s: %w", sysmetricSQL, err))
+		return
+	}
+
+	for _, row := range rows {
+		metricName := row["METRIC_NAME"]
+		rawVal := row["VALUE"]
+		val, parseErr := strconv.ParseFloat(rawVal, 64)
+		if parseErr != nil {
+			*scrapeErrors = append(*scrapeErrors, fmt.Errorf("sysmetric %q: failed to parse float64 from %q: %w", metricName, rawVal, parseErr))
+			continue
+		}
+		switch metricName {
+		case sysmetricBufferCacheHitRatio:
+			if s.metricsBuilderConfig.Metrics.OracledbBufferCacheUtilization.Enabled {
+				s.mb.RecordOracledbBufferCacheUtilizationDataPoint(now, val)
+			}
+		case sysmetricHostCPUUtilization:
+			if s.metricsBuilderConfig.Metrics.OracledbHostCPUUtilization.Enabled {
+				s.mb.RecordOracledbHostCPUUtilizationDataPoint(now, val)
+			}
+		case sysmetricDatabaseCPUTimeRatio:
+			if s.metricsBuilderConfig.Metrics.OracledbDatabaseCPUUtilization.Enabled {
+				s.mb.RecordOracledbDatabaseCPUUtilizationDataPoint(now, val)
+			}
+		case sysmetricLibraryCacheHitRatio:
+			if s.metricsBuilderConfig.Metrics.OracledbLibraryCacheUtilization.Enabled {
+				s.mb.RecordOracledbLibraryCacheUtilizationDataPoint(now, val)
+			}
+		case sysmetricSharedPoolFreePct:
+			if s.metricsBuilderConfig.Metrics.OracledbSharedPoolUtilization.Enabled {
+				s.mb.RecordOracledbSharedPoolUtilizationDataPoint(now, val)
+			}
+		case sysmetricDatabaseWaitTimeRatio:
+			if s.metricsBuilderConfig.Metrics.OracledbDatabaseWaitUtilization.Enabled {
+				s.mb.RecordOracledbDatabaseWaitUtilizationDataPoint(now, val)
+			}
+		case sysmetricSoftParseRatio:
+			if s.metricsBuilderConfig.Metrics.OracledbParseUtilization.Enabled {
+				s.mb.RecordOracledbParseUtilizationDataPoint(now, val)
+			}
+		case sysmetricSQLServiceResponseTime:
+			if s.metricsBuilderConfig.Metrics.OracledbSQLServiceResponseDuration.Enabled {
+				// Oracle reports SQL Service Response Time in centiseconds; convert to seconds.
+				s.mb.RecordOracledbSQLServiceResponseDurationDataPoint(now, val/100)
+			}
+		case sysmetricMemorySortsRatio:
+			if s.metricsBuilderConfig.Metrics.OracledbSortRatio.Enabled {
+				s.mb.RecordOracledbSortRatioDataPoint(now, val, metadata.AttributeOracledbSortTypeMemory)
+			}
+		case sysmetricRedoAllocationHitRatio:
+			if s.metricsBuilderConfig.Metrics.OracledbRedoAllocationUtilization.Enabled {
+				s.mb.RecordOracledbRedoAllocationUtilizationDataPoint(now, val)
+			}
+		case sysmetricParseFailureCount:
+			if s.metricsBuilderConfig.Metrics.OracledbParseRate.Enabled {
+				s.mb.RecordOracledbParseRateDataPoint(now, val, metadata.AttributeOracledbParseResultFailure)
+			}
+		case sysmetricExecuteWithoutParseRatio:
+			if s.metricsBuilderConfig.Metrics.OracledbExecutionUtilization.Enabled {
+				s.mb.RecordOracledbExecutionUtilizationDataPoint(now, val, metadata.AttributeOracledbParseTypeSoft)
+			}
+		}
+	}
+}
+
 type queryMetricCacheHit struct {
 	sqlID         string
 	childNumber   string
 	childAddress  string
 	queryText     string
+	queryComments string
 	metrics       map[string]int64
 	objectID      int64
 	objectName    string
@@ -789,9 +1103,13 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 				commandType, _ = strconv.ParseInt(row[commandTypeAttr], 10, 64)
 			}
 
+			// Extract and filter comments from original SQL before obfuscation
+			queryComments := sqlcomments.ExtractAndFilterComments(row[sqlTextAttr], s.topQueryCollectCfg.AllowedCommentKeys)
+
 			hit := queryMetricCacheHit{
 				sqlID:         row[sqlIDAttr],
 				queryText:     row[sqlTextAttr],
+				queryComments: queryComments,
 				childNumber:   row[childNumberAttr],
 				childAddress:  row[childAddressAttr],
 				metrics:       make(map[string]int64, len(metricNames)),
@@ -859,6 +1177,9 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 		}
 		planString := string(planBytes)
 
+		// Normalize raw SQL (not obfuscated) and generate MD5 hash for APM correlation
+		normalizedSQL, sqlHash := sqlnormalizer.NormalizeSQLAndHash(hit.queryText)
+
 		s.lb.RecordDbServerTopQueryEvent(context.Background(),
 			pcommon.NewTimestampFromTime(collectionTime),
 			dbSystemNameVal,
@@ -888,7 +1209,10 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 			hit.objectName,
 			hit.objectType,
 			hit.planHashValue,
-			hit.lastLoadTime)
+			hit.lastLoadTime,
+			hit.queryComments,
+			sqlHash,
+			normalizedSQL)
 	}
 
 	hitCount := len(hits)
@@ -960,11 +1284,15 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 			continue
 		}
 
+		// Obfuscate SQL for display purposes (db.query.text)
 		obfuscatedSQL, err := s.obfuscator.obfuscateSQLString(row[sqlText])
 		if err != nil {
 			s.logger.Error(fmt.Sprintf("oracleScraper failed updating this log record: %s", err))
 			continue
 		}
+
+		// Normalize raw SQL (not obfuscated) and generate MD5 hash for APM correlation
+		normalizedSQL, sqlHash := sqlnormalizer.NormalizeSQLAndHash(obfuscatedSQL)
 
 		queryPlanHashVal := hex.EncodeToString([]byte(row[planHashValue]))
 
@@ -1007,10 +1335,13 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 			"traceparent": row[action],
 		})
 
+		// Extract and filter query comments from original SQL (before obfuscation)
+		queryComments := sqlcomments.ExtractAndFilterComments(row[sqlText], s.querySampleCfg.AllowedCommentKeys)
+
 		s.lb.RecordDbServerQuerySampleEvent(queryContext, timestamp, obfuscatedSQL, dbSystemNameVal, row[username], row[serviceName], row[hostName],
 			clientPort, row[hostName], clientPort, queryPlanHashVal, row[sqlID], row[sqlChildNumber], row[childAddress], row[sid], row[serialNumber], row[process],
 			row[schemaName], row[program], row[module], row[status], row[state], row[waitclass], row[event], waitTime, objID, row[objectName], row[objectType],
-			row[osUser], queryDuration, row[sqlExecStart], row[logonTime], sessionDurationSec,
+			row[osUser], queryDuration, waitTime, queryComments, sqlHash, normalizedSQL, row[sqlExecStart], row[logonTime], sessionDurationSec,
 			row[blockingSession], row[finalBlockingSession], row[blockingSessionStatus], row[blockingStartTime], secondsInWaitVal,
 			row[lockMode], row[lockType], row[blockedObjectOwner], row[blockedObjectName])
 	}
@@ -1135,6 +1466,21 @@ func (s *oracleScraper) setupResourceBuilder(rb *metadata.ResourceBuilder) *meta
 	rb.SetOracledbInstanceName(s.instanceName)
 	rb.SetHostName(s.hostName)
 	rb.SetServiceInstanceID(s.serviceInstanceID)
+	if s.instanceInfo.dbVersion != "" {
+		rb.SetOracleDbVersion(s.instanceInfo.dbVersion)
+	}
+	if s.instanceInfo.databaseRole != "" {
+		rb.SetOracleDbRole(s.instanceInfo.databaseRole)
+	}
+	if s.instanceInfo.openMode != "" {
+		rb.SetOracleDbOpenMode(s.instanceInfo.openMode)
+	}
+	if s.instanceInfo.hostingType != "" {
+		rb.SetOracleDbHostingType(s.instanceInfo.hostingType)
+	}
+	if s.instanceInfo.connectedToPDB && s.instanceInfo.pdbName != "" {
+		rb.SetOracleDbPdb(s.instanceInfo.pdbName)
+	}
 	return rb
 }
 

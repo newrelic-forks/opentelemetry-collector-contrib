@@ -242,7 +242,7 @@ Total number of backups/restores.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
-| “{backups_or_restores}/s” | Gauge | Double | Development |
+| {backups_or_restores}/s | Gauge | Double | Development |
 
 ### sqlserver.database.count
 
@@ -266,7 +266,24 @@ Number of execution errors.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
-| “{errors}” | Gauge | Int | Development |
+| {errors} | Gauge | Int | Development |
+
+### sqlserver.database.file.size
+
+Size of database files.
+
+Storage consumed by database files, broken down by file type (data or log). Essential for capacity planning and growth tracking. The db.namespace attribute contains the database name. The file_type attribute indicates whether this is a data file or log file. Available on all SQL Server editions (2012+).
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| By | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| file_type | The type of file being monitored. | Any Str | Recommended | - |
+| db.namespace | The database name. | Any Str | Recommended | - |
 
 ### sqlserver.database.full_scan.rate
 
@@ -333,13 +350,30 @@ This metric is only available when the receiver is configured to directly connec
 | file_type | The type of file being monitored. | Any Str | Recommended | - |
 | direction | The direction of flow of bytes or operations. | Str: ``read``, ``write`` | Recommended | - |
 
+### sqlserver.database.security.role_membership.count
+
+Number of members in a database role.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server. Reports the number of members (principals) assigned to each database-level role. The 'db.namespace' attribute identifies the database, and the 'role' attribute identifies the specific role (e.g., db_owner, db_datareader). Critical for monitoring privilege escalation and compliance. Available on SQL Server 2012+.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {members} | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| db.namespace | The database name. | Any Str | Recommended | - |
+| role | The name of the database or server role. | Any Str | Recommended | - |
+
 ### sqlserver.database.tempdb.space
 
 Total free space in temporary DB.
 
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
-| “KB” | Sum | Int | Cumulative | false | Development |
+| KB | Sum | Int | Cumulative | false | Development |
 
 #### Attributes
 
@@ -353,7 +387,7 @@ TempDB version store size.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
-| “KB” | Gauge | Double | Development |
+| KB | Gauge | Double | Development |
 
 ### sqlserver.deadlock.rate
 
@@ -361,7 +395,7 @@ Total number of deadlocks.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
-| “{deadlocks}/s” | Gauge | Double | Development |
+| {deadlocks}/s | Gauge | Double | Development |
 
 ### sqlserver.index.search.rate
 
@@ -369,7 +403,7 @@ Total number of index searches.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
-| “{searches}/s” | Gauge | Double | Development |
+| {searches}/s | Gauge | Double | Development |
 
 ### sqlserver.latch.superlatch.count
 
@@ -409,9 +443,9 @@ This metric is only available when the receiver is configured to directly connec
 
 ### sqlserver.latch.wait_time.avg
 
-Average latch wait time.
+Average time spent waiting for latches (lighter-weight synchronization).
 
-This metric is only available when the receiver is configured to directly connect to SQL Server.
+This metric is only available when the receiver is configured to directly connect to SQL Server. Latches are lightweight synchronization objects used internally by SQL Server to protect in-memory structures. High latch wait times can indicate memory contention, I/O bottlenecks, or internal resource contention. Available on SQL Server 2005+.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
@@ -433,7 +467,7 @@ Total number of lock timeouts.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
-| “{timeouts}/s” | Gauge | Double | Development |
+| {timeouts}/s | Gauge | Double | Development |
 
 ### sqlserver.lock.wait.count
 
@@ -451,7 +485,7 @@ Total number of logins.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
-| “{logins}/s” | Gauge | Double | Development |
+| {logins}/s | Gauge | Double | Development |
 
 ### sqlserver.logout.rate
 
@@ -459,7 +493,7 @@ Total number of logouts.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
-| “{logouts}/s” | Gauge | Double | Development |
+| {logouts}/s | Gauge | Double | Development |
 
 ### sqlserver.memory.area
 
@@ -517,6 +551,16 @@ This metric is only available when the receiver is configured to directly connec
 | ---- | ----------- | ------ | ----------------- | ------------------- |
 | page.pool | The type of page pool in the SQL Server buffer manager. | Str: ``cache``, ``total``, ``target``, ``database``, ``stolen``, ``reserved``, ``free`` | Recommended | - |
 
+### sqlserver.memory.target
+
+Maximum amount of memory SQL Server is willing to use (target server memory).
+
+This metric is only available when the receiver is configured to directly connect to SQL Server. Target memory represents the ideal amount of memory SQL Server would like to acquire based on recent memory demand. When actual memory usage is less than target memory, SQL Server will attempt to acquire more memory. Available on SQL Server 2005+.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| By | Gauge | Int | Development |
+
 ### sqlserver.memory.usage
 
 Total memory in use.
@@ -548,7 +592,7 @@ Number of free list stalls.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
-| “{stalls}/s” | Gauge | Int | Development |
+| {stalls}/s | Gauge | Int | Development |
 
 ### sqlserver.page.lookup.rate
 
@@ -556,7 +600,7 @@ Total number of page lookups.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
-| “{lookups}/s” | Gauge | Double | Development |
+| {lookups}/s | Gauge | Double | Development |
 
 ### sqlserver.processes.blocked
 
@@ -618,13 +662,39 @@ This metric is only available when the receiver is configured to directly connec
 | ---- | ----------- | ---------- | --------- |
 | {writes}/s | Gauge | Double | Development |
 
+### sqlserver.server.security.principal.count
+
+Number of security principals (logins, users) at the server level.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server. Tracks server-level security principals including SQL logins, Windows logins, and server roles. Essential for security monitoring and compliance auditing. Available on SQL Server 2012+.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {principals} | Gauge | Int | Development |
+
+### sqlserver.server.security.role_membership.count
+
+Number of members in a server role.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server. Reports the number of members (principals) assigned to each server-level role. The 'role' attribute identifies the specific server role (e.g., sysadmin, securityadmin). Critical for monitoring high-privilege access and compliance. Available on SQL Server 2012+.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {members} | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| role | The name of the database or server role. | Any Str | Recommended | - |
+
 ### sqlserver.table.count
 
 The number of tables.
 
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
-| “{tables}” | Sum | Int | Cumulative | false | Development |
+| {tables} | Sum | Int | Cumulative | false | Development |
 
 #### Attributes
 
@@ -647,7 +717,7 @@ Total number of mirror write transactions.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
-| “{transactions}/s” | Gauge | Double | Development |
+| {transactions}/s | Gauge | Double | Development |
 
 ## Default Events
 
@@ -686,6 +756,7 @@ query sample
 | network.peer.port | TCP port used by the peer client. | Any Int | - |
 | sqlserver.blocking_session_id | Session ID that is blocking the current session. 0 if none. | Any Int | - |
 | sqlserver.blocking.start_time | Timestamp of when the current blocking wait began (ISO 8601 format). | Any Str | - |
+| sqlserver.client.app.name | Name of the client application that initiated the session. | Any Str | - |
 | sqlserver.context_info | Context information for the session, represented as a hexadecimal string. | Any Str | - |
 | sqlserver.command | SQL command type being executed. | Any Str | - |
 | sqlserver.cpu_time | CPU time consumed by the query, in seconds. | Any Double | - |
@@ -703,6 +774,8 @@ query sample
 | sqlserver.wait.resource.id | SQL Server identifier for the locked or waited-on resource, if available. | Any Str | - |
 | sqlserver.wait.resource.type | SQL Server type of the locked or waited-on resource, if available. | Any Str | - |
 | sqlserver.row_count | Number of rows affected or returned by the query. | Any Int | - |
+| sqlserver.session.duration | Total elapsed time in seconds the session has been actively executing requests. | Any Double | - |
+| sqlserver.session.started | Timestamp when the session was established (ISO 8601 format). | Any Str | - |
 | sqlserver.session_id | ID of the SQL Server session. | Any Int | - |
 | sqlserver.session_status | Status of the session (e.g., running, sleeping). | Any Str | - |
 | sqlserver.total_elapsed_time | Total elapsed time for completed executions of this plan, reported in delta seconds. | Any Double | - |
@@ -715,6 +788,10 @@ query sample
 | user.name | Login name associated with the SQL Server session. | Any Str | - |
 | sqlserver.procedure_id | The SQL Server ID of the stored procedure, if any | Any Str | - |
 | sqlserver.procedure_name | The name of the stored procedure, if any | Any Str | - |
+| db.query.full_text | The full text of the SQL batch or stored procedure from which the statement was extracted. Only populated when collect_full_query_text is enabled. | Any Str | - |
+| query.comments | Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys in allowed_comment_keys config. Used for APM trace correlation. | Any Str | - |
+| sqlserver.normalised_sql_hash | MD5 hash of the normalized full SQL query text. Used for correlation with APM slow query traces. Only populated when collect_full_query_text is enabled. | Any Str | - |
+| sqlserver.normalized_sql | Normalized SQL query text used to generate the normalised_sql_hash. Only populated when collect_full_query_text is enabled. | Any Str | - |
 
 ### db.server.top_query
 
@@ -744,6 +821,10 @@ top query
 | sqlserver.procedure_id | The SQL Server ID of the stored procedure, if any | Any Str | - |
 | sqlserver.procedure_name | The name of the stored procedure, if any | Any Str | - |
 | sqlserver.query.last_started | Timestamp of when the SQL query last started executing (ISO 8601 format). | Any Str | - |
+| db.query.full_text | The full text of the SQL batch or stored procedure from which the statement was extracted. Only populated when collect_full_query_text is enabled. | Any Str | - |
+| query.comments | Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys in allowed_comment_keys config. Used for APM trace correlation. | Any Str | - |
+| sqlserver.normalised_sql_hash | MD5 hash of the normalized full SQL query text. Used for correlation with APM slow query traces. Only populated when collect_full_query_text is enabled. | Any Str | - |
+| sqlserver.normalized_sql | Normalized SQL query text used to generate the normalised_sql_hash. Only populated when collect_full_query_text is enabled. | Any Str | - |
 
 ## Resource Attributes
 

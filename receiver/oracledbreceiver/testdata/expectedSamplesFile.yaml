@@ -97,6 +97,18 @@ resourceLogs:
               - key: oracledb.duration_sec
                 value:
                   doubleValue: 1
+              - key: oracledb.wait_time_sec
+                value:
+                  doubleValue: 0.5
+              - key: query.comments
+                value:
+                  stringValue: ""
+              - key: oracledb.normalised_sql_hash
+                value:
+                  stringValue: b11b3fffa5cc548e4c7f4ecd86e4469f
+              - key: oracledb.normalized_sql
+                value:
+                  stringValue: TEST_QUERY
               - key: oracledb.query.started
                 value:
                   stringValue: "2026-01-01T12:00:00Z"
@@ -136,7 +148,7 @@ resourceLogs:
             body: {}
             eventName: db.server.query_sample
             spanId: a7ad6b7169203331
-            timeUnixNano: "1779182973079606000"
+            timeUnixNano: "1780564084451572000"
             traceId: 0af7651916cd43dd8448eb211c80319c
         scope:
           name: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/oracledbreceiver
