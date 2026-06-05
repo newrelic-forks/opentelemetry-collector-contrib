@@ -47,11 +47,9 @@ func configureAllScraperMetricsAndEvents(cfg *Config, enabled bool) {
 	cfg.Metrics.SqlserverDatabaseIo.Enabled = enabled
 	cfg.Metrics.SqlserverDatabaseLatency.Enabled = enabled
 	cfg.Metrics.SqlserverDatabaseOperations.Enabled = enabled
-	cfg.Metrics.SqlserverDatabaseSecurityPrincipalCount.Enabled = enabled
 	cfg.Metrics.SqlserverDatabaseSecurityRoleMembershipCount.Enabled = enabled
 	cfg.Metrics.SqlserverDatabaseTempdbSpace.Enabled = enabled
 	cfg.Metrics.SqlserverDatabaseTempdbVersionStoreSize.Enabled = enabled
-	cfg.Metrics.SqlserverDatabaseTransactionsActive.Enabled = enabled
 	cfg.Metrics.SqlserverDeadlockRate.Enabled = enabled
 	cfg.Metrics.SqlserverIndexSearchRate.Enabled = enabled
 	cfg.Metrics.SqlserverLatchSuperlatchCount.Enabled = enabled
@@ -205,8 +203,6 @@ func TestSuccessfulScrape(t *testing.T) {
 					expectedFile = filepath.Join("testdata", "expectedSecurityPrincipals")
 				case getSQLServerSecurityRoleMembersQuery(scraper.config.InstanceName):
 					expectedFile = filepath.Join("testdata", "expectedSecurityRoleMembers")
-				case getSQLServerDatabaseSecurityPrincipalsQuery(scraper.config.InstanceName):
-					expectedFile = filepath.Join("testdata", "expectedDatabaseSecurityPrincipals")
 				case getSQLServerDatabaseSecurityRoleMembersQuery(scraper.config.InstanceName):
 					expectedFile = filepath.Join("testdata", "expectedDatabaseSecurityRoleMembers")
 				}
@@ -461,8 +457,6 @@ func (mc mockClient) QueryRows(context.Context, ...any) ([]sqlquery.StringMap, e
 		queryResults, err = readFile("security_principals_scraped_data.txt")
 	case getSQLServerSecurityRoleMembersQuery(mc.instanceName):
 		queryResults, err = readFile("security_role_members_scraped_data.txt")
-	case getSQLServerDatabaseSecurityPrincipalsQuery(mc.instanceName):
-		queryResults, err = readFile("database_security_principals_scraped_data.txt")
 	case getSQLServerDatabaseSecurityRoleMembersQuery(mc.instanceName):
 		queryResults, err = readFile("database_security_role_members_scraped_data.txt")
 	default:

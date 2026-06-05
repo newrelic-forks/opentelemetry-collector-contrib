@@ -350,22 +350,6 @@ This metric is only available when the receiver is configured to directly connec
 | file_type | The type of file being monitored. | Any Str | Recommended | - |
 | direction | The direction of flow of bytes or operations. | Str: ``read``, ``write`` | Recommended | - |
 
-### sqlserver.database.security.principal.count
-
-Number of security principals (logins, users) at the database level.
-
-This metric is only available when the receiver is configured to directly connect to SQL Server. Tracks database-level security principals including database users, roles, and application roles. The db.namespace attribute contains the database name. Useful for security auditing and access management. Available on SQL Server 2012+.
-
-| Unit | Metric Type | Value Type | Stability |
-| ---- | ----------- | ---------- | --------- |
-| {principals} | Gauge | Int | Development |
-
-#### Attributes
-
-| Name | Description | Values | Requirement Level | Semantic Convention |
-| ---- | ----------- | ------ | ----------------- | ------------------- |
-| db.namespace | The database name. | Any Str | Recommended | - |
-
 ### sqlserver.database.security.role_membership.count
 
 Number of members in a database role.
@@ -404,22 +388,6 @@ TempDB version store size.
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
 | KB | Gauge | Double | Development |
-
-### sqlserver.database.transactions.active
-
-Number of currently active transactions.
-
-Critical for monitoring transaction blocking and long-running transactions. The db.namespace attribute contains the database name. Available on all SQL Server editions (2005+).
-
-| Unit | Metric Type | Value Type | Stability |
-| ---- | ----------- | ---------- | --------- |
-| {transactions} | Gauge | Int | Development |
-
-#### Attributes
-
-| Name | Description | Values | Requirement Level | Semantic Convention |
-| ---- | ----------- | ------ | ----------------- | ------------------- |
-| db.namespace | The database name. | Any Str | Recommended | - |
 
 ### sqlserver.deadlock.rate
 

@@ -567,16 +567,6 @@ metrics:
       input_type: string
     attributes: [physical_filename, logical_filename, file_type, direction]
     extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
-  sqlserver.database.security.principal.count:
-    enabled: false
-    description: Number of security principals (logins, users) at the database level.
-    stability: development
-    unit: "{principals}"
-    gauge:
-      value_type: int
-      input_type: string
-    attributes: [db.namespace]
-    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server. Tracks database-level security principals including database users, roles, and application roles. The db.namespace attribute contains the database name. Useful for security auditing and access management. Available on SQL Server 2012+.
   sqlserver.database.security.role_membership.count:
     enabled: false
     description: Number of members in a database role.
@@ -605,16 +595,6 @@ metrics:
     gauge:
       value_type: double
     attributes: []
-  sqlserver.database.transactions.active:
-    enabled: false
-    description: Number of currently active transactions.
-    stability: development
-    unit: "{transactions}"
-    gauge:
-      value_type: int
-      input_type: string
-    attributes: [db.namespace]
-    extended_documentation: Critical for monitoring transaction blocking and long-running transactions. The db.namespace attribute contains the database name. Available on all SQL Server editions (2005+).
   sqlserver.deadlock.rate:
     enabled: false
     description: Total number of deadlocks.

@@ -134,8 +134,6 @@ func (s *sqlServerScraperHelper) ScrapeMetrics(ctx context.Context) (pmetric.Met
 		err = s.recordSecurityPrincipalsMetrics(ctx)
 	case getSQLServerSecurityRoleMembersQuery(s.config.InstanceName):
 		err = s.recordSecurityRoleMembersMetrics(ctx)
-	case getSQLServerDatabaseSecurityPrincipalsQuery(s.config.InstanceName):
-		err = s.recordDatabaseSecurityPrincipalsMetrics(ctx)
 	case getSQLServerDatabaseSecurityRoleMembersQuery(s.config.InstanceName):
 		err = s.recordDatabaseSecurityRoleMembersMetrics(ctx)
 	default:
@@ -1054,11 +1052,9 @@ func (s *sqlServerScraperHelper) recordMemoryTargetMetrics(ctx context.Context) 
 
 func (s *sqlServerScraperHelper) recordDatabaseSizeMetrics(ctx context.Context) error {
 	const (
-		measurement        = "measurement"
-		databaseName       = "database_name"
-		fileType           = "file_type"
-		sizeBytes          = "size_bytes"
-		activeTransactions = "active_transactions"
+		databaseName = "database_name"
+		fileType     = "file_type"
+		sizeBytes    = "size_bytes"
 	)
 
 	rows, err := s.client.QueryRows(ctx)
@@ -1075,15 +1071,8 @@ func (s *sqlServerScraperHelper) recordDatabaseSizeMetrics(ctx context.Context) 
 		rb := s.setupResourceBuilder(s.mb.NewResourceBuilder(), row)
 		rb.SetSqlserverDatabaseName(row[databaseName])
 
-		switch row[measurement] {
-		case "sqlserver_database_file_size":
-			if err := s.mb.RecordSqlserverDatabaseFileSizeDataPoint(now, row[sizeBytes], row[fileType], row[databaseName]); err != nil {
-				errs = append(errs, fmt.Errorf("failed to parse database file size for row %d: %w", i, err))
-			}
-		case "sqlserver_database_transactions_active":
-			if err := s.mb.RecordSqlserverDatabaseTransactionsActiveDataPoint(now, row[activeTransactions], row[databaseName]); err != nil {
-				errs = append(errs, fmt.Errorf("failed to parse active transactions for row %d: %w", i, err))
-			}
+		if err := s.mb.RecordSqlserverDatabaseFileSizeDataPoint(now, row[sizeBytes], row[fileType], row[databaseName]); err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse database file size for row %d: %w", i, err))
 		}
 
 		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
@@ -1694,36 +1683,6 @@ func (s *sqlServerScraperHelper) recordSecurityRoleMembersMetrics(ctx context.Co
 
 		if err := s.mb.RecordSqlserverServerSecurityRoleMembershipCountDataPoint(now, row[roleMemberCount], row[roleName]); err != nil {
 			errs = append(errs, fmt.Errorf("failed to parse server security role membership count for row %d: %w", i, err))
-		}
-
-		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
-	}
-
-	return errors.Join(errs...)
-}
-
-func (s *sqlServerScraperHelper) recordDatabaseSecurityPrincipalsMetrics(ctx context.Context) error {
-	const (
-		databaseName   = "database_name"
-		principalCount = "principal_count"
-	)
-
-	rows, err := s.client.QueryRows(ctx)
-	if err != nil {
-		if !errors.Is(err, sqlquery.ErrNullValueWarning) {
-			return fmt.Errorf("sqlServerScraperHelper: %w", err)
-		}
-		s.logger.Warn("problems encountered getting metric rows", zap.Error(err))
-	}
-
-	var errs []error
-	now := pcommon.NewTimestampFromTime(time.Now())
-	for i, row := range rows {
-		rb := s.setupResourceBuilder(s.mb.NewResourceBuilder(), row)
-		rb.SetSqlserverDatabaseName(row[databaseName])
-
-		if err := s.mb.RecordSqlserverDatabaseSecurityPrincipalCountDataPoint(now, row[principalCount], row[databaseName]); err != nil {
-			errs = append(errs, fmt.Errorf("failed to parse database security principal count for row %d: %w", i, err))
 		}
 
 		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
