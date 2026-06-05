@@ -103,7 +103,7 @@ func setupQueries(cfg *Config) []string {
 		queries = append(queries, getSQLServerSecurityRoleMembersQuery(cfg.InstanceName))
 	}
 
-if cfg.Metrics.SqlserverDatabaseSecurityRoleMembershipCount.Enabled {
+	if cfg.Metrics.SqlserverDatabaseSecurityRoleMembershipCount.Enabled {
 		queries = append(queries, getSQLServerDatabaseSecurityRoleMembersQuery(cfg.InstanceName))
 	}
 

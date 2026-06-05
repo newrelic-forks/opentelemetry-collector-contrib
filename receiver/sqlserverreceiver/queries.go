@@ -1239,7 +1239,6 @@ func getSQLServerSecurityRoleMembersQuery(instanceName string) string {
 	return r.Replace(sqlServerSecurityRoleMembersQuery)
 }
 
-
 const sqlServerDatabaseSecurityRoleMembersQuery = `
 SET DEADLOCK_PRIORITY -10;
 IF SERVERPROPERTY('EngineEdition') NOT IN (2,3,4,5,8) BEGIN
