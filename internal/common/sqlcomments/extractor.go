@@ -33,7 +33,6 @@ func ExtractAndFilterComments(sqlText string, allowedKeys []string) string {
 	return strings.Join(filteredPairs, ",")
 }
 
-
 func parseLeadingComments(sqlText string) map[string]string {
 	values := make(map[string]string)
 
