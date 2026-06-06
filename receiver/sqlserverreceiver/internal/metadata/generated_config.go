@@ -9,6 +9,26 @@ import (
 	"go.opentelemetry.io/collector/filter"
 )
 
+// SqlserverAttentionRateMetricConfig provides config for the sqlserver.attention.rate metric.
+type SqlserverAttentionRateMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+}
+
+func (ms *SqlserverAttentionRateMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
 // SqlserverBatchRequestRateMetricConfig provides config for the sqlserver.batch.request.rate metric.
 type SqlserverBatchRequestRateMetricConfig struct {
 	Enabled          bool `mapstructure:"enabled"`
@@ -197,55 +217,6 @@ func (ms *SqlserverDatabaseExecutionErrorsMetricConfig) Unmarshal(parser *confma
 	return nil
 }
 
-// SqlserverDatabaseFileSizeMetricAttributeKey specifies the key of an attribute for the sqlserver.database.file.size metric.
-type SqlserverDatabaseFileSizeMetricAttributeKey string
-
-const (
-	SqlserverDatabaseFileSizeMetricAttributeKeyFileType    SqlserverDatabaseFileSizeMetricAttributeKey = "file_type"
-	SqlserverDatabaseFileSizeMetricAttributeKeyDbNamespace SqlserverDatabaseFileSizeMetricAttributeKey = "db.namespace"
-)
-
-// SqlserverDatabaseFileSizeMetricConfig provides config for the sqlserver.database.file.size metric.
-type SqlserverDatabaseFileSizeMetricConfig struct {
-	Enabled          bool `mapstructure:"enabled"`
-	enabledSetByUser bool
-
-	AggregationStrategy string                                        `mapstructure:"aggregation_strategy"`
-	EnabledAttributes   []SqlserverDatabaseFileSizeMetricAttributeKey `mapstructure:"attributes"`
-}
-
-func (ms *SqlserverDatabaseFileSizeMetricConfig) Unmarshal(parser *confmap.Conf) error {
-	if parser == nil {
-		return nil
-	}
-
-	err := parser.Unmarshal(ms)
-	if err != nil {
-		return err
-	}
-
-	ms.enabledSetByUser = parser.IsSet("enabled")
-	return nil
-}
-
-func (ms *SqlserverDatabaseFileSizeMetricConfig) Validate() error {
-	for _, val := range ms.EnabledAttributes {
-		switch val {
-		case SqlserverDatabaseFileSizeMetricAttributeKeyFileType, SqlserverDatabaseFileSizeMetricAttributeKeyDbNamespace:
-		default:
-			return fmt.Errorf("metric sqlserver.database.file.size doesn't have an attribute %v, valid attributes: [file_type, db.namespace]", val)
-		}
-	}
-
-	switch ms.AggregationStrategy {
-	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
-	default:
-		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
-	}
-
-	return nil
-}
-
 // SqlserverDatabaseFullScanRateMetricConfig provides config for the sqlserver.database.full_scan.rate metric.
 type SqlserverDatabaseFullScanRateMetricConfig struct {
 	Enabled          bool `mapstructure:"enabled"`
@@ -419,103 +390,6 @@ func (ms *SqlserverDatabaseOperationsMetricConfig) Validate() error {
 	return nil
 }
 
-// SqlserverDatabaseSecurityPrincipalCountMetricAttributeKey specifies the key of an attribute for the sqlserver.database.security.principal.count metric.
-type SqlserverDatabaseSecurityPrincipalCountMetricAttributeKey string
-
-const (
-	SqlserverDatabaseSecurityPrincipalCountMetricAttributeKeyDbNamespace SqlserverDatabaseSecurityPrincipalCountMetricAttributeKey = "db.namespace"
-)
-
-// SqlserverDatabaseSecurityPrincipalCountMetricConfig provides config for the sqlserver.database.security.principal.count metric.
-type SqlserverDatabaseSecurityPrincipalCountMetricConfig struct {
-	Enabled          bool `mapstructure:"enabled"`
-	enabledSetByUser bool
-
-	AggregationStrategy string                                                      `mapstructure:"aggregation_strategy"`
-	EnabledAttributes   []SqlserverDatabaseSecurityPrincipalCountMetricAttributeKey `mapstructure:"attributes"`
-}
-
-func (ms *SqlserverDatabaseSecurityPrincipalCountMetricConfig) Unmarshal(parser *confmap.Conf) error {
-	if parser == nil {
-		return nil
-	}
-
-	err := parser.Unmarshal(ms)
-	if err != nil {
-		return err
-	}
-
-	ms.enabledSetByUser = parser.IsSet("enabled")
-	return nil
-}
-
-func (ms *SqlserverDatabaseSecurityPrincipalCountMetricConfig) Validate() error {
-	for _, val := range ms.EnabledAttributes {
-		switch val {
-		case SqlserverDatabaseSecurityPrincipalCountMetricAttributeKeyDbNamespace:
-		default:
-			return fmt.Errorf("metric sqlserver.database.security.principal.count doesn't have an attribute %v, valid attributes: [db.namespace]", val)
-		}
-	}
-
-	switch ms.AggregationStrategy {
-	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
-	default:
-		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
-	}
-
-	return nil
-}
-
-// SqlserverDatabaseSecurityRoleMembershipCountMetricAttributeKey specifies the key of an attribute for the sqlserver.database.security.role_membership.count metric.
-type SqlserverDatabaseSecurityRoleMembershipCountMetricAttributeKey string
-
-const (
-	SqlserverDatabaseSecurityRoleMembershipCountMetricAttributeKeyDbNamespace SqlserverDatabaseSecurityRoleMembershipCountMetricAttributeKey = "db.namespace"
-	SqlserverDatabaseSecurityRoleMembershipCountMetricAttributeKeyRole        SqlserverDatabaseSecurityRoleMembershipCountMetricAttributeKey = "role"
-)
-
-// SqlserverDatabaseSecurityRoleMembershipCountMetricConfig provides config for the sqlserver.database.security.role_membership.count metric.
-type SqlserverDatabaseSecurityRoleMembershipCountMetricConfig struct {
-	Enabled          bool `mapstructure:"enabled"`
-	enabledSetByUser bool
-
-	AggregationStrategy string                                                           `mapstructure:"aggregation_strategy"`
-	EnabledAttributes   []SqlserverDatabaseSecurityRoleMembershipCountMetricAttributeKey `mapstructure:"attributes"`
-}
-
-func (ms *SqlserverDatabaseSecurityRoleMembershipCountMetricConfig) Unmarshal(parser *confmap.Conf) error {
-	if parser == nil {
-		return nil
-	}
-
-	err := parser.Unmarshal(ms)
-	if err != nil {
-		return err
-	}
-
-	ms.enabledSetByUser = parser.IsSet("enabled")
-	return nil
-}
-
-func (ms *SqlserverDatabaseSecurityRoleMembershipCountMetricConfig) Validate() error {
-	for _, val := range ms.EnabledAttributes {
-		switch val {
-		case SqlserverDatabaseSecurityRoleMembershipCountMetricAttributeKeyDbNamespace, SqlserverDatabaseSecurityRoleMembershipCountMetricAttributeKeyRole:
-		default:
-			return fmt.Errorf("metric sqlserver.database.security.role_membership.count doesn't have an attribute %v, valid attributes: [db.namespace, role]", val)
-		}
-	}
-
-	switch ms.AggregationStrategy {
-	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
-	default:
-		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
-	}
-
-	return nil
-}
-
 // SqlserverDatabaseTempdbSpaceMetricAttributeKey specifies the key of an attribute for the sqlserver.database.tempdb.space metric.
 type SqlserverDatabaseTempdbSpaceMetricAttributeKey string
 
@@ -581,54 +455,6 @@ func (ms *SqlserverDatabaseTempdbVersionStoreSizeMetricConfig) Unmarshal(parser 
 	}
 
 	ms.enabledSetByUser = parser.IsSet("enabled")
-	return nil
-}
-
-// SqlserverDatabaseTransactionsActiveMetricAttributeKey specifies the key of an attribute for the sqlserver.database.transactions.active metric.
-type SqlserverDatabaseTransactionsActiveMetricAttributeKey string
-
-const (
-	SqlserverDatabaseTransactionsActiveMetricAttributeKeyDbNamespace SqlserverDatabaseTransactionsActiveMetricAttributeKey = "db.namespace"
-)
-
-// SqlserverDatabaseTransactionsActiveMetricConfig provides config for the sqlserver.database.transactions.active metric.
-type SqlserverDatabaseTransactionsActiveMetricConfig struct {
-	Enabled          bool `mapstructure:"enabled"`
-	enabledSetByUser bool
-
-	AggregationStrategy string                                                  `mapstructure:"aggregation_strategy"`
-	EnabledAttributes   []SqlserverDatabaseTransactionsActiveMetricAttributeKey `mapstructure:"attributes"`
-}
-
-func (ms *SqlserverDatabaseTransactionsActiveMetricConfig) Unmarshal(parser *confmap.Conf) error {
-	if parser == nil {
-		return nil
-	}
-
-	err := parser.Unmarshal(ms)
-	if err != nil {
-		return err
-	}
-
-	ms.enabledSetByUser = parser.IsSet("enabled")
-	return nil
-}
-
-func (ms *SqlserverDatabaseTransactionsActiveMetricConfig) Validate() error {
-	for _, val := range ms.EnabledAttributes {
-		switch val {
-		case SqlserverDatabaseTransactionsActiveMetricAttributeKeyDbNamespace:
-		default:
-			return fmt.Errorf("metric sqlserver.database.transactions.active doesn't have an attribute %v, valid attributes: [db.namespace]", val)
-		}
-	}
-
-	switch ms.AggregationStrategy {
-	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
-	default:
-		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
-	}
-
 	return nil
 }
 
@@ -1084,26 +910,6 @@ func (ms *SqlserverMemoryPageCountMetricConfig) Validate() error {
 	return nil
 }
 
-// SqlserverMemoryTargetMetricConfig provides config for the sqlserver.memory.target metric.
-type SqlserverMemoryTargetMetricConfig struct {
-	Enabled          bool `mapstructure:"enabled"`
-	enabledSetByUser bool
-}
-
-func (ms *SqlserverMemoryTargetMetricConfig) Unmarshal(parser *confmap.Conf) error {
-	if parser == nil {
-		return nil
-	}
-
-	err := parser.Unmarshal(ms)
-	if err != nil {
-		return err
-	}
-
-	ms.enabledSetByUser = parser.IsSet("enabled")
-	return nil
-}
-
 // SqlserverMemoryUsageMetricConfig provides config for the sqlserver.memory.usage metric.
 type SqlserverMemoryUsageMetricConfig struct {
 	Enabled          bool `mapstructure:"enabled"`
@@ -1389,6 +1195,102 @@ func (ms *SqlserverPageSplitRateMetricConfig) Unmarshal(parser *confmap.Conf) er
 	return nil
 }
 
+// SqlserverParameterizationRateMetricAttributeKey specifies the key of an attribute for the sqlserver.parameterization.rate metric.
+type SqlserverParameterizationRateMetricAttributeKey string
+
+const (
+	SqlserverParameterizationRateMetricAttributeKeySqlserverParameterizationResult SqlserverParameterizationRateMetricAttributeKey = "sqlserver.parameterization.result"
+)
+
+// SqlserverParameterizationRateMetricConfig provides config for the sqlserver.parameterization.rate metric.
+type SqlserverParameterizationRateMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                                            `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []SqlserverParameterizationRateMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *SqlserverParameterizationRateMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *SqlserverParameterizationRateMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case SqlserverParameterizationRateMetricAttributeKeySqlserverParameterizationResult:
+		default:
+			return fmt.Errorf("metric sqlserver.parameterization.rate doesn't have an attribute %v, valid attributes: [sqlserver.parameterization.result]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
+// SqlserverPlanExecutionRateMetricAttributeKey specifies the key of an attribute for the sqlserver.plan.execution.rate metric.
+type SqlserverPlanExecutionRateMetricAttributeKey string
+
+const (
+	SqlserverPlanExecutionRateMetricAttributeKeySqlserverPlanGuidanceResult SqlserverPlanExecutionRateMetricAttributeKey = "sqlserver.plan.guidance.result"
+)
+
+// SqlserverPlanExecutionRateMetricConfig provides config for the sqlserver.plan.execution.rate metric.
+type SqlserverPlanExecutionRateMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                                         `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []SqlserverPlanExecutionRateMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *SqlserverPlanExecutionRateMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *SqlserverPlanExecutionRateMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case SqlserverPlanExecutionRateMetricAttributeKeySqlserverPlanGuidanceResult:
+		default:
+			return fmt.Errorf("metric sqlserver.plan.execution.rate doesn't have an attribute %v, valid attributes: [sqlserver.plan.guidance.result]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
 // SqlserverProcessesBlockedMetricConfig provides config for the sqlserver.processes.blocked metric.
 type SqlserverProcessesBlockedMetricConfig struct {
 	Enabled          bool `mapstructure:"enabled"`
@@ -1396,6 +1298,26 @@ type SqlserverProcessesBlockedMetricConfig struct {
 }
 
 func (ms *SqlserverProcessesBlockedMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+// SqlserverRecompilationRatioMetricConfig provides config for the sqlserver.recompilation.ratio metric.
+type SqlserverRecompilationRatioMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+}
+
+func (ms *SqlserverRecompilationRatioMetricConfig) Unmarshal(parser *confmap.Conf) error {
 	if parser == nil {
 		return nil
 	}
@@ -1542,74 +1464,6 @@ func (ms *SqlserverResourcePoolDiskThrottledWriteRateMetricConfig) Unmarshal(par
 	}
 
 	ms.enabledSetByUser = parser.IsSet("enabled")
-	return nil
-}
-
-// SqlserverServerSecurityPrincipalCountMetricConfig provides config for the sqlserver.server.security.principal.count metric.
-type SqlserverServerSecurityPrincipalCountMetricConfig struct {
-	Enabled          bool `mapstructure:"enabled"`
-	enabledSetByUser bool
-}
-
-func (ms *SqlserverServerSecurityPrincipalCountMetricConfig) Unmarshal(parser *confmap.Conf) error {
-	if parser == nil {
-		return nil
-	}
-
-	err := parser.Unmarshal(ms)
-	if err != nil {
-		return err
-	}
-
-	ms.enabledSetByUser = parser.IsSet("enabled")
-	return nil
-}
-
-// SqlserverServerSecurityRoleMembershipCountMetricAttributeKey specifies the key of an attribute for the sqlserver.server.security.role_membership.count metric.
-type SqlserverServerSecurityRoleMembershipCountMetricAttributeKey string
-
-const (
-	SqlserverServerSecurityRoleMembershipCountMetricAttributeKeyRole SqlserverServerSecurityRoleMembershipCountMetricAttributeKey = "role"
-)
-
-// SqlserverServerSecurityRoleMembershipCountMetricConfig provides config for the sqlserver.server.security.role_membership.count metric.
-type SqlserverServerSecurityRoleMembershipCountMetricConfig struct {
-	Enabled          bool `mapstructure:"enabled"`
-	enabledSetByUser bool
-
-	AggregationStrategy string                                                         `mapstructure:"aggregation_strategy"`
-	EnabledAttributes   []SqlserverServerSecurityRoleMembershipCountMetricAttributeKey `mapstructure:"attributes"`
-}
-
-func (ms *SqlserverServerSecurityRoleMembershipCountMetricConfig) Unmarshal(parser *confmap.Conf) error {
-	if parser == nil {
-		return nil
-	}
-
-	err := parser.Unmarshal(ms)
-	if err != nil {
-		return err
-	}
-
-	ms.enabledSetByUser = parser.IsSet("enabled")
-	return nil
-}
-
-func (ms *SqlserverServerSecurityRoleMembershipCountMetricConfig) Validate() error {
-	for _, val := range ms.EnabledAttributes {
-		switch val {
-		case SqlserverServerSecurityRoleMembershipCountMetricAttributeKeyRole:
-		default:
-			return fmt.Errorf("metric sqlserver.server.security.role_membership.count doesn't have an attribute %v, valid attributes: [role]", val)
-		}
-	}
-
-	switch ms.AggregationStrategy {
-	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
-	default:
-		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
-	}
-
 	return nil
 }
 
@@ -1884,75 +1738,75 @@ func (ms *SqlserverUserConnectionCountMetricConfig) Unmarshal(parser *confmap.Co
 
 // MetricsConfig provides config for sqlserver metrics.
 type MetricsConfig struct {
-	SqlserverBatchRequestRate                    SqlserverBatchRequestRateMetricConfig                    `mapstructure:"sqlserver.batch.request.rate"`
-	SqlserverBatchSQLCompilationRate             SqlserverBatchSQLCompilationRateMetricConfig             `mapstructure:"sqlserver.batch.sql_compilation.rate"`
-	SqlserverBatchSQLRecompilationRate           SqlserverBatchSQLRecompilationRateMetricConfig           `mapstructure:"sqlserver.batch.sql_recompilation.rate"`
-	SqlserverComputerUptime                      SqlserverComputerUptimeMetricConfig                      `mapstructure:"sqlserver.computer.uptime"`
-	SqlserverCPUCount                            SqlserverCPUCountMetricConfig                            `mapstructure:"sqlserver.cpu.count"`
-	SqlserverDatabaseBackupOrRestoreRate         SqlserverDatabaseBackupOrRestoreRateMetricConfig         `mapstructure:"sqlserver.database.backup_or_restore.rate"`
-	SqlserverDatabaseCount                       SqlserverDatabaseCountMetricConfig                       `mapstructure:"sqlserver.database.count"`
-	SqlserverDatabaseExecutionErrors             SqlserverDatabaseExecutionErrorsMetricConfig             `mapstructure:"sqlserver.database.execution.errors"`
-	SqlserverDatabaseFileSize                    SqlserverDatabaseFileSizeMetricConfig                    `mapstructure:"sqlserver.database.file.size"`
-	SqlserverDatabaseFullScanRate                SqlserverDatabaseFullScanRateMetricConfig                `mapstructure:"sqlserver.database.full_scan.rate"`
-	SqlserverDatabaseIo                          SqlserverDatabaseIoMetricConfig                          `mapstructure:"sqlserver.database.io"`
-	SqlserverDatabaseLatency                     SqlserverDatabaseLatencyMetricConfig                     `mapstructure:"sqlserver.database.latency"`
-	SqlserverDatabaseOperations                  SqlserverDatabaseOperationsMetricConfig                  `mapstructure:"sqlserver.database.operations"`
-	SqlserverDatabaseSecurityPrincipalCount      SqlserverDatabaseSecurityPrincipalCountMetricConfig      `mapstructure:"sqlserver.database.security.principal.count"`
-	SqlserverDatabaseSecurityRoleMembershipCount SqlserverDatabaseSecurityRoleMembershipCountMetricConfig `mapstructure:"sqlserver.database.security.role_membership.count"`
-	SqlserverDatabaseTempdbSpace                 SqlserverDatabaseTempdbSpaceMetricConfig                 `mapstructure:"sqlserver.database.tempdb.space"`
-	SqlserverDatabaseTempdbVersionStoreSize      SqlserverDatabaseTempdbVersionStoreSizeMetricConfig      `mapstructure:"sqlserver.database.tempdb.version_store.size"`
-	SqlserverDatabaseTransactionsActive          SqlserverDatabaseTransactionsActiveMetricConfig          `mapstructure:"sqlserver.database.transactions.active"`
-	SqlserverDeadlockRate                        SqlserverDeadlockRateMetricConfig                        `mapstructure:"sqlserver.deadlock.rate"`
-	SqlserverIndexSearchRate                     SqlserverIndexSearchRateMetricConfig                     `mapstructure:"sqlserver.index.search.rate"`
-	SqlserverLatchSuperlatchCount                SqlserverLatchSuperlatchCountMetricConfig                `mapstructure:"sqlserver.latch.superlatch.count"`
-	SqlserverLatchSuperlatchTransitionRate       SqlserverLatchSuperlatchTransitionRateMetricConfig       `mapstructure:"sqlserver.latch.superlatch.transition.rate"`
-	SqlserverLatchWaitRate                       SqlserverLatchWaitRateMetricConfig                       `mapstructure:"sqlserver.latch.wait.rate"`
-	SqlserverLatchWaitTimeAvg                    SqlserverLatchWaitTimeAvgMetricConfig                    `mapstructure:"sqlserver.latch.wait_time.avg"`
-	SqlserverLatchWaitTimeTotal                  SqlserverLatchWaitTimeTotalMetricConfig                  `mapstructure:"sqlserver.latch.wait_time.total"`
-	SqlserverLockTimeoutRate                     SqlserverLockTimeoutRateMetricConfig                     `mapstructure:"sqlserver.lock.timeout.rate"`
-	SqlserverLockWaitCount                       SqlserverLockWaitCountMetricConfig                       `mapstructure:"sqlserver.lock.wait.count"`
-	SqlserverLockWaitRate                        SqlserverLockWaitRateMetricConfig                        `mapstructure:"sqlserver.lock.wait.rate"`
-	SqlserverLockWaitTimeAvg                     SqlserverLockWaitTimeAvgMetricConfig                     `mapstructure:"sqlserver.lock.wait_time.avg"`
-	SqlserverLoginRate                           SqlserverLoginRateMetricConfig                           `mapstructure:"sqlserver.login.rate"`
-	SqlserverLogoutRate                          SqlserverLogoutRateMetricConfig                          `mapstructure:"sqlserver.logout.rate"`
-	SqlserverMemoryArea                          SqlserverMemoryAreaMetricConfig                          `mapstructure:"sqlserver.memory.area"`
-	SqlserverMemoryCacheObjectCount              SqlserverMemoryCacheObjectCountMetricConfig              `mapstructure:"sqlserver.memory.cache.object.count"`
-	SqlserverMemoryGrantsPendingCount            SqlserverMemoryGrantsPendingCountMetricConfig            `mapstructure:"sqlserver.memory.grants.pending.count"`
-	SqlserverMemoryPageCount                     SqlserverMemoryPageCountMetricConfig                     `mapstructure:"sqlserver.memory.page.count"`
-	SqlserverMemoryTarget                        SqlserverMemoryTargetMetricConfig                        `mapstructure:"sqlserver.memory.target"`
-	SqlserverMemoryUsage                         SqlserverMemoryUsageMetricConfig                         `mapstructure:"sqlserver.memory.usage"`
-	SqlserverOsWaitDuration                      SqlserverOsWaitDurationMetricConfig                      `mapstructure:"sqlserver.os.wait.duration"`
-	SqlserverPageBufferCacheFreeListStallsRate   SqlserverPageBufferCacheFreeListStallsRateMetricConfig   `mapstructure:"sqlserver.page.buffer_cache.free_list.stalls.rate"`
-	SqlserverPageBufferCacheHitRatio             SqlserverPageBufferCacheHitRatioMetricConfig             `mapstructure:"sqlserver.page.buffer_cache.hit_ratio"`
-	SqlserverPageCheckpointFlushRate             SqlserverPageCheckpointFlushRateMetricConfig             `mapstructure:"sqlserver.page.checkpoint.flush.rate"`
-	SqlserverPageLazyWriteRate                   SqlserverPageLazyWriteRateMetricConfig                   `mapstructure:"sqlserver.page.lazy_write.rate"`
-	SqlserverPageLifeExpectancy                  SqlserverPageLifeExpectancyMetricConfig                  `mapstructure:"sqlserver.page.life_expectancy"`
-	SqlserverPageLookupRate                      SqlserverPageLookupRateMetricConfig                      `mapstructure:"sqlserver.page.lookup.rate"`
-	SqlserverPageOperationRate                   SqlserverPageOperationRateMetricConfig                   `mapstructure:"sqlserver.page.operation.rate"`
-	SqlserverPageSplitRate                       SqlserverPageSplitRateMetricConfig                       `mapstructure:"sqlserver.page.split.rate"`
-	SqlserverProcessesBlocked                    SqlserverProcessesBlockedMetricConfig                    `mapstructure:"sqlserver.processes.blocked"`
-	SqlserverReplicaDataRate                     SqlserverReplicaDataRateMetricConfig                     `mapstructure:"sqlserver.replica.data.rate"`
-	SqlserverResourcePoolDiskOperations          SqlserverResourcePoolDiskOperationsMetricConfig          `mapstructure:"sqlserver.resource_pool.disk.operations"`
-	SqlserverResourcePoolDiskThrottledReadRate   SqlserverResourcePoolDiskThrottledReadRateMetricConfig   `mapstructure:"sqlserver.resource_pool.disk.throttled.read.rate"`
-	SqlserverResourcePoolDiskThrottledWriteRate  SqlserverResourcePoolDiskThrottledWriteRateMetricConfig  `mapstructure:"sqlserver.resource_pool.disk.throttled.write.rate"`
-	SqlserverServerSecurityPrincipalCount        SqlserverServerSecurityPrincipalCountMetricConfig        `mapstructure:"sqlserver.server.security.principal.count"`
-	SqlserverServerSecurityRoleMembershipCount   SqlserverServerSecurityRoleMembershipCountMetricConfig   `mapstructure:"sqlserver.server.security.role_membership.count"`
-	SqlserverTableCount                          SqlserverTableCountMetricConfig                          `mapstructure:"sqlserver.table.count"`
-	SqlserverTransactionDelay                    SqlserverTransactionDelayMetricConfig                    `mapstructure:"sqlserver.transaction.delay"`
-	SqlserverTransactionMirrorWriteRate          SqlserverTransactionMirrorWriteRateMetricConfig          `mapstructure:"sqlserver.transaction.mirror_write.rate"`
-	SqlserverTransactionRate                     SqlserverTransactionRateMetricConfig                     `mapstructure:"sqlserver.transaction.rate"`
-	SqlserverTransactionWriteRate                SqlserverTransactionWriteRateMetricConfig                `mapstructure:"sqlserver.transaction.write.rate"`
-	SqlserverTransactionLogFlushDataRate         SqlserverTransactionLogFlushDataRateMetricConfig         `mapstructure:"sqlserver.transaction_log.flush.data.rate"`
-	SqlserverTransactionLogFlushRate             SqlserverTransactionLogFlushRateMetricConfig             `mapstructure:"sqlserver.transaction_log.flush.rate"`
-	SqlserverTransactionLogFlushWaitRate         SqlserverTransactionLogFlushWaitRateMetricConfig         `mapstructure:"sqlserver.transaction_log.flush.wait.rate"`
-	SqlserverTransactionLogGrowthCount           SqlserverTransactionLogGrowthCountMetricConfig           `mapstructure:"sqlserver.transaction_log.growth.count"`
-	SqlserverTransactionLogShrinkCount           SqlserverTransactionLogShrinkCountMetricConfig           `mapstructure:"sqlserver.transaction_log.shrink.count"`
-	SqlserverTransactionLogUsage                 SqlserverTransactionLogUsageMetricConfig                 `mapstructure:"sqlserver.transaction_log.usage"`
-	SqlserverUserConnectionCount                 SqlserverUserConnectionCountMetricConfig                 `mapstructure:"sqlserver.user.connection.count"`
+	SqlserverAttentionRate                      SqlserverAttentionRateMetricConfig                      `mapstructure:"sqlserver.attention.rate"`
+	SqlserverBatchRequestRate                   SqlserverBatchRequestRateMetricConfig                   `mapstructure:"sqlserver.batch.request.rate"`
+	SqlserverBatchSQLCompilationRate            SqlserverBatchSQLCompilationRateMetricConfig            `mapstructure:"sqlserver.batch.sql_compilation.rate"`
+	SqlserverBatchSQLRecompilationRate          SqlserverBatchSQLRecompilationRateMetricConfig          `mapstructure:"sqlserver.batch.sql_recompilation.rate"`
+	SqlserverComputerUptime                     SqlserverComputerUptimeMetricConfig                     `mapstructure:"sqlserver.computer.uptime"`
+	SqlserverCPUCount                           SqlserverCPUCountMetricConfig                           `mapstructure:"sqlserver.cpu.count"`
+	SqlserverDatabaseBackupOrRestoreRate        SqlserverDatabaseBackupOrRestoreRateMetricConfig        `mapstructure:"sqlserver.database.backup_or_restore.rate"`
+	SqlserverDatabaseCount                      SqlserverDatabaseCountMetricConfig                      `mapstructure:"sqlserver.database.count"`
+	SqlserverDatabaseExecutionErrors            SqlserverDatabaseExecutionErrorsMetricConfig            `mapstructure:"sqlserver.database.execution.errors"`
+	SqlserverDatabaseFullScanRate               SqlserverDatabaseFullScanRateMetricConfig               `mapstructure:"sqlserver.database.full_scan.rate"`
+	SqlserverDatabaseIo                         SqlserverDatabaseIoMetricConfig                         `mapstructure:"sqlserver.database.io"`
+	SqlserverDatabaseLatency                    SqlserverDatabaseLatencyMetricConfig                    `mapstructure:"sqlserver.database.latency"`
+	SqlserverDatabaseOperations                 SqlserverDatabaseOperationsMetricConfig                 `mapstructure:"sqlserver.database.operations"`
+	SqlserverDatabaseTempdbSpace                SqlserverDatabaseTempdbSpaceMetricConfig                `mapstructure:"sqlserver.database.tempdb.space"`
+	SqlserverDatabaseTempdbVersionStoreSize     SqlserverDatabaseTempdbVersionStoreSizeMetricConfig     `mapstructure:"sqlserver.database.tempdb.version_store.size"`
+	SqlserverDeadlockRate                       SqlserverDeadlockRateMetricConfig                       `mapstructure:"sqlserver.deadlock.rate"`
+	SqlserverIndexSearchRate                    SqlserverIndexSearchRateMetricConfig                    `mapstructure:"sqlserver.index.search.rate"`
+	SqlserverLatchSuperlatchCount               SqlserverLatchSuperlatchCountMetricConfig               `mapstructure:"sqlserver.latch.superlatch.count"`
+	SqlserverLatchSuperlatchTransitionRate      SqlserverLatchSuperlatchTransitionRateMetricConfig      `mapstructure:"sqlserver.latch.superlatch.transition.rate"`
+	SqlserverLatchWaitRate                      SqlserverLatchWaitRateMetricConfig                      `mapstructure:"sqlserver.latch.wait.rate"`
+	SqlserverLatchWaitTimeAvg                   SqlserverLatchWaitTimeAvgMetricConfig                   `mapstructure:"sqlserver.latch.wait_time.avg"`
+	SqlserverLatchWaitTimeTotal                 SqlserverLatchWaitTimeTotalMetricConfig                 `mapstructure:"sqlserver.latch.wait_time.total"`
+	SqlserverLockTimeoutRate                    SqlserverLockTimeoutRateMetricConfig                    `mapstructure:"sqlserver.lock.timeout.rate"`
+	SqlserverLockWaitCount                      SqlserverLockWaitCountMetricConfig                      `mapstructure:"sqlserver.lock.wait.count"`
+	SqlserverLockWaitRate                       SqlserverLockWaitRateMetricConfig                       `mapstructure:"sqlserver.lock.wait.rate"`
+	SqlserverLockWaitTimeAvg                    SqlserverLockWaitTimeAvgMetricConfig                    `mapstructure:"sqlserver.lock.wait_time.avg"`
+	SqlserverLoginRate                          SqlserverLoginRateMetricConfig                          `mapstructure:"sqlserver.login.rate"`
+	SqlserverLogoutRate                         SqlserverLogoutRateMetricConfig                         `mapstructure:"sqlserver.logout.rate"`
+	SqlserverMemoryArea                         SqlserverMemoryAreaMetricConfig                         `mapstructure:"sqlserver.memory.area"`
+	SqlserverMemoryCacheObjectCount             SqlserverMemoryCacheObjectCountMetricConfig             `mapstructure:"sqlserver.memory.cache.object.count"`
+	SqlserverMemoryGrantsPendingCount           SqlserverMemoryGrantsPendingCountMetricConfig           `mapstructure:"sqlserver.memory.grants.pending.count"`
+	SqlserverMemoryPageCount                    SqlserverMemoryPageCountMetricConfig                    `mapstructure:"sqlserver.memory.page.count"`
+	SqlserverMemoryUsage                        SqlserverMemoryUsageMetricConfig                        `mapstructure:"sqlserver.memory.usage"`
+	SqlserverOsWaitDuration                     SqlserverOsWaitDurationMetricConfig                     `mapstructure:"sqlserver.os.wait.duration"`
+	SqlserverPageBufferCacheFreeListStallsRate  SqlserverPageBufferCacheFreeListStallsRateMetricConfig  `mapstructure:"sqlserver.page.buffer_cache.free_list.stalls.rate"`
+	SqlserverPageBufferCacheHitRatio            SqlserverPageBufferCacheHitRatioMetricConfig            `mapstructure:"sqlserver.page.buffer_cache.hit_ratio"`
+	SqlserverPageCheckpointFlushRate            SqlserverPageCheckpointFlushRateMetricConfig            `mapstructure:"sqlserver.page.checkpoint.flush.rate"`
+	SqlserverPageLazyWriteRate                  SqlserverPageLazyWriteRateMetricConfig                  `mapstructure:"sqlserver.page.lazy_write.rate"`
+	SqlserverPageLifeExpectancy                 SqlserverPageLifeExpectancyMetricConfig                 `mapstructure:"sqlserver.page.life_expectancy"`
+	SqlserverPageLookupRate                     SqlserverPageLookupRateMetricConfig                     `mapstructure:"sqlserver.page.lookup.rate"`
+	SqlserverPageOperationRate                  SqlserverPageOperationRateMetricConfig                  `mapstructure:"sqlserver.page.operation.rate"`
+	SqlserverPageSplitRate                      SqlserverPageSplitRateMetricConfig                      `mapstructure:"sqlserver.page.split.rate"`
+	SqlserverParameterizationRate               SqlserverParameterizationRateMetricConfig               `mapstructure:"sqlserver.parameterization.rate"`
+	SqlserverPlanExecutionRate                  SqlserverPlanExecutionRateMetricConfig                  `mapstructure:"sqlserver.plan.execution.rate"`
+	SqlserverProcessesBlocked                   SqlserverProcessesBlockedMetricConfig                   `mapstructure:"sqlserver.processes.blocked"`
+	SqlserverRecompilationRatio                 SqlserverRecompilationRatioMetricConfig                 `mapstructure:"sqlserver.recompilation.ratio"`
+	SqlserverReplicaDataRate                    SqlserverReplicaDataRateMetricConfig                    `mapstructure:"sqlserver.replica.data.rate"`
+	SqlserverResourcePoolDiskOperations         SqlserverResourcePoolDiskOperationsMetricConfig         `mapstructure:"sqlserver.resource_pool.disk.operations"`
+	SqlserverResourcePoolDiskThrottledReadRate  SqlserverResourcePoolDiskThrottledReadRateMetricConfig  `mapstructure:"sqlserver.resource_pool.disk.throttled.read.rate"`
+	SqlserverResourcePoolDiskThrottledWriteRate SqlserverResourcePoolDiskThrottledWriteRateMetricConfig `mapstructure:"sqlserver.resource_pool.disk.throttled.write.rate"`
+	SqlserverTableCount                         SqlserverTableCountMetricConfig                         `mapstructure:"sqlserver.table.count"`
+	SqlserverTransactionDelay                   SqlserverTransactionDelayMetricConfig                   `mapstructure:"sqlserver.transaction.delay"`
+	SqlserverTransactionMirrorWriteRate         SqlserverTransactionMirrorWriteRateMetricConfig         `mapstructure:"sqlserver.transaction.mirror_write.rate"`
+	SqlserverTransactionRate                    SqlserverTransactionRateMetricConfig                    `mapstructure:"sqlserver.transaction.rate"`
+	SqlserverTransactionWriteRate               SqlserverTransactionWriteRateMetricConfig               `mapstructure:"sqlserver.transaction.write.rate"`
+	SqlserverTransactionLogFlushDataRate        SqlserverTransactionLogFlushDataRateMetricConfig        `mapstructure:"sqlserver.transaction_log.flush.data.rate"`
+	SqlserverTransactionLogFlushRate            SqlserverTransactionLogFlushRateMetricConfig            `mapstructure:"sqlserver.transaction_log.flush.rate"`
+	SqlserverTransactionLogFlushWaitRate        SqlserverTransactionLogFlushWaitRateMetricConfig        `mapstructure:"sqlserver.transaction_log.flush.wait.rate"`
+	SqlserverTransactionLogGrowthCount          SqlserverTransactionLogGrowthCountMetricConfig          `mapstructure:"sqlserver.transaction_log.growth.count"`
+	SqlserverTransactionLogShrinkCount          SqlserverTransactionLogShrinkCountMetricConfig          `mapstructure:"sqlserver.transaction_log.shrink.count"`
+	SqlserverTransactionLogUsage                SqlserverTransactionLogUsageMetricConfig                `mapstructure:"sqlserver.transaction_log.usage"`
+	SqlserverUserConnectionCount                SqlserverUserConnectionCountMetricConfig                `mapstructure:"sqlserver.user.connection.count"`
 }
 
 func DefaultMetricsConfig() MetricsConfig {
 	return MetricsConfig{
+		SqlserverAttentionRate: SqlserverAttentionRateMetricConfig{
+			Enabled: false,
+		},
 		SqlserverBatchRequestRate: SqlserverBatchRequestRateMetricConfig{
 			Enabled: true,
 		},
@@ -1979,11 +1833,6 @@ func DefaultMetricsConfig() MetricsConfig {
 		SqlserverDatabaseExecutionErrors: SqlserverDatabaseExecutionErrorsMetricConfig{
 			Enabled: false,
 		},
-		SqlserverDatabaseFileSize: SqlserverDatabaseFileSizeMetricConfig{
-			Enabled:             false,
-			AggregationStrategy: AggregationStrategyAvg,
-			EnabledAttributes:   []SqlserverDatabaseFileSizeMetricAttributeKey{SqlserverDatabaseFileSizeMetricAttributeKeyFileType, SqlserverDatabaseFileSizeMetricAttributeKeyDbNamespace},
-		},
 		SqlserverDatabaseFullScanRate: SqlserverDatabaseFullScanRateMetricConfig{
 			Enabled: false,
 		},
@@ -2002,16 +1851,6 @@ func DefaultMetricsConfig() MetricsConfig {
 			AggregationStrategy: AggregationStrategySum,
 			EnabledAttributes:   []SqlserverDatabaseOperationsMetricAttributeKey{SqlserverDatabaseOperationsMetricAttributeKeyPhysicalFilename, SqlserverDatabaseOperationsMetricAttributeKeyLogicalFilename, SqlserverDatabaseOperationsMetricAttributeKeyFileType, SqlserverDatabaseOperationsMetricAttributeKeyDirection},
 		},
-		SqlserverDatabaseSecurityPrincipalCount: SqlserverDatabaseSecurityPrincipalCountMetricConfig{
-			Enabled:             false,
-			AggregationStrategy: AggregationStrategyAvg,
-			EnabledAttributes:   []SqlserverDatabaseSecurityPrincipalCountMetricAttributeKey{SqlserverDatabaseSecurityPrincipalCountMetricAttributeKeyDbNamespace},
-		},
-		SqlserverDatabaseSecurityRoleMembershipCount: SqlserverDatabaseSecurityRoleMembershipCountMetricConfig{
-			Enabled:             false,
-			AggregationStrategy: AggregationStrategyAvg,
-			EnabledAttributes:   []SqlserverDatabaseSecurityRoleMembershipCountMetricAttributeKey{SqlserverDatabaseSecurityRoleMembershipCountMetricAttributeKeyDbNamespace, SqlserverDatabaseSecurityRoleMembershipCountMetricAttributeKeyRole},
-		},
 		SqlserverDatabaseTempdbSpace: SqlserverDatabaseTempdbSpaceMetricConfig{
 			Enabled:             false,
 			AggregationStrategy: AggregationStrategySum,
@@ -2019,11 +1858,6 @@ func DefaultMetricsConfig() MetricsConfig {
 		},
 		SqlserverDatabaseTempdbVersionStoreSize: SqlserverDatabaseTempdbVersionStoreSizeMetricConfig{
 			Enabled: false,
-		},
-		SqlserverDatabaseTransactionsActive: SqlserverDatabaseTransactionsActiveMetricConfig{
-			Enabled:             false,
-			AggregationStrategy: AggregationStrategyAvg,
-			EnabledAttributes:   []SqlserverDatabaseTransactionsActiveMetricAttributeKey{SqlserverDatabaseTransactionsActiveMetricAttributeKeyDbNamespace},
 		},
 		SqlserverDeadlockRate: SqlserverDeadlockRateMetricConfig{
 			Enabled: false,
@@ -2084,9 +1918,6 @@ func DefaultMetricsConfig() MetricsConfig {
 			AggregationStrategy: AggregationStrategyAvg,
 			EnabledAttributes:   []SqlserverMemoryPageCountMetricAttributeKey{SqlserverMemoryPageCountMetricAttributeKeyPagePool},
 		},
-		SqlserverMemoryTarget: SqlserverMemoryTargetMetricConfig{
-			Enabled: false,
-		},
 		SqlserverMemoryUsage: SqlserverMemoryUsageMetricConfig{
 			Enabled: false,
 		},
@@ -2123,7 +1954,20 @@ func DefaultMetricsConfig() MetricsConfig {
 		SqlserverPageSplitRate: SqlserverPageSplitRateMetricConfig{
 			Enabled: true,
 		},
+		SqlserverParameterizationRate: SqlserverParameterizationRateMetricConfig{
+			Enabled:             false,
+			AggregationStrategy: AggregationStrategyAvg,
+			EnabledAttributes:   []SqlserverParameterizationRateMetricAttributeKey{SqlserverParameterizationRateMetricAttributeKeySqlserverParameterizationResult},
+		},
+		SqlserverPlanExecutionRate: SqlserverPlanExecutionRateMetricConfig{
+			Enabled:             false,
+			AggregationStrategy: AggregationStrategyAvg,
+			EnabledAttributes:   []SqlserverPlanExecutionRateMetricAttributeKey{SqlserverPlanExecutionRateMetricAttributeKeySqlserverPlanGuidanceResult},
+		},
 		SqlserverProcessesBlocked: SqlserverProcessesBlockedMetricConfig{
+			Enabled: false,
+		},
+		SqlserverRecompilationRatio: SqlserverRecompilationRatioMetricConfig{
 			Enabled: false,
 		},
 		SqlserverReplicaDataRate: SqlserverReplicaDataRateMetricConfig{
@@ -2141,14 +1985,6 @@ func DefaultMetricsConfig() MetricsConfig {
 		},
 		SqlserverResourcePoolDiskThrottledWriteRate: SqlserverResourcePoolDiskThrottledWriteRateMetricConfig{
 			Enabled: false,
-		},
-		SqlserverServerSecurityPrincipalCount: SqlserverServerSecurityPrincipalCountMetricConfig{
-			Enabled: false,
-		},
-		SqlserverServerSecurityRoleMembershipCount: SqlserverServerSecurityRoleMembershipCountMetricConfig{
-			Enabled:             false,
-			AggregationStrategy: AggregationStrategyAvg,
-			EnabledAttributes:   []SqlserverServerSecurityRoleMembershipCountMetricAttributeKey{SqlserverServerSecurityRoleMembershipCountMetricAttributeKeyRole},
 		},
 		SqlserverTableCount: SqlserverTableCountMetricConfig{
 			Enabled:             false,
