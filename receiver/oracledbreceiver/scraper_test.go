@@ -702,7 +702,35 @@ func TestScraperWithQueryComments(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+	t.Run("query samples without allowed comments", func(t *testing.T) {
+		// Create a mock scraper with empty allowed comment keys
+		cfg := createDefaultConfig().(*Config)
+		cfg.QuerySample.AllowedCommentKeys = []string{}
+	
+		// Verify secure by default: empty allowlist returns empty string
+		sqlWithComment := "/* nr_service_guid=test-123 */ SELECT * FROM test_table"
+		result := sqlcomments.ExtractAndFilterComments(sqlWithComment, cfg.QuerySample.AllowedCommentKeys)
+	
+		if result != "" {
+			t.Errorf("Expected empty string but got %q", result)
+		}
+	})
+	
+	t.Run("query samples with non-matching comments", func(t *testing.T) {
+		cfg := createDefaultConfig().(*Config)
+		cfg.QuerySample.AllowedCommentKeys = []string{"nr_service_guid"}
+	
+		// SQL has comments but none match the allowlist
+		sqlWithComment := "/* other_key=value */ SELECT * FROM test_table"
+		result := sqlcomments.ExtractAndFilterComments(sqlWithComment, cfg.QuerySample.AllowedCommentKeys)
+	
+		if result != "" {
+			t.Errorf("Expected empty string but got %q", result)
+		}
+	})
 }
+
+
 
 func TestSessionWaitEventsQuery(t *testing.T) {
 	tests := []struct {
