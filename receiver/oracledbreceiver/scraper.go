@@ -242,7 +242,9 @@ type oracleScraper struct {
 	sessionWaitEventCfg      SessionWaitEvent
 	serviceInstanceID        string
 	lastExecutionTimestamp   time.Time
-	// instanceInfo holds Oracle deployment metadata detected once at startup (best-effort).
+	// instanceInfo holds Oracle deployment metadata detected once at start().
+	// All fields are best-effort: detection failures are logged and leave the
+	// field at its zero value; they never prevent the receiver from starting.
 	instanceInfo oracleInstanceInfo
 }
 

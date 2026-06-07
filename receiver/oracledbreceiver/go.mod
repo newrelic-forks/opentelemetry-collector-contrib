@@ -30,8 +30,6 @@ require (
 	go.uber.org/zap v1.28.0
 )
 
-require go.opentelemetry.io/otel v1.43.0
-
 require (
 	github.com/DataDog/datadog-go/v5 v5.8.3 // indirect
 	github.com/DataDog/go-sqllexer v0.1.12 // indirect
