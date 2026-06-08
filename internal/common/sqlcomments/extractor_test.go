@@ -195,6 +195,42 @@ func TestExtractValueForKey(t *testing.T) {
 			key:      "nr_service_guid",
 			expected: "first",
 		},
+		{
+			name:     "surrounding double quotes stripped",
+			comments: `nr_service_guid="abc-123"`,
+			key:      "nr_service_guid",
+			expected: "abc-123",
+		},
+		{
+			name:     "surrounding single quotes stripped",
+			comments: "nr_service_guid='abc-123'",
+			key:      "nr_service_guid",
+			expected: "abc-123",
+		},
+		{
+			name:     "quoted value among multiple pairs",
+			comments: `app_id=xyz,nr_service_guid="abc-123"`,
+			key:      "nr_service_guid",
+			expected: "abc-123",
+		},
+		{
+			name:     "mismatched quotes not stripped",
+			comments: `nr_service_guid="abc-123'`,
+			key:      "nr_service_guid",
+			expected: `"abc-123'`,
+		},
+		{
+			name:     "inner quotes preserved",
+			comments: `nr_service_guid="ab"c-123"`,
+			key:      "nr_service_guid",
+			expected: `ab"c-123`,
+		},
+		{
+			name:     "lone quote not stripped",
+			comments: `nr_service_guid="`,
+			key:      "nr_service_guid",
+			expected: `"`,
+		},
 	}
 
 	for _, tt := range tests {

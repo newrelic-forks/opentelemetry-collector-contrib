@@ -36,7 +36,8 @@ func ExtractAndFilterComments(sqlText string, allowedKeys []string) string {
 // ExtractValueForKey returns the value associated with key in a comma-separated
 // key=value string such as the output of ExtractAndFilterComments
 // (e.g. "nr_service_guid=abc-123,app_id=xyz"). It returns "" when the key is not
-// present or comments is empty.
+// present or comments is empty. A single pair of surrounding single or double
+// quotes is stripped from the returned value.
 func ExtractValueForKey(comments, key string) string {
 	if comments == "" || key == "" {
 		return ""
@@ -54,11 +55,24 @@ func ExtractValueForKey(comments, key string) string {
 		}
 
 		if strings.TrimSpace(keyValue[0]) == key {
-			return strings.TrimSpace(keyValue[1])
+			return trimSurroundingQuotes(strings.TrimSpace(keyValue[1]))
 		}
 	}
 
 	return ""
+}
+
+// trimSurroundingQuotes removes a single matching pair of surrounding single or
+// double quotes from value, if present.
+func trimSurroundingQuotes(value string) string {
+	if len(value) >= 2 {
+		first := value[0]
+		last := value[len(value)-1]
+		if (first == '"' && last == '"') || (first == '\'' && last == '\'') {
+			return value[1 : len(value)-1]
+		}
+	}
+	return value
 }
 
 func parseLeadingComments(sqlText string) map[string]string {
