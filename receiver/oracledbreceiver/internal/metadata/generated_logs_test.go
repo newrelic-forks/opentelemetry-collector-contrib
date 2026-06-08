@@ -142,7 +142,7 @@ func TestLogsBuilder(t *testing.T) {
 			lb.RecordDbServerSessionWaitSampleEvent(ctx, timestamp, "oracledb.sid-val", "oracledb.serial-val", "oracledb.event-val", "oracledb.wait_class-val", 19, 22.100000)
 
 			allEventsCount++
-			lb.RecordDbServerTopQueryEvent(ctx, timestamp, "db.system.name-val", "db.server.name-val", "db.query.text-val", "oracledb.query_plan-val", "oracledb.sql_id-val", "oracledb.child_number-val", "oracledb.child_address-val", 30.100000, 20, 26.100000, 21, 30.100000, 17.100000, 21, 22, 19, 21.100000, 19, 28, 31, 29, 32, 23, 26.100000, 34, 21, "oracledb.procedure_name-val", "oracledb.procedure_type-val", "oracledb.plan_hash_value-val", "oracledb.plan.last_load-val")
+			lb.RecordDbServerTopQueryEvent(ctx, timestamp, "db.system.name-val", "db.server.name-val", "db.namespace-val", "db.query.text-val", "oracledb.query_plan-val", "oracledb.sql_id-val", "oracledb.child_number-val", "oracledb.child_address-val", 30.100000, 20, 26.100000, 21, 30.100000, 17.100000, 21, 22, 19, 21.100000, 19, 28, 31, 29, 32, 23, 26.100000, 34, 21, "oracledb.procedure_name-val", "oracledb.procedure_type-val", "oracledb.plan_hash_value-val", "oracledb.plan.last_load-val")
 
 			rb := lb.NewResourceBuilder()
 			rb.SetHostName("host.name-val")
@@ -340,6 +340,9 @@ func TestLogsBuilder(t *testing.T) {
 					attrVal, ok = lr.Attributes().Get("db.server.name")
 					assert.True(t, ok)
 					assert.Equal(t, "db.server.name-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("db.namespace")
+					assert.True(t, ok)
+					assert.Equal(t, "db.namespace-val", attrVal.Str())
 					attrVal, ok = lr.Attributes().Get("db.query.text")
 					assert.True(t, ok)
 					assert.Equal(t, "db.query.text-val", attrVal.Str())

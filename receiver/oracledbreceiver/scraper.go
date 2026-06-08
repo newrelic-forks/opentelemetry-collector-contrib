@@ -115,6 +115,7 @@ const (
 	childAddressAttr = "CHILD_ADDRESS"
 	childNumberAttr  = "CHILD_NUMBER"
 	sqlTextAttr      = "SQL_FULLTEXT"
+	databaseNameAttr = "DATABASE_NAME"
 	dbSystemNameVal  = "oracle"
 
 	queryExecutionMetric        = "EXECUTIONS"
@@ -824,6 +825,7 @@ type queryMetricCacheHit struct {
 	childNumber   string
 	childAddress  string
 	queryText     string
+	databaseName  string
 	metrics       map[string]int64
 	objectID      int64
 	objectName    string
@@ -916,6 +918,7 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 				queryText:     row[sqlTextAttr],
 				childNumber:   row[childNumberAttr],
 				childAddress:  row[childAddressAttr],
+				databaseName:  row[databaseNameAttr],
 				metrics:       make(map[string]int64, len(metricNames)),
 				objectID:      objectID,
 				objectName:    row[objectNameAttr],
@@ -985,6 +988,7 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 			pcommon.NewTimestampFromTime(collectionTime),
 			dbSystemNameVal,
 			s.hostName,
+			hit.databaseName,
 			hit.queryText,
 			planString, hit.sqlID, hit.childNumber,
 			hit.childAddress,
