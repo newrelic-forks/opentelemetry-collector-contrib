@@ -133,3 +133,76 @@ func TestExtractAndFilterComments(t *testing.T) {
 		})
 	}
 }
+
+func TestExtractValueForKey(t *testing.T) {
+	tests := []struct {
+		name     string
+		comments string
+		key      string
+		expected string
+	}{
+		{
+			name:     "single pair match",
+			comments: "nr_service_guid=abc-123",
+			key:      "nr_service_guid",
+			expected: "abc-123",
+		},
+		{
+			name:     "key among multiple pairs",
+			comments: "app_id=xyz,nr_service_guid=abc-123,other=1",
+			key:      "nr_service_guid",
+			expected: "abc-123",
+		},
+		{
+			name:     "key not present",
+			comments: "app_id=xyz",
+			key:      "nr_service_guid",
+			expected: "",
+		},
+		{
+			name:     "empty comments",
+			comments: "",
+			key:      "nr_service_guid",
+			expected: "",
+		},
+		{
+			name:     "empty key",
+			comments: "nr_service_guid=abc-123",
+			key:      "",
+			expected: "",
+		},
+		{
+			name:     "value with special characters",
+			comments: "nr_service_guid=abc-123-def",
+			key:      "nr_service_guid",
+			expected: "abc-123-def",
+		},
+		{
+			name:     "whitespace trimmed around pair",
+			comments: " nr_service_guid = abc-123 ",
+			key:      "nr_service_guid",
+			expected: "abc-123",
+		},
+		{
+			name:     "malformed pair skipped",
+			comments: "invalid,nr_service_guid=abc-123",
+			key:      "nr_service_guid",
+			expected: "abc-123",
+		},
+		{
+			name:     "first match wins",
+			comments: "nr_service_guid=first,nr_service_guid=second",
+			key:      "nr_service_guid",
+			expected: "first",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ExtractValueForKey(tt.comments, tt.key)
+			if got != tt.expected {
+				t.Errorf("ExtractValueForKey() = %q, want %q", got, tt.expected)
+			}
+		})
+	}
+}
