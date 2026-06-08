@@ -102,8 +102,11 @@ resourceLogs:
                   stringValue: "33313233343536373839"
               - key: oracledb.plan.last_load
                 value:
-                  stringValue: "2026-01-01/12:00:00"
+                  stringValue: 2026-01-01/12:00:00
               - key: query.comments
+                value:
+                  stringValue: ""
+              - key: query.comments.nr_service_guid
                 value:
                   stringValue: ""
               - key: oracledb.normalised_sql_hash
@@ -114,7 +117,7 @@ resourceLogs:
                   stringValue: SELECTCOUNT(*)ASTOTALHIGHRATEEMPLOYEESFROMADMIN."EMPLOYEE"EJOINADMIN."PERSON"PONE."BUSINESSENTITYID"="BUSID1?"JOINADMIN."EMPLOYEEPAYHISTORY"EPHONE."BUSINESSENTITYID"=EPH."BUSINESSENTITYID"WHEREEPH."RATE">(SELECTAVG("RATE")FROMADMIN."EMPLOYEEPAYHISTORY")
             body: {}
             eventName: db.server.top_query
-            timeUnixNano: "1759142512777891000"
+            timeUnixNano: "1780915799170320000"
         scope:
           name: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/oracledbreceiver
           version: latest

@@ -103,12 +103,15 @@ resourceLogs:
               - key: query.comments
                 value:
                   stringValue: ""
+              - key: query.comments.nr_service_guid
+                value:
+                  stringValue: ""
               - key: oracledb.normalised_sql_hash
                 value:
-                  stringValue: "935a5fc83824aadeb67aea0839016db6"
+                  stringValue: 935a5fc83824aadeb67aea0839016db6
               - key: oracledb.normalized_sql
                 value:
-                  stringValue: "UPDATEORDERSSETSTATUS=?WHEREID=?"
+                  stringValue: UPDATEORDERSSETSTATUS=?WHEREID=?
               - key: oracledb.query.started
                 value:
                   stringValue: "2026-05-06T09:59:45Z"
@@ -147,7 +150,7 @@ resourceLogs:
                   stringValue: ORDERS
             body: {}
             eventName: db.server.query_sample
-            timeUnixNano: "1779182973081590000"
+            timeUnixNano: "1780915828959525000"
         scope:
           name: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/oracledbreceiver
           version: latest

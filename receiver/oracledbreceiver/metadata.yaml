@@ -293,6 +293,9 @@ attributes:
   query.comments:
     description: Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys specified in allowed_comment_keys configuration. Used for correlation with APM traces.
     type: string
+  query.comments.nr_service_guid:
+    description: New Relic service GUID extracted from the filtered query.comments. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Used for correlation with APM traces.
+    type: string
   session_status:
     description: Session status
     type: string
@@ -346,6 +349,7 @@ events:
       - oracledb.duration_sec
       - oracledb.wait_time_sec
       - query.comments
+      - query.comments.nr_service_guid
       - oracledb.normalised_sql_hash
       - oracledb.normalized_sql
       - oracledb.query.started
@@ -405,6 +409,7 @@ events:
       - oracledb.plan_hash_value
       - oracledb.plan.last_load
       - query.comments
+      - query.comments.nr_service_guid
       - oracledb.normalised_sql_hash
       - oracledb.normalized_sql
 metrics:
