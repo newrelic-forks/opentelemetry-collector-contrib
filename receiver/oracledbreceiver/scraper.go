@@ -188,6 +188,9 @@ const (
 	// Plan metadata columns
 	lastLoadTimeAttr  = "LAST_LOAD_TIME"
 	planHashValueAttr = "PLAN_HASH_VALUE"
+
+	// Database/container columns
+	databaseNameAttr = "DATABASE_NAME"
 )
 
 var (
@@ -968,6 +971,7 @@ type queryMetricCacheHit struct {
 	commandType   int64
 	lastLoadTime  string
 	planHashValue string
+	databaseName  string
 }
 
 func (s *oracleScraper) scrapeLogs(ctx context.Context) (plog.Logs, error) {
@@ -1066,6 +1070,7 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 				commandType:   commandType,
 				lastLoadTime:  row[lastLoadTimeAttr],
 				planHashValue: hex.EncodeToString([]byte(row[planHashValueAttr])),
+				databaseName:  row[databaseNameAttr],
 			}
 
 			var possiblePurge bool
@@ -1131,6 +1136,7 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 			pcommon.NewTimestampFromTime(collectionTime),
 			dbSystemNameVal,
 			s.hostName,
+			hit.databaseName,
 			hit.queryText,
 			planString, hit.sqlID, hit.childNumber,
 			hit.childAddress,

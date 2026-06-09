@@ -380,6 +380,7 @@ events:
     attributes:
       - db.system.name
       - db.server.name
+      - db.namespace
       - db.query.text
       - oracledb.query_plan
       - oracledb.sql_id
