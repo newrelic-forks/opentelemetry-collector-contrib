@@ -161,6 +161,8 @@ all_set:
       enabled: true
     oracledb.storage.utilization:
       enabled: true
+    oracledb.system.cpu.load:
+      enabled: true
     oracledb.tablespace_size.limit:
       enabled: true
       attributes: ["tablespace_name","oracle.db.pdb"]
@@ -177,6 +179,10 @@ all_set:
     oracledb.user_rollbacks:
       enabled: true
       attributes: ["oracle.db.pdb"]
+    system.cpu.physical.count:
+      enabled: true
+    system.memory.limit:
+      enabled: true
   events:
     db.server.query_sample:
       enabled: true
@@ -363,6 +369,8 @@ reaggregate_set:
       enabled: true
     oracledb.storage.utilization:
       enabled: true
+    oracledb.system.cpu.load:
+      enabled: true
     oracledb.tablespace_size.limit:
       enabled: true
       attributes: []
@@ -379,6 +387,10 @@ reaggregate_set:
     oracledb.user_rollbacks:
       enabled: true
       attributes: []
+    system.cpu.physical.count:
+      enabled: true
+    system.memory.limit:
+      enabled: true
   events:
     db.server.query_sample:
       enabled: true
@@ -565,6 +577,8 @@ none_set:
       enabled: false
     oracledb.storage.utilization:
       enabled: false
+    oracledb.system.cpu.load:
+      enabled: false
     oracledb.tablespace_size.limit:
       enabled: false
       attributes: ["tablespace_name","oracle.db.pdb"]
@@ -581,6 +595,10 @@ none_set:
     oracledb.user_rollbacks:
       enabled: false
       attributes: ["oracle.db.pdb"]
+    system.cpu.physical.count:
+      enabled: false
+    system.memory.limit:
+      enabled: false
   events:
     db.server.query_sample:
       enabled: false
