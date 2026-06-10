@@ -196,6 +196,9 @@ attributes:
   oracledb.plan.last_load:
     description: "Plan load time in the server's local timezone. Format: YYYY-MM-DD/HH:MM:SS"
     type: string
+  oracledb.plan.first_load:
+    description: "Time at which the plan was first loaded into the library cache, in the server's local timezone. Format: YYYY-MM-DD/HH:MM:SS"
+    type: string
   oracledb.plan_hash_value:
     description: Binary hash value calculated on the query execution plan and used to identify similar query execution plans, reported in the HEX format.
     type: string
@@ -377,6 +380,7 @@ events:
       - oracledb.procedure_type
       - oracledb.plan_hash_value
       - oracledb.plan.last_load
+      - oracledb.plan.first_load
 metrics:
   oracledb.buffer_cache.utilization:
     description: Fraction of logical reads served from the buffer cache without physical I/O, as computed by Oracle V$SYSMETRIC (% (LogRead - PhyRead)/LogRead).

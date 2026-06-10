@@ -144,6 +144,7 @@ const (
 
 	// Plan metadata columns
 	lastLoadTimeAttr  = "LAST_LOAD_TIME"
+	firstLoadTimeAttr = "FIRST_LOAD_TIME"
 	planHashValueAttr = "PLAN_HASH_VALUE"
 )
 
@@ -832,6 +833,7 @@ type queryMetricCacheHit struct {
 	objectType    string
 	commandType   int64
 	lastLoadTime  string
+	firstLoadTime string
 	planHashValue string
 }
 
@@ -925,6 +927,7 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 				objectType:    row[objectTypeAttr],
 				commandType:   commandType,
 				lastLoadTime:  row[lastLoadTimeAttr],
+				firstLoadTime: row[firstLoadTimeAttr],
 				planHashValue: hex.EncodeToString([]byte(row[planHashValueAttr])),
 			}
 
@@ -1014,7 +1017,8 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 			hit.objectName,
 			hit.objectType,
 			hit.planHashValue,
-			hit.lastLoadTime)
+			hit.lastLoadTime,
+			hit.firstLoadTime)
 	}
 
 	hitCount := len(hits)
