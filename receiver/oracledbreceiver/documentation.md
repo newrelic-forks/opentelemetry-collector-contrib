@@ -738,6 +738,28 @@ Fraction of redo allocations that succeeded without space contention, as compute
 | ---- | ----------- | ------ | ----------------- | ------------------- |
 | oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
 
+### oracledb.sga.limit
+
+Maximum size of the System Global Area (SGA) in bytes as reported by V$SGAINFO (Maximum SGA Size).
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| By | Gauge | Int | Development |
+
+### oracledb.sga.usage
+
+Size in bytes of each component of the System Global Area (SGA) as reported by V$SGAINFO.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| By | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracledb.sga.component.name | Name of the SGA memory component as reported by V$SGAINFO (e.g. Buffer Cache, Shared Pool, Log Buffer). | Any Str | Recommended | - |
+
 ### oracledb.shared_pool.utilization
 
 Fraction of the shared pool that is currently free, as computed by Oracle V$SYSMETRIC (% Free/Total). Low values indicate shared pool pressure.
