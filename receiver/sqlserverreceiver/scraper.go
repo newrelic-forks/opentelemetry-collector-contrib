@@ -1094,8 +1094,10 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 		queryPlan         = "query_plan"
 		queryPlanHash     = "query_plan_hash"
 		queryText         = "query_text"
-		fullQueryText     = "full_query_text"
-		rowsReturned      = "total_rows"
+		fullQueryText        = "full_query_text"
+		statementStartOffset = "statement_start_offset"
+		statementEndOffset   = "statement_end_offset"
+		rowsReturned         = "total_rows"
 		// the time returned from mssql is in microsecond
 		totalElapsedTime = "total_elapsed_time"
 		totalGrant       = "total_grant_kb"
@@ -1177,8 +1179,10 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 		var fullQueryTextVal, dbSQLCommentsVal, normalisedSQLHashVal, normalizedSQLVal string
 		if s.config.CollectFullQueryText {
 			rawFullText := row[fullQueryText]
+			stmtStartOff, _ := strconv.Atoi(row[statementStartOffset])
+			stmtEndOff, _ := strconv.Atoi(row[statementEndOffset])
 			dbSQLCommentsVal = sqlcomments.ExtractAndFilterComments(rawFullText, s.config.AllowedCommentKeys)
-			obfuscated, err := s.obfuscator.obfuscateFullSQLString(rawFullText)
+			obfuscated, err := s.obfuscator.obfuscateFullSQLString(rawFullText, stmtStartOff, stmtEndOff)
 			if err != nil {
 				s.logger.Error(fmt.Sprintf("failed to obfuscate full SQL text: %v", err))
 			} else {
@@ -1427,6 +1431,8 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 	const sessionStatus = "session_status"
 	const statementText = "statement_text"
 	const fullQueryTextCol = "full_query_text"
+	const stmtStartOffsetCol = "statement_start_offset"
+	const stmtEndOffsetCol = "statement_end_offset"
 	const totalElapsedTimeMillisecond = "total_elapsed_time"
 	const transactionID = "transaction_id"
 	const transactionIsolationLevel = "transaction_isolation_level"
@@ -1532,8 +1538,10 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 		var fullQueryTextVal, dbSQLCommentsVal, normalisedSQLHashVal, normalizedSQLVal string
 		if s.config.CollectFullQueryText {
 			rawFullText := row[fullQueryTextCol]
+			stmtStartOff, _ := strconv.Atoi(row[stmtStartOffsetCol])
+			stmtEndOff, _ := strconv.Atoi(row[stmtEndOffsetCol])
 			dbSQLCommentsVal = sqlcomments.ExtractAndFilterComments(rawFullText, s.config.AllowedCommentKeys)
-			obfuscated, err := s.obfuscator.obfuscateFullSQLString(rawFullText)
+			obfuscated, err := s.obfuscator.obfuscateFullSQLString(rawFullText, stmtStartOff, stmtEndOff)
 			if err != nil {
 				s.logger.Error(fmt.Sprintf("failed to obfuscate full SQL text: %v", err))
 			} else {
