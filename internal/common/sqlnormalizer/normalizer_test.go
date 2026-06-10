@@ -457,9 +457,9 @@ func TestNormalizeSQL_EdgeCases(t *testing.T) {
 }
 
 func TestNormalizeSQL_EmptyAndNil(t *testing.T) {
-	assert.Equal(t, "", NormalizeSQL(""))
-	assert.Equal(t, "", NormalizeSQL("   "))
-	assert.Equal(t, "", NormalizeSQL("\t\n\r"))
+	assert.Empty(t, NormalizeSQL(""))
+	assert.Empty(t, NormalizeSQL("   "))
+	assert.Empty(t, NormalizeSQL("\t\n\r"))
 }
 
 func TestNormalizeSQL_SpaceBeforeComma(t *testing.T) {

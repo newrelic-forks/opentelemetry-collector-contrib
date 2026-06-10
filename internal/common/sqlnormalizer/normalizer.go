@@ -13,7 +13,7 @@
 package sqlnormalizer // import "go.opentelemetry.io/collector/contrib/internal/common/sqlnormalizer"
 
 import (
-	"crypto/md5"
+	"crypto/md5" // #nosec G501 -- MD5 required for hash compatibility with the New Relic Java APM agent, not for security.
 	"encoding/hex"
 	"fmt"
 	"strings"
@@ -63,9 +63,9 @@ func (s *sqlNormalizerState) advance() {
 	s.idx++
 }
 
-// advanceBy moves forward by count characters.
-func (s *sqlNormalizerState) advanceBy(count int) {
-	s.idx += count
+// advanceBy2 moves forward by two characters.
+func (s *sqlNormalizerState) advanceBy2() {
+	s.idx += 2
 }
 
 // isIdentifierChar checks if a character is valid in an identifier.
@@ -80,7 +80,7 @@ func isNumericLiteral(state *sqlNormalizerState) bool {
 	c := state.current()
 
 	// Check for digit, minus, plus, or decimal point
-	if !((c >= '0' && c <= '9') || c == '-' || c == '+' || c == '.') {
+	if (c < '0' || c > '9') && c != '-' && c != '+' && c != '.' {
 		return false
 	}
 
@@ -109,7 +109,7 @@ func isNumericLiteral(state *sqlNormalizerState) bool {
 	// Numbers starting with decimal point
 	if c == '.' {
 		state.advance()
-		if !state.hasMore() || !(state.current() >= '0' && state.current() <= '9') {
+		if !state.hasMore() || state.current() < '0' || state.current() > '9' {
 			state.idx = savedIdx
 			return false
 		}
@@ -119,7 +119,7 @@ func isNumericLiteral(state *sqlNormalizerState) bool {
 	}
 
 	// Must have at least one digit before optional decimal point
-	if !(c >= '0' && c <= '9') {
+	if c < '0' || c > '9' {
 		state.idx = savedIdx
 		return false
 	}
@@ -170,21 +170,21 @@ func skipStringLiteral(state *sqlNormalizerState) {
 	for state.hasMore() {
 		c := state.current()
 
-		if c == '\'' {
+		switch c {
+		case '\'':
 			// Check for escaped quote ''
-			if state.hasNext() && state.peek() == '\'' {
-				state.advanceBy(2) // Skip both quotes
-			} else {
+			if !state.hasNext() || state.peek() != '\'' {
 				state.advance() // Skip closing quote
 				return
 			}
-		} else if c == '\\' {
+			state.advanceBy2() // Skip both quotes
+		case '\\':
 			// Handle backslash escaping (MySQL, PostgreSQL)
 			state.advance()
 			if state.hasMore() {
 				state.advance()
 			}
-		} else {
+		default:
 			state.advance()
 		}
 	}
@@ -229,24 +229,25 @@ func isPlaceholder(state *sqlNormalizerState) bool {
 func skipPlaceholder(state *sqlNormalizerState) {
 	c := state.current()
 
-	if c == '?' {
+	switch {
+	case c == '?':
 		// JDBC placeholder
 		state.advance()
-	} else if c == '$' {
+	case c == '$':
 		// PostgreSQL: $1, $2...
 		state.advance() // Skip $
 		for state.hasMore() && (state.current() >= '0' && state.current() <= '9') {
 			state.advance()
 		}
-	} else if c == ':' || c == '@' {
+	case c == ':' || c == '@':
 		// Oracle/Python/SQL Server: :NAME, @NAME
 		state.advance() // Skip : or @
 		for state.hasMore() && isIdentifierChar(state.current()) {
 			state.advance()
 		}
-	} else if c == '%' && state.hasNext() && state.peek() == '(' {
+	case c == '%' && state.hasNext() && state.peek() == '(':
 		// Python: %(NAME)S
-		state.advanceBy(2) // Skip %(
+		state.advanceBy2() // Skip %(
 		for state.hasMore() && state.current() != ')' {
 			state.advance()
 		}
@@ -266,7 +267,7 @@ func skipPlaceholder(state *sqlNormalizerState) {
 // - Normalizes all parameter placeholders to '?'
 // - Replaces string and numeric literals with '?'
 // - Removes comments (/* */, --, #)
-// - Strips ALL whitespace 
+// - Strips ALL whitespace
 // - Normalizes IN clauses: IN (1,2,3) → IN (?)
 //
 // This function implements the exact same algorithm as SqlStatementNormalizer.normalizeSql()
@@ -341,25 +342,28 @@ func tryNormalizeInClause(state *sqlNormalizerState) string {
 	for state.hasMore() && state.current() != ')' {
 		c := state.current()
 
-		if c == ' ' || c == '\t' || c == '\n' || c == '\r' {
+		switch {
+		case c == ' ' || c == '\t' || c == '\n' || c == '\r':
 			state.advance()
-		} else if c == ',' {
+		case c == ',':
 			state.advance()
-		} else if isPlaceholder(state) {
+		case isPlaceholder(state):
 			foundNonWhitespace = true
 			itemCount++
 			skipPlaceholder(state)
-		} else if isNumericLiteral(state) {
+		case isNumericLiteral(state):
 			foundNonWhitespace = true
 			itemCount++
 			skipNumericLiteral(state)
-		} else if c == '\'' {
+		case c == '\'':
 			foundNonWhitespace = true
 			itemCount++
 			skipStringLiteral(state)
-		} else {
+		default:
 			// Not a list, bail
 			allParametersOrLiterals = false
+		}
+		if !allParametersOrLiterals {
 			break
 		}
 	}
@@ -392,11 +396,12 @@ func normalizeParametersAndLiterals(sql string) string {
 	for state.hasMore() {
 		current := state.current()
 
-		if current == '\'' {
+		switch {
+		case current == '\'':
 			// Replace string literals with ?
 			skipStringLiteral(state)
 			result.WriteByte('?')
-		} else if current == '(' {
+		case current == '(':
 			// Check for IN clause with multiple values/placeholders
 			if isPrecededByIn(&result) {
 				inClause := tryNormalizeInClause(state)
@@ -405,15 +410,15 @@ func normalizeParametersAndLiterals(sql string) string {
 				result.WriteByte('(')
 				state.advance()
 			}
-		} else if isNumericLiteral(state) {
+		case isNumericLiteral(state):
 			// Numeric literals
 			skipNumericLiteral(state)
 			result.WriteByte('?')
-		} else if isPlaceholder(state) {
+		case isPlaceholder(state):
 			// Any placeholder type --> ?
 			skipPlaceholder(state)
 			result.WriteByte('?')
-		} else {
+		default:
 			// Just append anything else
 			result.WriteByte(current)
 			state.advance()
@@ -438,11 +443,11 @@ func isSingleLineCommentStart(state *sqlNormalizerState) bool {
 // skipMultilineComment skips over /* */ comment.
 
 func skipMultilineComment(state *sqlNormalizerState) {
-	state.advanceBy(2) // Skip /*
+	state.advanceBy2() // Skip /*
 
 	for state.idx < state.length-1 {
 		if state.current() == '*' && state.peek() == '/' {
-			state.advanceBy(2) // Skip */
+			state.advanceBy2() // Skip */
 			return
 		}
 		state.advance()
@@ -467,7 +472,6 @@ func skipToEndOfLine(state *sqlNormalizerState) {
 	}
 }
 
-
 // processStringLiteral handles string literal in comment removal phase.
 // This is defensive code - literals should already be replaced in phase 1.
 
@@ -482,13 +486,12 @@ func processStringLiteral(result *strings.Builder, state *sqlNormalizerState) {
 
 		if c == '\'' {
 			// Escaped quote '' check
-			if state.hasNext() && state.peek() == '\'' {
-				result.WriteByte('\'')
-				state.advanceBy(2)
-			} else {
+			if !state.hasNext() || state.peek() != '\'' {
 				state.advance()
 				break
 			}
+			result.WriteByte('\'')
+			state.advanceBy2()
 		} else {
 			state.advance()
 		}
@@ -507,33 +510,34 @@ func removeCommentsAndNormalizeWhitespace(sql string) string {
 	for state.hasMore() {
 		current := state.current()
 
-		if current == '\'' {
+		switch {
+		case current == '\'':
 			// String literals (defensive - should already be replaced in phase 1)
 			processStringLiteral(&result, state)
-		} else if isMultilineCommentStart(state) {
+		case isMultilineCommentStart(state):
 			// Multi-line comment /* */
 			// Always replace comments with ? (matches NR APM agent behavior for both prefix and inline)
 			skipMultilineComment(state)
 			result.WriteByte('?')
 			state.lastWasWhitespace = false
-		} else if isSingleLineCommentStart(state) {
+		case isSingleLineCommentStart(state):
 			// Single-line comment --
 			// Always replace comments with ? (matches NR APM agent behavior for both prefix and inline)
-			state.advanceBy(2) // Skip --
+			state.advanceBy2() // Skip --
 			skipToEndOfLine(state)
 			result.WriteByte('?')
 			state.lastWasWhitespace = false
-		} else if current == '#' {
+		case current == '#':
 			// Hash comment
 			// Always replace comments with ? (matches NR APM agent behavior for both prefix and inline)
 			state.advance() // Skip #
 			skipToEndOfLine(state)
 			result.WriteByte('?')
 			state.lastWasWhitespace = false
-		} else if current == ' ' || current == '\t' || current == '\n' || current == '\r' {
+		case current == ' ' || current == '\t' || current == '\n' || current == '\r':
 			// stripWhitespace=true: just skip all whitespace (matches Java line 397-398)
 			state.advance()
-		} else {
+		default:
 			// Regular character: just append (matches Java line 403-405)
 			result.WriteByte(current)
 			state.advance()
@@ -553,10 +557,12 @@ func removeCommentsAndNormalizeWhitespace(sql string) string {
 // This is an acceptable use case despite MD5's known collision vulnerabilities.
 //
 // Parameters:
-//   normalizedSQL: The normalized SQL query text
+//
+//	normalizedSQL: The normalized SQL query text
 //
 // Returns:
-//   Lowercase hex string of MD5 hash (32 characters)
+//
+//	Lowercase hex string of MD5 hash (32 characters)
 func GenerateMD5Hash(normalizedSQL string) string {
 	// #nosec G401 - MD5 is used for SQL fingerprinting, not cryptographic security
 	hash := md5.Sum([]byte(normalizedSQL))
@@ -571,17 +577,20 @@ func GenerateMD5Hash(normalizedSQL string) string {
 // See NormalizeSQL for detailed normalization rules.
 //
 // Parameters:
-//   sql: The raw SQL query text
+//
+//	sql: The raw SQL query text
 //
 // Returns:
-//   normalizedSQL: The normalized SQL query text
-//   md5Hash: Lowercase hex string of MD5 hash (32 characters)
+//
+//	normalizedSQL: The normalized SQL query text
+//	md5Hash: Lowercase hex string of MD5 hash (32 characters)
 //
 // Example:
-//   input := "SELECT * FROM users WHERE id = 123 AND name = 'John'"
-//   normalized, hash := NormalizeSQLAndHash(input)
-//   // normalized: "SELECT * FROM USERS WHERE ID = ? AND NAME = ?"
-//   // hash: "62c441c38800ff82bffa5c57dd4f4059"
+//
+//	input := "SELECT * FROM users WHERE id = 123 AND name = 'John'"
+//	normalized, hash := NormalizeSQLAndHash(input)
+//	// normalized: "SELECT * FROM USERS WHERE ID = ? AND NAME = ?"
+//	// hash: "62c441c38800ff82bffa5c57dd4f4059"
 func NormalizeSQLAndHash(sql string) (normalizedSQL, md5Hash string) {
 	normalizedSQL = NormalizeSQL(sql)
 	md5Hash = GenerateMD5Hash(normalizedSQL)
