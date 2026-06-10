@@ -662,7 +662,7 @@ Per-session wait event statistics from v$session_event.
 
 ### db.server.top_query
 
-Collection of event metrics for top N queries, filtered based on the highest CPU time consumed (oracledb.elapsed_time).
+Top N queries ranked by highest average elapsed time per execution during the collection interval.
 
 #### Attributes
 

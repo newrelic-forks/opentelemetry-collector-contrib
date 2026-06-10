@@ -344,7 +344,7 @@ events:
       - oracledb.wait.duration
   db.server.top_query:
     enabled: false
-    description: Collection of event metrics for top N queries, filtered based on the highest CPU time consumed (oracledb.elapsed_time).
+    description: Top N queries ranked by highest average elapsed time per execution during the collection interval.
     attributes:
       - db.system.name
       - db.server.name
