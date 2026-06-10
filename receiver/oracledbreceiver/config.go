@@ -30,9 +30,10 @@ var (
 )
 
 type TopQueryCollection struct {
-	MaxQuerySampleCount uint          `mapstructure:"max_query_sample_count"`
-	TopQueryCount       uint          `mapstructure:"top_query_count"`
-	CollectionInterval  time.Duration `mapstructure:"collection_interval"`
+	MaxQuerySampleCount   uint          `mapstructure:"max_query_sample_count"`
+	TopQueryCount         uint          `mapstructure:"top_query_count"`
+	CollectionInterval    time.Duration `mapstructure:"collection_interval"`
+	ResponseTimeThreshold time.Duration `mapstructure:"response_time_threshold"`
 }
 
 type QuerySample struct {

@@ -33,7 +33,8 @@ func NewFactory() receiver.Factory {
 		}, newDbClient), metadata.MetricsStability),
 		receiver.WithLogs(createLogsReceiverFunc(func(dataSourceName string) (*sql.DB, error) {
 			return sql.Open("oracle", dataSourceName)
-		}, newDbClient), metadata.LogsStability))
+		}, newDbClient), metadata.LogsStability),
+	)
 }
 
 func createDefaultConfig() component.Config {
@@ -51,9 +52,10 @@ func createDefaultConfig() component.Config {
 			MaxRowsPerQuery: 100,
 		},
 		TopQueryCollection: TopQueryCollection{
-			MaxQuerySampleCount: 1000,
-			TopQueryCount:       200,
-			CollectionInterval:  time.Minute,
+			MaxQuerySampleCount:   1000,
+			TopQueryCount:         200,
+			CollectionInterval:    time.Minute,
+			ResponseTimeThreshold: 0,
 		},
 	}
 }

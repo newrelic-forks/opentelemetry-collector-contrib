@@ -1259,6 +1259,209 @@ func TestObfuscateCacheHitsHandlesTruncatedSQL(t *testing.T) {
 	assert.Equal(t, 0, warnLogs.Len(), "Expected no obfuscation failures")
 }
 
+// TestResponseTimeThresholdFiltersQueries verifies that when ResponseTimeThreshold
+// is set (e.g. 100ms), queries with a per-execution average elapsed time below the
+// threshold are excluded from the top N results.
+func TestResponseTimeThresholdFiltersQueries(t *testing.T) {
+	// Two queries:
+	// "slow01" — elapsed delta 10_000_000 µs / 100 executions = 100_000 µs/exec (100ms) — AT threshold
+	// "fast01" — elapsed delta 10_000_000 µs / 10_000 executions = 1_000 µs/exec (1ms) — BELOW threshold
+	metricsData := []metricRow{
+		{
+			"APPLICATION_WAIT_TIME": "0", "BUFFER_GETS": "5000000", "CHILD_ADDRESS": "ADDR1",
+			"CHILD_NUMBER": "0", "CLUSTER_WAIT_TIME": "0", "CONCURRENCY_WAIT_TIME": "0",
+			"CPU_TIME": "8000000", "DIRECT_READS": "0", "DIRECT_WRITES": "0", "DISK_READS": "0",
+			"ELAPSED_TIME": "20000000", "EXECUTIONS": "200", "PHYSICAL_READ_BYTES": "0",
+			"PHYSICAL_READ_REQUESTS": "0", "PHYSICAL_WRITE_BYTES": "0", "PHYSICAL_WRITE_REQUESTS": "0",
+			"ROWS_PROCESSED": "200", "SQL_FULLTEXT": "SELECT * FROM SLOW_TABLE WHERE ID = 1",
+			"SQL_ID": "slow01", "USER_IO_WAIT_TIME": "0",
+			"PROGRAM_ID": "", "PROCEDURE_NAME": "", "PROCEDURE_TYPE": "", "PROCEDURE_EXECUTIONS": "0",
+			"COMMAND_TYPE": "3",
+		},
+		{
+			"APPLICATION_WAIT_TIME": "0", "BUFFER_GETS": "90000000", "CHILD_ADDRESS": "ADDR2",
+			"CHILD_NUMBER": "0", "CLUSTER_WAIT_TIME": "0", "CONCURRENCY_WAIT_TIME": "0",
+			"CPU_TIME": "15000000", "DIRECT_READS": "0", "DIRECT_WRITES": "0", "DISK_READS": "0",
+			"ELAPSED_TIME": "20000000", "EXECUTIONS": "10100", "PHYSICAL_READ_BYTES": "0",
+			"PHYSICAL_READ_REQUESTS": "0", "PHYSICAL_WRITE_BYTES": "0", "PHYSICAL_WRITE_REQUESTS": "0",
+			"ROWS_PROCESSED": "10100", "SQL_FULLTEXT": "SELECT 1 FROM DUAL",
+			"SQL_ID": "fast01", "USER_IO_WAIT_TIME": "0",
+			"PROGRAM_ID": "", "PROCEDURE_NAME": "", "PROCEDURE_TYPE": "", "PROCEDURE_EXECUTIONS": "0",
+			"COMMAND_TYPE": "3",
+		},
+	}
+
+	logsCfg := metadata.DefaultLogsBuilderConfig()
+	logsCfg.Events.DbServerTopQuery.Enabled = true
+	metricsCfg := metadata.NewDefaultMetricsBuilderConfig()
+
+	lruCache, _ := lru.New[string, map[string]int64](500)
+	// slow01: elapsed delta = 20M - 10M = 10M µs, exec delta = 200 - 100 = 100 → avg = 100_000 µs (100ms)
+	lruCache.Add("slow01:0", map[string]int64{
+		"APPLICATION_WAIT_TIME": 0, "BUFFER_GETS": 4000000, "CLUSTER_WAIT_TIME": 0,
+		"CONCURRENCY_WAIT_TIME": 0, "CPU_TIME": 4000000, "DIRECT_READS": 0, "DIRECT_WRITES": 0,
+		"DISK_READS": 0, "ELAPSED_TIME": 10000000, "EXECUTIONS": 100, "PHYSICAL_READ_BYTES": 0,
+		"PHYSICAL_READ_REQUESTS": 0, "PHYSICAL_WRITE_BYTES": 0, "PHYSICAL_WRITE_REQUESTS": 0,
+		"ROWS_PROCESSED": 100, "USER_IO_WAIT_TIME": 0, "PROCEDURE_EXECUTIONS": 0,
+	})
+	// fast01: elapsed delta = 20M - 10M = 10M µs, exec delta = 10100 - 100 = 10000 → avg = 1_000 µs (1ms)
+	lruCache.Add("fast01:0", map[string]int64{
+		"APPLICATION_WAIT_TIME": 0, "BUFFER_GETS": 80000000, "CLUSTER_WAIT_TIME": 0,
+		"CONCURRENCY_WAIT_TIME": 0, "CPU_TIME": 5000000, "DIRECT_READS": 0, "DIRECT_WRITES": 0,
+		"DISK_READS": 0, "ELAPSED_TIME": 10000000, "EXECUTIONS": 100, "PHYSICAL_READ_BYTES": 0,
+		"PHYSICAL_READ_REQUESTS": 0, "PHYSICAL_WRITE_BYTES": 0, "PHYSICAL_WRITE_REQUESTS": 0,
+		"ROWS_PROCESSED": 100, "USER_IO_WAIT_TIME": 0, "PROCEDURE_EXECUTIONS": 0,
+	})
+
+	scrpr := oracleScraper{
+		logger: zap.NewNop(),
+		mb:     metadata.NewMetricsBuilder(metricsCfg, receivertest.NewNopSettings(metadata.Type)),
+		lb:     metadata.NewLogsBuilder(logsCfg, receivertest.NewNopSettings(metadata.Type)),
+		dbProviderFunc: func() (*sql.DB, error) {
+			return nil, nil
+		},
+		clientProviderFunc: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+			if strings.Contains(s, "V$SQL_PLAN") {
+				return &fakeDbClient{Responses: [][]metricRow{{}}}
+			}
+			return &fakeDbClient{Responses: [][]metricRow{metricsData}}
+		},
+		id:                   component.ID{},
+		metricsBuilderConfig: metadata.NewDefaultMetricsBuilderConfig(),
+		logsBuilderConfig:    metadata.DefaultLogsBuilderConfig(),
+		metricCache:          lruCache,
+		topQueryCollectCfg: TopQueryCollection{
+			MaxQuerySampleCount:   5000,
+			TopQueryCount:         200,
+			ResponseTimeThreshold: 100 * time.Millisecond, // 100ms threshold
+		},
+		instanceName:      "oraclehost:1521/ORCL",
+		hostName:          "oraclehost:1521",
+		obfuscator:        newObfuscator(),
+		serviceInstanceID: getInstanceID("oraclehost:1521/ORCL", zap.NewNop()),
+	}
+
+	scrpr.logsBuilderConfig.Events.DbServerTopQuery.Enabled = true
+
+	err := scrpr.start(t.Context(), componenttest.NewNopHost())
+	defer func() {
+		assert.NoError(t, scrpr.shutdown(t.Context()))
+	}()
+	require.NoError(t, err)
+
+	logs, err := scrpr.scrapeLogs(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 1, logs.ResourceLogs().Len())
+
+	records := logs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords()
+	// Only "slow01" (100ms avg) should pass the 100ms threshold.
+	// "fast01" (1ms avg) should be filtered out.
+	require.Equal(t, 1, records.Len(), "Only queries at or above the 100ms threshold should be emitted")
+
+	sqlID, _ := records.At(0).Attributes().Get("oracledb.sql_id")
+	assert.Equal(t, "slow01", sqlID.Str(), "The slow query should be the one emitted")
+}
+
+// TestTopNSortsByPerExecutionAverage verifies that queries are sorted by
+// per-execution average elapsed time (slowest first), not by total elapsed time.
+// This ensures we get the truly slowest queries, not just the highest resource consumers.
+func TestTopNSortsByPerExecutionAverage(t *testing.T) {
+	// "highvol" — high total elapsed but fast per execution: 50M µs total / 50000 execs = 1000 µs/exec
+	// "slowone" — low total elapsed but slow per execution: 10M µs total / 10 execs = 1_000_000 µs/exec
+	metricsData := []metricRow{
+		{
+			"APPLICATION_WAIT_TIME": "0", "BUFFER_GETS": "90000000", "CHILD_ADDRESS": "ADDR1",
+			"CHILD_NUMBER": "0", "CLUSTER_WAIT_TIME": "0", "CONCURRENCY_WAIT_TIME": "0",
+			"CPU_TIME": "40000000", "DIRECT_READS": "0", "DIRECT_WRITES": "0", "DISK_READS": "0",
+			"ELAPSED_TIME": "60000000", "EXECUTIONS": "50100", "PHYSICAL_READ_BYTES": "0",
+			"PHYSICAL_READ_REQUESTS": "0", "PHYSICAL_WRITE_BYTES": "0", "PHYSICAL_WRITE_REQUESTS": "0",
+			"ROWS_PROCESSED": "50100", "SQL_FULLTEXT": "SELECT ID FROM LOOKUP WHERE KEY = 1",
+			"SQL_ID": "highvol", "USER_IO_WAIT_TIME": "0",
+			"PROGRAM_ID": "", "PROCEDURE_NAME": "", "PROCEDURE_TYPE": "", "PROCEDURE_EXECUTIONS": "0",
+			"COMMAND_TYPE": "3",
+		},
+		{
+			"APPLICATION_WAIT_TIME": "0", "BUFFER_GETS": "500000", "CHILD_ADDRESS": "ADDR2",
+			"CHILD_NUMBER": "0", "CLUSTER_WAIT_TIME": "0", "CONCURRENCY_WAIT_TIME": "0",
+			"CPU_TIME": "9000000", "DIRECT_READS": "0", "DIRECT_WRITES": "0", "DISK_READS": "0",
+			"ELAPSED_TIME": "20000000", "EXECUTIONS": "110", "PHYSICAL_READ_BYTES": "0",
+			"PHYSICAL_READ_REQUESTS": "0", "PHYSICAL_WRITE_BYTES": "0", "PHYSICAL_WRITE_REQUESTS": "0",
+			"ROWS_PROCESSED": "110", "SQL_FULLTEXT": "SELECT * FROM LARGE_TABLE WHERE COMPLEX_JOIN = 1",
+			"SQL_ID": "slowone", "USER_IO_WAIT_TIME": "0",
+			"PROGRAM_ID": "", "PROCEDURE_NAME": "", "PROCEDURE_TYPE": "", "PROCEDURE_EXECUTIONS": "0",
+			"COMMAND_TYPE": "3",
+		},
+	}
+
+	logsCfg := metadata.DefaultLogsBuilderConfig()
+	logsCfg.Events.DbServerTopQuery.Enabled = true
+	metricsCfg := metadata.NewDefaultMetricsBuilderConfig()
+
+	lruCache, _ := lru.New[string, map[string]int64](500)
+	// highvol: elapsed delta = 60M - 10M = 50M µs, exec delta = 50100 - 100 = 50000 → avg = 1000 µs/exec (1ms)
+	lruCache.Add("highvol:0", map[string]int64{
+		"APPLICATION_WAIT_TIME": 0, "BUFFER_GETS": 80000000, "CLUSTER_WAIT_TIME": 0,
+		"CONCURRENCY_WAIT_TIME": 0, "CPU_TIME": 30000000, "DIRECT_READS": 0, "DIRECT_WRITES": 0,
+		"DISK_READS": 0, "ELAPSED_TIME": 10000000, "EXECUTIONS": 100, "PHYSICAL_READ_BYTES": 0,
+		"PHYSICAL_READ_REQUESTS": 0, "PHYSICAL_WRITE_BYTES": 0, "PHYSICAL_WRITE_REQUESTS": 0,
+		"ROWS_PROCESSED": 100, "USER_IO_WAIT_TIME": 0, "PROCEDURE_EXECUTIONS": 0,
+	})
+	// slowone: elapsed delta = 20M - 10M = 10M µs, exec delta = 110 - 100 = 10 → avg = 1_000_000 µs/exec (1s)
+	lruCache.Add("slowone:0", map[string]int64{
+		"APPLICATION_WAIT_TIME": 0, "BUFFER_GETS": 400000, "CLUSTER_WAIT_TIME": 0,
+		"CONCURRENCY_WAIT_TIME": 0, "CPU_TIME": 5000000, "DIRECT_READS": 0, "DIRECT_WRITES": 0,
+		"DISK_READS": 0, "ELAPSED_TIME": 10000000, "EXECUTIONS": 100, "PHYSICAL_READ_BYTES": 0,
+		"PHYSICAL_READ_REQUESTS": 0, "PHYSICAL_WRITE_BYTES": 0, "PHYSICAL_WRITE_REQUESTS": 0,
+		"ROWS_PROCESSED": 100, "USER_IO_WAIT_TIME": 0, "PROCEDURE_EXECUTIONS": 0,
+	})
+
+	scrpr := oracleScraper{
+		logger: zap.NewNop(),
+		mb:     metadata.NewMetricsBuilder(metricsCfg, receivertest.NewNopSettings(metadata.Type)),
+		lb:     metadata.NewLogsBuilder(logsCfg, receivertest.NewNopSettings(metadata.Type)),
+		dbProviderFunc: func() (*sql.DB, error) {
+			return nil, nil
+		},
+		clientProviderFunc: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+			if strings.Contains(s, "V$SQL_PLAN") {
+				return &fakeDbClient{Responses: [][]metricRow{{}}}
+			}
+			return &fakeDbClient{Responses: [][]metricRow{metricsData}}
+		},
+		id:                   component.ID{},
+		metricsBuilderConfig: metadata.NewDefaultMetricsBuilderConfig(),
+		logsBuilderConfig:    metadata.DefaultLogsBuilderConfig(),
+		metricCache:          lruCache,
+		topQueryCollectCfg:   TopQueryCollection{MaxQuerySampleCount: 5000, TopQueryCount: 200},
+		instanceName:         "oraclehost:1521/ORCL",
+		hostName:             "oraclehost:1521",
+		obfuscator:           newObfuscator(),
+		serviceInstanceID:    getInstanceID("oraclehost:1521/ORCL", zap.NewNop()),
+	}
+
+	scrpr.logsBuilderConfig.Events.DbServerTopQuery.Enabled = true
+
+	err := scrpr.start(t.Context(), componenttest.NewNopHost())
+	defer func() {
+		assert.NoError(t, scrpr.shutdown(t.Context()))
+	}()
+	require.NoError(t, err)
+
+	logs, err := scrpr.scrapeLogs(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 1, logs.ResourceLogs().Len())
+
+	records := logs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords()
+	require.Equal(t, 2, records.Len(), "Both queries should be emitted")
+
+	// "slowone" (1s/exec) should rank FIRST despite having LOWER total elapsed time (10M µs)
+	// "highvol" (1ms/exec) should rank SECOND despite having HIGHER total elapsed time (50M µs)
+	firstSQLID, _ := records.At(0).Attributes().Get("oracledb.sql_id")
+	secondSQLID, _ := records.At(1).Attributes().Get("oracledb.sql_id")
+	assert.Equal(t, "slowone", firstSQLID.Str(), "Slowest per-execution query should rank first")
+	assert.Equal(t, "highvol", secondSQLID.Str(), "High-volume but fast query should rank second")
+}
+
 func TestCalculateLookbackSeconds(t *testing.T) {
 	collectionInterval := 20 * time.Second
 	vsqlRefreshLagSec := 10 * time.Second

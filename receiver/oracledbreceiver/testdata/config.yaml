@@ -9,6 +9,7 @@ oracledb:
   top_query_collection:
     max_query_sample_count: 222
     top_query_count: 200
+    response_time_threshold: 0s
   metrics:
     oracledb.exchange_deadlocks:
       enabled: false

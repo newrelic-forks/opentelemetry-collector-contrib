@@ -820,17 +820,19 @@ func (s *oracleScraper) collectSysMetrics(ctx context.Context, scrapeErrors *[]e
 }
 
 type queryMetricCacheHit struct {
-	sqlID         string
-	childNumber   string
-	childAddress  string
-	queryText     string
-	metrics       map[string]int64
-	objectID      int64
-	objectName    string
-	objectType    string
-	commandType   int64
-	lastLoadTime  string
-	planHashValue string
+	sqlID             string
+	childNumber       string
+	childAddress      string
+	queryText         string
+	metrics           map[string]int64
+	avgElapsedPerExec float64
+	avgCPUPerExec     float64
+	objectID          int64
+	objectName        string
+	objectType        string
+	commandType       int64
+	lastLoadTime      string
+	planHashValue     string
 }
 
 func (s *oracleScraper) scrapeLogs(ctx context.Context) (plog.Logs, error) {
@@ -940,6 +942,10 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 
 			// skip if possible purge or no new executions since last scrape
 			if !possiblePurge && hit.metrics[queryExecutionMetric] > 0 {
+				// Compute per-execution averages (values in microseconds)
+				executions := float64(hit.metrics[queryExecutionMetric])
+				hit.avgElapsedPerExec = float64(hit.metrics[elapsedTimeMetric]) / executions
+				hit.avgCPUPerExec = float64(hit.metrics[cpuTimeMetric]) / executions
 				hits = append(hits, hit)
 			} else {
 				discardedHits++
@@ -959,9 +965,26 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 
 	s.logger.Debug("Cache hits", zap.Int("hit-count", len(hits)), zap.Int("discarded-hit-count", discardedHits))
 
-	// order by elapsed time delta, descending
+	// Apply response time threshold filter (if configured)
+	if s.topQueryCollectCfg.ResponseTimeThreshold > 0 {
+		thresholdMicros := float64(s.topQueryCollectCfg.ResponseTimeThreshold.Microseconds())
+		var filtered []queryMetricCacheHit
+		for i := range hits {
+			if hits[i].avgElapsedPerExec >= thresholdMicros {
+				filtered = append(filtered, hits[i])
+			}
+		}
+		hits = filtered
+	}
+
+	if len(hits) == 0 {
+		s.logger.Info("No log records after threshold filter")
+		return errors.Join(errs...)
+	}
+
+	// order by per-execution average elapsed time, descending (slowest queries first)
 	sort.Slice(hits, func(i, j int) bool {
-		return hits[i].metrics[elapsedTimeMetric] > hits[j].metrics[elapsedTimeMetric]
+		return hits[i].avgElapsedPerExec > hits[j].avgElapsedPerExec
 	})
 
 	// keep at most maxHitSize
