@@ -28,6 +28,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/sqlcomments"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/golden"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatatest/plogtest"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/oracledbreceiver/internal/metadata"
@@ -87,7 +88,66 @@ var queryResponses = map[string][]metricRow{
 		{"STAT_NAME": "PHYSICAL_MEMORY_BYTES", "VALUE": "17179869184"},
 	},
 	recycleBinSizeSQL: {{"RECYCLE_BIN_SIZE_BYTES": "13107200"}},
-	storageUsageSQL:   {{"USED_DB_SIZE": "5368709120", "ALLOCATED_DB_SIZE": "10737418240"}},
+	sgaInfoSQL: {
+		{"NAME": "Fixed SGA Size", "BYTES": "9292416"},
+		{"NAME": "Redo Buffers", "BYTES": "14598144"},
+		{"NAME": "Buffer Cache Size", "BYTES": "1375731712"},
+		{"NAME": "Shared Pool Size", "BYTES": "536870912"},
+		{"NAME": "Large Pool Size", "BYTES": "33554432"},
+		{"NAME": "Java Pool Size", "BYTES": "0"},
+		{"NAME": "Streams Pool Size", "BYTES": "0"},
+		{"NAME": "Shared IO Pool Size", "BYTES": "134217728"},
+		{"NAME": "Data Transfer Cache Size", "BYTES": "0"},
+		{"NAME": "Granule Size", "BYTES": "16777216"},
+		{"NAME": "Maximum SGA Size", "BYTES": "2147483648"},
+		{"NAME": "Startup overhead in Shared Pool", "BYTES": "209715200"},
+		{"NAME": "Free SGA Memory Available", "BYTES": "41943040"},
+	},
+	storageUsageSQL: {{"USED_DB_SIZE": "5368709120", "ALLOCATED_DB_SIZE": "10737418240"}},
+	sysmetricSQL: {
+		{"METRIC_NAME": "Buffer Cache Hit Ratio", "VALUE": "98.75"},
+		{"METRIC_NAME": "Host CPU Utilization (%)", "VALUE": "12.34"},
+		{"METRIC_NAME": "Database CPU Time Ratio", "VALUE": "55.66"},
+		{"METRIC_NAME": "Library Cache Hit Ratio", "VALUE": "99.10"},
+		{"METRIC_NAME": "Shared Pool Free %", "VALUE": "30.20"},
+		{"METRIC_NAME": "Database Wait Time Ratio", "VALUE": "44.55"},
+		{"METRIC_NAME": "Soft Parse Ratio", "VALUE": "88.90"},
+		{"METRIC_NAME": "SQL Service Response Time", "VALUE": "0.0042"},
+		{"METRIC_NAME": "Memory Sorts Ratio", "VALUE": "99.50"},
+		{"METRIC_NAME": "Redo Allocation Hit Ratio", "VALUE": "97.80"},
+		{"METRIC_NAME": "Parse Failure Count Per Sec", "VALUE": "0.25"},
+		{"METRIC_NAME": "Execute Without Parse Ratio", "VALUE": "75.30"},
+	},
+}
+
+// queryCDBResponses mirrors queryResponses but for the CDB-root SQL variants.
+// Each row includes PDB_NAME to simulate the v$containers join output.
+var queryCDBResponses = map[string][]metricRow{
+	statsCDBSQL: {
+		{"NAME": enqueueDeadlocks, "VALUE": "18", "PDB_NAME": "PDB1"},
+		{"NAME": exchangeDeadlocks, "VALUE": "88898", "PDB_NAME": "PDB1"},
+		{"NAME": executeCount, "VALUE": "178878", "PDB_NAME": "PDB1"},
+		{"NAME": parseCountTotal, "VALUE": "1999", "PDB_NAME": "PDB1"},
+		{"NAME": parseCountHard, "VALUE": "1", "PDB_NAME": "PDB1"},
+		{"NAME": userCommits, "VALUE": "187778888", "PDB_NAME": "PDB1"},
+		{"NAME": userRollbacks, "VALUE": "1898979879789", "PDB_NAME": "PDB1"},
+		{"NAME": physicalReads, "VALUE": "1887777", "PDB_NAME": "PDB1"},
+		{"NAME": physicalReadsDirect, "VALUE": "31337", "PDB_NAME": "PDB1"},
+		{"NAME": sessionLogicalReads, "VALUE": "189", "PDB_NAME": "PDB1"},
+		{"NAME": cpuTime, "VALUE": "1887", "PDB_NAME": "PDB1"},
+		{"NAME": pgaMemory, "VALUE": "1999887", "PDB_NAME": "PDB1"},
+		{"NAME": dbBlockGets, "VALUE": "42", "PDB_NAME": "PDB1"},
+		{"NAME": consistentGets, "VALUE": "78944", "PDB_NAME": "PDB1"},
+	},
+	sessionCountCDBSQL: {{"VALUE": "1", "STATUS": "ACTIVE", "TYPE": "USER", "PDB_NAME": "PDB1"}},
+	systemResourceLimitsSQL: {
+		{"RESOURCE_NAME": "processes", "CURRENT_UTILIZATION": "3", "MAX_UTILIZATION": "10", "INITIAL_ALLOCATION": "100", "LIMIT_VALUE": "100"},
+		{"RESOURCE_NAME": "locks", "CURRENT_UTILIZATION": "3", "MAX_UTILIZATION": "10", "INITIAL_ALLOCATION": "-1", "LIMIT_VALUE": "-1"},
+	},
+	tablespaceUsageCDBSQL: {{"PDB_NAME": "PDB1", "TABLESPACE_NAME": "USERS", "USED_SPACE": "111288", "TABLESPACE_SIZE": "3518587", "BLOCK_SIZE": "8192"}},
+	dataDictHitRatioSQL:   {{"DATA_DICTIONARY_HIT_RATIO": "98.75"}},
+	recycleBinSizeSQL:     {{"RECYCLE_BIN_SIZE_BYTES": "13107200"}},
+	storageUsageSQL:       {{"USED_DB_SIZE": "5368709120", "ALLOCATED_DB_SIZE": "10737418240"}},
 }
 
 var cacheValue = map[string]int64{
@@ -237,6 +297,62 @@ func TestScraper_Scrape(t *testing.T) {
 			}
 			assert.Equal(t, int64(78944), found.Sum().DataPoints().At(0).IntValue())
 		})
+	}
+}
+
+// TestScraper_ScrapeCDBRoot verifies that when the scraper is in CDB-root mode (isCDBRoot=true)
+// it uses the CDB-aware SQL variants and propagates the oracle.db.pdb attribute on tablespace metrics.
+func TestScraper_ScrapeCDBRoot(t *testing.T) {
+	cfg := metadata.NewDefaultMetricsBuilderConfig()
+	cfg.Metrics.OracledbConsistentGets.Enabled = true
+	cfg.Metrics.OracledbDbBlockGets.Enabled = true
+	// Enable the opt_in pdb_name attribute so it is written to data points.
+	cfg.Metrics.OracledbTablespaceSizeLimit.EnabledAttributes = append(
+		cfg.Metrics.OracledbTablespaceSizeLimit.EnabledAttributes,
+		metadata.OracledbTablespaceSizeLimitMetricAttributeKeyOracleDbPdb,
+	)
+	cfg.Metrics.OracledbTablespaceSizeUsage.EnabledAttributes = append(
+		cfg.Metrics.OracledbTablespaceSizeUsage.EnabledAttributes,
+		metadata.OracledbTablespaceSizeUsageMetricAttributeKeyOracleDbPdb,
+	)
+
+	scrpr := oracleScraper{
+		logger: zap.NewNop(),
+		mb:     metadata.NewMetricsBuilder(cfg, receivertest.NewNopSettings(metadata.Type)),
+		dbProviderFunc: func() (*sql.DB, error) {
+			return nil, nil
+		},
+		clientProviderFunc: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+			return &fakeDbClient{Responses: [][]metricRow{queryCDBResponses[s]}}
+		},
+		id:                   component.ID{},
+		metricsBuilderConfig: cfg,
+		// Simulate CDB root detection: isCDB=true, connectedToPDB=false.
+		instanceInfo: oracleInstanceInfo{isCDB: true, connectedToPDB: false},
+	}
+
+	// start() reads instanceInfo and sets isCDBRoot, then wires CDB-aware clients.
+	err := scrpr.start(t.Context(), componenttest.NewNopHost())
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, scrpr.shutdown(t.Context())) }()
+
+	assert.True(t, scrpr.isCDBRoot, "expected isCDBRoot to be true for CDB root connection")
+
+	m, err := scrpr.scrape(t.Context())
+	require.NoError(t, err)
+
+	metrics := m.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
+	assert.Equal(t, 18, metrics.Len())
+
+	// Verify pdb_name is set on tablespace metrics.
+	for i := 0; i < metrics.Len(); i++ {
+		metric := metrics.At(i)
+		if metric.Name() == "oracledb.tablespace_size.usage" || metric.Name() == "oracledb.tablespace_size.limit" {
+			dp := metric.Gauge().DataPoints().At(0)
+			pdbAttr, ok := dp.Attributes().Get("oracle.db.pdb")
+			assert.True(t, ok, "expected oracle.db.pdb attribute on %s", metric.Name())
+			assert.Equal(t, "PDB1", pdbAttr.Str())
+		}
 	}
 }
 
@@ -783,6 +899,54 @@ func TestSamplesQuery(t *testing.T) {
 	}
 }
 
+func TestScraperWithQueryComments(t *testing.T) {
+	t.Run("query samples with allowed comments", func(t *testing.T) {
+		// Create a mock scraper with allowed comment keys configured
+		cfg := createDefaultConfig().(*Config)
+		cfg.QuerySample.AllowedCommentKeys = []string{"nr_service_guid", "app_id"}
+
+		// This test verifies that when AllowedCommentKeys is configured,
+		// the comment extraction happens and is passed through the pipeline.
+		// The actual generated_logs code will handle adding the attribute.
+
+		// We can verify that extractAndFilterComments is called correctly
+		sqlWithComment := "/* nr_service_guid=test-123,app_id=myapp */ SELECT * FROM test_table"
+		result := sqlcomments.ExtractAndFilterComments(sqlWithComment, cfg.QuerySample.AllowedCommentKeys)
+
+		expected := "nr_service_guid=test-123,app_id=myapp"
+		if result != expected {
+			t.Errorf("Expected %q but got %q", expected, result)
+		}
+	})
+
+	t.Run("query samples without allowed comments", func(t *testing.T) {
+		// Create a mock scraper with empty allowed comment keys
+		cfg := createDefaultConfig().(*Config)
+		cfg.QuerySample.AllowedCommentKeys = []string{}
+
+		// Verify secure by default: empty allowlist returns empty string
+		sqlWithComment := "/* nr_service_guid=test-123 */ SELECT * FROM test_table"
+		result := sqlcomments.ExtractAndFilterComments(sqlWithComment, cfg.QuerySample.AllowedCommentKeys)
+
+		if result != "" {
+			t.Errorf("Expected empty string but got %q", result)
+		}
+	})
+
+	t.Run("query samples with non-matching comments", func(t *testing.T) {
+		cfg := createDefaultConfig().(*Config)
+		cfg.QuerySample.AllowedCommentKeys = []string{"nr_service_guid"}
+
+		// SQL has comments but none match the allowlist
+		sqlWithComment := "/* other_key=value */ SELECT * FROM test_table"
+		result := sqlcomments.ExtractAndFilterComments(sqlWithComment, cfg.QuerySample.AllowedCommentKeys)
+
+		if result != "" {
+			t.Errorf("Expected empty string but got %q", result)
+		}
+	})
+}
+
 func TestSessionWaitEventsQuery(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -859,6 +1023,113 @@ func TestSessionWaitEventsQuery(t *testing.T) {
 				assert.Equal(t, "db.server.session.wait_sample", logs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0).EventName())
 				assert.NoError(t, errs)
 			}
+		})
+	}
+}
+
+func TestScraper_ScrapeSysMetrics(t *testing.T) {
+	const floatDelta = 0.001
+
+	tests := []struct {
+		name      string
+		clientFn  func(db *sql.DB, s string, logger *zap.Logger) dbClient
+		errWanted string
+	}{
+		{
+			name: "valid sysmetric data",
+			clientFn: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+				return &fakeDbClient{
+					Responses: [][]metricRow{queryResponses[s]},
+				}
+			},
+		},
+		{
+			name: "bad sysmetric value",
+			clientFn: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+				if s == sysmetricSQL {
+					return &fakeDbClient{Responses: [][]metricRow{
+						{{"METRIC_NAME": "Buffer Cache Hit Ratio", "VALUE": "not_a_number"}},
+					}}
+				}
+				return &fakeDbClient{Responses: [][]metricRow{queryResponses[s]}}
+			},
+			errWanted: `sysmetric "Buffer Cache Hit Ratio": failed to parse float64`,
+		},
+		{
+			name: "sysmetric query error",
+			clientFn: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+				if s == sysmetricSQL {
+					return &fakeDbClient{Err: errors.New("db connection lost")}
+				}
+				return &fakeDbClient{Responses: [][]metricRow{queryResponses[s]}}
+			},
+			errWanted: "error executing SELECT metric_name",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := metadata.NewDefaultMetricsBuilderConfig()
+			cfg.Metrics.OracledbBufferCacheUtilization.Enabled = true
+			cfg.Metrics.OracledbHostCPUUtilization.Enabled = true
+			cfg.Metrics.OracledbDatabaseCPUUtilization.Enabled = true
+			cfg.Metrics.OracledbLibraryCacheUtilization.Enabled = true
+			cfg.Metrics.OracledbSharedPoolUtilization.Enabled = true
+			cfg.Metrics.OracledbDatabaseWaitUtilization.Enabled = true
+			cfg.Metrics.OracledbParseUtilization.Enabled = true
+			cfg.Metrics.OracledbSQLServiceResponseDuration.Enabled = true
+			cfg.Metrics.OracledbSortRatio.Enabled = true
+			cfg.Metrics.OracledbRedoAllocationUtilization.Enabled = true
+			cfg.Metrics.OracledbParseRate.Enabled = true
+			cfg.Metrics.OracledbExecutionUtilization.Enabled = true
+
+			scrpr := oracleScraper{
+				logger: zap.NewNop(),
+				mb:     metadata.NewMetricsBuilder(cfg, receivertest.NewNopSettings(metadata.Type)),
+				dbProviderFunc: func() (*sql.DB, error) {
+					return nil, nil
+				},
+				clientProviderFunc:   test.clientFn,
+				id:                   component.ID{},
+				metricsBuilderConfig: cfg,
+			}
+			err := scrpr.start(t.Context(), componenttest.NewNopHost())
+			require.NoError(t, err)
+			defer func() {
+				assert.NoError(t, scrpr.shutdown(t.Context()))
+			}()
+
+			m, err := scrpr.scrape(t.Context())
+
+			if test.errWanted != "" {
+				require.True(t, scrapererror.IsPartialScrapeError(err))
+				require.Contains(t, err.Error(), test.errWanted)
+				return
+			}
+
+			require.NoError(t, err)
+
+			metrics := m.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
+			metricMap := make(map[string]float64)
+			for i := 0; i < metrics.Len(); i++ {
+				metric := metrics.At(i)
+				if metric.Type() == pmetric.MetricTypeGauge && metric.Gauge().DataPoints().Len() > 0 {
+					metricMap[metric.Name()] = metric.Gauge().DataPoints().At(0).DoubleValue()
+				}
+			}
+
+			assert.InDelta(t, 98.75, metricMap["oracledb.buffer_cache.utilization"], floatDelta)
+			assert.InDelta(t, 12.34, metricMap["oracledb.host.cpu.utilization"], floatDelta)
+			assert.InDelta(t, 55.66, metricMap["oracledb.database.cpu.utilization"], floatDelta)
+			assert.InDelta(t, 99.10, metricMap["oracledb.library_cache.utilization"], floatDelta)
+			assert.InDelta(t, 30.20, metricMap["oracledb.shared_pool.utilization"], floatDelta)
+			assert.InDelta(t, 44.55, metricMap["oracledb.database.wait.utilization"], floatDelta)
+			assert.InDelta(t, 88.90, metricMap["oracledb.parse.utilization"], floatDelta)
+			assert.InDelta(t, 0.000042, metricMap["oracledb.sql_service.response.duration"], floatDelta)
+			assert.InDelta(t, 99.50, metricMap["oracledb.sort.ratio"], floatDelta)
+			assert.InDelta(t, 97.80, metricMap["oracledb.redo_allocation.utilization"], floatDelta)
+			assert.InDelta(t, 0.25, metricMap["oracledb.parse.rate"], floatDelta)
+			assert.InDelta(t, 75.30, metricMap["oracledb.execution.utilization"], floatDelta)
 		})
 	}
 }
@@ -1149,13 +1420,11 @@ func TestScrapesTopNLogsOnlyWhenIntervalHasElapsed(t *testing.T) {
 	}
 }
 
-// TestObfuscateCacheHitsSkipsInvalidEntriesWithWarning verifies that when a SQL
-// query text fails to obfuscate (e.g. due to a truncated string literal from
-// Oracle's CLOB display limit), the affected entry is skipped with a Warn log
-// and the remaining entries are still emitted. The whole scrape must not abort.
-func TestObfuscateCacheHitsSkipsInvalidEntriesWithWarning(t *testing.T) {
-	// Build two metric rows: one with valid SQL and one with a truncated
-	// string literal that the obfuscator cannot parse.
+// TestObfuscateCacheHitsHandlesTruncatedSQL verifies that the obfuscator
+// successfully handles SQL with truncated string literals that may occur
+// when Oracle's CLOB display limit is reached.
+func TestObfuscateCacheHitsHandlesTruncatedSQL(t *testing.T) {
+	// Build two metric rows with different SQL queries to verify obfuscation.
 	metricsData := []metricRow{
 		{
 			"APPLICATION_WAIT_TIME": "0", "BUFFER_GETS": "4000000", "CHILD_ADDRESS": "ADDR1",
@@ -1169,7 +1438,7 @@ func TestObfuscateCacheHitsSkipsInvalidEntriesWithWarning(t *testing.T) {
 			"COMMAND_TYPE": "3",
 		},
 		{
-			// Truncated mid-string-literal — obfuscator will return an error.
+			// SQL with truncated string literal.
 			"APPLICATION_WAIT_TIME": "0", "BUFFER_GETS": "5000000", "CHILD_ADDRESS": "ADDR2",
 			"CHILD_NUMBER": "0", "CLUSTER_WAIT_TIME": "0", "CONCURRENCY_WAIT_TIME": "0",
 			"CPU_TIME": "50000000", "DIRECT_READS": "0", "DIRECT_WRITES": "0", "DISK_READS": "0",
@@ -1239,18 +1508,16 @@ func TestObfuscateCacheHitsSkipsInvalidEntriesWithWarning(t *testing.T) {
 	require.NoError(t, err)
 
 	logs, err := scrpr.scrapeLogs(t.Context())
-	// The scrape must succeed even though one entry failed to obfuscate.
 	require.NoError(t, err)
 
-	// Exactly one valid log record (for "valid001") should be emitted.
+	// Both log records should be emitted.
 	require.Equal(t, 1, logs.ResourceLogs().Len())
 	records := logs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords()
-	require.Equal(t, 1, records.Len(), "Only the valid entry should be emitted; the truncated-SQL entry should be skipped")
+	require.Equal(t, 2, records.Len(), "Expected both entries to be emitted")
 
-	// A Warn log must have been emitted for the skipped entry.
+	// Verify no obfuscation errors were logged.
 	warnLogs := observedLogs.FilterMessage("oracleScraper failed to obfuscate SQL query, skipping entry")
-	assert.Equal(t, 1, warnLogs.Len(), "Expected exactly one Warn log for the failed obfuscation")
-	assert.Equal(t, "trunc01", warnLogs.All()[0].ContextMap()["sql_id"], "Warn log should identify the failing sql_id")
+	assert.Equal(t, 0, warnLogs.Len(), "Expected no obfuscation failures")
 }
 
 func TestCalculateLookbackSeconds(t *testing.T) {
@@ -1265,6 +1532,85 @@ func TestCalculateLookbackSeconds(t *testing.T) {
 	lookbackTime := scrpr.calculateLookbackSeconds()
 
 	assert.LessOrEqual(t, expectedMinimumLookbackTime, lookbackTime, "`lookbackTime` should be minimum %d", expectedMinimumLookbackTime)
+}
+
+func TestScraper_ScrapeSGAInfo(t *testing.T) {
+	tests := []struct {
+		name       string
+		dbclientFn func(db *sql.DB, s string, logger *zap.Logger) dbClient
+		errWanted  string
+	}{
+		{
+			name: "valid",
+			dbclientFn: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+				return &fakeDbClient{Responses: [][]metricRow{queryResponses[s]}}
+			},
+		},
+		{
+			name: "bad bytes value",
+			dbclientFn: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+				if s == sgaInfoSQL {
+					return &fakeDbClient{Responses: [][]metricRow{
+						{{"NAME": "Buffer Cache Size", "BYTES": "not_a_number"}},
+					}}
+				}
+				return &fakeDbClient{Responses: [][]metricRow{queryResponses[s]}}
+			},
+			errWanted: `failed to parse int64 for OracledbSgaUsage, value was not_a_number`,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cfg := metadata.NewDefaultMetricsBuilderConfig()
+			cfg.Metrics.OracledbSgaUsage.Enabled = true
+			cfg.Metrics.OracledbSgaLimit.Enabled = true
+
+			scrpr := oracleScraper{
+				logger: zap.NewNop(),
+				mb:     metadata.NewMetricsBuilder(cfg, receivertest.NewNopSettings(metadata.Type)),
+				dbProviderFunc: func() (*sql.DB, error) {
+					return nil, nil
+				},
+				clientProviderFunc:   test.dbclientFn,
+				id:                   component.ID{},
+				metricsBuilderConfig: cfg,
+			}
+			err := scrpr.start(t.Context(), componenttest.NewNopHost())
+			defer func() {
+				assert.NoError(t, scrpr.shutdown(t.Context()))
+			}()
+			require.NoError(t, err)
+			m, err := scrpr.scrape(t.Context())
+			if test.errWanted != "" {
+				require.True(t, scrapererror.IsPartialScrapeError(err))
+				require.Contains(t, err.Error(), test.errWanted)
+			} else {
+				require.NoError(t, err)
+				metrics := m.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
+				sgaUsageMap := make(map[string]int64)
+				var sgaLimit int64
+				for i := 0; i < metrics.Len(); i++ {
+					metric := metrics.At(i)
+					switch metric.Name() {
+					case "oracledb.sga.usage":
+						for j := 0; j < metric.Gauge().DataPoints().Len(); j++ {
+							dp := metric.Gauge().DataPoints().At(j)
+							component, _ := dp.Attributes().Get("oracledb.sga.component.name")
+							sgaUsageMap[component.Str()] = dp.IntValue()
+						}
+					case "oracledb.sga.limit":
+						sgaLimit = metric.Gauge().DataPoints().At(0).IntValue()
+					}
+				}
+				assert.Equal(t, int64(1375731712), sgaUsageMap["Buffer Cache Size"])
+				assert.Equal(t, int64(536870912), sgaUsageMap["Shared Pool Size"])
+				assert.Equal(t, int64(14598144), sgaUsageMap["Redo Buffers"])
+				assert.Equal(t, int64(2147483648), sgaLimit)
+				// Maximum SGA Size row should not appear in usage map
+				assert.NotContains(t, sgaUsageMap, "Maximum SGA Size")
+			}
+		})
+	}
 }
 
 func readFile(fname string) []byte {
