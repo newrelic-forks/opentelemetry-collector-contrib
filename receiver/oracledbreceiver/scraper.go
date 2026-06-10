@@ -115,6 +115,7 @@ const (
 	childAddressAttr = "CHILD_ADDRESS"
 	childNumberAttr  = "CHILD_NUMBER"
 	sqlTextAttr      = "SQL_FULLTEXT"
+	databaseNameAttr = "DATABASE_NAME"
 	dbSystemNameVal  = "oracle"
 
 	queryExecutionMetric        = "EXECUTIONS"
@@ -143,6 +144,7 @@ const (
 
 	// Plan metadata columns
 	lastLoadTimeAttr  = "LAST_LOAD_TIME"
+	firstLoadTimeAttr = "FIRST_LOAD_TIME"
 	planHashValueAttr = "PLAN_HASH_VALUE"
 )
 
@@ -824,12 +826,14 @@ type queryMetricCacheHit struct {
 	childNumber   string
 	childAddress  string
 	queryText     string
+	databaseName  string
 	metrics       map[string]int64
 	objectID      int64
 	objectName    string
 	objectType    string
 	commandType   int64
 	lastLoadTime  string
+	firstLoadTime string
 	planHashValue string
 }
 
@@ -916,12 +920,14 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 				queryText:     row[sqlTextAttr],
 				childNumber:   row[childNumberAttr],
 				childAddress:  row[childAddressAttr],
+				databaseName:  row[databaseNameAttr],
 				metrics:       make(map[string]int64, len(metricNames)),
 				objectID:      objectID,
 				objectName:    row[objectNameAttr],
 				objectType:    row[objectTypeAttr],
 				commandType:   commandType,
 				lastLoadTime:  row[lastLoadTimeAttr],
+				firstLoadTime: row[firstLoadTimeAttr],
 				planHashValue: hex.EncodeToString([]byte(row[planHashValueAttr])),
 			}
 
@@ -985,6 +991,7 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 			pcommon.NewTimestampFromTime(collectionTime),
 			dbSystemNameVal,
 			s.hostName,
+			hit.databaseName,
 			hit.queryText,
 			planString, hit.sqlID, hit.childNumber,
 			hit.childAddress,
@@ -1010,7 +1017,8 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 			hit.objectName,
 			hit.objectType,
 			hit.planHashValue,
-			hit.lastLoadTime)
+			hit.lastLoadTime,
+			hit.firstLoadTime)
 	}
 
 	hitCount := len(hits)
