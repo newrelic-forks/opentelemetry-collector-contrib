@@ -32,6 +32,7 @@ import (
 	"go.uber.org/zap"
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/sqlcomments"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/internal/common/sqlnormalizer"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/oracledbreceiver/internal/metadata"
 )
 
@@ -1158,6 +1159,9 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 		}
 		planString := string(planBytes)
 
+		// Normalize raw SQL and generate MD5 hash for APM correlation.
+		_, normalizedSQLHash := sqlnormalizer.NormalizeSQLAndHash(hit.queryText)
+
 		s.lb.RecordDbServerTopQueryEvent(context.Background(),
 			pcommon.NewTimestampFromTime(collectionTime),
 			dbSystemNameVal,
@@ -1188,7 +1192,8 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 			hit.objectType,
 			hit.queryComments,
 			hit.planHashValue,
-			hit.lastLoadTime)
+			hit.lastLoadTime,
+			normalizedSQLHash)
 	}
 
 	hitCount := len(hits)
@@ -1266,6 +1271,9 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 			continue
 		}
 
+		// Normalize SQL and generate MD5 hash for APM correlation.
+		_, normalizedSQLHash := sqlnormalizer.NormalizeSQLAndHash(obfuscatedSQL)
+
 		queryPlanHashVal := hex.EncodeToString([]byte(row[planHashValue]))
 
 		queryDuration, err := strconv.ParseFloat(row[duration], 64)
@@ -1315,7 +1323,8 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 			row[schemaName], row[program], row[module], row[status], row[state], row[waitclass], row[event], waitTime, objID, row[objectName], row[objectType],
 			row[osUser], queryDuration, queryComments, row[sqlExecStart], row[logonTime], sessionDurationSec,
 			row[blockingSession], row[finalBlockingSession], row[blockingSessionStatus], row[blockingStartTime], secondsInWaitVal,
-			row[lockMode], row[lockType], row[blockedObjectOwner], row[blockedObjectName])
+			row[lockMode], row[lockType], row[blockedObjectOwner], row[blockedObjectName],
+			normalizedSQLHash)
 	}
 
 	s.lb.Emit(metadata.WithLogsResource(rb.Emit())).ResourceLogs().MoveAndAppendTo(logs.ResourceLogs())

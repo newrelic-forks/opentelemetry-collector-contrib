@@ -62,6 +62,9 @@ attributes:
   db.query.text:
     description: The text of the database query being executed.
     type: string
+  db.query.text.normalized.hash:
+    description: "MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Used for correlation with APM slow query traces."
+    type: string
   db.server.name:
     description: The name of the server hosting the database.
     type: string
@@ -344,6 +347,7 @@ events:
       - oracledb.blocking.lock.type
       - oracledb.blocking.object.owner
       - oracledb.blocking.object.name
+      - db.query.text.normalized.hash
   db.server.session.wait_sample:
     enabled: false
     description: Per-session wait event statistics from v$session_event.
@@ -389,6 +393,7 @@ events:
       - query.comments
       - oracledb.plan_hash_value
       - oracledb.plan.last_load
+      - db.query.text.normalized.hash
 metrics:
   oracledb.buffer_cache.utilization:
     attributes:

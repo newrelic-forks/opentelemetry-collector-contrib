@@ -928,6 +928,7 @@ sample query
 | oracledb.blocking.lock.type | The type of enqueue lock the session is waiting on, extracted from the wait event (e.g., TX for row lock, TM for table lock). Empty when not waiting on a lock. | Any Str | - |
 | oracledb.blocking.object.owner | The owner (schema) of the database object the session is waiting to lock. Empty when no object lock wait is active. | Any Str | - |
 | oracledb.blocking.object.name | The name of the database object the session is waiting to lock. Empty when no object lock wait is active. | Any Str | - |
+| db.query.text.normalized.hash | MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Used for correlation with APM slow query traces. | Any Str | - |
 
 ### db.server.session.wait_sample
 
@@ -983,6 +984,7 @@ Collection of event metrics for top N queries, filtered based on the highest CPU
 | query.comments | Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys specified in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
 | oracledb.plan_hash_value | Binary hash value calculated on the query execution plan and used to identify similar query execution plans, reported in the HEX format. | Any Str | - |
 | oracledb.plan.last_load | Plan load time in the server's local timezone. Format: YYYY-MM-DD/HH:MM:SS | Any Str | - |
+| db.query.text.normalized.hash | MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Used for correlation with APM slow query traces. | Any Str | - |
 
 ## Resource Attributes
 

@@ -136,9 +136,12 @@ resourceLogs:
               - key: oracledb.blocking.object.name
                 value:
                   stringValue: ORDERS
+              - key: db.query.text.normalized.hash
+                value:
+                  stringValue: 935a5fc83824aadeb67aea0839016db6
             body: {}
             eventName: db.server.query_sample
-            timeUnixNano: "1779182973081590000"
+            timeUnixNano: "1781089195129187000"
         scope:
           name: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/oracledbreceiver
           version: latest
