@@ -3,7 +3,6 @@
 
 This receiver periodically queries an Oracle Database host to collect metrics.
 
-
 | Status        |           |
 | ------------- |-----------|
 | Stability     | [development]: logs   |
@@ -64,8 +63,38 @@ receivers:
 
 ## Permissions
 
-Depending on which metrics you collect, you will need to assign those permissions to the database user:
+### Instance detection
+
+These grants are required to populate the `oracle.db.version`, `oracle.db.role`,
+`oracle.db.open_mode`, and `oracle.db.pdb` resource attributes.
+Detection is best-effort; failures are logged at warn level and the receiver continues.
+
+```sql
+GRANT SELECT ON V_$INSTANCE TO <username>;
+GRANT SELECT ON V_$DATABASE TO <username>;
 ```
+
+> **Note:** `sys_context('USERENV', ...)` queries against `DUAL` require no
+> additional grant and are available to all database users.
+
+### Hosting type detection (Oracle >=19c only)
+
+These grants are required to populate the `oracle.db.hosting_type` resource attribute.
+Only applies to Oracle 19c and later. Detection is best-effort; failures are logged at
+warn level and the receiver continues.
+
+```sql
+GRANT SELECT ON V_$DATAFILE TO <username>;
+GRANT SELECT ON V_$PDBS TO <username>;        -- OCI detection, connected to PDB only
+GRANT SELECT ON CDB_SERVICES TO <username>;   -- OCI confirmation, connected to PDB only
+```
+
+### Metrics collection
+
+Depending on which metrics you collect, you will need to assign these
+permissions to the database user:
+
+```sql
 GRANT SELECT ON V_$SESSION TO <username>;
 GRANT SELECT ON V_$SYSSTAT TO <username>;
 GRANT SELECT ON V_$RESOURCE_LIMIT TO <username>;
@@ -73,6 +102,20 @@ GRANT SELECT ON DBA_TABLESPACES TO <username>;
 GRANT SELECT ON DBA_DATA_FILES TO <username>;
 GRANT SELECT ON DBA_TABLESPACE_USAGE_METRICS TO <username>;
 GRANT SELECT ON V_$SGAINFO TO <username>;
+```
+
+### Per-PDB metrics (CDB multitenant deployments)
+
+When connected to a CDB root (Oracle 12c+), the receiver can collect per-PDB metrics
+by opting in to the `oracle.db.pdb` attribute. The following additional grants are required
+for the common user (with `CONTAINER=ALL`):
+
+```sql
+GRANT SELECT ON V_$CON_SYSSTAT TO <username> CONTAINER=ALL;
+GRANT SELECT ON V_$CON_SYSMETRIC TO <username> CONTAINER=ALL;
+GRANT SELECT ON V_$CONTAINERS TO <username> CONTAINER=ALL;
+GRANT SELECT ON CDB_TABLESPACE_USAGE_METRICS TO <username> CONTAINER=ALL;
+GRANT SELECT ON CDB_TABLESPACES TO <username> CONTAINER=ALL;
 ```
 
 ## Enabling metrics.
