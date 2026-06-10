@@ -826,7 +826,6 @@ type queryMetricCacheHit struct {
 	queryText         string
 	metrics           map[string]int64
 	avgElapsedPerExec float64
-	avgCPUPerExec     float64
 	objectID          int64
 	objectName        string
 	objectType        string
@@ -942,10 +941,8 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 
 			// skip if possible purge or no new executions since last scrape
 			if !possiblePurge && hit.metrics[queryExecutionMetric] > 0 {
-				// Compute per-execution averages (values in microseconds)
-				executions := float64(hit.metrics[queryExecutionMetric])
-				hit.avgElapsedPerExec = float64(hit.metrics[elapsedTimeMetric]) / executions
-				hit.avgCPUPerExec = float64(hit.metrics[cpuTimeMetric]) / executions
+				// Compute per-execution average elapsed time (microseconds) for sorting
+				hit.avgElapsedPerExec = float64(hit.metrics[elapsedTimeMetric]) / float64(hit.metrics[queryExecutionMetric])
 				hits = append(hits, hit)
 			} else {
 				discardedHits++
