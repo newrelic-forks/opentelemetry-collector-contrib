@@ -8,6 +8,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/DataDog/datadog-agent/pkg/obfuscate"
 )
@@ -23,7 +24,7 @@ var collectCommentsConfig = obfuscate.SQLConfig{
 
 var fullQueryTextObfuscateConfig = obfuscate.SQLConfig{
 	DBMS:            "mssql",
-	ObfuscationMode: "obfuscate_only",
+	ObfuscationMode: "obfuscate_and_normalize",
 	KeepSQLAlias:    true,
 	KeepBoolean:     true,
 	KeepNull:        true,
@@ -57,19 +58,90 @@ func stripParameterDeclarations(sql string) string {
 	return sql
 }
 
+// utf16OffsetToBytePos converts a SQL Server UTF-16LE byte offset into a Go
+// string byte position. SQL Server's statement_start_offset is in bytes of
+// NVARCHAR (UTF-16LE, 2 bytes per BMP character, 4 bytes for supplementary).
+func utf16OffsetToBytePos(s string, utf16ByteOffset int) int {
+	if utf16ByteOffset <= 0 {
+		return 0
+	}
+	targetUTF16Units := utf16ByteOffset / 2
+	utf16Count := 0
+	bytePos := 0
+	for _, r := range s {
+		if utf16Count >= targetUTF16Units {
+			break
+		}
+		if r > 0xFFFF {
+			utf16Count += 2
+		} else {
+			utf16Count++
+		}
+		bytePos += utf8.RuneLen(r)
+	}
+	if bytePos > len(s) {
+		return len(s)
+	}
+	return bytePos
+}
+
+// extractLastBlockComment finds the last /* ... */ block comment in a string.
+func extractLastBlockComment(s string) string {
+	lastOpen := strings.LastIndex(s, "/*")
+	if lastOpen < 0 {
+		return ""
+	}
+	closeIdx := strings.Index(s[lastOpen:], "*/")
+	if closeIdx < 0 {
+		return ""
+	}
+	return s[lastOpen : lastOpen+closeIdx+2]
+}
+
+// extractCleanText uses statement_start_offset and statement_end_offset to
+// split the full SQL text into a preamble (parameter declarations + comments)
+// and the actual statement, then reconstructs the text as: comment + statement.
+// This produces a string that matches what APM agents hash against.
+// Both offsets are SQL Server UTF-16LE byte offsets. statement_end_offset should
+// already be resolved (i.e. -1 replaced with DATALENGTH) by the SQL query.
+func extractCleanText(fullText string, statementStartOffset, statementEndOffset int) string {
+	if statementStartOffset <= 0 {
+		return stripParameterDeclarations(fullText)
+	}
+
+	startPos := utf16OffsetToBytePos(fullText, statementStartOffset)
+	if startPos >= len(fullText) {
+		return stripParameterDeclarations(fullText)
+	}
+
+	endPos := len(fullText)
+	if statementEndOffset > 0 {
+		endPos = utf16OffsetToBytePos(fullText, statementEndOffset)
+		if endPos > len(fullText) {
+			endPos = len(fullText)
+		}
+	}
+
+	preamble := fullText[:startPos]
+	statement := fullText[startPos:endPos]
+
+	comment := extractLastBlockComment(preamble)
+	if comment != "" {
+		return comment + statement
+	}
+	return statement
+}
+
+var obfuscateSQLConfig = obfuscate.SQLConfig{DBMS: "mssql"}
+
 type obfuscator obfuscate.Obfuscator
 
 func newObfuscator() *obfuscator {
-	return (*obfuscator)(obfuscate.NewObfuscator(obfuscate.Config{
-		SQL: obfuscate.SQLConfig{
-			DBMS: "mssql",
-		},
-	}))
+	return (*obfuscator)(obfuscate.NewObfuscator(obfuscate.Config{}))
 }
 
 func (o *obfuscator) obfuscateSQLString(sql string) (string, error) {
-	sql = stripParameterDeclarations(sql)
-	obfuscatedQuery, err := (*obfuscate.Obfuscator)(o).ObfuscateSQLString(sql)
+	obfuscatedQuery, err := (*obfuscate.Obfuscator)(o).ObfuscateSQLStringWithOptions(sql, &obfuscateSQLConfig, "")
 	if err != nil {
 		return "", err
 	}
@@ -79,8 +151,10 @@ func (o *obfuscator) obfuscateSQLString(sql string) (string, error) {
 // obfuscateFullSQLString obfuscates a full SQL batch text using a two-step approach:
 // Step 1: collect comments and replace them with ? placeholders
 // Step 2: obfuscate literals using obfuscate_only mode
-func (o *obfuscator) obfuscateFullSQLString(sql string) (string, error) {
-	sql = stripParameterDeclarations(sql)
+// statementStartOffset/statementEndOffset are SQL Server UTF-16 byte offsets
+// used to correctly split preamble (params+comment) from the actual statement.
+func (o *obfuscator) obfuscateFullSQLString(sql string, statementStartOffset, statementEndOffset int) (string, error) {
+	sql = extractCleanText(sql, statementStartOffset, statementEndOffset)
 	collectResult, err := (*obfuscate.Obfuscator)(o).ObfuscateSQLStringWithOptions(sql, &collectCommentsConfig, "")
 	if err != nil {
 		return "", err
