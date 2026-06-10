@@ -199,6 +199,22 @@ tagging — no additional grants are needed.
 >   covered by a CDB root receiver (e.g. when CDB root access is not
 >   available).
 
+### Events collection
+
+These grants are required for the `db.server.query_sample`, `db.server.top_query`,
+and `db.server.session.wait_sample` events.
+
+```sql
+GRANT SELECT ON V_$SQL TO <username>;
+GRANT SELECT ON V_$SQL_PLAN TO <username>;
+GRANT SELECT ON V_$SESSION TO <username>;
+GRANT SELECT ON V_$SESSION_EVENT TO <username>;
+GRANT SELECT ON V_$LOCK TO <username>;
+GRANT SELECT ON V_$CONTAINERS TO <username>;
+GRANT SELECT ON DBA_OBJECTS TO <username>;
+GRANT SELECT ON DBA_PROCEDURES TO <username>;
+```
+
 ## Enabling metrics.
 
 See [documentation](./documentation.md).
