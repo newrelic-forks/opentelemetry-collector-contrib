@@ -96,39 +96,39 @@ func TestValidQueryPlans(t *testing.T) {
 
 func TestUTF16OffsetToBytePos(t *testing.T) {
 	tests := []struct {
-		name           string
-		input          string
-		utf16Offset    int
+		name            string
+		input           string
+		utf16Offset     int
 		expectedBytePos int
 	}{
 		{
-			name:           "zero offset",
-			input:          "SELECT * FROM users",
-			utf16Offset:    0,
+			name:            "zero offset",
+			input:           "SELECT * FROM users",
+			utf16Offset:     0,
 			expectedBytePos: 0,
 		},
 		{
-			name:           "negative offset",
-			input:          "SELECT * FROM users",
-			utf16Offset:    -1,
+			name:            "negative offset",
+			input:           "SELECT * FROM users",
+			utf16Offset:     -1,
 			expectedBytePos: 0,
 		},
 		{
-			name:           "ASCII only - offset 10 bytes (5 chars)",
-			input:          "(@P0 int)SELECT * FROM users",
-			utf16Offset:    18, // 9 chars * 2 bytes = 18
+			name:            "ASCII only - offset 10 bytes (5 chars)",
+			input:           "(@P0 int)SELECT * FROM users",
+			utf16Offset:     18, // 9 chars * 2 bytes = 18
 			expectedBytePos: 9,
 		},
 		{
-			name:           "param declaration with comment",
-			input:          "(@P0 int,@P1 bigint)/*nr_service_guid=\"abc\"*/UPDATE orders SET x = 1",
-			utf16Offset:    90, // 45 chars * 2 = 90 -> points to 'U' of UPDATE
+			name:            "param declaration with comment",
+			input:           "(@P0 int,@P1 bigint)/*nr_service_guid=\"abc\"*/UPDATE orders SET x = 1",
+			utf16Offset:     90, // 45 chars * 2 = 90 -> points to 'U' of UPDATE
 			expectedBytePos: 45,
 		},
 		{
-			name:           "offset beyond string length",
-			input:          "short",
-			utf16Offset:    100,
+			name:            "offset beyond string length",
+			input:           "short",
+			utf16Offset:     100,
 			expectedBytePos: 5,
 		},
 	}
@@ -207,7 +207,7 @@ func TestExtractCleanText(t *testing.T) {
 		{
 			name:                 "uninstrumented with params only",
 			fullText:             "(@P0 int,@P1 bigint)UPDATE orders SET total = 100",
-			statementStartOffset: 40, // 20 chars * 2 = 40
+			statementStartOffset: 40,  // 20 chars * 2 = 40
 			statementEndOffset:   100, // 50 chars * 2 = 100
 			expected:             "UPDATE orders SET total = 100",
 		},

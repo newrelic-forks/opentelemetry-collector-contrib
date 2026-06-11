@@ -46,9 +46,10 @@ func stripParameterDeclarations(sql string) string {
 	}
 	depth := 0
 	for i, ch := range sql {
-		if ch == '(' {
+		switch ch {
+		case '(':
 			depth++
-		} else if ch == ')' {
+		case ')':
 			depth--
 			if depth == 0 {
 				return sql[i+1:]
@@ -116,10 +117,7 @@ func extractCleanText(fullText string, statementStartOffset, statementEndOffset 
 
 	endPos := len(fullText)
 	if statementEndOffset > 0 {
-		endPos = utf16OffsetToBytePos(fullText, statementEndOffset)
-		if endPos > len(fullText) {
-			endPos = len(fullText)
-		}
+		endPos = min(utf16OffsetToBytePos(fullText, statementEndOffset), len(fullText))
 	}
 
 	preamble := fullText[:startPos]
