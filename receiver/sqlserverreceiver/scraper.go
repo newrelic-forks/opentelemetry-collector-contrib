@@ -1236,10 +1236,11 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 
 		databaseNameVal := row[databaseName]
 
-		var fullQueryTextVal, dbSQLCommentsVal, dbQueryTextNormalizedHashVal, normalizedSQLVal string
+		var fullQueryTextVal, dbSQLCommentsVal, nrServiceGUIDVal, dbQueryTextNormalizedHashVal, normalizedSQLVal string
 		if s.config.CollectFullQueryText {
 			rawFullText := row[fullQueryText]
 			dbSQLCommentsVal = sqlcomments.ExtractAndFilterComments(rawFullText, s.config.AllowedCommentKeys)
+			nrServiceGUIDVal = sqlcomments.ExtractValueForKey(dbSQLCommentsVal, "nr_service_guid")
 			obfuscated, err := s.obfuscator.obfuscateFullSQLString(rawFullText)
 			if err != nil {
 				s.logger.Error(fmt.Sprintf("failed to obfuscate full SQL text: %v", err))
@@ -1342,6 +1343,7 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 			lastExecutionTimeVal,
 			fullQueryTextVal,
 			dbSQLCommentsVal,
+			nrServiceGUIDVal,
 			dbQueryTextNormalizedHashVal,
 			normalizedSQLVal,
 		)
@@ -1591,10 +1593,11 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 			return obfuscated, nil
 		}).(string)
 
-		var fullQueryTextVal, dbSQLCommentsVal, dbQueryTextNormalizedHashVal, normalizedSQLVal string
+		var fullQueryTextVal, dbSQLCommentsVal, nrServiceGUIDVal, dbQueryTextNormalizedHashVal, normalizedSQLVal string
 		if s.config.CollectFullQueryText {
 			rawFullText := row[fullQueryTextCol]
 			dbSQLCommentsVal = sqlcomments.ExtractAndFilterComments(rawFullText, s.config.AllowedCommentKeys)
+			nrServiceGUIDVal = sqlcomments.ExtractValueForKey(dbSQLCommentsVal, "nr_service_guid")
 			obfuscated, err := s.obfuscator.obfuscateFullSQLString(rawFullText)
 			if err != nil {
 				s.logger.Error(fmt.Sprintf("failed to obfuscate full SQL text: %v", err))
@@ -1687,7 +1690,7 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 			waitResourceVal, waitTimeSecondVal, waitTypeVal, writesVal, usernameVal,
 			row[storedProcedureID], row[storedProcedureName],
 			fullQueryTextVal, dbSQLCommentsVal,
-			dbQueryTextNormalizedHashVal, normalizedSQLVal,
+			nrServiceGUIDVal, dbQueryTextNormalizedHashVal, normalizedSQLVal,
 		)
 
 		if !resourcesAdded {

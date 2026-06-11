@@ -85,6 +85,9 @@ resourceLogs:
               - key: query.comments
                 value:
                   stringValue: ""
+              - key: query.comments.nr_service_guid
+                value:
+                  stringValue: ""
               - key: db.query.text.normalized.hash
                 value:
                   stringValue: ""

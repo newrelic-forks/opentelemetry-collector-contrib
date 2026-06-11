@@ -139,6 +139,10 @@ attributes:
     description: Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys in allowed_comment_keys config. Used for APM trace correlation.
     type: string
     requirement_level: opt_in
+  query.comments.nr_service_guid:
+    description: New Relic service GUID extracted from the filtered query.comments. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Used for correlation with APM traces.
+    type: string
+    requirement_level: opt_in
   replica.direction:
     description: The direction of flow of bytes for replica.
     type: string
@@ -428,6 +432,7 @@ events:
       - sqlserver.procedure_name
       - db.query.full_text
       - query.comments
+      - query.comments.nr_service_guid
       - db.query.text.normalized.hash
       - sqlserver.normalized_sql
 
@@ -457,6 +462,7 @@ events:
       - sqlserver.query.last_started
       - db.query.full_text
       - query.comments
+      - query.comments.nr_service_guid
       - db.query.text.normalized.hash
       - sqlserver.normalized_sql
 
