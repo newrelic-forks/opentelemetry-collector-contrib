@@ -1,24 +1,24 @@
 resourceLogs:
   - resource:
       attributes:
-        - key: host.name
-          value:
-            stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
-        - key: service.instance.id
-          value:
-            stringValue: 0.0.0.0:1433
         - key: sqlserver.computer.name
           value:
             stringValue: DESKTOP-GHAEGRD
         - key: sqlserver.instance.name
           value:
             stringValue: sqlserver
+        - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: service.instance.id
+          value:
+            stringValue: 0.0.0.0:1433
+        - key: server.address
+          value:
+            stringValue: 0.0.0.0
+        - key: server.port
+          value:
+            intValue: "1433"
     scopeLogs:
       - logRecords:
           - attributes:
@@ -70,6 +70,9 @@ resourceLogs:
               - key: sqlserver.logical_reads
                 value:
                   intValue: "0"
+              - key: sqlserver.normalized_sql
+                value:
+                  stringValue: ""
               - key: sqlserver.open_transaction_count
                 value:
                   intValue: "0"
@@ -123,7 +126,7 @@ resourceLogs:
                   intValue: "0"
               - key: sqlserver.wait_resource
                 value:
-                  stringValue: "KEY: 5:72057594043359232 (ce52f1d31b65)"
+                  stringValue: 'KEY: 5:72057594043359232 (ce52f1d31b65)'
               - key: sqlserver.wait_time
                 value:
                   doubleValue: 0
@@ -142,11 +145,21 @@ resourceLogs:
               - key: sqlserver.procedure_name
                 value:
                   stringValue: ""
+              - key: db.query.full_text
+                value:
+                  stringValue: ""
+              - key: query.comments
+                value:
+                  stringValue: ""
+              - key: query.comments.nr_service_guid
+                value:
+                  stringValue: ""
+              - key: db.query.text.normalized.hash
+                value:
+                  stringValue: ""
             body: {}
             eventName: db.server.query_sample
-            spanId: ""
-            timeUnixNano: "1748221339132048638"
-            traceId: ""
+            timeUnixNano: "1779132411124301000"
         scope:
           name: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/sqlserverreceiver
           version: latest
