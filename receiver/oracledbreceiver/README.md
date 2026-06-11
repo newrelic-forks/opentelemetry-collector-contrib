@@ -119,6 +119,22 @@ GRANT SELECT ON CDB_TABLESPACE_USAGE_METRICS TO <username> CONTAINER=ALL;
 GRANT SELECT ON CDB_TABLESPACES TO <username> CONTAINER=ALL;
 ```
 
+### Events collection
+
+These grants are required for the `db.server.query_sample`, `db.server.top_query`,
+and `db.server.session.wait_sample` events.
+
+```sql
+GRANT SELECT ON V_$SQL TO <username>;
+GRANT SELECT ON V_$SQL_PLAN TO <username>;
+GRANT SELECT ON V_$SESSION TO <username>;
+GRANT SELECT ON V_$SESSION_EVENT TO <username>;
+GRANT SELECT ON V_$LOCK TO <username>;
+GRANT SELECT ON V_$CONTAINERS TO <username>;
+GRANT SELECT ON DBA_OBJECTS TO <username>;
+GRANT SELECT ON DBA_PROCEDURES TO <username>;
+```
+
 ## Enabling metrics.
 
 See [documentation](./documentation.md).
@@ -154,10 +170,14 @@ receivers:
         enabled: true
       db.server.top_query:
         enabled: true
+      db.server.session.wait_sample:
+        enabled: true
     top_query_collection:                        # this collection exports the most expensive queries as logs
       max_query_sample_count: 1000               # maximum number of samples collected from db to filter the top N
       top_query_count: 200                       # The maximum number of queries (N) for which the metrics would be reported
       collection_interval: 60s                   # collection interval for top query collection specifically
     query_sample_collection:                     # this collection exports the currently (relate to the query time) executing queries as logs
       max_rows_per_query: 100                     # the maximum number of samples to bre reported.
+    session_wait_event_collection:               # this collection exports per-session wait event statistics from v$session_event as logs
+      max_rows_per_query: 100                    # the maximum number of session wait event rows to be reported
 ```

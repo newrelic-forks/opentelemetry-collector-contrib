@@ -101,6 +101,9 @@ attributes:
     description: The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB.
     type: string
     requirement_level: opt_in
+  oracle.db.service:
+    description: The Oracle service name associated with the database connection.
+    type: string
   oracledb.application_wait_time:
     description: The total time (in seconds) a query spent waiting on the application before it could proceed with execution (reporting delta).
     type: double
@@ -316,6 +319,7 @@ events:
       - db.system.name
       - user.name
       - db.namespace
+      - oracle.db.service
       - client.address
       - client.port
       - network.peer.address
@@ -371,6 +375,8 @@ events:
     attributes:
       - db.system.name
       - db.server.name
+      - db.namespace
+      - oracle.db.service
       - db.query.text
       - oracledb.query_plan
       - oracledb.sql_id
