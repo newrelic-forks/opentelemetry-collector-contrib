@@ -100,6 +100,9 @@ resourceLogs:
               - key: query.comments
                 value:
                   stringValue: ""
+              - key: query.comments.nr_service_guid
+                value:
+                  stringValue: ""
               - key: oracledb.query.started
                 value:
                   stringValue: "2026-05-06T09:59:45Z"
@@ -141,7 +144,7 @@ resourceLogs:
                   stringValue: 935a5fc83824aadeb67aea0839016db6
             body: {}
             eventName: db.server.query_sample
-            timeUnixNano: "1781089195129187000"
+            timeUnixNano: "1781146651201921000"
         scope:
           name: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/oracledbreceiver
           version: latest

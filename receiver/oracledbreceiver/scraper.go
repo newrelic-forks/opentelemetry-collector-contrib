@@ -998,6 +998,7 @@ type queryMetricCacheHit struct {
 	childAddress  string
 	queryText     string
 	queryComments string
+	nrServiceGUID string
 	metrics       map[string]int64
 	objectID      int64
 	objectName    string
@@ -1087,11 +1088,13 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 
 			// Extract and filter comments from original SQL before obfuscation
 			queryComments := sqlcomments.ExtractAndFilterComments(row[sqlTextAttr], s.topQueryCollectCfg.AllowedCommentKeys)
+			nrServiceGUID := sqlcomments.ExtractValueForKey(queryComments, "nr_service_guid")
 
 			hit := queryMetricCacheHit{
 				sqlID:         row[sqlIDAttr],
 				queryText:     row[sqlTextAttr],
 				queryComments: queryComments,
+				nrServiceGUID: nrServiceGUID,
 				childNumber:   row[childNumberAttr],
 				childAddress:  row[childAddressAttr],
 				metrics:       make(map[string]int64, len(metricNames)),
@@ -1191,6 +1194,7 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 			hit.objectName,
 			hit.objectType,
 			hit.queryComments,
+			hit.nrServiceGUID,
 			hit.planHashValue,
 			hit.lastLoadTime,
 			normalizedSQLHash)
@@ -1317,11 +1321,12 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 
 		// Extract and filter query comments from original SQL (before obfuscation)
 		queryComments := sqlcomments.ExtractAndFilterComments(row[sqlText], s.querySampleCfg.AllowedCommentKeys)
+		nrServiceGUID := sqlcomments.ExtractValueForKey(queryComments, "nr_service_guid")
 
 		s.lb.RecordDbServerQuerySampleEvent(queryContext, timestamp, obfuscatedSQL, dbSystemNameVal, row[username], row[serviceName], row[hostName],
 			clientPort, row[hostName], clientPort, queryPlanHashVal, row[sqlID], row[sqlChildNumber], row[childAddress], row[sid], row[serialNumber], row[process],
 			row[schemaName], row[program], row[module], row[status], row[state], row[waitclass], row[event], waitTime, objID, row[objectName], row[objectType],
-			row[osUser], queryDuration, queryComments, row[sqlExecStart], row[logonTime], sessionDurationSec,
+			row[osUser], queryDuration, queryComments, nrServiceGUID, row[sqlExecStart], row[logonTime], sessionDurationSec,
 			row[blockingSession], row[finalBlockingSession], row[blockingSessionStatus], row[blockingStartTime], secondsInWaitVal,
 			row[lockMode], row[lockType], row[blockedObjectOwner], row[blockedObjectName],
 			normalizedSQLHash)
