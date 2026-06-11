@@ -85,7 +85,7 @@ resourceLogs:
               - key: query.comments
                 value:
                   stringValue: ""
-              - key: sqlserver.normalised_sql_hash
+              - key: db.query.text.normalized.hash
                 value:
                   stringValue: ""
               - key: sqlserver.normalized_sql

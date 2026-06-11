@@ -81,6 +81,10 @@ attributes:
     description: The text of the database query being executed.
     type: string
     requirement_level: recommended
+  db.query.text.normalized.hash:
+    description: MD5 hash of the normalized full SQL query text. Used for correlation with APM slow query traces. Only populated when collect_full_query_text is enabled.
+    type: string
+    requirement_level: opt_in
   db.system.name:
     description: The database management system (DBMS) product as identified by the client instrumentation.
     type: string
@@ -196,12 +200,8 @@ attributes:
     description: Number of logical reads (data read from cache/memory).
     type: int
     requirement_level: recommended
-  sqlserver.normalised_sql_hash:
-    description: MD5 hash of the normalized full SQL query text. Used for correlation with APM slow query traces. Only populated when collect_full_query_text is enabled.
-    type: string
-    requirement_level: opt_in
   sqlserver.normalized_sql:
-    description: Normalized SQL query text used to generate the normalised_sql_hash. Only populated when collect_full_query_text is enabled.
+    description: Normalized SQL query text used to generate the db.query.text.normalized.hash. Only populated when collect_full_query_text is enabled.
     type: string
     requirement_level: opt_in
   sqlserver.open_transaction_count:
@@ -418,7 +418,7 @@ events:
       - sqlserver.procedure_name
       - db.query.full_text
       - query.comments
-      - sqlserver.normalised_sql_hash
+      - db.query.text.normalized.hash
       - sqlserver.normalized_sql
 
   db.server.top_query:
@@ -447,7 +447,7 @@ events:
       - sqlserver.query.last_started
       - db.query.full_text
       - query.comments
-      - sqlserver.normalised_sql_hash
+      - db.query.text.normalized.hash
       - sqlserver.normalized_sql
 
 metrics:
