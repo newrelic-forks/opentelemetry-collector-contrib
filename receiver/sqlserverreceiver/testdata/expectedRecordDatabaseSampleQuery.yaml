@@ -1,24 +1,24 @@
 resourceLogs:
   - resource:
       attributes:
-        - key: host.name
-          value:
-            stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
-        - key: service.instance.id
-          value:
-            stringValue: 0.0.0.0:1433
         - key: sqlserver.computer.name
           value:
             stringValue: DESKTOP-GHAEGRD
         - key: sqlserver.instance.name
           value:
             stringValue: sqlserver
+        - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: service.instance.id
+          value:
+            stringValue: 0.0.0.0:1433
+        - key: server.address
+          value:
+            stringValue: 0.0.0.0
+        - key: server.port
+          value:
+            intValue: "1433"
     scopeLogs:
       - logRecords:
           - attributes:
@@ -126,7 +126,7 @@ resourceLogs:
                   intValue: "2"
               - key: sqlserver.wait_resource
                 value:
-                  stringValue: "KEY: 5:72057594043359232 (ce52f1d31b65)"
+                  stringValue: 'KEY: 5:72057594043359232 (ce52f1d31b65)'
               - key: sqlserver.wait_time
                 value:
                   doubleValue: 2.45
@@ -145,10 +145,22 @@ resourceLogs:
               - key: sqlserver.procedure_name
                 value:
                   stringValue: ""
+              - key: db.query.full_text
+                value:
+                  stringValue: ""
+              - key: query.comments
+                value:
+                  stringValue: ""
+              - key: db.query.text.normalized.hash
+                value:
+                  stringValue: ""
+              - key: sqlserver.normalized_sql
+                value:
+                  stringValue: ""
             body: {}
             eventName: db.server.query_sample
             spanId: a7ad6a7169203331
-            timeUnixNano: "1748221338306918262"
+            timeUnixNano: "1779132411125398000"
             traceId: 0af7651916cd43dd8448eb211c80319c
         scope:
           name: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/sqlserverreceiver
