@@ -364,6 +364,33 @@ metrics:
     unit: "{connections}"
     gauge:
       value_type: int
+  postgresql.database.blk_read_time:
+    enabled: false
+    description: Time spent reading data file blocks by backends in this database.
+    stability: development
+    unit: ms
+    sum:
+      value_type: double
+      monotonic: true
+      aggregation_temporality: cumulative
+  postgresql.database.blk_write_time:
+    enabled: false
+    description: Time spent writing data file blocks by backends in this database.
+    stability: development
+    unit: ms
+    sum:
+      value_type: double
+      monotonic: true
+      aggregation_temporality: cumulative
+  postgresql.database.conflicts:
+    enabled: false
+    description: Number of queries canceled due to conflicts with recovery in this database.
+    stability: development
+    unit: "{conflict}"
+    sum:
+      value_type: int
+      monotonic: true
+      aggregation_temporality: cumulative
   postgresql.database.count:
     description: Number of user databases.
     stability: development
