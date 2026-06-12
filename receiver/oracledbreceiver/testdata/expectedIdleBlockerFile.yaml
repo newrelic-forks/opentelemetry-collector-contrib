@@ -24,6 +24,9 @@ resourceLogs:
                   stringValue: DBA_USER
               - key: db.namespace
                 value:
+                  stringValue: ORCLPDB1
+              - key: oracle.db.service
+                value:
                   stringValue: ORCL
               - key: client.address
                 value:
@@ -97,6 +100,12 @@ resourceLogs:
               - key: oracledb.duration_sec
                 value:
                   doubleValue: 120
+              - key: db.query.comment_tags
+                value:
+                  stringValue: ""
+              - key: query.comments.nr_service_guid
+                value:
+                  stringValue: ""
               - key: oracledb.query.started
                 value:
                   stringValue: ""
@@ -133,9 +142,12 @@ resourceLogs:
               - key: oracledb.blocking.object.name
                 value:
                   stringValue: ""
+              - key: db.query.text.normalized.hash
+                value:
+                  stringValue: 935a5fc83824aadeb67aea0839016db6
             body: {}
             eventName: db.server.query_sample
-            timeUnixNano: "1779182973082763000"
+            timeUnixNano: "1781146651202789000"
         scope:
           name: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/oracledbreceiver
           version: latest

@@ -20,6 +20,12 @@ Cumulative CPU time, in seconds
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | s | Sum | Double | Cumulative | true | Development |
 
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
+
 ### oracledb.dml_locks.limit
 
 Maximum limit of active DML (Data Manipulation Language) locks, -1 if unlimited.
@@ -43,6 +49,12 @@ Total number of deadlocks between table or row locks in different sessions.
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {deadlocks} | Sum | Int | Cumulative | true | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
 
 ### oracledb.enqueue_locks.limit
 
@@ -84,6 +96,12 @@ Number of times that a process detected a potential deadlock when exchanging two
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {deadlocks} | Sum | Int | Cumulative | true | Development |
 
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
+
 ### oracledb.executions
 
 Total number of calls (user and recursive) that executed SQL statements
@@ -91,6 +109,12 @@ Total number of calls (user and recursive) that executed SQL statements
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {executions} | Sum | Int | Cumulative | true | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
 
 ### oracledb.hard_parses
 
@@ -100,6 +124,12 @@ Number of hard parses
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {parses} | Sum | Int | Cumulative | true | Development |
 
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
+
 ### oracledb.logical_reads
 
 Number of logical reads
@@ -107,6 +137,12 @@ Number of logical reads
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {reads} | Sum | Int | Cumulative | true | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
 
 ### oracledb.parse_calls
 
@@ -116,6 +152,12 @@ Total number of parse calls.
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {parses} | Sum | Int | Cumulative | true | Development |
 
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
+
 ### oracledb.pga_memory
 
 Session PGA (Program Global Area) memory
@@ -124,6 +166,12 @@ Session PGA (Program Global Area) memory
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | By | Sum | Int | Cumulative | true | Development |
 
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
+
 ### oracledb.physical_reads
 
 Number of physical reads
@@ -131,6 +179,12 @@ Number of physical reads
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {reads} | Sum | Int | Cumulative | true | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
 
 ### oracledb.processes.limit
 
@@ -170,6 +224,7 @@ Count of active sessions.
 | ---- | ----------- | ------ | ----------------- | ------------------- |
 | session_type | Session type | Any Str | Recommended | - |
 | session_status | Session status | Any Str | Recommended | - |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
 
 ### oracledb.tablespace_size.limit
 
@@ -184,6 +239,7 @@ Maximum size of tablespace in bytes, -1 if unlimited.
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
 | tablespace_name | Tablespace name | Any Str | Recommended | - |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
 
 ### oracledb.tablespace_size.usage
 
@@ -198,6 +254,7 @@ Used tablespace in bytes.
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
 | tablespace_name | Tablespace name | Any Str | Recommended | - |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
 
 ### oracledb.transactions.limit
 
@@ -223,6 +280,12 @@ Number of user commits. When a user commits a transaction, the redo generated th
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {commits} | Sum | Int | Cumulative | true | Development |
 
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
+
 ### oracledb.user_rollbacks
 
 Number of times users manually issue the ROLLBACK statement or an error occurs during a user's transactions
@@ -230,6 +293,12 @@ Number of times users manually issue the ROLLBACK statement or an error occurs d
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | 1 | Sum | Int | Cumulative | true | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
 
 ## Optional Metrics
 
@@ -249,6 +318,12 @@ Fraction of logical reads served from the buffer cache without physical I/O, as 
 | ---- | ----------- | ---------- | --------- |
 | % | Gauge | Double | Development |
 
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
+
 ### oracledb.consistent_gets
 
 Number of times a consistent read was requested for a block from the buffer cache.
@@ -256,6 +331,12 @@ Number of times a consistent read was requested for a block from the buffer cach
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {gets} | Sum | Int | Cumulative | true | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
 
 ### oracledb.data_dictionary.hit_ratio
 
@@ -273,6 +354,12 @@ Fraction of total database time spent on CPU, as computed by Oracle V$SYSMETRIC 
 | ---- | ----------- | ---------- | --------- |
 | % | Gauge | Double | Development |
 
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
+
 ### oracledb.database.wait.utilization
 
 Fraction of total database time spent waiting on I/O, locks, or latches, as computed by Oracle V$SYSMETRIC (% Wait/DB_Time).
@@ -280,6 +367,12 @@ Fraction of total database time spent waiting on I/O, locks, or latches, as comp
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
 | % | Gauge | Double | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
 
 ### oracledb.db_block_gets
 
@@ -289,6 +382,12 @@ Number of times a current block was requested from the buffer cache.
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {gets} | Sum | Int | Cumulative | true | Development |
 
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
+
 ### oracledb.ddl_statements_parallelized
 
 Number of DDL statements that were executed in parallel
@@ -297,6 +396,12 @@ Number of DDL statements that were executed in parallel
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {statements} | Sum | Int | Cumulative | true | Development |
 
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
+
 ### oracledb.dml_statements_parallelized
 
 Number of DML statements that were executed in parallel
@@ -304,6 +409,12 @@ Number of DML statements that were executed in parallel
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {statements} | Sum | Int | Cumulative | true | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
 
 ### oracledb.execution.utilization
 
@@ -318,6 +429,7 @@ Fraction of executions that did not require a parse, as computed by Oracle V$SYS
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
 | oracledb.parse.type | Type of parse operation (e.g., soft). | Str: ``soft`` | Recommended | - |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
 
 ### oracledb.host.cpu.utilization
 
@@ -327,6 +439,12 @@ Fraction of host CPU time in use, as computed by Oracle V$SYSMETRIC (% Busy/(Idl
 | ---- | ----------- | ---------- | --------- |
 | % | Gauge | Double | Development |
 
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
+
 ### oracledb.library_cache.utilization
 
 Fraction of library cache pin requests that found the object already cached, as computed by Oracle V$SYSMETRIC (% Hits/Pins).
@@ -334,6 +452,12 @@ Fraction of library cache pin requests that found the object already cached, as 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
 | % | Gauge | Double | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
 
 ### oracledb.logons
 
@@ -343,6 +467,12 @@ Number of logon operations
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {operation} | Sum | Int | Cumulative | true | Development |
 
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
+
 ### oracledb.parallel_operations_downgraded_1_to_25_pct
 
 Number of times parallel execution was requested and the degree of parallelism was reduced down to 1-25% because of insufficient parallel execution servers
@@ -350,6 +480,12 @@ Number of times parallel execution was requested and the degree of parallelism w
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {executions} | Sum | Int | Cumulative | true | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
 
 ### oracledb.parallel_operations_downgraded_25_to_50_pct
 
@@ -359,6 +495,12 @@ Number of times parallel execution was requested and the degree of parallelism w
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {executions} | Sum | Int | Cumulative | true | Development |
 
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
+
 ### oracledb.parallel_operations_downgraded_50_to_75_pct
 
 Number of times parallel execution was requested and the degree of parallelism was reduced down to 50-75% because of insufficient parallel execution servers
@@ -366,6 +508,12 @@ Number of times parallel execution was requested and the degree of parallelism w
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {executions} | Sum | Int | Cumulative | true | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
 
 ### oracledb.parallel_operations_downgraded_75_to_99_pct
 
@@ -375,6 +523,12 @@ Number of times parallel execution was requested and the degree of parallelism w
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {executions} | Sum | Int | Cumulative | true | Development |
 
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
+
 ### oracledb.parallel_operations_downgraded_to_serial
 
 Number of times parallel execution was requested but execution was serial because of insufficient parallel execution servers
@@ -383,6 +537,12 @@ Number of times parallel execution was requested but execution was serial becaus
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {executions} | Sum | Int | Cumulative | true | Development |
 
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
+
 ### oracledb.parallel_operations_not_downgraded
 
 Number of times parallel execution was executed at the requested degree of parallelism
@@ -390,6 +550,12 @@ Number of times parallel execution was executed at the requested degree of paral
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {executions} | Sum | Int | Cumulative | true | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
 
 ### oracledb.parse.rate
 
@@ -404,6 +570,7 @@ Rate of parse operations per second broken down by result, as computed by Oracle
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
 | oracledb.parse.result | Result of a parse operation (e.g., failure). | Str: ``failure`` | Recommended | - |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
 
 ### oracledb.parse.utilization
 
@@ -413,6 +580,12 @@ Fraction of parse calls that were soft parses, as computed by Oracle V$SYSMETRIC
 | ---- | ----------- | ---------- | --------- |
 | % | Gauge | Double | Development |
 
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
+
 ### oracledb.physical_io.cache_writes
 
 Number of physical writes from the buffer cache to disk by DBWR. Sourced from v$sysstat name physical writes from cache.
@@ -420,6 +593,12 @@ Number of physical writes from the buffer cache to disk by DBWR. Sourced from v$
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {writes} | Sum | Int | Cumulative | true | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
 
 ### oracledb.physical_io.requests
 
@@ -435,6 +614,7 @@ Number of physical I/O requests issued to storage. Sourced from v$sysstat names 
 | ---- | ----------- | ------ | ----------------- | ------------------- |
 | disk.io.direction | Direction of the storage I/O operation. | Str: ``read``, ``write`` | Recommended | - |
 | disk.io.block_size | Multi-block vs single-block (all) I/O request grouping. | Str: ``all``, ``multi`` | Recommended | - |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
 
 ### oracledb.physical_io.transferred
 
@@ -450,6 +630,7 @@ Total physical I/O bytes transferred between Oracle and storage. Sums across all
 | ---- | ----------- | ------ | ----------------- | ------------------- |
 | disk.io.direction | Direction of the storage I/O operation. | Str: ``read``, ``write`` | Recommended | - |
 | disk.io.type | Whether the I/O bytes are buffered (cache-mediated) or total (raw transfer count). | Str: ``buffered``, ``total`` | Recommended | - |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
 
 ### oracledb.physical_read_io_requests
 
@@ -459,6 +640,12 @@ Number of read requests for application activity
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {requests} | Sum | Int | Cumulative | true | Development |
 
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
+
 ### oracledb.physical_reads_direct
 
 Number of reads directly from disk, bypassing the buffer cache
@@ -466,6 +653,12 @@ Number of reads directly from disk, bypassing the buffer cache
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {reads} | Sum | Int | Cumulative | true | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
 
 ### oracledb.physical_write_io_requests
 
@@ -475,6 +668,12 @@ Number of write requests for application activity
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {requests} | Sum | Int | Cumulative | true | Development |
 
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
+
 ### oracledb.physical_writes
 
 Number of physical writes
@@ -482,6 +681,12 @@ Number of physical writes
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {writes} | Sum | Int | Cumulative | true | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
 
 ### oracledb.physical_writes_direct
 
@@ -491,6 +696,12 @@ Number of writes directly to disk, bypassing the buffer cache
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {writes} | Sum | Int | Cumulative | true | Development |
 
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
+
 ### oracledb.queries_parallelized
 
 Number of SELECT statements executed in parallel
@@ -498,6 +709,12 @@ Number of SELECT statements executed in parallel
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {queries} | Sum | Int | Cumulative | true | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
 
 ### oracledb.recycle_bin.limit
 
@@ -515,6 +732,34 @@ Fraction of redo allocations that succeeded without space contention, as compute
 | ---- | ----------- | ---------- | --------- |
 | % | Gauge | Double | Development |
 
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
+
+### oracledb.sga.limit
+
+Maximum size of the System Global Area (SGA) in bytes as reported by V$SGAINFO (Maximum SGA Size).
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| By | Gauge | Int | Development |
+
+### oracledb.sga.usage
+
+Size in bytes of each component of the System Global Area (SGA) as reported by V$SGAINFO.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| By | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracledb.sga.component.name | Name of the SGA memory component as reported by V$SGAINFO (e.g. Buffer Cache, Shared Pool, Log Buffer). | Any Str | Recommended | - |
+
 ### oracledb.shared_pool.utilization
 
 Fraction of the shared pool that is currently free, as computed by Oracle V$SYSMETRIC (% Free/Total). Low values indicate shared pool pressure.
@@ -522,6 +767,12 @@ Fraction of the shared pool that is currently free, as computed by Oracle V$SYSM
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
 | % | Gauge | Double | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
 
 ### oracledb.sort.ratio
 
@@ -536,6 +787,7 @@ Fraction of sorts performed in memory vs disk, as computed by Oracle V$SYSMETRIC
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
 | oracledb.sort.type | Type of sort operation (e.g., memory, disk). | Str: ``memory`` | Recommended | - |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
 
 ### oracledb.sql_service.response.duration
 
@@ -544,6 +796,12 @@ Average SQL service response time in seconds, converted from centiseconds as rep
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
 | s | Gauge | Double | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
 
 ### oracledb.sqlnet.io.transferred
 
@@ -559,6 +817,7 @@ Bytes transferred via SQL*Net between Oracle and clients/dblinks. Sourced from v
 | ---- | ----------- | ------ | ----------------- | ------------------- |
 | network.io.direction | Direction of the SQL*Net network transfer. | Str: ``receive``, ``transmit`` | Recommended | - |
 | destination.type | Type of the SQL*Net destination endpoint (client application or remote database link). | Str: ``client``, ``dblink`` | Recommended | - |
+| oracle.db.pdb | The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB. | Any Str | Opt-In | - |
 
 ### oracledb.storage.usage
 
@@ -575,6 +834,30 @@ Fraction of allocated database storage that is used.
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
 | 1 | Gauge | Double | Development |
+
+### oracledb.system.cpu.load
+
+Current OS load average as reported by the operating system.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| 1 | Gauge | Double | Development |
+
+### system.cpu.physical.count
+
+Number of physical CPUs available to the Oracle server as reported by the operating system.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {cpu} | Gauge | Int | Development |
+
+### system.memory.limit
+
+Total physical memory available to the Oracle server in bytes.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| By | Gauge | Int | Development |
 
 ## Default Events
 
@@ -608,6 +891,7 @@ sample query
 | db.system.name | The database management system (DBMS) product as identified by the client instrumentation. | Any Str | - |
 | user.name | Database user name under which a session is connected to | Any Str | - |
 | db.namespace | The database name. | Any Str | - |
+| oracle.db.service | The Oracle service name associated with the database connection. | Any Str | - |
 | client.address | Hostname or address of the client. | Any Str | - |
 | client.port | TCP port used by the client. | Any Int | - |
 | network.peer.address | IP address of the peer client. | Any Str | - |
@@ -632,6 +916,8 @@ sample query
 | oracledb.procedure_type | Type of the database object that a query is accessing. | Any Str | - |
 | oracledb.osuser | Name of the operating system user that initiated or is running the Oracle database session. | Any Str | - |
 | oracledb.duration_sec | Total time taken by a database query to execute. | Any Double | - |
+| db.query.comment_tags | Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys specified in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
+| db.query.comment_tags.nr_service_guid | New Relic service GUID extracted from the filtered db.query.comment_tags. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
 | oracledb.query.started | The timestamp when the SQL statement started execution, in ISO 8601 format (UTC). | Any Str | - |
 | oracledb.session.started | The timestamp when the session logged on, in ISO 8601 format (UTC). | Any Str | - |
 | oracledb.session.duration | The total time in seconds that the session has been connected. | Any Double | - |
@@ -644,6 +930,7 @@ sample query
 | oracledb.blocking.lock.type | The type of enqueue lock the session is waiting on, extracted from the wait event (e.g., TX for row lock, TM for table lock). Empty when not waiting on a lock. | Any Str | - |
 | oracledb.blocking.object.owner | The owner (schema) of the database object the session is waiting to lock. Empty when no object lock wait is active. | Any Str | - |
 | oracledb.blocking.object.name | The name of the database object the session is waiting to lock. Empty when no object lock wait is active. | Any Str | - |
+| db.query.text.normalized.hash | MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Used for correlation with APM slow query traces. | Any Str | - |
 
 ### db.server.session.wait_sample
 
@@ -670,6 +957,8 @@ Collection of event metrics for top N queries, filtered based on the highest CPU
 | ---- | ----------- | ------ | ------------------- |
 | db.system.name | The database management system (DBMS) product as identified by the client instrumentation. | Any Str | - |
 | db.server.name | The name of the server hosting the database. | Any Str | - |
+| db.namespace | The database name. | Any Str | - |
+| oracle.db.service | The Oracle service name associated with the database connection. | Any Str | - |
 | db.query.text | The text of the database query being executed. | Any Str | - |
 | oracledb.query_plan | The query execution plan used by the SQL Server. | Any Str | - |
 | oracledb.sql_id | The SQL ID of the query. | Any Str | - |
@@ -696,9 +985,12 @@ Collection of event metrics for top N queries, filtered based on the highest CPU
 | oracledb.procedure_id | The identifier of the stored procedure or function being executed by the query. | Any Int | - |
 | oracledb.procedure_name | Name of the database object that a query is accessing. | Any Str | - |
 | oracledb.procedure_type | Type of the database object that a query is accessing. | Any Str | - |
+| db.query.comment_tags | Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys specified in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
+| db.query.comment_tags.nr_service_guid | New Relic service GUID extracted from the filtered db.query.comment_tags. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
 | oracledb.plan_hash_value | Binary hash value calculated on the query execution plan and used to identify similar query execution plans, reported in the HEX format. | Any Str | - |
 | oracledb.plan.first_load | Time at which the plan was first loaded into the library cache, in the server's local timezone. Format: YYYY-MM-DD/HH:MM:SS | Any Str | - |
 | oracledb.plan.last_load | Plan load time in the server's local timezone. Format: YYYY-MM-DD/HH:MM:SS | Any Str | - |
+| db.query.text.normalized.hash | MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Used for correlation with APM slow query traces. | Any Str | - |
 
 ## Resource Attributes
 
