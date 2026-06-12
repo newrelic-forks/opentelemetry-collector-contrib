@@ -269,6 +269,30 @@ Number of disk blocks read in this database.
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {blks_read} | Sum | Int | Cumulative | true | Development |
 
+### postgresql.database.blk_read_time
+
+Time spent reading data file blocks by backends in this database.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
+| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
+| ms | Sum | Double | Cumulative | true | Development |
+
+### postgresql.database.blk_write_time
+
+Time spent writing data file blocks by backends in this database.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
+| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
+| ms | Sum | Double | Cumulative | true | Development |
+
+### postgresql.database.conflicts
+
+Number of queries canceled due to conflicts with recovery in this database.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
+| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
+| {conflict} | Sum | Int | Cumulative | true | Development |
+
 ### postgresql.database.locks
 
 The number of database locks.

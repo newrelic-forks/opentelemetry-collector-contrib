@@ -341,6 +341,66 @@ func (ms *PostgresqlConnectionMaxMetricConfig) Unmarshal(parser *confmap.Conf) e
 	return nil
 }
 
+// PostgresqlDatabaseBlkReadTimeMetricConfig provides config for the postgresql.database.blk_read_time metric.
+type PostgresqlDatabaseBlkReadTimeMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+}
+
+func (ms *PostgresqlDatabaseBlkReadTimeMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+// PostgresqlDatabaseBlkWriteTimeMetricConfig provides config for the postgresql.database.blk_write_time metric.
+type PostgresqlDatabaseBlkWriteTimeMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+}
+
+func (ms *PostgresqlDatabaseBlkWriteTimeMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+// PostgresqlDatabaseConflictsMetricConfig provides config for the postgresql.database.conflicts metric.
+type PostgresqlDatabaseConflictsMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+}
+
+func (ms *PostgresqlDatabaseConflictsMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
 // PostgresqlDatabaseCountMetricConfig provides config for the postgresql.database.count metric.
 type PostgresqlDatabaseCountMetricConfig struct {
 	Enabled          bool `mapstructure:"enabled"`
@@ -1054,6 +1114,9 @@ type MetricsConfig struct {
 	PostgresqlBlocksRead               PostgresqlBlocksReadMetricConfig               `mapstructure:"postgresql.blocks_read"`
 	PostgresqlCommits                  PostgresqlCommitsMetricConfig                  `mapstructure:"postgresql.commits"`
 	PostgresqlConnectionMax            PostgresqlConnectionMaxMetricConfig            `mapstructure:"postgresql.connection.max"`
+	PostgresqlDatabaseBlkReadTime      PostgresqlDatabaseBlkReadTimeMetricConfig      `mapstructure:"postgresql.database.blk_read_time"`
+	PostgresqlDatabaseBlkWriteTime     PostgresqlDatabaseBlkWriteTimeMetricConfig     `mapstructure:"postgresql.database.blk_write_time"`
+	PostgresqlDatabaseConflicts        PostgresqlDatabaseConflictsMetricConfig        `mapstructure:"postgresql.database.conflicts"`
 	PostgresqlDatabaseCount            PostgresqlDatabaseCountMetricConfig            `mapstructure:"postgresql.database.count"`
 	PostgresqlDatabaseLocks            PostgresqlDatabaseLocksMetricConfig            `mapstructure:"postgresql.database.locks"`
 	PostgresqlDbSize                   PostgresqlDbSizeMetricConfig                   `mapstructure:"postgresql.db_size"`
@@ -1123,6 +1186,15 @@ func DefaultMetricsConfig() MetricsConfig {
 		},
 		PostgresqlConnectionMax: PostgresqlConnectionMaxMetricConfig{
 			Enabled: true,
+		},
+		PostgresqlDatabaseBlkReadTime: PostgresqlDatabaseBlkReadTimeMetricConfig{
+			Enabled: false,
+		},
+		PostgresqlDatabaseBlkWriteTime: PostgresqlDatabaseBlkWriteTimeMetricConfig{
+			Enabled: false,
+		},
+		PostgresqlDatabaseConflicts: PostgresqlDatabaseConflictsMetricConfig{
+			Enabled: false,
 		},
 		PostgresqlDatabaseCount: PostgresqlDatabaseCountMetricConfig{
 			Enabled: true,

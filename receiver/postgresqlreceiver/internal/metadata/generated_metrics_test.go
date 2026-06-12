@@ -141,6 +141,15 @@ func TestMetricsBuilder(t *testing.T) {
 			allMetricsCount++
 			mb.RecordPostgresqlConnectionMaxDataPoint(ts, 1)
 
+			allMetricsCount++
+			mb.RecordPostgresqlDatabaseBlkReadTimeDataPoint(ts, 1)
+
+			allMetricsCount++
+			mb.RecordPostgresqlDatabaseBlkWriteTimeDataPoint(ts, 1)
+
+			allMetricsCount++
+			mb.RecordPostgresqlDatabaseConflictsDataPoint(ts, 1)
+
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordPostgresqlDatabaseCountDataPoint(ts, 1)
@@ -565,6 +574,48 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, "Configured maximum number of client connections allowed", mi.Description())
 					assert.Equal(t, "{connections}", mi.Unit())
 					dp := mi.Gauge().DataPoints().At(0)
+					assert.Equal(t, start, dp.StartTimestamp())
+					assert.Equal(t, ts, dp.Timestamp())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+					assert.Equal(t, int64(1), dp.IntValue())
+				case "postgresql.database.blk_read_time":
+					assert.False(t, validatedMetrics["postgresql.database.blk_read_time"], "Found a duplicate in the metrics slice: postgresql.database.blk_read_time")
+					validatedMetrics["postgresql.database.blk_read_time"] = true
+					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+					assert.Equal(t, "Time spent reading data file blocks by backends in this database.", mi.Description())
+					assert.Equal(t, "ms", mi.Unit())
+					assert.True(t, mi.Sum().IsMonotonic())
+					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+					dp := mi.Sum().DataPoints().At(0)
+					assert.Equal(t, start, dp.StartTimestamp())
+					assert.Equal(t, ts, dp.Timestamp())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
+					assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
+				case "postgresql.database.blk_write_time":
+					assert.False(t, validatedMetrics["postgresql.database.blk_write_time"], "Found a duplicate in the metrics slice: postgresql.database.blk_write_time")
+					validatedMetrics["postgresql.database.blk_write_time"] = true
+					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+					assert.Equal(t, "Time spent writing data file blocks by backends in this database.", mi.Description())
+					assert.Equal(t, "ms", mi.Unit())
+					assert.True(t, mi.Sum().IsMonotonic())
+					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+					dp := mi.Sum().DataPoints().At(0)
+					assert.Equal(t, start, dp.StartTimestamp())
+					assert.Equal(t, ts, dp.Timestamp())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
+					assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
+				case "postgresql.database.conflicts":
+					assert.False(t, validatedMetrics["postgresql.database.conflicts"], "Found a duplicate in the metrics slice: postgresql.database.conflicts")
+					validatedMetrics["postgresql.database.conflicts"] = true
+					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+					assert.Equal(t, "Number of queries canceled due to conflicts with recovery in this database.", mi.Description())
+					assert.Equal(t, "{conflict}", mi.Unit())
+					assert.True(t, mi.Sum().IsMonotonic())
+					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+					dp := mi.Sum().DataPoints().At(0)
 					assert.Equal(t, start, dp.StartTimestamp())
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())

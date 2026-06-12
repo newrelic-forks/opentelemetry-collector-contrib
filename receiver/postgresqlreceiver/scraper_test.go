@@ -69,6 +69,9 @@ func TestScraper(t *testing.T) {
 		cfg.Metrics.PostgresqlBlksRead.Enabled = true
 		cfg.Metrics.PostgresqlSequentialScans.Enabled = true
 		cfg.Metrics.PostgresqlDatabaseLocks.Enabled = true
+		cfg.Metrics.PostgresqlDatabaseConflicts.Enabled = true
+		cfg.Metrics.PostgresqlDatabaseBlkReadTime.Enabled = true
+		cfg.Metrics.PostgresqlDatabaseBlkWriteTime.Enabled = true
 
 		scraper := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, factory, newCache(1), newTTLCache[string](1, time.Second))
 
@@ -123,6 +126,9 @@ func TestScraperNoDatabaseSingle(t *testing.T) {
 		cfg.Metrics.PostgresqlSequentialScans.Enabled = true
 		require.False(t, cfg.Metrics.PostgresqlDatabaseLocks.Enabled)
 		cfg.Metrics.PostgresqlDatabaseLocks.Enabled = true
+		cfg.Metrics.PostgresqlDatabaseConflicts.Enabled = true
+		cfg.Metrics.PostgresqlDatabaseBlkReadTime.Enabled = true
+		cfg.Metrics.PostgresqlDatabaseBlkWriteTime.Enabled = true
 
 		scraper := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, factory, newCache(1), newTTLCache[string](1, time.Second))
 		actualMetrics, err := scraper.scrape(t.Context())
@@ -148,6 +154,9 @@ func TestScraperNoDatabaseSingle(t *testing.T) {
 		cfg.Metrics.PostgresqlBlksRead.Enabled = false
 		cfg.Metrics.PostgresqlSequentialScans.Enabled = false
 		cfg.Metrics.PostgresqlDatabaseLocks.Enabled = false
+		cfg.Metrics.PostgresqlDatabaseConflicts.Enabled = false
+		cfg.Metrics.PostgresqlDatabaseBlkReadTime.Enabled = false
+		cfg.Metrics.PostgresqlDatabaseBlkWriteTime.Enabled = false
 
 		scraper = newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, factory, newCache(1), newTTLCache[string](1, time.Second))
 		actualMetrics, err = scraper.scrape(t.Context())
@@ -201,6 +210,9 @@ func TestScraperNoDatabaseMultipleWithoutPreciseLag(t *testing.T) {
 		cfg.Metrics.PostgresqlSequentialScans.Enabled = true
 		require.False(t, cfg.Metrics.PostgresqlDatabaseLocks.Enabled)
 		cfg.Metrics.PostgresqlDatabaseLocks.Enabled = true
+		cfg.Metrics.PostgresqlDatabaseConflicts.Enabled = true
+		cfg.Metrics.PostgresqlDatabaseBlkReadTime.Enabled = true
+		cfg.Metrics.PostgresqlDatabaseBlkWriteTime.Enabled = true
 		scraper := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, &factory, newCache(1), newTTLCache[string](1, time.Second))
 
 		actualMetrics, err := scraper.scrape(t.Context())
@@ -254,6 +266,9 @@ func TestScraperNoDatabaseMultiple(t *testing.T) {
 		cfg.Metrics.PostgresqlSequentialScans.Enabled = true
 		require.False(t, cfg.Metrics.PostgresqlDatabaseLocks.Enabled)
 		cfg.Metrics.PostgresqlDatabaseLocks.Enabled = true
+		cfg.Metrics.PostgresqlDatabaseConflicts.Enabled = true
+		cfg.Metrics.PostgresqlDatabaseBlkReadTime.Enabled = true
+		cfg.Metrics.PostgresqlDatabaseBlkWriteTime.Enabled = true
 		scraper := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, &factory, newCache(1), newTTLCache[string](1, time.Second))
 
 		actualMetrics, err := scraper.scrape(t.Context())
@@ -307,6 +322,9 @@ func TestScraperWithResourceAttributeFeatureGate(t *testing.T) {
 		cfg.Metrics.PostgresqlSequentialScans.Enabled = true
 		require.False(t, cfg.Metrics.PostgresqlDatabaseLocks.Enabled)
 		cfg.Metrics.PostgresqlDatabaseLocks.Enabled = true
+		cfg.Metrics.PostgresqlDatabaseConflicts.Enabled = true
+		cfg.Metrics.PostgresqlDatabaseBlkReadTime.Enabled = true
+		cfg.Metrics.PostgresqlDatabaseBlkWriteTime.Enabled = true
 
 		scraper := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, &factory, newCache(1), newTTLCache[string](1, time.Second))
 
@@ -361,6 +379,9 @@ func TestScraperWithResourceAttributeFeatureGateSingle(t *testing.T) {
 		cfg.Metrics.PostgresqlSequentialScans.Enabled = true
 		require.False(t, cfg.Metrics.PostgresqlDatabaseLocks.Enabled)
 		cfg.Metrics.PostgresqlDatabaseLocks.Enabled = true
+		cfg.Metrics.PostgresqlDatabaseConflicts.Enabled = true
+		cfg.Metrics.PostgresqlDatabaseBlkReadTime.Enabled = true
+		cfg.Metrics.PostgresqlDatabaseBlkWriteTime.Enabled = true
 		scraper := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, &factory, newCache(1), newTTLCache[string](1, time.Second))
 
 		actualMetrics, err := scraper.scrape(t.Context())
@@ -1134,6 +1155,9 @@ func (m *mockClient) initMocks(database, schema string, databases []string, inde
 				blksHit:              int64(idx + 10),
 				blksRead:             int64(idx + 11),
 				tempIo:               int64(idx + 12),
+				conflicts:            int64(idx + 13),
+				blkReadTime:          float64(idx + 14),
+				blkWriteTime:         float64(idx + 15),
 			}
 			dbSize[databaseName(db)] = int64(idx + 4)
 			backends[databaseName(db)] = int64(idx + 3)

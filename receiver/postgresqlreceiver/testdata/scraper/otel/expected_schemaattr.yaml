@@ -258,6 +258,36 @@ resourceMetrics:
                   timeUnixNano: "2000000"
               isMonotonic: true
             unit: "1"
+          - description: Time spent reading data file blocks by backends in this database.
+            name: postgresql.database.blk_read_time
+            sum:
+              aggregationTemporality: 2
+              dataPoints:
+                - asDouble: 14
+                  startTimeUnixNano: "1000000"
+                  timeUnixNano: "2000000"
+              isMonotonic: true
+            unit: ms
+          - description: Time spent writing data file blocks by backends in this database.
+            name: postgresql.database.blk_write_time
+            sum:
+              aggregationTemporality: 2
+              dataPoints:
+                - asDouble: 15
+                  startTimeUnixNano: "1000000"
+                  timeUnixNano: "2000000"
+              isMonotonic: true
+            unit: ms
+          - description: Number of queries canceled due to conflicts with recovery in this database.
+            name: postgresql.database.conflicts
+            sum:
+              aggregationTemporality: 2
+              dataPoints:
+                - asInt: "13"
+                  startTimeUnixNano: "1000000"
+                  timeUnixNano: "2000000"
+              isMonotonic: true
+            unit: '{conflict}'
           - description: The database disk usage.
             name: postgresql.db_size
             sum:

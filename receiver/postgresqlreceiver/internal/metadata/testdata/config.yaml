@@ -27,6 +27,12 @@ all_set:
       enabled: true
     postgresql.connection.max:
       enabled: true
+    postgresql.database.blk_read_time:
+      enabled: true
+    postgresql.database.blk_write_time:
+      enabled: true
+    postgresql.database.conflicts:
+      enabled: true
     postgresql.database.count:
       enabled: true
     postgresql.database.locks:
@@ -128,6 +134,12 @@ reaggregate_set:
       enabled: true
     postgresql.connection.max:
       enabled: true
+    postgresql.database.blk_read_time:
+      enabled: true
+    postgresql.database.blk_write_time:
+      enabled: true
+    postgresql.database.conflicts:
+      enabled: true
     postgresql.database.count:
       enabled: true
     postgresql.database.locks:
@@ -228,6 +240,12 @@ none_set:
     postgresql.commits:
       enabled: false
     postgresql.connection.max:
+      enabled: false
+    postgresql.database.blk_read_time:
+      enabled: false
+    postgresql.database.blk_write_time:
+      enabled: false
+    postgresql.database.conflicts:
       enabled: false
     postgresql.database.count:
       enabled: false
