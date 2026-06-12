@@ -103,7 +103,7 @@ resourceLogs:
               - key: oracledb.procedure_type
                 value:
                   stringValue: PROCEDURE
-              - key: query.comments
+              - key: db.query.comment_tags
                 value:
                   stringValue: ""
               - key: query.comments.nr_service_guid
