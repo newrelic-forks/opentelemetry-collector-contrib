@@ -121,6 +121,12 @@ func TestMetricsBuilder(t *testing.T) {
 			mb.RecordPostgresqlBgwriterMaxwrittenDataPoint(ts, 1)
 
 			allMetricsCount++
+			mb.RecordPostgresqlBlkReadTimeDataPoint(ts, 1)
+
+			allMetricsCount++
+			mb.RecordPostgresqlBlkWriteTimeDataPoint(ts, 1)
+
+			allMetricsCount++
 			mb.RecordPostgresqlBlksHitDataPoint(ts, 1)
 
 			allMetricsCount++
@@ -136,6 +142,9 @@ func TestMetricsBuilder(t *testing.T) {
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordPostgresqlCommitsDataPoint(ts, 1)
+
+			allMetricsCount++
+			mb.RecordPostgresqlConflictsDataPoint(ts, 1)
 
 			defaultMetricsCount++
 			allMetricsCount++
@@ -471,6 +480,34 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
+				case "postgresql.blk_read_time":
+					assert.False(t, validatedMetrics["postgresql.blk_read_time"], "Found a duplicate in the metrics slice: postgresql.blk_read_time")
+					validatedMetrics["postgresql.blk_read_time"] = true
+					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+					assert.Equal(t, "Time spent reading data file blocks by backends in this database.", mi.Description())
+					assert.Equal(t, "ms", mi.Unit())
+					assert.True(t, mi.Sum().IsMonotonic())
+					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+					dp := mi.Sum().DataPoints().At(0)
+					assert.Equal(t, start, dp.StartTimestamp())
+					assert.Equal(t, ts, dp.Timestamp())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
+					assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
+				case "postgresql.blk_write_time":
+					assert.False(t, validatedMetrics["postgresql.blk_write_time"], "Found a duplicate in the metrics slice: postgresql.blk_write_time")
+					validatedMetrics["postgresql.blk_write_time"] = true
+					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+					assert.Equal(t, "Time spent writing data file blocks by backends in this database.", mi.Description())
+					assert.Equal(t, "ms", mi.Unit())
+					assert.True(t, mi.Sum().IsMonotonic())
+					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+					dp := mi.Sum().DataPoints().At(0)
+					assert.Equal(t, start, dp.StartTimestamp())
+					assert.Equal(t, ts, dp.Timestamp())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
+					assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
 				case "postgresql.blks_hit":
 					assert.False(t, validatedMetrics["postgresql.blks_hit"], "Found a duplicate in the metrics slice: postgresql.blks_hit")
 					validatedMetrics["postgresql.blks_hit"] = true
@@ -550,6 +587,20 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
 					assert.Equal(t, "The number of commits.", mi.Description())
 					assert.Equal(t, "1", mi.Unit())
+					assert.True(t, mi.Sum().IsMonotonic())
+					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+					dp := mi.Sum().DataPoints().At(0)
+					assert.Equal(t, start, dp.StartTimestamp())
+					assert.Equal(t, ts, dp.Timestamp())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+					assert.Equal(t, int64(1), dp.IntValue())
+				case "postgresql.conflicts":
+					assert.False(t, validatedMetrics["postgresql.conflicts"], "Found a duplicate in the metrics slice: postgresql.conflicts")
+					validatedMetrics["postgresql.conflicts"] = true
+					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+					assert.Equal(t, "Number of queries canceled due to conflicts with recovery in this database.", mi.Description())
+					assert.Equal(t, "{conflict}", mi.Unit())
 					assert.True(t, mi.Sum().IsMonotonic())
 					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
 					dp := mi.Sum().DataPoints().At(0)

@@ -320,6 +320,24 @@ metrics:
       monotonic: true
       value_type: int
     unit: "1"
+  postgresql.blk_read_time:
+    enabled: false
+    description: Time spent reading data file blocks by backends in this database.
+    stability: development
+    unit: ms
+    sum:
+      value_type: double
+      monotonic: true
+      aggregation_temporality: cumulative
+  postgresql.blk_write_time:
+    enabled: false
+    description: Time spent writing data file blocks by backends in this database.
+    stability: development
+    unit: ms
+    sum:
+      value_type: double
+      monotonic: true
+      aggregation_temporality: cumulative
   postgresql.blks_hit:
     enabled: false
     description: Number of times disk blocks were found already in the buffer cache.
@@ -353,6 +371,15 @@ metrics:
     description: The number of commits.
     stability: development
     unit: "1"
+    sum:
+      value_type: int
+      monotonic: true
+      aggregation_temporality: cumulative
+  postgresql.conflicts:
+    enabled: false
+    description: Number of queries canceled due to conflicts with recovery in this database.
+    stability: development
+    unit: "{conflict}"
     sum:
       value_type: int
       monotonic: true

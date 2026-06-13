@@ -287,6 +287,12 @@ var MetricsInfo = metricsInfo{
 	PostgresqlBgwriterMaxwritten: metricInfo{
 		Name: "postgresql.bgwriter.maxwritten",
 	},
+	PostgresqlBlkReadTime: metricInfo{
+		Name: "postgresql.blk_read_time",
+	},
+	PostgresqlBlkWriteTime: metricInfo{
+		Name: "postgresql.blk_write_time",
+	},
 	PostgresqlBlksHit: metricInfo{
 		Name: "postgresql.blks_hit",
 	},
@@ -298,6 +304,9 @@ var MetricsInfo = metricsInfo{
 	},
 	PostgresqlCommits: metricInfo{
 		Name: "postgresql.commits",
+	},
+	PostgresqlConflicts: metricInfo{
+		Name: "postgresql.conflicts",
 	},
 	PostgresqlConnectionMax: metricInfo{
 		Name: "postgresql.connection.max",
@@ -386,10 +395,13 @@ type metricsInfo struct {
 	PostgresqlBgwriterCheckpointCount  metricInfo
 	PostgresqlBgwriterDuration         metricInfo
 	PostgresqlBgwriterMaxwritten       metricInfo
+	PostgresqlBlkReadTime              metricInfo
+	PostgresqlBlkWriteTime             metricInfo
 	PostgresqlBlksHit                  metricInfo
 	PostgresqlBlksRead                 metricInfo
 	PostgresqlBlocksRead               metricInfo
 	PostgresqlCommits                  metricInfo
+	PostgresqlConflicts                metricInfo
 	PostgresqlConnectionMax            metricInfo
 	PostgresqlDatabaseCount            metricInfo
 	PostgresqlDatabaseLocks            metricInfo
@@ -851,6 +863,110 @@ func newMetricPostgresqlBgwriterMaxwritten(cfg PostgresqlBgwriterMaxwrittenMetri
 	return m
 }
 
+type metricPostgresqlBlkReadTime struct {
+	data     pmetric.Metric                    // data buffer for generated metric.
+	config   PostgresqlBlkReadTimeMetricConfig // metric config provided by user.
+	capacity int                               // max observed number of data points added to the metric.
+}
+
+// init fills postgresql.blk_read_time metric with initial data.
+func (m *metricPostgresqlBlkReadTime) init() {
+	m.data.SetName("postgresql.blk_read_time")
+	m.data.SetDescription("Time spent reading data file blocks by backends in this database.")
+	m.data.SetUnit("ms")
+	m.data.SetEmptySum()
+	m.data.Sum().SetIsMonotonic(true)
+	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+}
+
+func (m *metricPostgresqlBlkReadTime) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Sum().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetDoubleValue(val)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricPostgresqlBlkReadTime) updateCapacity() {
+	if m.data.Sum().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Sum().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricPostgresqlBlkReadTime) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricPostgresqlBlkReadTime(cfg PostgresqlBlkReadTimeMetricConfig) metricPostgresqlBlkReadTime {
+	m := metricPostgresqlBlkReadTime{config: cfg}
+
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricPostgresqlBlkWriteTime struct {
+	data     pmetric.Metric                     // data buffer for generated metric.
+	config   PostgresqlBlkWriteTimeMetricConfig // metric config provided by user.
+	capacity int                                // max observed number of data points added to the metric.
+}
+
+// init fills postgresql.blk_write_time metric with initial data.
+func (m *metricPostgresqlBlkWriteTime) init() {
+	m.data.SetName("postgresql.blk_write_time")
+	m.data.SetDescription("Time spent writing data file blocks by backends in this database.")
+	m.data.SetUnit("ms")
+	m.data.SetEmptySum()
+	m.data.Sum().SetIsMonotonic(true)
+	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+}
+
+func (m *metricPostgresqlBlkWriteTime) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Sum().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetDoubleValue(val)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricPostgresqlBlkWriteTime) updateCapacity() {
+	if m.data.Sum().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Sum().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricPostgresqlBlkWriteTime) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricPostgresqlBlkWriteTime(cfg PostgresqlBlkWriteTimeMetricConfig) metricPostgresqlBlkWriteTime {
+	m := metricPostgresqlBlkWriteTime{config: cfg}
+
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
 type metricPostgresqlBlksHit struct {
 	data     pmetric.Metric                // data buffer for generated metric.
 	config   PostgresqlBlksHitMetricConfig // metric config provided by user.
@@ -1090,6 +1206,58 @@ func (m *metricPostgresqlCommits) emit(metrics pmetric.MetricSlice) {
 
 func newMetricPostgresqlCommits(cfg PostgresqlCommitsMetricConfig) metricPostgresqlCommits {
 	m := metricPostgresqlCommits{config: cfg}
+
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricPostgresqlConflicts struct {
+	data     pmetric.Metric                  // data buffer for generated metric.
+	config   PostgresqlConflictsMetricConfig // metric config provided by user.
+	capacity int                             // max observed number of data points added to the metric.
+}
+
+// init fills postgresql.conflicts metric with initial data.
+func (m *metricPostgresqlConflicts) init() {
+	m.data.SetName("postgresql.conflicts")
+	m.data.SetDescription("Number of queries canceled due to conflicts with recovery in this database.")
+	m.data.SetUnit("{conflict}")
+	m.data.SetEmptySum()
+	m.data.Sum().SetIsMonotonic(true)
+	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
+}
+
+func (m *metricPostgresqlConflicts) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Sum().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetIntValue(val)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricPostgresqlConflicts) updateCapacity() {
+	if m.data.Sum().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Sum().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricPostgresqlConflicts) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricPostgresqlConflicts(cfg PostgresqlConflictsMetricConfig) metricPostgresqlConflicts {
+	m := metricPostgresqlConflicts{config: cfg}
 
 	if cfg.Enabled {
 		m.data = pmetric.NewMetric()
@@ -2737,10 +2905,13 @@ type MetricsBuilder struct {
 	metricPostgresqlBgwriterCheckpointCount  metricPostgresqlBgwriterCheckpointCount
 	metricPostgresqlBgwriterDuration         metricPostgresqlBgwriterDuration
 	metricPostgresqlBgwriterMaxwritten       metricPostgresqlBgwriterMaxwritten
+	metricPostgresqlBlkReadTime              metricPostgresqlBlkReadTime
+	metricPostgresqlBlkWriteTime             metricPostgresqlBlkWriteTime
 	metricPostgresqlBlksHit                  metricPostgresqlBlksHit
 	metricPostgresqlBlksRead                 metricPostgresqlBlksRead
 	metricPostgresqlBlocksRead               metricPostgresqlBlocksRead
 	metricPostgresqlCommits                  metricPostgresqlCommits
+	metricPostgresqlConflicts                metricPostgresqlConflicts
 	metricPostgresqlConnectionMax            metricPostgresqlConnectionMax
 	metricPostgresqlDatabaseCount            metricPostgresqlDatabaseCount
 	metricPostgresqlDatabaseLocks            metricPostgresqlDatabaseLocks
@@ -2798,10 +2969,13 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		metricPostgresqlBgwriterCheckpointCount:  newMetricPostgresqlBgwriterCheckpointCount(mbc.Metrics.PostgresqlBgwriterCheckpointCount),
 		metricPostgresqlBgwriterDuration:         newMetricPostgresqlBgwriterDuration(mbc.Metrics.PostgresqlBgwriterDuration),
 		metricPostgresqlBgwriterMaxwritten:       newMetricPostgresqlBgwriterMaxwritten(mbc.Metrics.PostgresqlBgwriterMaxwritten),
+		metricPostgresqlBlkReadTime:              newMetricPostgresqlBlkReadTime(mbc.Metrics.PostgresqlBlkReadTime),
+		metricPostgresqlBlkWriteTime:             newMetricPostgresqlBlkWriteTime(mbc.Metrics.PostgresqlBlkWriteTime),
 		metricPostgresqlBlksHit:                  newMetricPostgresqlBlksHit(mbc.Metrics.PostgresqlBlksHit),
 		metricPostgresqlBlksRead:                 newMetricPostgresqlBlksRead(mbc.Metrics.PostgresqlBlksRead),
 		metricPostgresqlBlocksRead:               newMetricPostgresqlBlocksRead(mbc.Metrics.PostgresqlBlocksRead),
 		metricPostgresqlCommits:                  newMetricPostgresqlCommits(mbc.Metrics.PostgresqlCommits),
+		metricPostgresqlConflicts:                newMetricPostgresqlConflicts(mbc.Metrics.PostgresqlConflicts),
 		metricPostgresqlConnectionMax:            newMetricPostgresqlConnectionMax(mbc.Metrics.PostgresqlConnectionMax),
 		metricPostgresqlDatabaseCount:            newMetricPostgresqlDatabaseCount(mbc.Metrics.PostgresqlDatabaseCount),
 		metricPostgresqlDatabaseLocks:            newMetricPostgresqlDatabaseLocks(mbc.Metrics.PostgresqlDatabaseLocks),
@@ -2936,10 +3110,13 @@ func (mb *MetricsBuilder) EmitForResource(options ...ResourceMetricsOption) {
 	mb.metricPostgresqlBgwriterCheckpointCount.emit(ils.Metrics())
 	mb.metricPostgresqlBgwriterDuration.emit(ils.Metrics())
 	mb.metricPostgresqlBgwriterMaxwritten.emit(ils.Metrics())
+	mb.metricPostgresqlBlkReadTime.emit(ils.Metrics())
+	mb.metricPostgresqlBlkWriteTime.emit(ils.Metrics())
 	mb.metricPostgresqlBlksHit.emit(ils.Metrics())
 	mb.metricPostgresqlBlksRead.emit(ils.Metrics())
 	mb.metricPostgresqlBlocksRead.emit(ils.Metrics())
 	mb.metricPostgresqlCommits.emit(ils.Metrics())
+	mb.metricPostgresqlConflicts.emit(ils.Metrics())
 	mb.metricPostgresqlConnectionMax.emit(ils.Metrics())
 	mb.metricPostgresqlDatabaseCount.emit(ils.Metrics())
 	mb.metricPostgresqlDatabaseLocks.emit(ils.Metrics())
@@ -3027,6 +3204,16 @@ func (mb *MetricsBuilder) RecordPostgresqlBgwriterMaxwrittenDataPoint(ts pcommon
 	mb.metricPostgresqlBgwriterMaxwritten.recordDataPoint(mb.startTime, ts, val)
 }
 
+// RecordPostgresqlBlkReadTimeDataPoint adds a data point to postgresql.blk_read_time metric.
+func (mb *MetricsBuilder) RecordPostgresqlBlkReadTimeDataPoint(ts pcommon.Timestamp, val float64) {
+	mb.metricPostgresqlBlkReadTime.recordDataPoint(mb.startTime, ts, val)
+}
+
+// RecordPostgresqlBlkWriteTimeDataPoint adds a data point to postgresql.blk_write_time metric.
+func (mb *MetricsBuilder) RecordPostgresqlBlkWriteTimeDataPoint(ts pcommon.Timestamp, val float64) {
+	mb.metricPostgresqlBlkWriteTime.recordDataPoint(mb.startTime, ts, val)
+}
+
 // RecordPostgresqlBlksHitDataPoint adds a data point to postgresql.blks_hit metric.
 func (mb *MetricsBuilder) RecordPostgresqlBlksHitDataPoint(ts pcommon.Timestamp, val int64) {
 	mb.metricPostgresqlBlksHit.recordDataPoint(mb.startTime, ts, val)
@@ -3045,6 +3232,11 @@ func (mb *MetricsBuilder) RecordPostgresqlBlocksReadDataPoint(ts pcommon.Timesta
 // RecordPostgresqlCommitsDataPoint adds a data point to postgresql.commits metric.
 func (mb *MetricsBuilder) RecordPostgresqlCommitsDataPoint(ts pcommon.Timestamp, val int64) {
 	mb.metricPostgresqlCommits.recordDataPoint(mb.startTime, ts, val)
+}
+
+// RecordPostgresqlConflictsDataPoint adds a data point to postgresql.conflicts metric.
+func (mb *MetricsBuilder) RecordPostgresqlConflictsDataPoint(ts pcommon.Timestamp, val int64) {
+	mb.metricPostgresqlConflicts.recordDataPoint(mb.startTime, ts, val)
 }
 
 // RecordPostgresqlConnectionMaxDataPoint adds a data point to postgresql.connection.max metric.
