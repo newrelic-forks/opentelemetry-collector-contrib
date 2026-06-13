@@ -445,6 +445,9 @@ func (p *postgreSQLScraper) recordDatabase(now pcommon.Timestamp, db string, r *
 		p.mb.RecordPostgresqlTupDeletedDataPoint(now, stats.tupDeleted)
 		p.mb.RecordPostgresqlBlksHitDataPoint(now, stats.blksHit)
 		p.mb.RecordPostgresqlBlksReadDataPoint(now, stats.blksRead)
+		p.mb.RecordPostgresqlBlkReadTimeDataPoint(now, stats.blkReadTime)
+		p.mb.RecordPostgresqlBlkWriteTimeDataPoint(now, stats.blkWriteTime)
+		p.mb.RecordPostgresqlConflictsDataPoint(now, stats.conflicts)
 	}
 	rb := p.setupResourceBuilder(p.mb.NewResourceBuilder(), db, "", "", "")
 	p.mb.EmitForResource(metadata.WithResource(rb.Emit()))

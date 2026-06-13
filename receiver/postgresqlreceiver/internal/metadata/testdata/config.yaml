@@ -16,6 +16,10 @@ all_set:
       attributes: ["type"]
     postgresql.bgwriter.maxwritten:
       enabled: true
+    postgresql.blk_read_time:
+      enabled: true
+    postgresql.blk_write_time:
+      enabled: true
     postgresql.blks_hit:
       enabled: true
     postgresql.blks_read:
@@ -24,6 +28,8 @@ all_set:
       enabled: true
       attributes: ["source"]
     postgresql.commits:
+      enabled: true
+    postgresql.conflicts:
       enabled: true
     postgresql.connection.max:
       enabled: true
@@ -117,6 +123,10 @@ reaggregate_set:
       attributes: []
     postgresql.bgwriter.maxwritten:
       enabled: true
+    postgresql.blk_read_time:
+      enabled: true
+    postgresql.blk_write_time:
+      enabled: true
     postgresql.blks_hit:
       enabled: true
     postgresql.blks_read:
@@ -125,6 +135,8 @@ reaggregate_set:
       enabled: true
       attributes: []
     postgresql.commits:
+      enabled: true
+    postgresql.conflicts:
       enabled: true
     postgresql.connection.max:
       enabled: true
@@ -218,6 +230,10 @@ none_set:
       attributes: ["type"]
     postgresql.bgwriter.maxwritten:
       enabled: false
+    postgresql.blk_read_time:
+      enabled: false
+    postgresql.blk_write_time:
+      enabled: false
     postgresql.blks_hit:
       enabled: false
     postgresql.blks_read:
@@ -226,6 +242,8 @@ none_set:
       enabled: false
       attributes: ["source"]
     postgresql.commits:
+      enabled: false
+    postgresql.conflicts:
       enabled: false
     postgresql.connection.max:
       enabled: false
