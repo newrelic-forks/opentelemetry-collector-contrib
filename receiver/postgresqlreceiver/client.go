@@ -258,11 +258,14 @@ type databaseStats struct {
 	tupDeleted           int64
 	blksHit              int64
 	blksRead             int64
+	conflicts            int64
+	blkReadTime          float64
+	blkWriteTime         float64
 }
 
 func (c *postgreSQLClient) getDatabaseStats(ctx context.Context, databases []string) (map[databaseName]databaseStats, error) {
 	query := filterQueryByDatabases(
-		"SELECT datname, xact_commit, xact_rollback, deadlocks, temp_files, temp_bytes, tup_updated, tup_returned, tup_fetched, tup_inserted, tup_deleted, blks_hit, blks_read FROM pg_stat_database",
+		"SELECT datname, xact_commit, xact_rollback, deadlocks, temp_files, temp_bytes, tup_updated, tup_returned, tup_fetched, tup_inserted, tup_deleted, blks_hit, blks_read, conflicts, blk_read_time, blk_write_time FROM pg_stat_database",
 		databases,
 		false,
 	)
@@ -277,8 +280,9 @@ func (c *postgreSQLClient) getDatabaseStats(ctx context.Context, databases []str
 
 	for rows.Next() {
 		var datname string
-		var transactionCommitted, transactionRollback, deadlocks, tempIo, tempFiles, tupUpdated, tupReturned, tupFetched, tupInserted, tupDeleted, blksHit, blksRead int64
-		err = rows.Scan(&datname, &transactionCommitted, &transactionRollback, &deadlocks, &tempFiles, &tempIo, &tupUpdated, &tupReturned, &tupFetched, &tupInserted, &tupDeleted, &blksHit, &blksRead)
+		var transactionCommitted, transactionRollback, deadlocks, tempIo, tempFiles, tupUpdated, tupReturned, tupFetched, tupInserted, tupDeleted, blksHit, blksRead, conflicts int64
+		var blkReadTime, blkWriteTime float64
+		err = rows.Scan(&datname, &transactionCommitted, &transactionRollback, &deadlocks, &tempFiles, &tempIo, &tupUpdated, &tupReturned, &tupFetched, &tupInserted, &tupDeleted, &blksHit, &blksRead, &conflicts, &blkReadTime, &blkWriteTime)
 		if err != nil {
 			errs = multierr.Append(errs, err)
 			continue
@@ -297,6 +301,9 @@ func (c *postgreSQLClient) getDatabaseStats(ctx context.Context, databases []str
 				tupDeleted:           tupDeleted,
 				blksHit:              blksHit,
 				blksRead:             blksRead,
+				conflicts:            conflicts,
+				blkReadTime:          blkReadTime,
+				blkWriteTime:         blkWriteTime,
 			}
 		}
 	}

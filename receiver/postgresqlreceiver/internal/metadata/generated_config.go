@@ -213,6 +213,46 @@ func (ms *PostgresqlBgwriterMaxwrittenMetricConfig) Unmarshal(parser *confmap.Co
 	return nil
 }
 
+// PostgresqlBlkReadTimeMetricConfig provides config for the postgresql.blk_read_time metric.
+type PostgresqlBlkReadTimeMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+}
+
+func (ms *PostgresqlBlkReadTimeMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+// PostgresqlBlkWriteTimeMetricConfig provides config for the postgresql.blk_write_time metric.
+type PostgresqlBlkWriteTimeMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+}
+
+func (ms *PostgresqlBlkWriteTimeMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
 // PostgresqlBlksHitMetricConfig provides config for the postgresql.blks_hit metric.
 type PostgresqlBlksHitMetricConfig struct {
 	Enabled          bool `mapstructure:"enabled"`
@@ -308,6 +348,26 @@ type PostgresqlCommitsMetricConfig struct {
 }
 
 func (ms *PostgresqlCommitsMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+// PostgresqlConflictsMetricConfig provides config for the postgresql.conflicts metric.
+type PostgresqlConflictsMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+}
+
+func (ms *PostgresqlConflictsMetricConfig) Unmarshal(parser *confmap.Conf) error {
 	if parser == nil {
 		return nil
 	}
@@ -1049,10 +1109,13 @@ type MetricsConfig struct {
 	PostgresqlBgwriterCheckpointCount  PostgresqlBgwriterCheckpointCountMetricConfig  `mapstructure:"postgresql.bgwriter.checkpoint.count"`
 	PostgresqlBgwriterDuration         PostgresqlBgwriterDurationMetricConfig         `mapstructure:"postgresql.bgwriter.duration"`
 	PostgresqlBgwriterMaxwritten       PostgresqlBgwriterMaxwrittenMetricConfig       `mapstructure:"postgresql.bgwriter.maxwritten"`
+	PostgresqlBlkReadTime              PostgresqlBlkReadTimeMetricConfig              `mapstructure:"postgresql.blk_read_time"`
+	PostgresqlBlkWriteTime             PostgresqlBlkWriteTimeMetricConfig             `mapstructure:"postgresql.blk_write_time"`
 	PostgresqlBlksHit                  PostgresqlBlksHitMetricConfig                  `mapstructure:"postgresql.blks_hit"`
 	PostgresqlBlksRead                 PostgresqlBlksReadMetricConfig                 `mapstructure:"postgresql.blks_read"`
 	PostgresqlBlocksRead               PostgresqlBlocksReadMetricConfig               `mapstructure:"postgresql.blocks_read"`
 	PostgresqlCommits                  PostgresqlCommitsMetricConfig                  `mapstructure:"postgresql.commits"`
+	PostgresqlConflicts                PostgresqlConflictsMetricConfig                `mapstructure:"postgresql.conflicts"`
 	PostgresqlConnectionMax            PostgresqlConnectionMaxMetricConfig            `mapstructure:"postgresql.connection.max"`
 	PostgresqlDatabaseCount            PostgresqlDatabaseCountMetricConfig            `mapstructure:"postgresql.database.count"`
 	PostgresqlDatabaseLocks            PostgresqlDatabaseLocksMetricConfig            `mapstructure:"postgresql.database.locks"`
@@ -1107,6 +1170,12 @@ func DefaultMetricsConfig() MetricsConfig {
 		PostgresqlBgwriterMaxwritten: PostgresqlBgwriterMaxwrittenMetricConfig{
 			Enabled: true,
 		},
+		PostgresqlBlkReadTime: PostgresqlBlkReadTimeMetricConfig{
+			Enabled: false,
+		},
+		PostgresqlBlkWriteTime: PostgresqlBlkWriteTimeMetricConfig{
+			Enabled: false,
+		},
 		PostgresqlBlksHit: PostgresqlBlksHitMetricConfig{
 			Enabled: false,
 		},
@@ -1120,6 +1189,9 @@ func DefaultMetricsConfig() MetricsConfig {
 		},
 		PostgresqlCommits: PostgresqlCommitsMetricConfig{
 			Enabled: true,
+		},
+		PostgresqlConflicts: PostgresqlConflictsMetricConfig{
+			Enabled: false,
 		},
 		PostgresqlConnectionMax: PostgresqlConnectionMaxMetricConfig{
 			Enabled: true,

@@ -253,6 +253,22 @@ metrics:
     enabled: true
 ```
 
+### postgresql.blk_read_time
+
+Time spent reading data file blocks by backends in this database.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
+| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
+| ms | Sum | Double | Cumulative | true | Development |
+
+### postgresql.blk_write_time
+
+Time spent writing data file blocks by backends in this database.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
+| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
+| ms | Sum | Double | Cumulative | true | Development |
+
 ### postgresql.blks_hit
 
 Number of times disk blocks were found already in the buffer cache.
@@ -268,6 +284,14 @@ Number of disk blocks read in this database.
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {blks_read} | Sum | Int | Cumulative | true | Development |
+
+### postgresql.conflicts
+
+Number of queries canceled due to conflicts with recovery in this database.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
+| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
+| {conflict} | Sum | Int | Cumulative | true | Development |
 
 ### postgresql.database.locks
 
