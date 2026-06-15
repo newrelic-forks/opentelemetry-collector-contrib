@@ -151,6 +151,9 @@ resourceLogs:
               - key: db.query.text.normalized.hash
                 value:
                   stringValue: 935a5fc83824aadeb67aea0839016db6
+              - key: oracledb.normalised_sql_hash
+                value:
+                  stringValue: 935a5fc83824aadeb67aea0839016db6
             body: {}
             eventName: db.server.query_sample
             timeUnixNano: "1781146651202789000"

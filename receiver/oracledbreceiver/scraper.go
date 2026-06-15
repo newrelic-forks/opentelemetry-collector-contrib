@@ -1211,6 +1211,7 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 			hit.planHashValue,
 			hit.firstLoadTime,
 			hit.lastLoadTime,
+			normalizedSQLHash,
 			normalizedSQLHash)
 	}
 
@@ -1344,7 +1345,7 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 			row[osUser], queryDuration, queryComments, queryComments, nrServiceGUID, nrServiceGUID, row[sqlExecStart], row[logonTime], sessionDurationSec,
 			row[blockingSession], row[finalBlockingSession], row[blockingSessionStatus], row[blockingStartTime], secondsInWaitVal,
 			row[lockMode], row[lockType], row[blockedObjectOwner], row[blockedObjectName],
-			normalizedSQLHash)
+			normalizedSQLHash, normalizedSQLHash)
 	}
 
 	s.lb.Emit(metadata.WithLogsResource(rb.Emit())).ResourceLogs().MoveAndAppendTo(logs.ResourceLogs())

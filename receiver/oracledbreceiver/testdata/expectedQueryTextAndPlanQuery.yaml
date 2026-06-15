@@ -127,6 +127,9 @@ resourceLogs:
               - key: db.query.text.normalized.hash
                 value:
                   stringValue: bcb07525735e64570267726f900f042a
+              - key: oracledb.normalised_sql_hash
+                value:
+                  stringValue: bcb07525735e64570267726f900f042a
             body: {}
             eventName: db.server.top_query
             timeUnixNano: "1781146651199737000"
