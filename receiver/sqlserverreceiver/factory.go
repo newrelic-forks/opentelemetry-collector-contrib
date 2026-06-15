@@ -129,7 +129,11 @@ func getDBConnectionString(config *Config) string {
 	if config.DataSource != "" {
 		return config.DataSource
 	}
-	return fmt.Sprintf("server=%s;user id=%s;password=%s;port=%d", config.Server, config.Username, string(config.Password), config.Port)
+	connStr := fmt.Sprintf("server=%s;user id=%s;password=%s;port=%d", config.Server, config.Username, string(config.Password), config.Port)
+	if config.AppName != "" {
+		connStr += ";app name=" + config.AppName
+	}
+	return connStr
 }
 
 // SQL Server scraper creation is split out into a separate method for the sake of testing.

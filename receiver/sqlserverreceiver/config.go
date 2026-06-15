@@ -54,6 +54,7 @@ type Config struct {
 
 	InstanceName string `mapstructure:"instance_name"`
 	ComputerName string `mapstructure:"computer_name"`
+	AppName      string `mapstructure:"app_name"`
 
 	DataSource string `mapstructure:"datasource"`
 
