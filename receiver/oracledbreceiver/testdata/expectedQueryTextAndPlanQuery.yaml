@@ -106,7 +106,7 @@ resourceLogs:
               - key: db.query.comment_tags
                 value:
                   stringValue: ""
-              - key: query.comments.nr_service_guid
+              - key: db.query.comment_tags.nr_service_guid
                 value:
                   stringValue: ""
               - key: oracledb.plan_hash_value
