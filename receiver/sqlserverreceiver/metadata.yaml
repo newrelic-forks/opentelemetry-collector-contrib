@@ -73,6 +73,10 @@ attributes:
     description: The database name.
     type: string
     requirement_level: recommended
+  db.query.comment_tags.nr_service_guid:
+    description: New Relic service GUID extracted from the filtered query comments. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Used for correlation with APM traces.
+    type: string
+    requirement_level: opt_in
   db.query.full_text:
     description: The full text of the SQL batch or stored procedure from which the statement was extracted. Only populated when collect_full_query_text is enabled.
     type: string
@@ -135,14 +139,6 @@ attributes:
     description: The physical filename of the file being monitored.
     type: string
     requirement_level: recommended
-  query.comments:
-    description: Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys in allowed_comment_keys config. Used for APM trace correlation.
-    type: string
-    requirement_level: opt_in
-  query.comments.nr_service_guid:
-    description: New Relic service GUID extracted from the filtered query.comments. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Used for correlation with APM traces.
-    type: string
-    requirement_level: opt_in
   replica.direction:
     description: The direction of flow of bytes for replica.
     type: string
@@ -434,8 +430,7 @@ events:
       - sqlserver.procedure_id
       - sqlserver.procedure_name
       - db.query.full_text
-      - query.comments
-      - query.comments.nr_service_guid
+      - db.query.comment_tags.nr_service_guid
       - db.query.text.normalized.hash
       - sqlserver.normalized_sql
 
@@ -465,8 +460,7 @@ events:
       - sqlserver.query.last_started
       - sqlserver.query.plan.creation_time
       - db.query.full_text
-      - query.comments
-      - query.comments.nr_service_guid
+      - db.query.comment_tags.nr_service_guid
       - db.query.text.normalized.hash
       - sqlserver.normalized_sql
 

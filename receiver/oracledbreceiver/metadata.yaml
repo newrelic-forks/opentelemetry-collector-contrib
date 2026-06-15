@@ -59,9 +59,6 @@ attributes:
   db.namespace:
     description: The database name.
     type: string
-  db.query.comment_tags:
-    description: Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys specified in allowed_comment_keys configuration. Used for correlation with APM traces.
-    type: string
   db.query.comment_tags.nr_service_guid:
     description: New Relic service GUID extracted from the filtered db.query.comment_tags. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Used for correlation with APM traces.
     type: string
@@ -344,7 +341,6 @@ events:
       - oracledb.procedure_type
       - oracledb.osuser
       - oracledb.duration_sec
-      - db.query.comment_tags
       - db.query.comment_tags.nr_service_guid
       - oracledb.query.started
       - oracledb.session.started
@@ -403,7 +399,6 @@ events:
       - oracledb.procedure_id
       - oracledb.procedure_name
       - oracledb.procedure_type
-      - db.query.comment_tags
       - db.query.comment_tags.nr_service_guid
       - oracledb.plan_hash_value
       - oracledb.plan.first_load

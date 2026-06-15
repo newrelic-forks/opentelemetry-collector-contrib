@@ -188,14 +188,15 @@ receivers:
 
 When the `db.server.query_sample` and/or `db.server.top_query` events are enabled, the receiver can
 extract key-value pairs from leading SQL block comments (`/* key=value */`) and emit them as the
-`db.query.comment_tags` attribute on the corresponding logs.
+`db.query.comment_tags.nr_service_guid` attribute on the corresponding logs.
 
 This behavior is controlled by the `allowed_comment_keys` option, which can be set independently
 under `top_query_collection` and `query_sample_collection`:
 
 - `allowed_comment_keys` (default = `[]`): A list of comment keys to extract. For each enabled
-  collection, only keys present in this allowlist are extracted from the leading SQL comment and
-  included (as comma-separated `key=value` pairs) in the `db.query.comment_tags` attribute.
+  collection, only keys present in this allowlist are extracted from the leading SQL comment.
+  If `nr_service_guid` is included in the allowlist, its value is emitted as
+  `db.query.comment_tags.nr_service_guid`.
 
 Extraction is disabled unless explicitly configured:
 
@@ -215,13 +216,12 @@ receivers:
       db.server.top_query:
         enabled: true
     top_query_collection:
-      allowed_comment_keys: [application, team]
+      allowed_comment_keys: [nr_service_guid]
     query_sample_collection:
-      allowed_comment_keys: [application, team]
+      allowed_comment_keys: [nr_service_guid]
 ```
 
-Given a query such as `/* application=exampleApp,team=payments */ SELECT * FROM users`, the emitted
-log record will include `db.query.comment_tags` set to `application=exampleApp,team=payments`. When multiple
-keys are extracted, they are emitted as a comma-separated list of `key=value` pairs.
+Given a query such as `/* nr_service_guid=abc123 */ SELECT * FROM users`, the emitted
+log record will include `db.query.comment_tags.nr_service_guid` set to `abc123`.
 
-See [documentation](./documentation.md) for details on the `db.query.comment_tags` attribute.
+See [documentation](./documentation.md) for details on the `db.query.comment_tags.nr_service_guid` attribute.

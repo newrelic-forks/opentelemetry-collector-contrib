@@ -100,9 +100,6 @@ resourceLogs:
               - key: oracledb.duration_sec
                 value:
                   doubleValue: 1
-              - key: db.query.comment_tags
-                value:
-                  stringValue: ""
               - key: db.query.comment_tags.nr_service_guid
                 value:
                   stringValue: ""
