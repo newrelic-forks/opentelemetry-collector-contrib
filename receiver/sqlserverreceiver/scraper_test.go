@@ -42,10 +42,12 @@ func configureAllScraperMetricsAndEvents(cfg *Config, enabled bool) {
 	cfg.Metrics.SqlserverDatabaseBackupOrRestoreRate.Enabled = enabled
 	cfg.Metrics.SqlserverDatabaseCount.Enabled = enabled
 	cfg.Metrics.SqlserverDatabaseExecutionErrors.Enabled = enabled
+	cfg.Metrics.SqlserverDatabaseFileSize.Enabled = enabled
 	cfg.Metrics.SqlserverDatabaseFullScanRate.Enabled = enabled
 	cfg.Metrics.SqlserverDatabaseIo.Enabled = enabled
 	cfg.Metrics.SqlserverDatabaseLatency.Enabled = enabled
 	cfg.Metrics.SqlserverDatabaseOperations.Enabled = enabled
+	cfg.Metrics.SqlserverDatabaseSecurityRoleMembershipCount.Enabled = enabled
 	cfg.Metrics.SqlserverDatabaseTempdbSpace.Enabled = enabled
 	cfg.Metrics.SqlserverDatabaseTempdbVersionStoreSize.Enabled = enabled
 	cfg.Metrics.SqlserverDeadlockRate.Enabled = enabled
@@ -64,6 +66,7 @@ func configureAllScraperMetricsAndEvents(cfg *Config, enabled bool) {
 	cfg.Metrics.SqlserverMemoryArea.Enabled = enabled
 	cfg.Metrics.SqlserverMemoryCacheObjectCount.Enabled = enabled
 	cfg.Metrics.SqlserverMemoryGrantsPendingCount.Enabled = enabled
+	cfg.Metrics.SqlserverMemoryTarget.Enabled = enabled
 	cfg.Metrics.SqlserverMemoryPageCount.Enabled = enabled
 	cfg.Metrics.SqlserverMemoryUsage.Enabled = enabled
 	cfg.Metrics.SqlserverOsWaitDuration.Enabled = enabled
@@ -84,6 +87,8 @@ func configureAllScraperMetricsAndEvents(cfg *Config, enabled bool) {
 	cfg.Metrics.SqlserverParameterizationRate.Enabled = enabled
 	cfg.Metrics.SqlserverPlanExecutionRate.Enabled = enabled
 	cfg.Metrics.SqlserverRecompilationRatio.Enabled = enabled
+	cfg.Metrics.SqlserverServerSecurityPrincipalCount.Enabled = enabled
+	cfg.Metrics.SqlserverServerSecurityRoleMembershipCount.Enabled = enabled
 	cfg.Metrics.SqlserverTableCount.Enabled = enabled
 	cfg.Metrics.SqlserverTransactionDelay.Enabled = enabled
 	cfg.Metrics.SqlserverTransactionLogFlushDataRate.Enabled = enabled
@@ -191,6 +196,16 @@ func TestSuccessfulScrape(t *testing.T) {
 					expectedFile = filepath.Join("testdata", "expectedProperties")
 				case getSQLServerWaitStatsQuery(scraper.config.InstanceName):
 					expectedFile = filepath.Join("testdata", "expectedWaitStats")
+				case getSQLServerDatabaseSizeQuery(scraper.config.InstanceName):
+					expectedFile = filepath.Join("testdata", "expectedDatabaseSize")
+				case getSQLServerMemoryTargetQuery(scraper.config.InstanceName):
+					expectedFile = filepath.Join("testdata", "expectedMemoryTarget")
+				case getSQLServerSecurityPrincipalsQuery(scraper.config.InstanceName):
+					expectedFile = filepath.Join("testdata", "expectedSecurityPrincipals")
+				case getSQLServerSecurityRoleMembersQuery(scraper.config.InstanceName):
+					expectedFile = filepath.Join("testdata", "expectedSecurityRoleMembers")
+				case getSQLServerDatabaseSecurityRoleMembersQuery(scraper.config.InstanceName):
+					expectedFile = filepath.Join("testdata", "expectedDatabaseSecurityRoleMembers")
 				}
 				expectedFile += fileSuffix
 
@@ -283,17 +298,20 @@ func TestSortRows(t *testing.T) {
 	assert.Equal(
 		t,
 		[]sqlquery.StringMap{{"ghi": "56"}, {"def": "34"}, {"abc": "12"}},
-		sortRows([]sqlquery.StringMap{{"abc": "12"}, {"ghi": "56"}, {"def": "34"}}, []int64{1, 2, 2}, 3))
+		sortRows([]sqlquery.StringMap{{"abc": "12"}, {"ghi": "56"}, {"def": "34"}}, []int64{1, 2, 2}, 3),
+	)
 
 	assert.Equal(
 		t,
 		[]sqlquery.StringMap{{"ghi": "56"}, {"def": "34"}},
-		sortRows([]sqlquery.StringMap{{"abc": "12"}, {"ghi": "56"}, {"def": "34"}}, []int64{1, 2, 2}, 2))
+		sortRows([]sqlquery.StringMap{{"abc": "12"}, {"ghi": "56"}, {"def": "34"}}, []int64{1, 2, 2}, 2),
+	)
 
 	assert.Equal(
 		t,
 		[]sqlquery.StringMap{{"ghi": "56"}},
-		sortRows([]sqlquery.StringMap{{"abc": "12"}, {"ghi": "56"}, {"def": "34"}}, []int64{1, 2, 2}, 1))
+		sortRows([]sqlquery.StringMap{{"abc": "12"}, {"ghi": "56"}, {"def": "34"}}, []int64{1, 2, 2}, 1),
+	)
 
 	weights := make([]int64, 50)
 
@@ -430,6 +448,16 @@ func (mc mockClient) QueryRows(context.Context, ...any) ([]sqlquery.StringMap, e
 		queryResults, err = readFile("queryTextAndPlanQueryData.txt")
 	case getSQLServerQuerySamplesQuery():
 		queryResults, err = readFile("recordDatabaseSampleQueryData.txt")
+	case getSQLServerDatabaseSizeQuery(mc.instanceName):
+		queryResults, err = readFile("database_size_scraped_data.txt")
+	case getSQLServerMemoryTargetQuery(mc.instanceName):
+		queryResults, err = readFile("memory_target_scraped_data.txt")
+	case getSQLServerSecurityPrincipalsQuery(mc.instanceName):
+		queryResults, err = readFile("security_principals_scraped_data.txt")
+	case getSQLServerSecurityRoleMembersQuery(mc.instanceName):
+		queryResults, err = readFile("security_role_members_scraped_data.txt")
+	case getSQLServerDatabaseSecurityRoleMembersQuery(mc.instanceName):
+		queryResults, err = readFile("database_security_role_members_scraped_data.txt")
 	default:
 		return nil, errors.New("No valid query found")
 	}
