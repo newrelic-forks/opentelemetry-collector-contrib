@@ -1205,6 +1205,8 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 			hit.objectName,
 			hit.objectType,
 			hit.queryComments,
+			hit.queryComments,
+			hit.nrServiceGUID,
 			hit.nrServiceGUID,
 			hit.planHashValue,
 			hit.firstLoadTime,
@@ -1339,7 +1341,7 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 		s.lb.RecordDbServerQuerySampleEvent(queryContext, timestamp, obfuscatedSQL, dbSystemNameVal, row[username], row[dbNamespaceCol], row[serviceName], row[hostName],
 			clientPort, row[hostName], clientPort, queryPlanHashVal, row[sqlID], row[sqlChildNumber], row[childAddress], row[sid], row[serialNumber], row[process],
 			row[schemaName], row[program], row[module], row[status], row[state], row[waitclass], row[event], waitTime, objID, row[objectName], row[objectType],
-			row[osUser], queryDuration, queryComments, nrServiceGUID, row[sqlExecStart], row[logonTime], sessionDurationSec,
+			row[osUser], queryDuration, queryComments, queryComments, nrServiceGUID, nrServiceGUID, row[sqlExecStart], row[logonTime], sessionDurationSec,
 			row[blockingSession], row[finalBlockingSession], row[blockingSessionStatus], row[blockingStartTime], secondsInWaitVal,
 			row[lockMode], row[lockType], row[blockedObjectOwner], row[blockedObjectName],
 			normalizedSQLHash)

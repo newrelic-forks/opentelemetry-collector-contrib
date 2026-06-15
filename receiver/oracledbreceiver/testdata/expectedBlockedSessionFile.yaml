@@ -103,7 +103,13 @@ resourceLogs:
               - key: db.query.comment_tags
                 value:
                   stringValue: ""
+              - key: query.comments
+                value:
+                  stringValue: ""
               - key: query.comments.nr_service_guid
+                value:
+                  stringValue: ""
+              - key: db.query.comment_tags.nr_service_guid
                 value:
                   stringValue: ""
               - key: oracledb.query.started
