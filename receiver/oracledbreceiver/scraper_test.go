@@ -919,6 +919,37 @@ func TestScraperWithQueryComments(t *testing.T) {
 		}
 	})
 
+	t.Run("table-driven extraction over allowlist variants", func(t *testing.T) {
+		sql := "/* application=test-123 */ SELECT * FROM test_table"
+
+		tests := []struct {
+			name        string
+			allowedKeys []string
+			want        string
+		}{
+			{
+				name:        "configured allowed keys are extracted",
+				allowedKeys: []string{"application"},
+				want:        "application=test-123",
+			},
+			{
+				name:        "empty allowlist extracts nothing",
+				allowedKeys: []string{},
+				want:        "",
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				cfg := createDefaultConfig().(*Config)
+				cfg.QuerySample.AllowedCommentKeys = tt.allowedKeys
+
+				got := sqlcomments.ExtractAndFilterComments(sql, cfg.QuerySample.AllowedCommentKeys)
+				assert.Equal(t, tt.want, got)
+			})
+		}
+	})
+
 	t.Run("query samples without allowed comments", func(t *testing.T) {
 		// Create a mock scraper with empty allowed comment keys
 		cfg := createDefaultConfig().(*Config)
