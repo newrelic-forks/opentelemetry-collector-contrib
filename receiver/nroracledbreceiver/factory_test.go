@@ -7,14 +7,13 @@ import (
 	"net/url"
 	"testing"
 
+	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nroracledbreceiver/internal/metadata"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/consumer/consumertest"
 	"go.opentelemetry.io/collector/receiver"
-
-	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nroracledbreceiver/internal/metadata"
 )
 
 func TestNewFactory(t *testing.T) {

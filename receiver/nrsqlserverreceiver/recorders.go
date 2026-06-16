@@ -6,9 +6,8 @@
 package nrsqlserverreceiver // import "github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver"
 
 import (
-	"go.opentelemetry.io/collector/pdata/pcommon"
-
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver/internal/metadata"
+	"go.opentelemetry.io/collector/pdata/pcommon"
 )
 
 const (

@@ -1,4 +1,4 @@
 status:
   disable_codecov_badge: true
   codeowners:
-    active: [crobert-1, dmitryax]
+    active: [crobert-1, dmitryax, newrelic/dbi]

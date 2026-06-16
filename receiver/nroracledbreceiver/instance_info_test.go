@@ -7,14 +7,13 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nroracledbreceiver/internal/metadata"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/receiver/receivertest"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
-
-	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nroracledbreceiver/internal/metadata"
 )
 
 // errQuery is a sentinel error used to simulate a failed DB query.

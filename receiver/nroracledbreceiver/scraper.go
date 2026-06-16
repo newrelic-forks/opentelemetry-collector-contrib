@@ -20,6 +20,9 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
+	"github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon/sqlcomments"
+	"github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon/sqlnormalizer"
+	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nroracledbreceiver/internal/metadata"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/plog"
@@ -30,10 +33,6 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
-
-	"github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon/sqlcomments"
-	"github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon/sqlnormalizer"
-	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nroracledbreceiver/internal/metadata"
 )
 
 const (

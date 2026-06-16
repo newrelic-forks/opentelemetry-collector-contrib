@@ -13,13 +13,12 @@ import (
 	lru "github.com/hashicorp/golang-lru/v2"
 	_ "github.com/microsoft/go-mssqldb"                     // register Db driver
 	_ "github.com/microsoft/go-mssqldb/integratedauth/krb5" // register Db driver
+	sqlquery "github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrsqlquery"
+	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver/internal/metadata"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/receiver"
 	"go.opentelemetry.io/collector/scraper"
 	"go.opentelemetry.io/collector/scraper/scraperhelper"
-
-	"github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrsqlquery"
-	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver/internal/metadata"
 )
 
 var errConfigNotSQLServer = errors.New("config was not a sqlserver receiver config")

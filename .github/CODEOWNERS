@@ -156,6 +156,8 @@ internal/k8sleaderelectortest/                                   @open-telemetry
 internal/kafka/                                                  @open-telemetry/collector-contrib-approvers @pavolloffay @MovieStoreGuy @axw @paulojmdias
 internal/kubelet/                                                @open-telemetry/collector-contrib-approvers @dmitryax
 internal/metadataproviders/                                      @open-telemetry/collector-contrib-approvers @Aneurysm9 @dashpole
+internal/nrcommon/                                               @open-telemetry/collector-contrib-approvers @newrelic/dbi
+internal/nrsqlquery/                                             @open-telemetry/collector-contrib-approvers @crobert-1 @dmitryax @newrelic/dbi
 internal/otelarrow/                                              @open-telemetry/collector-contrib-approvers @jmacd @JakeDern
 internal/pdatautil/                                              @open-telemetry/collector-contrib-approvers
 internal/rabbitmq/                                               @open-telemetry/collector-contrib-approvers @atoulme
@@ -323,10 +325,11 @@ receiver/mysqlreceiver/                                          @open-telemetry
 receiver/namedpipereceiver/                                      @open-telemetry/collector-contrib-approvers @sinkingpoint
 receiver/netflowreceiver/                                        @open-telemetry/collector-contrib-approvers @evan-bradley @dlopes7
 receiver/nginxreceiver/                                          @open-telemetry/collector-contrib-approvers @colelaven @ishleenk17
+receiver/nroracledbreceiver/                                     @open-telemetry/collector-contrib-approvers @dmitryax @crobert-1 @atoulme @newrelic/dbi
+receiver/nrsqlserverreceiver/                                    @open-telemetry/collector-contrib-approvers @sincejune @crobert-1 @newrelic/dbi
 receiver/nsxtreceiver/                                           @open-telemetry/collector-contrib-approvers @dashpole @schmikei
 receiver/ntpreceiver/                                            @open-telemetry/collector-contrib-approvers @atoulme @paulojmdias
 receiver/oracledbreceiver/                                       @open-telemetry/collector-contrib-approvers @dmitryax @crobert-1 @atoulme
-receiver/nroracledbreceiver/                                     @open-telemetry/collector-contrib-approvers @dmitryax @crobert-1 @atoulme @newrelic/dbi
 receiver/osqueryreceiver/                                        @open-telemetry/collector-contrib-approvers @smithclay
 receiver/otelarrowreceiver/                                      @open-telemetry/collector-contrib-approvers @jmacd @JakeDern
 receiver/otlpjsonfilereceiver/                                   @open-telemetry/collector-contrib-approvers @atoulme
@@ -354,7 +357,6 @@ receiver/splunkenterprisereceiver/                               @open-telemetry
 receiver/splunkhecreceiver/                                      @open-telemetry/collector-contrib-approvers @atoulme
 receiver/sqlqueryreceiver/                                       @open-telemetry/collector-contrib-approvers @dmitryax @crobert-1
 receiver/sqlserverreceiver/                                      @open-telemetry/collector-contrib-approvers @sincejune @crobert-1
-receiver/nrsqlserverreceiver/                                    @open-telemetry/collector-contrib-approvers @sincejune @crobert-1 @newrelic/dbi
 receiver/sshcheckreceiver/                                       @open-telemetry/collector-contrib-approvers @ishaish103
 receiver/statsdreceiver/                                         @open-telemetry/collector-contrib-approvers @jmacd @dmitryax
 receiver/stefreceiver/                                           @open-telemetry/collector-contrib-approvers @tigrannajaryan @MovieStoreGuy @dmitryax @atoulme @pjanotti @crobert-1

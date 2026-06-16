@@ -13,7 +13,7 @@ status:
     development: [logs]
   distributions: [contrib]
   codeowners:
-    active: [dmitryax, crobert-1, atoulme]
+    active: [dmitryax, crobert-1, atoulme, newrelic/dbi]
 
 resource_attributes:
   host.name:
