@@ -1,4 +1,4 @@
-oracledb:
+nroracledb:
   # driver name: oracle
   endpoint: localhost:51521
   password: password
