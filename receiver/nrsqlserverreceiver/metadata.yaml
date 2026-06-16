@@ -1057,12 +1057,12 @@ metrics:
       value_type: int
 
 feature_gates:
-  - id: receiver.sqlserver.RemoveServerResourceAttribute
+  - id: receiver.nrsqlserver.RemoveServerResourceAttribute
     stage: alpha
     description: >-
       When enabled, the server.address and server.port resource attributes are removed from metrics.
     from_version: v0.129.0
-    reference_url: https://github.com/open-telemetry/opentelemetry-collector-contrib/pull/40141      
+    reference_url: https://github.com/open-telemetry/opentelemetry-collector-contrib/pull/40141
     skip_strict_validation: true
 
 tests:

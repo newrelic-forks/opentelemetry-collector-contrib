@@ -6,8 +6,8 @@ import (
 	"go.opentelemetry.io/collector/featuregate"
 )
 
-var ReceiverSqlserverRemoveServerResourceAttributeFeatureGate = featuregate.GlobalRegistry().MustRegister(
-	"receiver.sqlserver.RemoveServerResourceAttribute",
+var ReceiverNrsqlserverRemoveServerResourceAttributeFeatureGate = featuregate.GlobalRegistry().MustRegister(
+	"receiver.nrsqlserver.RemoveServerResourceAttribute",
 	featuregate.StageAlpha,
 	featuregate.WithRegisterDescription("When enabled, the server.address and server.port resource attributes are removed from metrics."),
 	featuregate.WithRegisterReferenceURL("https://github.com/open-telemetry/opentelemetry-collector-contrib/pull/40141"),

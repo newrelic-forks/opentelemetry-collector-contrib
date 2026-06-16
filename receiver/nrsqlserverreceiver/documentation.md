@@ -889,6 +889,6 @@ This component has the following feature gates:
 
 | Feature Gate | Stage | Description | From Version | To Version | Reference |
 | ------------ | ----- | ----------- | ------------ | ---------- | --------- |
-| `receiver.sqlserver.RemoveServerResourceAttribute` | alpha | When enabled, the server.address and server.port resource attributes are removed from metrics. | v0.129.0 | N/A | [Link](https://github.com/open-telemetry/opentelemetry-collector-contrib/pull/40141) |
+| `receiver.nrsqlserver.RemoveServerResourceAttribute` | alpha | When enabled, the server.address and server.port resource attributes are removed from metrics. | v0.129.0 | N/A | [Link](https://github.com/open-telemetry/opentelemetry-collector-contrib/pull/40141) |
 
 For more information about feature gates, see the [Feature Gates](https://github.com/open-telemetry/opentelemetry-collector/blob/main/featuregate/README.md) documentation.
