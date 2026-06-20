@@ -70,9 +70,6 @@ resourceLogs:
               - key: sqlserver.logical_reads
                 value:
                   intValue: "0"
-              - key: sqlserver.normalized_sql
-                value:
-                  stringValue: ""
               - key: sqlserver.open_transaction_count
                 value:
                   intValue: "0"

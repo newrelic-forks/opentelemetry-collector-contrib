@@ -154,9 +154,6 @@ resourceLogs:
               - key: db.query.text.normalized.hash
                 value:
                   stringValue: ""
-              - key: sqlserver.normalized_sql
-                value:
-                  stringValue: ""
             body: {}
             eventName: db.server.query_sample
             spanId: a7ad6a7169203331

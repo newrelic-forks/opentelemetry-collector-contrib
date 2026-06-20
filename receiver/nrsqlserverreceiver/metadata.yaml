@@ -200,10 +200,6 @@ attributes:
     description: Number of logical reads (data read from cache/memory).
     type: int
     requirement_level: recommended
-  sqlserver.normalized_sql:
-    description: Normalized SQL query text used to generate the db.query.text.normalized.hash. Only populated when collect_full_query_text is enabled.
-    type: string
-    requirement_level: opt_in
   sqlserver.open_transaction_count:
     description: Number of transactions currently open in the session.
     type: int
@@ -432,7 +428,6 @@ events:
       - db.query.full_text
       - db.query.comment_tags.nr_service_guid
       - db.query.text.normalized.hash
-      - sqlserver.normalized_sql
 
   db.server.top_query:
     enabled: false
@@ -462,7 +457,6 @@ events:
       - db.query.full_text
       - db.query.comment_tags.nr_service_guid
       - db.query.text.normalized.hash
-      - sqlserver.normalized_sql
 
 metrics:
   sqlserver.attention.rate:
