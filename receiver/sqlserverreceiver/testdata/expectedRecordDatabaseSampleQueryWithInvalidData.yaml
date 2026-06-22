@@ -13,6 +13,12 @@ resourceLogs:
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
         - key: server.address
           value:
             stringValue: 0.0.0.0
@@ -46,6 +52,9 @@ resourceLogs:
               - key: sqlserver.blocking_session_id
                 value:
                   intValue: "0"
+              - key: sqlserver.procedure_name
+                value:
+                  stringValue: ""
               - key: sqlserver.client.app.name
                 value:
                   stringValue: SSMS
@@ -103,12 +112,12 @@ resourceLogs:
               - key: sqlserver.session.duration
                 value:
                   doubleValue: 0
-              - key: sqlserver.session_id
-                value:
-                  intValue: "0"
               - key: sqlserver.session.start_time
                 value:
                   stringValue: "2025-02-12T15:00:00.000+08:00"
+              - key: sqlserver.session_id
+                value:
+                  intValue: "0"
               - key: sqlserver.session_status
                 value:
                   stringValue: running
