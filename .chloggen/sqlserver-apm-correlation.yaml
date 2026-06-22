@@ -7,7 +7,7 @@ note: Add full query text, SQL comments, and normalized SQL hash attributes for 
 issues: [180]
 
 subtext: |
-  Adds db.query.full_text, query.comments, db.query.text.normalized.hash, and sqlserver.normalized_sql
-  attributes to the db.server.top_query and db.server.query_sample log events to support APM correlation.
+  Adds db.query.full_text, query.comments, and db.query.text.normalized.hash attributes to
+  the db.server.top_query and db.server.query_sample log events to support APM correlation.
 
 change_logs: [user]

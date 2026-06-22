@@ -1239,7 +1239,7 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 
 		databaseNameVal := row[databaseName]
 
-		var fullQueryTextVal, dbSQLCommentsVal, nrServiceGUIDVal, dbQueryTextNormalizedHashVal, normalizedSQLVal string
+		var fullQueryTextVal, dbSQLCommentsVal, nrServiceGUIDVal, dbQueryTextNormalizedHashVal string
 		if s.config.CollectFullQueryText {
 			rawFullText := row[fullQueryText]
 			stmtStartOff, _ := strconv.Atoi(row[statementStartOffset])
@@ -1251,7 +1251,7 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 				s.logger.Error(fmt.Sprintf("failed to obfuscate full SQL text: %v", err))
 			} else {
 				fullQueryTextVal = obfuscated
-				normalizedSQLVal, dbQueryTextNormalizedHashVal = sqlnormalizer.NormalizeSQLAndHash(obfuscated)
+				_, dbQueryTextNormalizedHashVal = sqlnormalizer.NormalizeSQLAndHash(obfuscated)
 			}
 		}
 
@@ -1351,7 +1351,6 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 			fullQueryTextVal,
 			nrServiceGUIDVal,
 			dbQueryTextNormalizedHashVal,
-			normalizedSQLVal,
 		)
 	}
 	return resources, errors.Join(errs...)
@@ -1601,7 +1600,7 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 			return obfuscated, nil
 		}).(string)
 
-		var fullQueryTextVal, dbSQLCommentsVal, nrServiceGUIDVal, dbQueryTextNormalizedHashVal, normalizedSQLVal string
+		var fullQueryTextVal, dbSQLCommentsVal, nrServiceGUIDVal, dbQueryTextNormalizedHashVal string
 		if s.config.CollectFullQueryText {
 			rawFullText := row[fullQueryTextCol]
 			stmtStartOff, _ := strconv.Atoi(row[stmtStartOffsetCol])
@@ -1613,7 +1612,7 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 				s.logger.Error(fmt.Sprintf("failed to obfuscate full SQL text: %v", err))
 			} else {
 				fullQueryTextVal = obfuscated
-				normalizedSQLVal, dbQueryTextNormalizedHashVal = sqlnormalizer.NormalizeSQLAndHash(obfuscated)
+				_, dbQueryTextNormalizedHashVal = sqlnormalizer.NormalizeSQLAndHash(obfuscated)
 			}
 		}
 
@@ -1700,7 +1699,7 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 			waitResourceVal, waitTimeSecondVal, waitTypeVal, writesVal, usernameVal,
 			row[storedProcedureID], row[storedProcedureName],
 			fullQueryTextVal,
-			nrServiceGUIDVal, dbQueryTextNormalizedHashVal, normalizedSQLVal,
+			nrServiceGUIDVal, dbQueryTextNormalizedHashVal,
 		)
 
 		if !resourcesAdded {
