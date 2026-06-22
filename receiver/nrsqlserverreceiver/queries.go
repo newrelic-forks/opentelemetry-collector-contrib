@@ -1274,3 +1274,199 @@ func getSQLServerDatabaseSecurityRoleMembersQuery(instanceName string) string {
 	r := strings.NewReplacer("{filter_instance_name}", "")
 	return r.Replace(sqlServerDatabaseSecurityRoleMembersQuery)
 }
+
+// sqlServerOSMemoryQuery returns physical memory statistics observed by the
+// SQL Server process. Requires sys.dm_os_sys_memory + sys.dm_os_process_memory,
+// which are unavailable on Azure SQL Database (EngineEdition = 5).
+const sqlServerOSMemoryQuery = `
+SET DEADLOCK_PRIORITY -10;
+IF SERVERPROPERTY('EngineEdition') NOT IN (2,3,4,8) BEGIN
+	DECLARE @ErrorMessage AS nvarchar(500) = 'Connection string Server:' + @@ServerName + ',Database:' + DB_NAME() + ' does not support sys.dm_os_sys_memory; sqlserver.os.memory.* metrics require Standard, Enterprise, Express, or Managed Instance.';
+	RAISERROR (@ErrorMessage,11,1)
+	RETURN
+END
+
+SELECT
+	'sqlserver_os_memory' AS [measurement],
+	REPLACE(@@SERVERNAME,'\',':') AS [sql_instance],
+	CAST(MAX(sys_mem.total_physical_memory_kb) * 1024 AS BIGINT) AS [total_physical_memory_bytes],
+	CAST(MAX(sys_mem.available_physical_memory_kb) * 1024 AS BIGINT) AS [available_physical_memory_bytes],
+	CAST(
+		CAST(MAX(proc_mem.physical_memory_in_use_kb) AS float)
+		/ NULLIF(CAST(MAX(sys_mem.total_physical_memory_kb) AS float), 0) AS float
+	) AS [memory_utilization]
+FROM sys.dm_os_process_memory proc_mem,
+     sys.dm_os_sys_memory sys_mem
+WHERE 1=1
+{filter_instance_name};
+`
+
+func getSQLServerOSMemoryQuery(instanceName string) string {
+	if instanceName != "" {
+		whereClause := fmt.Sprintf("\tAND @@SERVERNAME = '%s'", instanceName)
+		r := strings.NewReplacer("{filter_instance_name}", whereClause)
+		return r.Replace(sqlServerOSMemoryQuery)
+	}
+
+	r := strings.NewReplacer("{filter_instance_name}", "")
+	return r.Replace(sqlServerOSMemoryQuery)
+}
+
+// sqlServerOSDiskQuery returns total disk space across volumes hosting SQL
+// Server database files. Requires sys.master_files + sys.dm_os_volume_stats,
+// which are unavailable on Azure SQL Database (EngineEdition = 5).
+const sqlServerOSDiskQuery = `
+SET DEADLOCK_PRIORITY -10;
+IF SERVERPROPERTY('EngineEdition') NOT IN (2,3,4,8) BEGIN
+	DECLARE @ErrorMessage AS nvarchar(500) = 'Connection string Server:' + @@ServerName + ',Database:' + DB_NAME() + ' does not support sys.master_files / sys.dm_os_volume_stats; sqlserver.os.disk.size requires Standard, Enterprise, Express, or Managed Instance.';
+	RAISERROR (@ErrorMessage,11,1)
+	RETURN
+END
+
+SELECT
+	'sqlserver_os_disk' AS [measurement],
+	REPLACE(@@SERVERNAME,'\',':') AS [sql_instance],
+	CAST(SUM(total_bytes) AS BIGINT) AS [total_disk_space_bytes]
+FROM (
+	SELECT DISTINCT
+		dovs.volume_mount_point,
+		dovs.total_bytes
+	FROM sys.master_files mf WITH (NOLOCK)
+	CROSS APPLY sys.dm_os_volume_stats(mf.database_id, mf.file_id) dovs
+) drives
+WHERE 1=1
+{filter_instance_name};
+`
+
+func getSQLServerOSDiskQuery(instanceName string) string {
+	if instanceName != "" {
+		whereClause := fmt.Sprintf("\tAND @@SERVERNAME = '%s'", instanceName)
+		r := strings.NewReplacer("{filter_instance_name}", whereClause)
+		return r.Replace(sqlServerOSDiskQuery)
+	}
+
+	r := strings.NewReplacer("{filter_instance_name}", "")
+	return r.Replace(sqlServerOSDiskQuery)
+}
+
+// sqlServerOSSchedulerRunnableTasksQuery returns the total number of runnable
+// tasks across visible online schedulers (sys.dm_os_schedulers). Unavailable
+// on Azure SQL Database (EngineEdition = 5).
+const sqlServerOSSchedulerRunnableTasksQuery = `
+SET DEADLOCK_PRIORITY -10;
+IF SERVERPROPERTY('EngineEdition') NOT IN (2,3,4,8) BEGIN
+	DECLARE @ErrorMessage AS nvarchar(500) = 'Connection string Server:' + @@ServerName + ',Database:' + DB_NAME() + ' does not support sys.dm_os_schedulers; sqlserver.os.scheduler.runnable_tasks.count requires Standard, Enterprise, Express, or Managed Instance.';
+	RAISERROR (@ErrorMessage,11,1)
+	RETURN
+END
+
+SELECT
+	'sqlserver_os_scheduler' AS [measurement],
+	REPLACE(@@SERVERNAME,'\',':') AS [sql_instance],
+	CAST(SUM(runnable_tasks_count) AS BIGINT) AS [runnable_tasks_count]
+FROM sys.dm_os_schedulers WITH (NOLOCK)
+WHERE scheduler_id < 255
+	AND status = 'VISIBLE ONLINE'
+{filter_instance_name};
+`
+
+func getSQLServerOSSchedulerRunnableTasksQuery(instanceName string) string {
+	if instanceName != "" {
+		whereClause := fmt.Sprintf("\tAND @@SERVERNAME = '%s'", instanceName)
+		r := strings.NewReplacer("{filter_instance_name}", whereClause)
+		return r.Replace(sqlServerOSSchedulerRunnableTasksQuery)
+	}
+
+	r := strings.NewReplacer("{filter_instance_name}", "")
+	return r.Replace(sqlServerOSSchedulerRunnableTasksQuery)
+}
+
+// sqlServerProcessCountQuery returns user-session counts pivoted by status.
+// Derived from sys.dm_exec_sessions (joined with sys.dm_exec_requests so that
+// an active request's status overrides the session-level status). Returns one
+// row with seven count columns.
+const sqlServerProcessCountQuery = `
+SET DEADLOCK_PRIORITY -10;
+IF SERVERPROPERTY('EngineEdition') NOT IN (2,3,4,5,8) BEGIN
+	DECLARE @ErrorMessage AS nvarchar(500) = 'Connection string Server:' + @@ServerName + ',Database:' + DB_NAME() + ' is not supported for sqlserver.process.count.';
+	RAISERROR (@ErrorMessage,11,1)
+	RETURN
+END
+
+SELECT
+	'sqlserver_process_count' AS [measurement],
+	REPLACE(@@SERVERNAME,'\',':') AS [sql_instance],
+	CAST(MAX(CASE WHEN status = 'background' THEN counts ELSE 0 END) AS BIGINT) AS [background],
+	CAST(MAX(CASE WHEN status = 'dormant'    THEN counts ELSE 0 END) AS BIGINT) AS [dormant],
+	CAST(MAX(CASE WHEN status = 'preconnect' THEN counts ELSE 0 END) AS BIGINT) AS [preconnect],
+	CAST(MAX(CASE WHEN status = 'runnable'   THEN counts ELSE 0 END) AS BIGINT) AS [runnable],
+	CAST(MAX(CASE WHEN status = 'running'    THEN counts ELSE 0 END) AS BIGINT) AS [running],
+	CAST(MAX(CASE WHEN status = 'sleeping'   THEN counts ELSE 0 END) AS BIGINT) AS [sleeping],
+	CAST(MAX(CASE WHEN status = 'suspended'  THEN counts ELSE 0 END) AS BIGINT) AS [suspended]
+FROM (
+	SELECT status, COUNT(*) AS counts FROM (
+		SELECT COALESCE(req.status, sess.status) AS status
+		FROM sys.dm_exec_sessions sess WITH (NOLOCK)
+		LEFT JOIN sys.dm_exec_requests req WITH (NOLOCK)
+			ON sess.session_id = req.session_id
+		WHERE sess.session_id > 50
+	) statuses
+	GROUP BY status
+) sessions
+WHERE 1=1
+{filter_instance_name};
+`
+
+func getSQLServerProcessCountQuery(instanceName string) string {
+	if instanceName != "" {
+		whereClause := fmt.Sprintf("\tAND @@SERVERNAME = '%s'", instanceName)
+		r := strings.NewReplacer("{filter_instance_name}", whereClause)
+		return r.Replace(sqlServerProcessCountQuery)
+	}
+
+	r := strings.NewReplacer("{filter_instance_name}", "")
+	return r.Replace(sqlServerProcessCountQuery)
+}
+
+// sqlServerDatabasePageFileQuery returns total reserved space and used space
+// per online user database. The receiver derives the "free" datapoint as
+// (total - used). Executes per-database via dynamic SQL on the server side
+// so a single round-trip covers all online user databases.
+const sqlServerDatabasePageFileQuery = `
+SET DEADLOCK_PRIORITY -10;
+IF SERVERPROPERTY('EngineEdition') NOT IN (2,3,4,5,8) BEGIN
+	DECLARE @ErrorMessage AS nvarchar(500) = 'Connection string Server:' + @@ServerName + ',Database:' + DB_NAME() + ' is not supported for sqlserver.database.page_file.size.';
+	RAISERROR (@ErrorMessage,11,1)
+	RETURN
+END
+
+DECLARE @SQL nvarchar(max) = N'';
+
+SELECT @SQL = @SQL +
+	N'USE ' + QUOTENAME(name) + N';' +
+	N'SELECT ''sqlserver_database_page_file'' AS [measurement],
+		REPLACE(@@SERVERNAME, ''\'', '':'') AS [sql_instance],
+		DB_NAME() AS [database_name],
+		CAST(SUM(a.total_pages) * 8 * 1024 AS BIGINT) AS [reserved_space_bytes],
+		CAST((SUM(a.total_pages) - SUM(a.used_pages)) * 8 * 1024 AS BIGINT) AS [reserved_space_not_used_bytes]
+	FROM sys.partitions p WITH (NOLOCK)
+	INNER JOIN sys.allocation_units a WITH (NOLOCK) ON p.partition_id = a.container_id;' + CHAR(13)
+FROM sys.databases WITH (NOLOCK)
+WHERE database_id > 4  -- Exclude system databases (master, tempdb, model, msdb)
+	AND state = 0  -- Online only
+	AND name NOT IN ('rdsadmin', 'distribution', 'model_msdb', 'model_replicatedmaster')
+{filter_instance_name};
+
+EXEC sp_executesql @SQL;
+`
+
+func getSQLServerDatabasePageFileQuery(instanceName string) string {
+	if instanceName != "" {
+		whereClause := fmt.Sprintf("\tAND @@SERVERNAME = '%s'", instanceName)
+		r := strings.NewReplacer("{filter_instance_name}", whereClause)
+		return r.Replace(sqlServerDatabasePageFileQuery)
+	}
+
+	r := strings.NewReplacer("{filter_instance_name}", "")
+	return r.Replace(sqlServerDatabasePageFileQuery)
+}

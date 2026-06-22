@@ -30,6 +30,12 @@ func TestMetricsBuilderConfig(t *testing.T) {
 					SqlserverAttentionRate: SqlserverAttentionRateMetricConfig{
 						Enabled: true,
 					},
+					SqlserverBatchCompilationUtilization: SqlserverBatchCompilationUtilizationMetricConfig{
+						Enabled: true,
+					},
+					SqlserverBatchPageSplitUtilization: SqlserverBatchPageSplitUtilizationMetricConfig{
+						Enabled: true,
+					},
 					SqlserverBatchRequestRate: SqlserverBatchRequestRateMetricConfig{
 						Enabled: true,
 					},
@@ -79,6 +85,11 @@ func TestMetricsBuilderConfig(t *testing.T) {
 						AggregationStrategy: AggregationStrategySum,
 						EnabledAttributes:   []SqlserverDatabaseOperationsMetricAttributeKey{SqlserverDatabaseOperationsMetricAttributeKeyPhysicalFilename, SqlserverDatabaseOperationsMetricAttributeKeyLogicalFilename, SqlserverDatabaseOperationsMetricAttributeKeyFileType, SqlserverDatabaseOperationsMetricAttributeKeyDirection},
 					},
+					SqlserverDatabasePageFileSize: SqlserverDatabasePageFileSizeMetricConfig{
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategyAvg,
+						EnabledAttributes:   []SqlserverDatabasePageFileSizeMetricAttributeKey{SqlserverDatabasePageFileSizeMetricAttributeKeyDbNamespace, SqlserverDatabasePageFileSizeMetricAttributeKeyPageFileState},
+					},
 					SqlserverDatabaseSecurityRoleMembershipCount: SqlserverDatabaseSecurityRoleMembershipCountMetricConfig{
 						Enabled:             true,
 						AggregationStrategy: AggregationStrategyAvg,
@@ -92,10 +103,18 @@ func TestMetricsBuilderConfig(t *testing.T) {
 					SqlserverDatabaseTempdbVersionStoreSize: SqlserverDatabaseTempdbVersionStoreSizeMetricConfig{
 						Enabled: true,
 					},
+					SqlserverDatabaseTransactionsActive: SqlserverDatabaseTransactionsActiveMetricConfig{
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategyAvg,
+						EnabledAttributes:   []SqlserverDatabaseTransactionsActiveMetricAttributeKey{SqlserverDatabaseTransactionsActiveMetricAttributeKeyDbNamespace},
+					},
 					SqlserverDeadlockRate: SqlserverDeadlockRateMetricConfig{
 						Enabled: true,
 					},
 					SqlserverIndexSearchRate: SqlserverIndexSearchRateMetricConfig{
+						Enabled: true,
+					},
+					SqlserverKillConnectionErrorRate: SqlserverKillConnectionErrorRateMetricConfig{
 						Enabled: true,
 					},
 					SqlserverLatchSuperlatchCount: SqlserverLatchSuperlatchCountMetricConfig{
@@ -157,10 +176,29 @@ func TestMetricsBuilderConfig(t *testing.T) {
 					SqlserverMemoryUsage: SqlserverMemoryUsageMetricConfig{
 						Enabled: true,
 					},
+					SqlserverOsDiskSize: SqlserverOsDiskSizeMetricConfig{
+						Enabled: true,
+					},
+					SqlserverOsMemoryUsage: SqlserverOsMemoryUsageMetricConfig{
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategyAvg,
+						EnabledAttributes:   []SqlserverOsMemoryUsageMetricAttributeKey{SqlserverOsMemoryUsageMetricAttributeKeyMemoryState},
+					},
+					SqlserverOsMemoryUtilization: SqlserverOsMemoryUtilizationMetricConfig{
+						Enabled: true,
+					},
+					SqlserverOsSchedulerRunnableTasksCount: SqlserverOsSchedulerRunnableTasksCountMetricConfig{
+						Enabled: true,
+					},
 					SqlserverOsWaitDuration: SqlserverOsWaitDurationMetricConfig{
 						Enabled:             true,
 						AggregationStrategy: AggregationStrategySum,
 						EnabledAttributes:   []SqlserverOsWaitDurationMetricAttributeKey{SqlserverOsWaitDurationMetricAttributeKeyWaitCategory, SqlserverOsWaitDurationMetricAttributeKeyWaitType},
+					},
+					SqlserverOsWaitTasksCount: SqlserverOsWaitTasksCountMetricConfig{
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []SqlserverOsWaitTasksCountMetricAttributeKey{SqlserverOsWaitTasksCountMetricAttributeKeyWaitCategory, SqlserverOsWaitTasksCountMetricAttributeKeyWaitType},
 					},
 					SqlserverPageBufferCacheFreeListStallsRate: SqlserverPageBufferCacheFreeListStallsRateMetricConfig{
 						Enabled: true,
@@ -199,6 +237,11 @@ func TestMetricsBuilderConfig(t *testing.T) {
 						Enabled:             true,
 						AggregationStrategy: AggregationStrategyAvg,
 						EnabledAttributes:   []SqlserverPlanExecutionRateMetricAttributeKey{SqlserverPlanExecutionRateMetricAttributeKeySqlserverPlanGuidanceResult},
+					},
+					SqlserverProcessCount: SqlserverProcessCountMetricConfig{
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategyAvg,
+						EnabledAttributes:   []SqlserverProcessCountMetricAttributeKey{SqlserverProcessCountMetricAttributeKeyProcessStatus},
 					},
 					SqlserverProcessesBlocked: SqlserverProcessesBlockedMetricConfig{
 						Enabled: true,
@@ -289,6 +332,12 @@ func TestMetricsBuilderConfig(t *testing.T) {
 					SqlserverAttentionRate: SqlserverAttentionRateMetricConfig{
 						Enabled: false,
 					},
+					SqlserverBatchCompilationUtilization: SqlserverBatchCompilationUtilizationMetricConfig{
+						Enabled: false,
+					},
+					SqlserverBatchPageSplitUtilization: SqlserverBatchPageSplitUtilizationMetricConfig{
+						Enabled: false,
+					},
 					SqlserverBatchRequestRate: SqlserverBatchRequestRateMetricConfig{
 						Enabled: false,
 					},
@@ -338,6 +387,11 @@ func TestMetricsBuilderConfig(t *testing.T) {
 						AggregationStrategy: AggregationStrategySum,
 						EnabledAttributes:   []SqlserverDatabaseOperationsMetricAttributeKey{SqlserverDatabaseOperationsMetricAttributeKeyPhysicalFilename, SqlserverDatabaseOperationsMetricAttributeKeyLogicalFilename, SqlserverDatabaseOperationsMetricAttributeKeyFileType, SqlserverDatabaseOperationsMetricAttributeKeyDirection},
 					},
+					SqlserverDatabasePageFileSize: SqlserverDatabasePageFileSizeMetricConfig{
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategyAvg,
+						EnabledAttributes:   []SqlserverDatabasePageFileSizeMetricAttributeKey{SqlserverDatabasePageFileSizeMetricAttributeKeyDbNamespace, SqlserverDatabasePageFileSizeMetricAttributeKeyPageFileState},
+					},
 					SqlserverDatabaseSecurityRoleMembershipCount: SqlserverDatabaseSecurityRoleMembershipCountMetricConfig{
 						Enabled:             false,
 						AggregationStrategy: AggregationStrategyAvg,
@@ -351,10 +405,18 @@ func TestMetricsBuilderConfig(t *testing.T) {
 					SqlserverDatabaseTempdbVersionStoreSize: SqlserverDatabaseTempdbVersionStoreSizeMetricConfig{
 						Enabled: false,
 					},
+					SqlserverDatabaseTransactionsActive: SqlserverDatabaseTransactionsActiveMetricConfig{
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategyAvg,
+						EnabledAttributes:   []SqlserverDatabaseTransactionsActiveMetricAttributeKey{SqlserverDatabaseTransactionsActiveMetricAttributeKeyDbNamespace},
+					},
 					SqlserverDeadlockRate: SqlserverDeadlockRateMetricConfig{
 						Enabled: false,
 					},
 					SqlserverIndexSearchRate: SqlserverIndexSearchRateMetricConfig{
+						Enabled: false,
+					},
+					SqlserverKillConnectionErrorRate: SqlserverKillConnectionErrorRateMetricConfig{
 						Enabled: false,
 					},
 					SqlserverLatchSuperlatchCount: SqlserverLatchSuperlatchCountMetricConfig{
@@ -416,10 +478,29 @@ func TestMetricsBuilderConfig(t *testing.T) {
 					SqlserverMemoryUsage: SqlserverMemoryUsageMetricConfig{
 						Enabled: false,
 					},
+					SqlserverOsDiskSize: SqlserverOsDiskSizeMetricConfig{
+						Enabled: false,
+					},
+					SqlserverOsMemoryUsage: SqlserverOsMemoryUsageMetricConfig{
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategyAvg,
+						EnabledAttributes:   []SqlserverOsMemoryUsageMetricAttributeKey{SqlserverOsMemoryUsageMetricAttributeKeyMemoryState},
+					},
+					SqlserverOsMemoryUtilization: SqlserverOsMemoryUtilizationMetricConfig{
+						Enabled: false,
+					},
+					SqlserverOsSchedulerRunnableTasksCount: SqlserverOsSchedulerRunnableTasksCountMetricConfig{
+						Enabled: false,
+					},
 					SqlserverOsWaitDuration: SqlserverOsWaitDurationMetricConfig{
 						Enabled:             false,
 						AggregationStrategy: AggregationStrategySum,
 						EnabledAttributes:   []SqlserverOsWaitDurationMetricAttributeKey{SqlserverOsWaitDurationMetricAttributeKeyWaitCategory, SqlserverOsWaitDurationMetricAttributeKeyWaitType},
+					},
+					SqlserverOsWaitTasksCount: SqlserverOsWaitTasksCountMetricConfig{
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []SqlserverOsWaitTasksCountMetricAttributeKey{SqlserverOsWaitTasksCountMetricAttributeKeyWaitCategory, SqlserverOsWaitTasksCountMetricAttributeKeyWaitType},
 					},
 					SqlserverPageBufferCacheFreeListStallsRate: SqlserverPageBufferCacheFreeListStallsRateMetricConfig{
 						Enabled: false,
@@ -458,6 +539,11 @@ func TestMetricsBuilderConfig(t *testing.T) {
 						Enabled:             false,
 						AggregationStrategy: AggregationStrategyAvg,
 						EnabledAttributes:   []SqlserverPlanExecutionRateMetricAttributeKey{SqlserverPlanExecutionRateMetricAttributeKeySqlserverPlanGuidanceResult},
+					},
+					SqlserverProcessCount: SqlserverProcessCountMetricConfig{
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategyAvg,
+						EnabledAttributes:   []SqlserverProcessCountMetricAttributeKey{SqlserverProcessCountMetricAttributeKeyProcessStatus},
 					},
 					SqlserverProcessesBlocked: SqlserverProcessesBlockedMetricConfig{
 						Enabled: false,
@@ -545,7 +631,7 @@ func TestMetricsBuilderConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := loadMetricsBuilderConfig(t, tt.name)
-			diff := cmp.Diff(tt.want, cfg, cmpopts.IgnoreUnexported(SqlserverAttentionRateMetricConfig{}, SqlserverBatchRequestRateMetricConfig{}, SqlserverBatchSQLCompilationRateMetricConfig{}, SqlserverBatchSQLRecompilationRateMetricConfig{}, SqlserverComputerUptimeMetricConfig{}, SqlserverCPUCountMetricConfig{}, SqlserverDatabaseBackupOrRestoreRateMetricConfig{}, SqlserverDatabaseCountMetricConfig{}, SqlserverDatabaseExecutionErrorsMetricConfig{}, SqlserverDatabaseFileSizeMetricConfig{}, SqlserverDatabaseFullScanRateMetricConfig{}, SqlserverDatabaseIoMetricConfig{}, SqlserverDatabaseLatencyMetricConfig{}, SqlserverDatabaseOperationsMetricConfig{}, SqlserverDatabaseSecurityRoleMembershipCountMetricConfig{}, SqlserverDatabaseTempdbSpaceMetricConfig{}, SqlserverDatabaseTempdbVersionStoreSizeMetricConfig{}, SqlserverDeadlockRateMetricConfig{}, SqlserverIndexSearchRateMetricConfig{}, SqlserverLatchSuperlatchCountMetricConfig{}, SqlserverLatchSuperlatchTransitionRateMetricConfig{}, SqlserverLatchWaitRateMetricConfig{}, SqlserverLatchWaitTimeAvgMetricConfig{}, SqlserverLatchWaitTimeTotalMetricConfig{}, SqlserverLockTimeoutRateMetricConfig{}, SqlserverLockWaitCountMetricConfig{}, SqlserverLockWaitRateMetricConfig{}, SqlserverLockWaitTimeAvgMetricConfig{}, SqlserverLoginRateMetricConfig{}, SqlserverLogoutRateMetricConfig{}, SqlserverMemoryAreaMetricConfig{}, SqlserverMemoryCacheObjectCountMetricConfig{}, SqlserverMemoryGrantsPendingCountMetricConfig{}, SqlserverMemoryPageCountMetricConfig{}, SqlserverMemoryTargetMetricConfig{}, SqlserverMemoryUsageMetricConfig{}, SqlserverOsWaitDurationMetricConfig{}, SqlserverPageBufferCacheFreeListStallsRateMetricConfig{}, SqlserverPageBufferCacheHitRatioMetricConfig{}, SqlserverPageCheckpointFlushRateMetricConfig{}, SqlserverPageLazyWriteRateMetricConfig{}, SqlserverPageLifeExpectancyMetricConfig{}, SqlserverPageLookupRateMetricConfig{}, SqlserverPageOperationRateMetricConfig{}, SqlserverPageSplitRateMetricConfig{}, SqlserverParameterizationRateMetricConfig{}, SqlserverPlanExecutionRateMetricConfig{}, SqlserverProcessesBlockedMetricConfig{}, SqlserverRecompilationRatioMetricConfig{}, SqlserverReplicaDataRateMetricConfig{}, SqlserverResourcePoolDiskOperationsMetricConfig{}, SqlserverResourcePoolDiskThrottledReadRateMetricConfig{}, SqlserverResourcePoolDiskThrottledWriteRateMetricConfig{}, SqlserverServerSecurityPrincipalCountMetricConfig{}, SqlserverServerSecurityRoleMembershipCountMetricConfig{}, SqlserverTableCountMetricConfig{}, SqlserverTransactionDelayMetricConfig{}, SqlserverTransactionMirrorWriteRateMetricConfig{}, SqlserverTransactionRateMetricConfig{}, SqlserverTransactionWriteRateMetricConfig{}, SqlserverTransactionLogFlushDataRateMetricConfig{}, SqlserverTransactionLogFlushRateMetricConfig{}, SqlserverTransactionLogFlushWaitRateMetricConfig{}, SqlserverTransactionLogGrowthCountMetricConfig{}, SqlserverTransactionLogShrinkCountMetricConfig{}, SqlserverTransactionLogUsageMetricConfig{}, SqlserverUserConnectionCountMetricConfig{}, HostNameResourceAttributeConfig{}, ServerAddressResourceAttributeConfig{}, ServerPortResourceAttributeConfig{}, ServiceInstanceIDResourceAttributeConfig{}, ServiceNameResourceAttributeConfig{}, ServiceNamespaceResourceAttributeConfig{}, SqlserverComputerNameResourceAttributeConfig{}, SqlserverDatabaseNameResourceAttributeConfig{}, SqlserverInstanceNameResourceAttributeConfig{}))
+			diff := cmp.Diff(tt.want, cfg, cmpopts.IgnoreUnexported(SqlserverAttentionRateMetricConfig{}, SqlserverBatchCompilationUtilizationMetricConfig{}, SqlserverBatchPageSplitUtilizationMetricConfig{}, SqlserverBatchRequestRateMetricConfig{}, SqlserverBatchSQLCompilationRateMetricConfig{}, SqlserverBatchSQLRecompilationRateMetricConfig{}, SqlserverComputerUptimeMetricConfig{}, SqlserverCPUCountMetricConfig{}, SqlserverDatabaseBackupOrRestoreRateMetricConfig{}, SqlserverDatabaseCountMetricConfig{}, SqlserverDatabaseExecutionErrorsMetricConfig{}, SqlserverDatabaseFileSizeMetricConfig{}, SqlserverDatabaseFullScanRateMetricConfig{}, SqlserverDatabaseIoMetricConfig{}, SqlserverDatabaseLatencyMetricConfig{}, SqlserverDatabaseOperationsMetricConfig{}, SqlserverDatabasePageFileSizeMetricConfig{}, SqlserverDatabaseSecurityRoleMembershipCountMetricConfig{}, SqlserverDatabaseTempdbSpaceMetricConfig{}, SqlserverDatabaseTempdbVersionStoreSizeMetricConfig{}, SqlserverDatabaseTransactionsActiveMetricConfig{}, SqlserverDeadlockRateMetricConfig{}, SqlserverIndexSearchRateMetricConfig{}, SqlserverKillConnectionErrorRateMetricConfig{}, SqlserverLatchSuperlatchCountMetricConfig{}, SqlserverLatchSuperlatchTransitionRateMetricConfig{}, SqlserverLatchWaitRateMetricConfig{}, SqlserverLatchWaitTimeAvgMetricConfig{}, SqlserverLatchWaitTimeTotalMetricConfig{}, SqlserverLockTimeoutRateMetricConfig{}, SqlserverLockWaitCountMetricConfig{}, SqlserverLockWaitRateMetricConfig{}, SqlserverLockWaitTimeAvgMetricConfig{}, SqlserverLoginRateMetricConfig{}, SqlserverLogoutRateMetricConfig{}, SqlserverMemoryAreaMetricConfig{}, SqlserverMemoryCacheObjectCountMetricConfig{}, SqlserverMemoryGrantsPendingCountMetricConfig{}, SqlserverMemoryPageCountMetricConfig{}, SqlserverMemoryTargetMetricConfig{}, SqlserverMemoryUsageMetricConfig{}, SqlserverOsDiskSizeMetricConfig{}, SqlserverOsMemoryUsageMetricConfig{}, SqlserverOsMemoryUtilizationMetricConfig{}, SqlserverOsSchedulerRunnableTasksCountMetricConfig{}, SqlserverOsWaitDurationMetricConfig{}, SqlserverOsWaitTasksCountMetricConfig{}, SqlserverPageBufferCacheFreeListStallsRateMetricConfig{}, SqlserverPageBufferCacheHitRatioMetricConfig{}, SqlserverPageCheckpointFlushRateMetricConfig{}, SqlserverPageLazyWriteRateMetricConfig{}, SqlserverPageLifeExpectancyMetricConfig{}, SqlserverPageLookupRateMetricConfig{}, SqlserverPageOperationRateMetricConfig{}, SqlserverPageSplitRateMetricConfig{}, SqlserverParameterizationRateMetricConfig{}, SqlserverPlanExecutionRateMetricConfig{}, SqlserverProcessCountMetricConfig{}, SqlserverProcessesBlockedMetricConfig{}, SqlserverRecompilationRatioMetricConfig{}, SqlserverReplicaDataRateMetricConfig{}, SqlserverResourcePoolDiskOperationsMetricConfig{}, SqlserverResourcePoolDiskThrottledReadRateMetricConfig{}, SqlserverResourcePoolDiskThrottledWriteRateMetricConfig{}, SqlserverServerSecurityPrincipalCountMetricConfig{}, SqlserverServerSecurityRoleMembershipCountMetricConfig{}, SqlserverTableCountMetricConfig{}, SqlserverTransactionDelayMetricConfig{}, SqlserverTransactionMirrorWriteRateMetricConfig{}, SqlserverTransactionRateMetricConfig{}, SqlserverTransactionWriteRateMetricConfig{}, SqlserverTransactionLogFlushDataRateMetricConfig{}, SqlserverTransactionLogFlushRateMetricConfig{}, SqlserverTransactionLogFlushWaitRateMetricConfig{}, SqlserverTransactionLogGrowthCountMetricConfig{}, SqlserverTransactionLogShrinkCountMetricConfig{}, SqlserverTransactionLogUsageMetricConfig{}, SqlserverUserConnectionCountMetricConfig{}, HostNameResourceAttributeConfig{}, ServerAddressResourceAttributeConfig{}, ServerPortResourceAttributeConfig{}, ServiceInstanceIDResourceAttributeConfig{}, ServiceNameResourceAttributeConfig{}, ServiceNamespaceResourceAttributeConfig{}, SqlserverComputerNameResourceAttributeConfig{}, SqlserverDatabaseNameResourceAttributeConfig{}, SqlserverInstanceNameResourceAttributeConfig{}))
 			require.Emptyf(t, diff, "Config mismatch (-expected +actual):\n%s", diff)
 		})
 	}
@@ -611,6 +697,18 @@ func TestSqlserverDatabaseOperationsMetricsConfig_Validate(t *testing.T) {
 	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
 }
 
+func TestSqlserverDatabasePageFileSizeMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().SqlserverDatabasePageFileSize
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []SqlserverDatabasePageFileSizeMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric sqlserver.database.page_file.size doesn't have an attribute invalid, valid attributes: [db.namespace, page_file.state]")
+
+	cfg = DefaultMetricsConfig().SqlserverDatabasePageFileSize
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
 func TestSqlserverDatabaseSecurityRoleMembershipCountMetricsConfig_Validate(t *testing.T) {
 	cfg := DefaultMetricsConfig().SqlserverDatabaseSecurityRoleMembershipCount
 	require.NoError(t, cfg.Validate())
@@ -631,6 +729,18 @@ func TestSqlserverDatabaseTempdbSpaceMetricsConfig_Validate(t *testing.T) {
 	require.ErrorContains(t, cfg.Validate(), "metric sqlserver.database.tempdb.space doesn't have an attribute invalid, valid attributes: [tempdb.state]")
 
 	cfg = DefaultMetricsConfig().SqlserverDatabaseTempdbSpace
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
+func TestSqlserverDatabaseTransactionsActiveMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().SqlserverDatabaseTransactionsActive
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []SqlserverDatabaseTransactionsActiveMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric sqlserver.database.transactions.active doesn't have an attribute invalid, valid attributes: [db.namespace]")
+
+	cfg = DefaultMetricsConfig().SqlserverDatabaseTransactionsActive
 	cfg.AggregationStrategy = "invalid"
 	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
 }
@@ -683,6 +793,18 @@ func TestSqlserverMemoryPageCountMetricsConfig_Validate(t *testing.T) {
 	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
 }
 
+func TestSqlserverOsMemoryUsageMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().SqlserverOsMemoryUsage
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []SqlserverOsMemoryUsageMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric sqlserver.os.memory.usage doesn't have an attribute invalid, valid attributes: [memory.state]")
+
+	cfg = DefaultMetricsConfig().SqlserverOsMemoryUsage
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
 func TestSqlserverOsWaitDurationMetricsConfig_Validate(t *testing.T) {
 	cfg := DefaultMetricsConfig().SqlserverOsWaitDuration
 	require.NoError(t, cfg.Validate())
@@ -691,6 +813,18 @@ func TestSqlserverOsWaitDurationMetricsConfig_Validate(t *testing.T) {
 	require.ErrorContains(t, cfg.Validate(), "metric sqlserver.os.wait.duration doesn't have an attribute invalid, valid attributes: [wait.category, wait.type]")
 
 	cfg = DefaultMetricsConfig().SqlserverOsWaitDuration
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
+func TestSqlserverOsWaitTasksCountMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().SqlserverOsWaitTasksCount
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []SqlserverOsWaitTasksCountMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric sqlserver.os.wait.tasks.count doesn't have an attribute invalid, valid attributes: [wait.category, wait.type]")
+
+	cfg = DefaultMetricsConfig().SqlserverOsWaitTasksCount
 	cfg.AggregationStrategy = "invalid"
 	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
 }
@@ -739,6 +873,18 @@ func TestSqlserverPlanExecutionRateMetricsConfig_Validate(t *testing.T) {
 	require.ErrorContains(t, cfg.Validate(), "metric sqlserver.plan.execution.rate doesn't have an attribute invalid, valid attributes: [sqlserver.plan.guidance.result]")
 
 	cfg = DefaultMetricsConfig().SqlserverPlanExecutionRate
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
+func TestSqlserverProcessCountMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().SqlserverProcessCount
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []SqlserverProcessCountMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric sqlserver.process.count doesn't have an attribute invalid, valid attributes: [process.status]")
+
+	cfg = DefaultMetricsConfig().SqlserverProcessCount
 	cfg.AggregationStrategy = "invalid"
 	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
 }

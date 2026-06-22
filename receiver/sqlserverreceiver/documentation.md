@@ -228,6 +228,26 @@ Number of SQL attentions (client cancellation interrupts) received per second.
 | ---- | ----------- | ---------- | --------- |
 | {attentions}/s | Gauge | Double | Development |
 
+### sqlserver.batch.compilation.utilization
+
+Number of SQL compilations per batch request.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| 1 | Gauge | Double | Development |
+
+### sqlserver.batch.page_split.utilization
+
+Number of page splits per batch request.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| 1 | Gauge | Double | Development |
+
 ### sqlserver.computer.uptime
 
 Computer uptime.
@@ -358,6 +378,23 @@ This metric is only available when the receiver is configured to directly connec
 | file_type | The type of file being monitored. | Any Str | Recommended | - |
 | direction | The direction of flow of bytes or operations. | Str: ``read``, ``write`` | Recommended | - |
 
+### sqlserver.database.page_file.size
+
+Reserved space allocated to the database, broken down by usage state.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server. The page_file.state attribute breaks the value down by usage state (used, free, total).
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| By | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| db.namespace | The database name. | Any Str | Recommended | - |
+| page_file.state | The state of the database page file (reserved space) allocation. | Str: ``used``, ``free``, ``total`` | Recommended | - |
+
 ### sqlserver.database.security.role_membership.count
 
 Number of members in a database role.
@@ -397,6 +434,22 @@ TempDB version store size.
 | ---- | ----------- | ---------- | --------- |
 | KB | Gauge | Double | Development |
 
+### sqlserver.database.transactions.active
+
+Number of active transactions in the database.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {transactions} | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| db.namespace | The database name. | Any Str | Recommended | - |
+
 ### sqlserver.deadlock.rate
 
 Total number of deadlocks.
@@ -412,6 +465,16 @@ Total number of index searches.
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
 | {searches}/s | Gauge | Double | Development |
+
+### sqlserver.kill_connection.error.rate
+
+Number of kill-connection errors per second.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {errors}/s | Gauge | Double | Development |
 
 ### sqlserver.latch.superlatch.count
 
@@ -577,6 +640,52 @@ Total memory in use.
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | KB | Sum | Double | Cumulative | false | Development |
 
+### sqlserver.os.disk.size
+
+Total disk space across volumes hosting SQL Server database files.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| By | Gauge | Int | Development |
+
+### sqlserver.os.memory.usage
+
+Amount of system physical memory observed by SQL Server.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server. The memory.state attribute distinguishes total physical memory from currently available memory.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| By | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| memory.state | The state of system memory observed by SQL Server. | Str: ``available``, ``total`` | Recommended | - |
+
+### sqlserver.os.memory.utilization
+
+Fraction of system physical memory in use by the SQL Server process.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| 1 | Gauge | Double | Development |
+
+### sqlserver.os.scheduler.runnable_tasks.count
+
+Total number of runnable tasks across online schedulers.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {tasks} | Gauge | Int | Development |
+
 ### sqlserver.os.wait.duration
 
 Total wait time for this wait type
@@ -586,6 +695,23 @@ This metric is only available when the receiver is configured to directly connec
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | s | Sum | Double | Cumulative | true | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| wait.category | Category of the reason for a wait. | Any Str | Recommended | - |
+| wait.type | Type of the wait, view [WaitTypes documentation](https://learn.microsoft.com/en-us/sql/relational-databases/system-dynamic-management-views/sys-dm-os-wait-stats-transact-sql?view=sql-server-ver16#WaitTypes) for more information. | Any Str | Recommended | - |
+
+### sqlserver.os.wait.tasks.count
+
+Cumulative number of tasks that have waited on this wait type since SQL Server startup.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server. Counterpart to sqlserver.os.wait.duration.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
+| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
+| {tasks} | Sum | Int | Cumulative | true | Development |
 
 #### Attributes
 
@@ -637,6 +763,22 @@ Rate of plan executions, classified by plan guide result.
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
 | sqlserver.plan.guidance.result | Whether a SQL plan execution successfully used a matching plan guide (guided) or did not (misguided). | Str: ``guided``, ``misguided`` | Recommended | - |
+
+### sqlserver.process.count
+
+Number of SQL Server processes (user sessions), broken down by status.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server. The process.status attribute reports background, dormant, preconnect, runnable, running, sleeping, or suspended. Use the existing sqlserver.processes.blocked metric for blocked-session counts.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {processes} | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| process.status | The status of the SQL Server process/session. | Str: ``background``, ``dormant``, ``preconnect``, ``runnable``, ``running``, ``sleeping``, ``suspended`` | Recommended | - |
 
 ### sqlserver.processes.blocked
 
