@@ -7,6 +7,12 @@ resourceMetrics:
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
         - key: sqlserver.database.name
           value:
             stringValue: AdventureWorks
@@ -41,6 +47,12 @@ resourceMetrics:
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
         - key: sqlserver.database.name
           value:
             stringValue: AdventureWorks
@@ -75,6 +87,12 @@ resourceMetrics:
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
         - key: sqlserver.database.name
           value:
             stringValue: SalesDB
@@ -109,6 +127,12 @@ resourceMetrics:
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
         - key: sqlserver.database.name
           value:
             stringValue: SalesDB
@@ -143,6 +167,12 @@ resourceMetrics:
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
         - key: sqlserver.database.name
           value:
             stringValue: ReportsDB
@@ -177,6 +207,12 @@ resourceMetrics:
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
         - key: sqlserver.database.name
           value:
             stringValue: ReportsDB

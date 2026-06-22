@@ -458,7 +458,8 @@ var MetricsInfo = metricsInfo{
 		Name: "sqlserver.database.execution.errors",
 	},
 	SqlserverDatabaseFileSize: metricInfo{
-		Name: "sqlserver.database.file.size",
+		Name:       "sqlserver.database.file.size",
+		Attributes: []string{"file_type", "db.namespace"},
 	},
 	SqlserverDatabaseFullScanRate: metricInfo{
 		Name: "sqlserver.database.full_scan.rate",
@@ -476,7 +477,8 @@ var MetricsInfo = metricsInfo{
 		Attributes: []string{"physical_filename", "logical_filename", "file_type", "direction"},
 	},
 	SqlserverDatabaseSecurityRoleMembershipCount: metricInfo{
-		Name: "sqlserver.database.security.role_membership.count",
+		Name:       "sqlserver.database.security.role_membership.count",
+		Attributes: []string{"db.namespace", "role"},
 	},
 	SqlserverDatabaseTempdbSpace: metricInfo{
 		Name:       "sqlserver.database.tempdb.space",
@@ -608,7 +610,8 @@ var MetricsInfo = metricsInfo{
 		Name: "sqlserver.server.security.principal.count",
 	},
 	SqlserverServerSecurityRoleMembershipCount: metricInfo{
-		Name: "sqlserver.server.security.role_membership.count",
+		Name:       "sqlserver.server.security.role_membership.count",
+		Attributes: []string{"role"},
 	},
 	SqlserverTableCount: metricInfo{
 		Name:       "sqlserver.table.count",

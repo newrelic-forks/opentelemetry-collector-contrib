@@ -451,31 +451,38 @@ var MetricsInfo = metricsInfo{
 		Name: "sqlserver.database.backup_or_restore.rate",
 	},
 	SqlserverDatabaseCount: metricInfo{
-		Name: "sqlserver.database.count",
+		Name:       "sqlserver.database.count",
+		Attributes: []string{"database.status"},
 	},
 	SqlserverDatabaseExecutionErrors: metricInfo{
 		Name: "sqlserver.database.execution.errors",
 	},
 	SqlserverDatabaseFileSize: metricInfo{
-		Name: "sqlserver.database.file.size",
+		Name:       "sqlserver.database.file.size",
+		Attributes: []string{"file_type", "db.namespace"},
 	},
 	SqlserverDatabaseFullScanRate: metricInfo{
 		Name: "sqlserver.database.full_scan.rate",
 	},
 	SqlserverDatabaseIo: metricInfo{
-		Name: "sqlserver.database.io",
+		Name:       "sqlserver.database.io",
+		Attributes: []string{"physical_filename", "logical_filename", "file_type", "direction"},
 	},
 	SqlserverDatabaseLatency: metricInfo{
-		Name: "sqlserver.database.latency",
+		Name:       "sqlserver.database.latency",
+		Attributes: []string{"physical_filename", "logical_filename", "file_type", "direction"},
 	},
 	SqlserverDatabaseOperations: metricInfo{
-		Name: "sqlserver.database.operations",
+		Name:       "sqlserver.database.operations",
+		Attributes: []string{"physical_filename", "logical_filename", "file_type", "direction"},
 	},
 	SqlserverDatabaseSecurityRoleMembershipCount: metricInfo{
-		Name: "sqlserver.database.security.role_membership.count",
+		Name:       "sqlserver.database.security.role_membership.count",
+		Attributes: []string{"db.namespace", "role"},
 	},
 	SqlserverDatabaseTempdbSpace: metricInfo{
-		Name: "sqlserver.database.tempdb.space",
+		Name:       "sqlserver.database.tempdb.space",
+		Attributes: []string{"tempdb.state"},
 	},
 	SqlserverDatabaseTempdbVersionStoreSize: metricInfo{
 		Name: "sqlserver.database.tempdb.version_store.size",
@@ -490,7 +497,8 @@ var MetricsInfo = metricsInfo{
 		Name: "sqlserver.latch.superlatch.count",
 	},
 	SqlserverLatchSuperlatchTransitionRate: metricInfo{
-		Name: "sqlserver.latch.superlatch.transition.rate",
+		Name:       "sqlserver.latch.superlatch.transition.rate",
+		Attributes: []string{"transition.direction"},
 	},
 	SqlserverLatchWaitRate: metricInfo{
 		Name: "sqlserver.latch.wait.rate",
@@ -520,16 +528,19 @@ var MetricsInfo = metricsInfo{
 		Name: "sqlserver.logout.rate",
 	},
 	SqlserverMemoryArea: metricInfo{
-		Name: "sqlserver.memory.area",
+		Name:       "sqlserver.memory.area",
+		Attributes: []string{"memory.pool"},
 	},
 	SqlserverMemoryCacheObjectCount: metricInfo{
-		Name: "sqlserver.memory.cache.object.count",
+		Name:       "sqlserver.memory.cache.object.count",
+		Attributes: []string{"cache.state"},
 	},
 	SqlserverMemoryGrantsPendingCount: metricInfo{
 		Name: "sqlserver.memory.grants.pending.count",
 	},
 	SqlserverMemoryPageCount: metricInfo{
-		Name: "sqlserver.memory.page.count",
+		Name:       "sqlserver.memory.page.count",
+		Attributes: []string{"page.pool"},
 	},
 	SqlserverMemoryTarget: metricInfo{
 		Name: "sqlserver.memory.target",
@@ -538,7 +549,8 @@ var MetricsInfo = metricsInfo{
 		Name: "sqlserver.memory.usage",
 	},
 	SqlserverOsWaitDuration: metricInfo{
-		Name: "sqlserver.os.wait.duration",
+		Name:       "sqlserver.os.wait.duration",
+		Attributes: []string{"wait.category", "wait.type"},
 	},
 	SqlserverPageBufferCacheFreeListStallsRate: metricInfo{
 		Name: "sqlserver.page.buffer_cache.free_list.stalls.rate",
@@ -553,22 +565,26 @@ var MetricsInfo = metricsInfo{
 		Name: "sqlserver.page.lazy_write.rate",
 	},
 	SqlserverPageLifeExpectancy: metricInfo{
-		Name: "sqlserver.page.life_expectancy",
+		Name:       "sqlserver.page.life_expectancy",
+		Attributes: []string{"performance_counter.object_name"},
 	},
 	SqlserverPageLookupRate: metricInfo{
 		Name: "sqlserver.page.lookup.rate",
 	},
 	SqlserverPageOperationRate: metricInfo{
-		Name: "sqlserver.page.operation.rate",
+		Name:       "sqlserver.page.operation.rate",
+		Attributes: []string{"page.operations"},
 	},
 	SqlserverPageSplitRate: metricInfo{
 		Name: "sqlserver.page.split.rate",
 	},
 	SqlserverParameterizationRate: metricInfo{
-		Name: "sqlserver.parameterization.rate",
+		Name:       "sqlserver.parameterization.rate",
+		Attributes: []string{"sqlserver.parameterization.result"},
 	},
 	SqlserverPlanExecutionRate: metricInfo{
-		Name: "sqlserver.plan.execution.rate",
+		Name:       "sqlserver.plan.execution.rate",
+		Attributes: []string{"sqlserver.plan.guidance.result"},
 	},
 	SqlserverProcessesBlocked: metricInfo{
 		Name: "sqlserver.processes.blocked",
@@ -577,10 +593,12 @@ var MetricsInfo = metricsInfo{
 		Name: "sqlserver.recompilation.ratio",
 	},
 	SqlserverReplicaDataRate: metricInfo{
-		Name: "sqlserver.replica.data.rate",
+		Name:       "sqlserver.replica.data.rate",
+		Attributes: []string{"replica.direction"},
 	},
 	SqlserverResourcePoolDiskOperations: metricInfo{
-		Name: "sqlserver.resource_pool.disk.operations",
+		Name:       "sqlserver.resource_pool.disk.operations",
+		Attributes: []string{"direction"},
 	},
 	SqlserverResourcePoolDiskThrottledReadRate: metricInfo{
 		Name: "sqlserver.resource_pool.disk.throttled.read.rate",
@@ -592,10 +610,12 @@ var MetricsInfo = metricsInfo{
 		Name: "sqlserver.server.security.principal.count",
 	},
 	SqlserverServerSecurityRoleMembershipCount: metricInfo{
-		Name: "sqlserver.server.security.role_membership.count",
+		Name:       "sqlserver.server.security.role_membership.count",
+		Attributes: []string{"role"},
 	},
 	SqlserverTableCount: metricInfo{
-		Name: "sqlserver.table.count",
+		Name:       "sqlserver.table.count",
+		Attributes: []string{"table.state", "table.status"},
 	},
 	SqlserverTransactionDelay: metricInfo{
 		Name: "sqlserver.transaction.delay",
@@ -703,7 +723,8 @@ type metricsInfo struct {
 }
 
 type metricInfo struct {
-	Name string
+	Name       string
+	Attributes []string
 }
 
 type metricSqlserverAttentionRate struct {
@@ -5096,6 +5117,18 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 	}
 	if mbc.ResourceAttributes.ServiceInstanceID.MetricsExclude != nil {
 		mb.resourceAttributeExcludeFilter["service.instance.id"] = filter.CreateFilter(mbc.ResourceAttributes.ServiceInstanceID.MetricsExclude)
+	}
+	if mbc.ResourceAttributes.ServiceName.MetricsInclude != nil {
+		mb.resourceAttributeIncludeFilter["service.name"] = filter.CreateFilter(mbc.ResourceAttributes.ServiceName.MetricsInclude)
+	}
+	if mbc.ResourceAttributes.ServiceName.MetricsExclude != nil {
+		mb.resourceAttributeExcludeFilter["service.name"] = filter.CreateFilter(mbc.ResourceAttributes.ServiceName.MetricsExclude)
+	}
+	if mbc.ResourceAttributes.ServiceNamespace.MetricsInclude != nil {
+		mb.resourceAttributeIncludeFilter["service.namespace"] = filter.CreateFilter(mbc.ResourceAttributes.ServiceNamespace.MetricsInclude)
+	}
+	if mbc.ResourceAttributes.ServiceNamespace.MetricsExclude != nil {
+		mb.resourceAttributeExcludeFilter["service.namespace"] = filter.CreateFilter(mbc.ResourceAttributes.ServiceNamespace.MetricsExclude)
 	}
 	if mbc.ResourceAttributes.SqlserverComputerName.MetricsInclude != nil {
 		mb.resourceAttributeIncludeFilter["sqlserver.computer.name"] = filter.CreateFilter(mbc.ResourceAttributes.SqlserverComputerName.MetricsInclude)
