@@ -179,7 +179,7 @@ func TestMetricsBuilderConfig(t *testing.T) {
 					},
 					OracledbPgaMemory: OracledbPgaMemoryMetricConfig{
 						Enabled:             true,
-						AggregationStrategy: AggregationStrategySum,
+						AggregationStrategy: AggregationStrategyAvg,
 						EnabledAttributes:   []OracledbPgaMemoryMetricAttributeKey{OracledbPgaMemoryMetricAttributeKeyOracleDbPdb},
 					},
 					OracledbPhysicalIoCacheWrites: OracledbPhysicalIoCacheWritesMetricConfig{
@@ -493,7 +493,7 @@ func TestMetricsBuilderConfig(t *testing.T) {
 					},
 					OracledbPgaMemory: OracledbPgaMemoryMetricConfig{
 						Enabled:             false,
-						AggregationStrategy: AggregationStrategySum,
+						AggregationStrategy: AggregationStrategyAvg,
 						EnabledAttributes:   []OracledbPgaMemoryMetricAttributeKey{OracledbPgaMemoryMetricAttributeKeyOracleDbPdb},
 					},
 					OracledbPhysicalIoCacheWrites: OracledbPhysicalIoCacheWritesMetricConfig{
