@@ -758,12 +758,10 @@ metrics:
   oracledb.pga_memory:
     attributes:
       - oracle.db.pdb
-    description: Session PGA (Program Global Area) memory
+    description: Session PGA (Program Global Area) memory currently allocated
     enabled: true
     stability: development
-    sum:
-      aggregation_temporality: cumulative
-      monotonic: true
+    gauge:
       value_type: int
       input_type: string
     unit: By

@@ -3261,12 +3261,10 @@ type metricOracledbPgaMemory struct {
 // init fills oracledb.pga_memory metric with initial data.
 func (m *metricOracledbPgaMemory) init() {
 	m.data.SetName("oracledb.pga_memory")
-	m.data.SetDescription("Session PGA (Program Global Area) memory")
+	m.data.SetDescription("Session PGA (Program Global Area) memory currently allocated")
 	m.data.SetUnit("By")
-	m.data.SetEmptySum()
-	m.data.Sum().SetIsMonotonic(true)
-	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
-	m.data.Sum().DataPoints().EnsureCapacity(m.capacity)
+	m.data.SetEmptyGauge()
+	m.data.Gauge().DataPoints().EnsureCapacity(m.capacity)
 	m.aggDataPoints = m.aggDataPoints[:0]
 }
 
@@ -3283,7 +3281,7 @@ func (m *metricOracledbPgaMemory) recordDataPoint(start pcommon.Timestamp, ts pc
 	}
 
 	var s string
-	dps := m.data.Sum().DataPoints()
+	dps := m.data.Gauge().DataPoints()
 	for i := 0; i < dps.Len(); i++ {
 		dpi := dps.At(i)
 		if dp.Attributes().Equal(dpi.Attributes()) && dp.StartTimestamp() == dpi.StartTimestamp() && dp.Timestamp() == dpi.Timestamp() {
@@ -3313,17 +3311,17 @@ func (m *metricOracledbPgaMemory) recordDataPoint(start pcommon.Timestamp, ts pc
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
 func (m *metricOracledbPgaMemory) updateCapacity() {
-	if m.data.Sum().DataPoints().Len() > m.capacity {
-		m.capacity = m.data.Sum().DataPoints().Len()
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
 	}
 }
 
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
 func (m *metricOracledbPgaMemory) emit(metrics pmetric.MetricSlice) {
-	if m.config.Enabled && m.data.Sum().DataPoints().Len() > 0 {
+	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
 		if m.config.AggregationStrategy == AggregationStrategyAvg {
 			for i, aggCount := range m.aggDataPoints {
-				m.data.Sum().DataPoints().At(i).SetIntValue(m.data.Sum().DataPoints().At(i).IntValue() / aggCount)
+				m.data.Gauge().DataPoints().At(i).SetIntValue(m.data.Gauge().DataPoints().At(i).IntValue() / aggCount)
 			}
 		}
 		m.updateCapacity()
