@@ -4,7 +4,6 @@ cmd/golden cmd/golden
 cmd/opampsupervisor cmd/opampsupervisor
 cmd/otelcontribcol cmd/otelcontribcol
 cmd/oteltestbedcol cmd/oteltestbedcol
-cmd/schemagen cmd/schemagen
 cmd/telemetrygen cmd/telemetrygen
 confmap/provider/aesprovider confmap/provider/aesprovider
 confmap/provider/googlesecretmanagerprovider confmap/provider/googlesecretmanagerprovider
@@ -137,6 +136,8 @@ internal/k8sleaderelectortest internal/k8sleaderelectortest
 internal/kafka internal/kafka
 internal/kubelet internal/kubelet
 internal/metadataproviders internal/metadataproviders
+internal/nrcommon internal/nrcommon
+internal/nrsqlquery internal/nrsqlquery
 internal/otelarrow internal/otelarrow
 internal/pdatautil internal/pdatautil
 internal/rabbitmq internal/rabbitmq
@@ -227,6 +228,7 @@ processor/transformprocessor processor/transform
 processor/transformprocessor/internal/logparsingfuncs processor/transform/internal/logparsingfuncs
 processor/unrollprocessor processor/unroll
 receiver/activedirectorydsreceiver receiver/activedirectoryds
+receiver/activedirectoryinvreceiver receiver/activedirectoryinv
 receiver/aerospikereceiver receiver/aerospike
 receiver/apachereceiver receiver/apache
 receiver/apachesparkreceiver receiver/apachespark
@@ -303,6 +305,8 @@ receiver/mysqlreceiver receiver/mysql
 receiver/namedpipereceiver receiver/namedpipe
 receiver/netflowreceiver receiver/netflow
 receiver/nginxreceiver receiver/nginx
+receiver/nroracledbreceiver receiver/nroracledb
+receiver/nrsqlserverreceiver receiver/nrsqlserver
 receiver/nsxtreceiver receiver/nsxt
 receiver/ntpreceiver receiver/ntp
 receiver/oracledbreceiver receiver/oracledb

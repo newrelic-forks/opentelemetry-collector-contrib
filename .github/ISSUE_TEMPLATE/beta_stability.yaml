@@ -20,7 +20,6 @@ body:
       - cmd/opampsupervisor
       - cmd/otelcontribcol
       - cmd/oteltestbedcol
-      - cmd/schemagen
       - cmd/telemetrygen
       - confmap/provider/aesprovider
       - confmap/provider/googlesecretmanagerprovider
@@ -153,6 +152,8 @@ body:
       - internal/kafka
       - internal/kubelet
       - internal/metadataproviders
+      - internal/nrcommon
+      - internal/nrsqlquery
       - internal/otelarrow
       - internal/pdatautil
       - internal/rabbitmq
@@ -243,6 +244,7 @@ body:
       - processor/transform/internal/logparsingfuncs
       - processor/unroll
       - receiver/activedirectoryds
+      - receiver/activedirectoryinv
       - receiver/aerospike
       - receiver/apache
       - receiver/apachespark
@@ -319,6 +321,8 @@ body:
       - receiver/namedpipe
       - receiver/netflow
       - receiver/nginx
+      - receiver/nroracledb
+      - receiver/nrsqlserver
       - receiver/nsxt
       - receiver/ntp
       - receiver/oracledb

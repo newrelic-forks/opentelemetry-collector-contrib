@@ -135,6 +135,22 @@ GRANT SELECT ON DBA_OBJECTS TO <username>;
 GRANT SELECT ON DBA_PROCEDURES TO <username>;
 ```
 
+### Events collection
+
+These grants are required for the `db.server.query_sample`, `db.server.top_query`,
+and `db.server.session.wait_sample` events.
+
+```sql
+GRANT SELECT ON V_$SQL TO <username>;
+GRANT SELECT ON V_$SQL_PLAN TO <username>;
+GRANT SELECT ON V_$SESSION TO <username>;
+GRANT SELECT ON V_$SESSION_EVENT TO <username>;
+GRANT SELECT ON V_$LOCK TO <username>;
+GRANT SELECT ON V_$CONTAINERS TO <username>;
+GRANT SELECT ON DBA_OBJECTS TO <username>;
+GRANT SELECT ON DBA_PROCEDURES TO <username>;
+```
+
 ## Enabling metrics.
 
 See [documentation](./documentation.md).
@@ -188,7 +204,9 @@ receivers:
 
 When the `db.server.query_sample` and/or `db.server.top_query` events are enabled, the receiver can
 extract key-value pairs from leading SQL block comments (`/* key=value */`) and emit them as the
-`db.query.comment_tags` attribute on the corresponding logs.
+`db.query.comment_tags` attribute on the corresponding logs. As a special case, when
+`nr_service_guid` is present in the allowlist, its value is also emitted on a dedicated
+`db.query.comment_tags.nr_service_guid` attribute for APM correlation.
 
 This behavior is controlled by the `allowed_comment_keys` option, which can be set independently
 under `top_query_collection` and `query_sample_collection`:
@@ -196,6 +214,8 @@ under `top_query_collection` and `query_sample_collection`:
 - `allowed_comment_keys` (default = `[]`): A list of comment keys to extract. For each enabled
   collection, only keys present in this allowlist are extracted from the leading SQL comment and
   included (as comma-separated `key=value` pairs) in the `db.query.comment_tags` attribute.
+  If `nr_service_guid` is included in the allowlist, its value is additionally emitted as
+  `db.query.comment_tags.nr_service_guid`.
 
 Extraction is disabled unless explicitly configured:
 
@@ -215,13 +235,15 @@ receivers:
       db.server.top_query:
         enabled: true
     top_query_collection:
-      allowed_comment_keys: [application, team]
+      allowed_comment_keys: [application, team, nr_service_guid]
     query_sample_collection:
-      allowed_comment_keys: [application, team]
+      allowed_comment_keys: [application, team, nr_service_guid]
 ```
 
-Given a query such as `/* application=exampleApp,team=payments */ SELECT * FROM users`, the emitted
-log record will include `db.query.comment_tags` set to `application=exampleApp,team=payments`. When multiple
-keys are extracted, they are emitted as a comma-separated list of `key=value` pairs.
+Given a query such as `/* application=exampleApp,team=payments,nr_service_guid=abc123 */ SELECT * FROM users`,
+the emitted log record will include `db.query.comment_tags` set to
+`application=exampleApp,team=payments,nr_service_guid=abc123`, and additionally
+`db.query.comment_tags.nr_service_guid` set to `abc123`.
 
-See [documentation](./documentation.md) for details on the `db.query.comment_tags` attribute.
+See [documentation](./documentation.md) for details on the `db.query.comment_tags` and
+`db.query.comment_tags.nr_service_guid` attributes.
