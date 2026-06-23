@@ -1275,9 +1275,7 @@ func getSQLServerDatabaseSecurityRoleMembersQuery(instanceName string) string {
 	return r.Replace(sqlServerDatabaseSecurityRoleMembersQuery)
 }
 
-// sqlServerOSMemoryQuery returns physical memory statistics observed by the
-// SQL Server process. Requires sys.dm_os_sys_memory + sys.dm_os_process_memory,
-// which are unavailable on Azure SQL Database (EngineEdition = 5).
+// Unavailable on Azure SQL Database (EngineEdition = 5).
 const sqlServerOSMemoryQuery = `
 SET DEADLOCK_PRIORITY -10;
 IF SERVERPROPERTY('EngineEdition') NOT IN (2,3,4,8) BEGIN
@@ -1312,9 +1310,7 @@ func getSQLServerOSMemoryQuery(instanceName string) string {
 	return r.Replace(sqlServerOSMemoryQuery)
 }
 
-// sqlServerOSDiskQuery returns total disk space across volumes hosting SQL
-// Server database files. Requires sys.master_files + sys.dm_os_volume_stats,
-// which are unavailable on Azure SQL Database (EngineEdition = 5).
+// Unavailable on Azure SQL Database (EngineEdition = 5).
 const sqlServerOSDiskQuery = `
 SET DEADLOCK_PRIORITY -10;
 IF SERVERPROPERTY('EngineEdition') NOT IN (2,3,4,8) BEGIN
@@ -1349,9 +1345,7 @@ func getSQLServerOSDiskQuery(instanceName string) string {
 	return r.Replace(sqlServerOSDiskQuery)
 }
 
-// sqlServerOSSchedulerRunnableTasksQuery returns the total number of runnable
-// tasks across visible online schedulers (sys.dm_os_schedulers). Unavailable
-// on Azure SQL Database (EngineEdition = 5).
+// Unavailable on Azure SQL Database (EngineEdition = 5).
 const sqlServerOSSchedulerRunnableTasksQuery = `
 SET DEADLOCK_PRIORITY -10;
 IF SERVERPROPERTY('EngineEdition') NOT IN (2,3,4,8) BEGIN
@@ -1381,10 +1375,7 @@ func getSQLServerOSSchedulerRunnableTasksQuery(instanceName string) string {
 	return r.Replace(sqlServerOSSchedulerRunnableTasksQuery)
 }
 
-// sqlServerProcessCountQuery returns user-session counts pivoted by status.
-// Derived from sys.dm_exec_sessions (joined with sys.dm_exec_requests so that
-// an active request's status overrides the session-level status). Returns one
-// row with seven count columns.
+// Active request status (when present) overrides the session-level status.
 const sqlServerProcessCountQuery = `
 SET DEADLOCK_PRIORITY -10;
 IF SERVERPROPERTY('EngineEdition') NOT IN (2,3,4,5,8) BEGIN
@@ -1428,10 +1419,8 @@ func getSQLServerProcessCountQuery(instanceName string) string {
 	return r.Replace(sqlServerProcessCountQuery)
 }
 
-// sqlServerDatabasePageFileQuery returns total reserved space and used space
-// per online user database. The receiver derives the "free" datapoint as
-// (total - used). Executes per-database via dynamic SQL on the server side
-// so a single round-trip covers all online user databases.
+// One row per online user database; receiver derives "used" as total - free.
+// UNION ALL because the sqlquery client only reads the first result set.
 const sqlServerDatabasePageFileQuery = `
 SET DEADLOCK_PRIORITY -10;
 IF SERVERPROPERTY('EngineEdition') NOT IN (2,3,4,5,8) BEGIN
@@ -1443,21 +1432,19 @@ END
 DECLARE @SQL nvarchar(max) = N'';
 
 SELECT @SQL = @SQL +
-	N'USE ' + QUOTENAME(name) + N';' +
-	N'SELECT ''sqlserver_database_page_file'' AS [measurement],
-		REPLACE(@@SERVERNAME, ''\'', '':'') AS [sql_instance],
-		DB_NAME() AS [database_name],
-		CAST(SUM(a.total_pages) * 8 * 1024 AS BIGINT) AS [reserved_space_bytes],
-		CAST((SUM(a.total_pages) - SUM(a.used_pages)) * 8 * 1024 AS BIGINT) AS [reserved_space_not_used_bytes]
-	FROM sys.partitions p WITH (NOLOCK)
-	INNER JOIN sys.allocation_units a WITH (NOLOCK) ON p.partition_id = a.container_id;' + CHAR(13)
+	CASE WHEN @SQL = N'' THEN N'' ELSE N' UNION ALL ' END +
+	N'SELECT ''' + REPLACE(name, '''', '''''') + N''' AS [db_name], ' +
+	N'CAST(SUM(a.total_pages) * 8 * 1024 AS BIGINT) AS [reserved_space_bytes], ' +
+	N'CAST((SUM(a.total_pages) - SUM(a.used_pages)) * 8 * 1024 AS BIGINT) AS [reserved_space_not_used_bytes] ' +
+	N'FROM ' + QUOTENAME(name) + N'.sys.partitions p WITH (NOLOCK) ' +
+	N'INNER JOIN ' + QUOTENAME(name) + N'.sys.allocation_units a WITH (NOLOCK) ON p.partition_id = a.container_id'
 FROM sys.databases WITH (NOLOCK)
 WHERE database_id > 4  -- Exclude system databases (master, tempdb, model, msdb)
 	AND state = 0  -- Online only
 	AND name NOT IN ('rdsadmin', 'distribution', 'model_msdb', 'model_replicatedmaster')
 {filter_instance_name};
 
-EXEC sp_executesql @SQL;
+IF @SQL <> N'' EXEC sp_executesql @SQL;
 `
 
 func getSQLServerDatabasePageFileQuery(instanceName string) string {

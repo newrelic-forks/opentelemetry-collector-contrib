@@ -634,7 +634,7 @@ metrics:
       value_type: int
       input_type: string
     attributes: [db.namespace, page_file.state]
-    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server. The page_file.state attribute breaks the value down by usage state (used, free, total).
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.database.security.role_membership.count:
     enabled: false
     description: Number of members in a database role.
@@ -870,7 +870,7 @@ metrics:
       value_type: int
       input_type: string
     attributes: [memory.state]
-    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server. The memory.state attribute distinguishes total physical memory from currently available memory.
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.os.memory.utilization:
     enabled: false
     description: Fraction of system physical memory in use by the SQL Server process.
@@ -912,7 +912,7 @@ metrics:
       value_type: int
       input_type: string
     attributes: [wait.category, wait.type]
-    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server. Counterpart to sqlserver.os.wait.duration.
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.page.buffer_cache.free_list.stalls.rate:
     enabled: false
     description: Number of free list stalls.
@@ -1002,7 +1002,7 @@ metrics:
       value_type: int
       input_type: string
     attributes: [process.status]
-    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server. The process.status attribute reports background, dormant, preconnect, runnable, running, sleeping, or suspended. Use the existing sqlserver.processes.blocked metric for blocked-session counts.
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server. Use sqlserver.processes.blocked for blocked-session counts.
   sqlserver.processes.blocked:
     enabled: false
     description: The number of processes that are currently blocked

@@ -519,10 +519,7 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 		recompRatioRow       sqlquery.StringMap
 	)
 
-	// Track batch-request, SQL-compilation and page-split rates so the derived
-	// sqlserver.batch.compilation.utilization and sqlserver.batch.page_split.utilization
-	// metrics can be emitted after the row loop. compRate / compSeen are reused
-	// from the recompilation block above.
+	// Source rates for the batch.*.utilization derived metrics; emitted after the loop.
 	var (
 		batchRate, pageSplitRate float64
 		batchSeen, pageSplitSeen bool
@@ -542,9 +539,7 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 				s.mb.RecordSqlserverTableCountDataPoint(now, val.(int64), metadata.AttributeTableStateActive, metadata.AttributeTableStatusTemporary)
 			}
 		case activeTransactions:
-			// The Active Transactions counter from SQLServer:Databases is per-database;
-			// the SQL query selects all instances and "_Total". Skip the rollup; emit one
-			// datapoint per database with the database name in db.namespace.
+			// Per-database counter; skip the "_Total" rollup row.
 			dbName := row[instanceKey]
 			if dbName == "" || dbName == "Total" {
 				break
@@ -622,9 +617,8 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 				s.mb.RecordSqlserverDatabaseExecutionErrorsDataPoint(now, val.(int64))
 			}
 		case errorsPerSec:
-			// The SQLServer:SQL Errors / Errors/sec counter has multiple instances
-			// (User Errors, Kill Connection Errors, etc.). Only the Kill Connection
-			// Errors instance maps to a new metric.
+			// Errors/sec has multiple instances (User Errors, Kill Connection Errors, ...);
+			// only Kill Connection Errors maps to a metric.
 			if row[instanceKey] != killConnectionErrorsInstance {
 				break
 			}
@@ -748,9 +742,7 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 				s.mb.RecordSqlserverPageLookupRateDataPoint(now, val.(float64))
 			}
 		case pageSplitsPerSec:
-			// The Access Methods / Page Splits/sec counter is only emitted by the
-			// perf-counter query for instance_name = '_Total'. Capture for the
-			// sqlserver.batch.page_split.utilization derived metric.
+			// Captured here only to derive batch.page_split.utilization after the loop.
 			val, err := retrieveFloat(row, valueKey)
 			if err != nil {
 				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, pageSplitsPerSec)
@@ -1076,9 +1068,7 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
 	}
 
-	// Emit derived sqlserver.batch.compilation.utilization and
-	// sqlserver.batch.page_split.utilization metrics once the source counters
-	// have been observed and the denominator (batch request rate) is nonzero.
+	// Emit derived batch.*.utilization once batch request rate is nonzero.
 	if batchSeen && batchRate > 0 {
 		rb := s.setupResourceBuilder(s.mb.NewResourceBuilder(), utilizationRow)
 		emitted := false
@@ -1358,7 +1348,7 @@ func (s *sqlServerScraperHelper) recordProcessCountMetrics(ctx context.Context) 
 
 func (s *sqlServerScraperHelper) recordDatabasePageFileMetrics(ctx context.Context) error {
 	const (
-		databaseName              = "database_name"
+		databaseName              = "db_name"
 		reservedSpaceBytes        = "reserved_space_bytes"
 		reservedSpaceNotUsedBytes = "reserved_space_not_used_bytes"
 	)

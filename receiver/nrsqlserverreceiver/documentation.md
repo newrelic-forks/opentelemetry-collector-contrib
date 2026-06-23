@@ -382,7 +382,7 @@ This metric is only available when the receiver is configured to directly connec
 
 Reserved space allocated to the database, broken down by usage state.
 
-This metric is only available when the receiver is configured to directly connect to SQL Server. The page_file.state attribute breaks the value down by usage state (used, free, total).
+This metric is only available when the receiver is configured to directly connect to SQL Server.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
@@ -654,7 +654,7 @@ This metric is only available when the receiver is configured to directly connec
 
 Amount of system physical memory observed by SQL Server.
 
-This metric is only available when the receiver is configured to directly connect to SQL Server. The memory.state attribute distinguishes total physical memory from currently available memory.
+This metric is only available when the receiver is configured to directly connect to SQL Server.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
@@ -707,7 +707,7 @@ This metric is only available when the receiver is configured to directly connec
 
 Cumulative number of tasks that have waited on this wait type since SQL Server startup.
 
-This metric is only available when the receiver is configured to directly connect to SQL Server. Counterpart to sqlserver.os.wait.duration.
+This metric is only available when the receiver is configured to directly connect to SQL Server.
 
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
@@ -768,7 +768,7 @@ Rate of plan executions, classified by plan guide result.
 
 Number of SQL Server processes (user sessions), broken down by status.
 
-This metric is only available when the receiver is configured to directly connect to SQL Server. The process.status attribute reports background, dormant, preconnect, runnable, running, sleeping, or suspended. Use the existing sqlserver.processes.blocked metric for blocked-session counts.
+This metric is only available when the receiver is configured to directly connect to SQL Server. Use sqlserver.processes.blocked for blocked-session counts.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
