@@ -1423,8 +1423,8 @@ func getSQLServerProcessCountQuery(instanceName string) string {
 // UNION ALL because the sqlquery client only reads the first result set.
 const sqlServerDatabasePageFileQuery = `
 SET DEADLOCK_PRIORITY -10;
-IF SERVERPROPERTY('EngineEdition') NOT IN (2,3,4,5,8) BEGIN
-	DECLARE @ErrorMessage AS nvarchar(500) = 'Connection string Server:' + @@ServerName + ',Database:' + DB_NAME() + ' is not supported for sqlserver.database.page_file.size.';
+IF SERVERPROPERTY('EngineEdition') NOT IN (2,3,4,8) BEGIN
+	DECLARE @ErrorMessage AS nvarchar(500) = 'Connection string Server:' + @@ServerName + ',Database:' + DB_NAME() + ' is not supported for sqlserver.database.page_file.size (Azure SQL Database does not allow cross-database 3-part naming).';
 	RAISERROR (@ErrorMessage,11,1)
 	RETURN
 END
