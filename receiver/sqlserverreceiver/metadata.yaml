@@ -121,6 +121,11 @@ attributes:
     type: string
     requirement_level: recommended
     enum: [target, total, sql_cache, optimizer, connection, granted_workspace, max_workspace]
+  memory.state:
+    description: The state of system memory observed by SQL Server.
+    type: string
+    requirement_level: recommended
+    enum: [available, total]
   network.peer.address:
     description: IP address of the peer client.
     type: string
@@ -140,6 +145,11 @@ attributes:
     type: string
     requirement_level: recommended
     enum: [cache, total, target, database, stolen, reserved, free]
+  page_file.state:
+    description: The state of the database page file (reserved space) allocation.
+    type: string
+    requirement_level: recommended
+    enum: [used, free, total]
   performance_counter.object_name:
     description: Category to which this counter belongs
     type: string
@@ -148,6 +158,11 @@ attributes:
     description: The physical filename of the file being monitored.
     type: string
     requirement_level: recommended
+  process.status:
+    description: The status of the SQL Server process/session.
+    type: string
+    requirement_level: recommended
+    enum: [background, dormant, preconnect, runnable, running, sleeping, suspended]
   replica.direction:
     description: The direction of flow of bytes for replica.
     type: string
@@ -476,6 +491,24 @@ metrics:
     gauge:
       value_type: double
     attributes: []
+  sqlserver.batch.compilation.utilization:
+    enabled: false
+    description: Number of SQL compilations per batch request.
+    stability: development
+    unit: "1"
+    gauge:
+      value_type: double
+    attributes: []
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
+  sqlserver.batch.page_split.utilization:
+    enabled: false
+    description: Number of page splits per batch request.
+    stability: development
+    unit: "1"
+    gauge:
+      value_type: double
+    attributes: []
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.batch.request.rate:
     enabled: true
     description: Number of batch requests received by SQL Server.
@@ -592,6 +625,16 @@ metrics:
       input_type: string
     attributes: [physical_filename, logical_filename, file_type, direction]
     extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
+  sqlserver.database.page_file.size:
+    enabled: false
+    description: Reserved space allocated to the database, broken down by usage state.
+    stability: development
+    unit: By
+    gauge:
+      value_type: int
+      input_type: string
+    attributes: [db.namespace, page_file.state]
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.database.security.role_membership.count:
     enabled: false
     description: Number of members in a database role.
@@ -620,6 +663,16 @@ metrics:
     gauge:
       value_type: double
     attributes: []
+  sqlserver.database.transactions.active:
+    enabled: false
+    description: Number of active transactions in the database.
+    stability: development
+    unit: "{transactions}"
+    gauge:
+      value_type: int
+      input_type: string
+    attributes: [db.namespace]
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.deadlock.rate:
     enabled: false
     description: Total number of deadlocks.
@@ -636,6 +689,15 @@ metrics:
     gauge:
       value_type: double
     attributes: []
+  sqlserver.kill_connection.error.rate:
+    enabled: false
+    description: Number of kill-connection errors per second.
+    stability: development
+    unit: "{errors}/s"
+    gauge:
+      value_type: double
+    attributes: []
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.latch.superlatch.count:
     enabled: false
     description: Number of superlatches currently active.
@@ -789,6 +851,45 @@ metrics:
       monotonic: false
       value_type: double
     attributes: []
+  sqlserver.os.disk.size:
+    enabled: false
+    description: Total disk space across volumes hosting SQL Server database files.
+    stability: development
+    unit: By
+    gauge:
+      value_type: int
+      input_type: string
+    attributes: []
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
+  sqlserver.os.memory.usage:
+    enabled: false
+    description: Amount of system physical memory observed by SQL Server.
+    stability: development
+    unit: By
+    gauge:
+      value_type: int
+      input_type: string
+    attributes: [memory.state]
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
+  sqlserver.os.memory.utilization:
+    enabled: false
+    description: Fraction of system physical memory in use by the SQL Server process.
+    stability: development
+    unit: "1"
+    gauge:
+      value_type: double
+    attributes: []
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
+  sqlserver.os.scheduler.runnable_tasks.count:
+    enabled: false
+    description: Total number of runnable tasks across online schedulers.
+    stability: development
+    unit: "{tasks}"
+    gauge:
+      value_type: int
+      input_type: string
+    attributes: []
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.os.wait.duration:
     enabled: false
     description: Total wait time for this wait type
@@ -798,6 +899,18 @@ metrics:
       aggregation_temporality: cumulative
       monotonic: true
       value_type: double
+    attributes: [wait.category, wait.type]
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
+  sqlserver.os.wait.tasks.count:
+    enabled: false
+    description: Cumulative number of tasks that have waited on this wait type since SQL Server startup.
+    stability: development
+    unit: "{tasks}"
+    sum:
+      aggregation_temporality: cumulative
+      monotonic: true
+      value_type: int
+      input_type: string
     attributes: [wait.category, wait.type]
     extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.page.buffer_cache.free_list.stalls.rate:
@@ -880,6 +993,16 @@ metrics:
     gauge:
       value_type: double
     attributes: [sqlserver.plan.guidance.result]
+  sqlserver.process.count:
+    enabled: false
+    description: Number of SQL Server processes (user sessions), broken down by status.
+    stability: development
+    unit: "{processes}"
+    gauge:
+      value_type: int
+      input_type: string
+    attributes: [process.status]
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server. Use sqlserver.processes.blocked for blocked-session counts.
   sqlserver.processes.blocked:
     enabled: false
     description: The number of processes that are currently blocked

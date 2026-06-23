@@ -102,6 +102,26 @@ func setupQueries(cfg *Config) []string {
 		queries = append(queries, getSQLServerDatabaseSecurityRoleMembersQuery(cfg.InstanceName))
 	}
 
+	if cfg.Metrics.SqlserverOsMemoryUsage.Enabled || cfg.Metrics.SqlserverOsMemoryUtilization.Enabled {
+		queries = append(queries, getSQLServerOSMemoryQuery(cfg.InstanceName))
+	}
+
+	if cfg.Metrics.SqlserverOsDiskSize.Enabled {
+		queries = append(queries, getSQLServerOSDiskQuery(cfg.InstanceName))
+	}
+
+	if cfg.Metrics.SqlserverOsSchedulerRunnableTasksCount.Enabled {
+		queries = append(queries, getSQLServerOSSchedulerRunnableTasksQuery(cfg.InstanceName))
+	}
+
+	if cfg.Metrics.SqlserverProcessCount.Enabled {
+		queries = append(queries, getSQLServerProcessCountQuery(cfg.InstanceName))
+	}
+
+	if cfg.Metrics.SqlserverDatabasePageFileSize.Enabled {
+		queries = append(queries, getSQLServerDatabasePageFileQuery(cfg.InstanceName))
+	}
+
 	return queries
 }
 
@@ -280,12 +300,16 @@ func isPerfCounterQueryEnabled(metrics *metadata.MetricsConfig) bool {
 		return false
 	}
 
-	return metrics.SqlserverBatchRequestRate.Enabled ||
+	return metrics.SqlserverBatchCompilationUtilization.Enabled ||
+		metrics.SqlserverBatchPageSplitUtilization.Enabled ||
+		metrics.SqlserverBatchRequestRate.Enabled ||
 		metrics.SqlserverBatchSQLCompilationRate.Enabled ||
 		metrics.SqlserverBatchSQLRecompilationRate.Enabled ||
 		metrics.SqlserverDatabaseBackupOrRestoreRate.Enabled ||
 		metrics.SqlserverDatabaseExecutionErrors.Enabled ||
 		metrics.SqlserverDatabaseFullScanRate.Enabled ||
+		metrics.SqlserverDatabaseTransactionsActive.Enabled ||
+		metrics.SqlserverKillConnectionErrorRate.Enabled ||
 		metrics.SqlserverDatabaseTempdbSpace.Enabled ||
 		metrics.SqlserverDatabaseTempdbVersionStoreSize.Enabled ||
 		metrics.SqlserverDeadlockRate.Enabled ||
@@ -328,5 +352,6 @@ func isWaitStatsQueryEnabled(metrics *metadata.MetricsConfig) bool {
 		return false
 	}
 
-	return metrics.SqlserverOsWaitDuration.Enabled
+	return metrics.SqlserverOsWaitDuration.Enabled ||
+		metrics.SqlserverOsWaitTasksCount.Enabled
 }

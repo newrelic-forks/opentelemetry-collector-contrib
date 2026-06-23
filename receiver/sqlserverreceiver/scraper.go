@@ -136,6 +136,16 @@ func (s *sqlServerScraperHelper) ScrapeMetrics(ctx context.Context) (pmetric.Met
 		err = s.recordSecurityRoleMembersMetrics(ctx)
 	case getSQLServerDatabaseSecurityRoleMembersQuery(s.config.InstanceName):
 		err = s.recordDatabaseSecurityRoleMembersMetrics(ctx)
+	case getSQLServerOSMemoryQuery(s.config.InstanceName):
+		err = s.recordOSMemoryMetrics(ctx)
+	case getSQLServerOSDiskQuery(s.config.InstanceName):
+		err = s.recordOSDiskMetrics(ctx)
+	case getSQLServerOSSchedulerRunnableTasksQuery(s.config.InstanceName):
+		err = s.recordOSSchedulerMetrics(ctx)
+	case getSQLServerProcessCountQuery(s.config.InstanceName):
+		err = s.recordProcessCountMetrics(ctx)
+	case getSQLServerDatabasePageFileQuery(s.config.InstanceName):
+		err = s.recordDatabasePageFileMetrics(ctx)
 	default:
 		return pmetric.Metrics{}, fmt.Errorf("Attempted to get metrics from unsupported query: %s", s.sqlQuery)
 	}
@@ -421,9 +431,11 @@ func (s *sqlServerScraperHelper) recordDatabaseIOMetrics(ctx context.Context) er
 
 func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Context) error {
 	const counterKey = "counter"
+	const instanceKey = "instance"
 	const valueKey = "value"
 	// Constants are the columns for metrics from query
 	const activeTempTables = "Active Temp Tables"
+	const activeTransactions = "Active Transactions"
 	const autoParamAttemptsPerSec = "Auto-Param Attempts/sec"
 	const backupRestoreThroughputPerSec = "Backup/Restore Throughput/sec"
 	const batchRequestRate = "Batch Requests/sec"
@@ -434,6 +446,8 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 	const diskReadIOThrottled = "Disk Read IO Throttled/sec"
 	const diskWriteIOSec = "Disk Write IO/sec"
 	const diskWriteIOThrottled = "Disk Write IO Throttled/sec"
+	const errorsPerSec = "Errors/sec"
+	const killConnectionErrorsInstance = "Kill Connection Errors"
 	const executionErrors = "Execution Errors"
 	const failedAutoParamsPerSec = "Failed Auto-Params/sec"
 	const forcedParameterizationsPerSec = "Forced Parameterizations/sec"
@@ -453,6 +467,7 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 	const memoryGrantsPending = "Memory Grants Pending"
 	const pageLifeExpectancy = "Page life expectancy"
 	const pageLookupsPerSec = "Page lookups/sec"
+	const pageSplitsPerSec = "Page Splits/sec"
 	const processesBlocked = "Processes blocked"
 	const safeAutoParamsPerSec = "Safe Auto-Params/sec"
 	const sqlAttentionRate = "SQL Attention rate"
@@ -505,6 +520,13 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 		recompRatioRow       sqlquery.StringMap
 	)
 
+	// Source rates for the batch.*.utilization derived metrics; emitted after the loop.
+	var (
+		batchRate, pageSplitRate float64
+		batchSeen, pageSplitSeen bool
+		utilizationRow           sqlquery.StringMap
+	)
+
 	for i, row := range rows {
 		rb := s.setupResourceBuilder(s.mb.NewResourceBuilder(), row)
 
@@ -517,6 +539,13 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 			} else {
 				s.mb.RecordSqlserverTableCountDataPoint(now, val.(int64), metadata.AttributeTableStateActive, metadata.AttributeTableStatusTemporary)
 			}
+		case activeTransactions:
+			// Per-database counter; skip the "_Total" rollup row.
+			dbName := row[instanceKey]
+			if dbName == "" || dbName == "Total" {
+				break
+			}
+			errs = append(errs, s.mb.RecordSqlserverDatabaseTransactionsActiveDataPoint(now, row[valueKey], dbName))
 		case backupRestoreThroughputPerSec:
 			val, err := retrieveFloat(row, valueKey)
 			if err != nil {
@@ -532,6 +561,9 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 				errs = append(errs, err)
 			} else {
 				s.mb.RecordSqlserverBatchRequestRateDataPoint(now, val.(float64))
+				batchRate = val.(float64)
+				batchSeen = true
+				utilizationRow = row
 			}
 		case bufferCacheHitRatio:
 			val, err := retrieveFloat(row, valueKey)
@@ -584,6 +616,19 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 				errs = append(errs, err)
 			} else {
 				s.mb.RecordSqlserverDatabaseExecutionErrorsDataPoint(now, val.(int64))
+			}
+		case errorsPerSec:
+			// Errors/sec has multiple instances (User Errors, Kill Connection Errors, ...);
+			// only Kill Connection Errors maps to a metric.
+			if row[instanceKey] != killConnectionErrorsInstance {
+				break
+			}
+			val, err := retrieveFloat(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s/%s", i, err, errorsPerSec, killConnectionErrorsInstance)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverKillConnectionErrorRateDataPoint(now, val.(float64))
 			}
 		case freeListStalls:
 			val, err := retrieveInt(row, valueKey)
@@ -697,6 +742,19 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 			} else {
 				s.mb.RecordSqlserverPageLookupRateDataPoint(now, val.(float64))
 			}
+		case pageSplitsPerSec:
+			// Captured here only to derive batch.page_split.utilization after the loop.
+			val, err := retrieveFloat(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, pageSplitsPerSec)
+				errs = append(errs, err)
+			} else {
+				pageSplitRate = val.(float64)
+				pageSplitSeen = true
+				if utilizationRow == nil {
+					utilizationRow = row
+				}
+			}
 		case processesBlocked:
 			errs = append(errs, s.mb.RecordSqlserverProcessesBlockedDataPoint(now, row[valueKey]))
 		case sqlCompilationRate:
@@ -709,6 +767,9 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 				compRate = val.(float64)
 				compSeen = true
 				recompRatioRow = row
+				if utilizationRow == nil {
+					utilizationRow = row
+				}
 			}
 		case sqlReCompilationsRate:
 			val, err := retrieveFloat(row, valueKey)
@@ -1008,6 +1069,23 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
 	}
 
+	// Emit derived batch.*.utilization once batch request rate is nonzero.
+	if batchSeen && batchRate > 0 {
+		rb := s.setupResourceBuilder(s.mb.NewResourceBuilder(), utilizationRow)
+		emitted := false
+		if compSeen {
+			s.mb.RecordSqlserverBatchCompilationUtilizationDataPoint(now, compRate/batchRate)
+			emitted = true
+		}
+		if pageSplitSeen {
+			s.mb.RecordSqlserverBatchPageSplitUtilizationDataPoint(now, pageSplitRate/batchRate)
+			emitted = true
+		}
+		if emitted {
+			s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
+		}
+	}
+
 	return errors.Join(errs...)
 }
 
@@ -1056,9 +1134,10 @@ func (s *sqlServerScraperHelper) recordDatabaseStatusMetrics(ctx context.Context
 func (s *sqlServerScraperHelper) recordDatabaseWaitMetrics(ctx context.Context) error {
 	// Constants are the columns for metrics from query
 	const (
-		waitCategory = "wait_category"
-		waitTimeMs   = "wait_time_ms"
-		waitType     = "wait_type"
+		waitCategory      = "wait_category"
+		waitTimeMs        = "wait_time_ms"
+		waitType          = "wait_type"
+		waitingTasksCount = "waiting_tasks_count"
 	)
 
 	rows, err := s.client.QueryRows(ctx)
@@ -1083,6 +1162,8 @@ func (s *sqlServerScraperHelper) recordDatabaseWaitMetrics(ctx context.Context) 
 			// The value is divided here because it's stored in SQL Server in ms, need to convert to s
 			s.mb.RecordSqlserverOsWaitDurationDataPoint(now, val.(float64)/1e3, row[waitCategory], row[waitType])
 		}
+
+		errs = append(errs, s.mb.RecordSqlserverOsWaitTasksCountDataPoint(now, row[waitingTasksCount], row[waitCategory], row[waitType]))
 
 		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
 	}
@@ -1139,6 +1220,172 @@ func (s *sqlServerScraperHelper) recordDatabaseSizeMetrics(ctx context.Context) 
 
 		if err := s.mb.RecordSqlserverDatabaseFileSizeDataPoint(now, row[sizeBytes], row[fileType], row[databaseName]); err != nil {
 			errs = append(errs, fmt.Errorf("failed to parse database file size for row %d: %w", i, err))
+		}
+
+		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
+	}
+
+	return errors.Join(errs...)
+}
+
+func (s *sqlServerScraperHelper) recordOSMemoryMetrics(ctx context.Context) error {
+	const (
+		totalBytes     = "total_physical_memory_bytes"
+		availableBytes = "available_physical_memory_bytes"
+		utilization    = "memory_utilization"
+	)
+
+	rows, err := s.client.QueryRows(ctx)
+	if err != nil {
+		if !errors.Is(err, sqlquery.ErrNullValueWarning) {
+			return fmt.Errorf("sqlServerScraperHelper: %w", err)
+		}
+		s.logger.Warn("problems encountered getting metric rows", zap.Error(err))
+	}
+
+	var errs []error
+	now := pcommon.NewTimestampFromTime(time.Now())
+	for _, row := range rows {
+		rb := s.setupResourceBuilder(s.mb.NewResourceBuilder(), row)
+
+		errs = append(errs,
+			s.mb.RecordSqlserverOsMemoryUsageDataPoint(now, row[totalBytes], metadata.AttributeMemoryStateTotal),
+			s.mb.RecordSqlserverOsMemoryUsageDataPoint(now, row[availableBytes], metadata.AttributeMemoryStateAvailable),
+		)
+
+		if utilStr := row[utilization]; utilStr != "" {
+			val, parseErr := retrieveFloat(row, utilization)
+			if parseErr != nil {
+				errs = append(errs, fmt.Errorf("failed to parse %s: %w", utilization, parseErr))
+			} else {
+				s.mb.RecordSqlserverOsMemoryUtilizationDataPoint(now, val.(float64))
+			}
+		}
+
+		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
+	}
+
+	return errors.Join(errs...)
+}
+
+func (s *sqlServerScraperHelper) recordOSDiskMetrics(ctx context.Context) error {
+	const totalDiskBytes = "total_disk_space_bytes"
+
+	rows, err := s.client.QueryRows(ctx)
+	if err != nil {
+		if !errors.Is(err, sqlquery.ErrNullValueWarning) {
+			return fmt.Errorf("sqlServerScraperHelper: %w", err)
+		}
+		s.logger.Warn("problems encountered getting metric rows", zap.Error(err))
+	}
+
+	var errs []error
+	now := pcommon.NewTimestampFromTime(time.Now())
+	for _, row := range rows {
+		rb := s.setupResourceBuilder(s.mb.NewResourceBuilder(), row)
+		errs = append(errs, s.mb.RecordSqlserverOsDiskSizeDataPoint(now, row[totalDiskBytes]))
+		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
+	}
+
+	return errors.Join(errs...)
+}
+
+func (s *sqlServerScraperHelper) recordOSSchedulerMetrics(ctx context.Context) error {
+	const runnableTasksCount = "runnable_tasks_count"
+
+	rows, err := s.client.QueryRows(ctx)
+	if err != nil {
+		if !errors.Is(err, sqlquery.ErrNullValueWarning) {
+			return fmt.Errorf("sqlServerScraperHelper: %w", err)
+		}
+		s.logger.Warn("problems encountered getting metric rows", zap.Error(err))
+	}
+
+	var errs []error
+	now := pcommon.NewTimestampFromTime(time.Now())
+	for _, row := range rows {
+		rb := s.setupResourceBuilder(s.mb.NewResourceBuilder(), row)
+		errs = append(errs, s.mb.RecordSqlserverOsSchedulerRunnableTasksCountDataPoint(now, row[runnableTasksCount]))
+		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
+	}
+
+	return errors.Join(errs...)
+}
+
+func (s *sqlServerScraperHelper) recordProcessCountMetrics(ctx context.Context) error {
+	statusColumns := []struct {
+		name  string
+		value metadata.AttributeProcessStatus
+	}{
+		{"background", metadata.AttributeProcessStatusBackground},
+		{"dormant", metadata.AttributeProcessStatusDormant},
+		{"preconnect", metadata.AttributeProcessStatusPreconnect},
+		{"runnable", metadata.AttributeProcessStatusRunnable},
+		{"running", metadata.AttributeProcessStatusRunning},
+		{"sleeping", metadata.AttributeProcessStatusSleeping},
+		{"suspended", metadata.AttributeProcessStatusSuspended},
+	}
+
+	rows, err := s.client.QueryRows(ctx)
+	if err != nil {
+		if !errors.Is(err, sqlquery.ErrNullValueWarning) {
+			return fmt.Errorf("sqlServerScraperHelper: %w", err)
+		}
+		s.logger.Warn("problems encountered getting metric rows", zap.Error(err))
+	}
+
+	var errs []error
+	now := pcommon.NewTimestampFromTime(time.Now())
+	for _, row := range rows {
+		rb := s.setupResourceBuilder(s.mb.NewResourceBuilder(), row)
+		for _, col := range statusColumns {
+			errs = append(errs, s.mb.RecordSqlserverProcessCountDataPoint(now, row[col.name], col.value))
+		}
+		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
+	}
+
+	return errors.Join(errs...)
+}
+
+func (s *sqlServerScraperHelper) recordDatabasePageFileMetrics(ctx context.Context) error {
+	const (
+		databaseName              = "db_name"
+		reservedSpaceBytes        = "reserved_space_bytes"
+		reservedSpaceNotUsedBytes = "reserved_space_not_used_bytes"
+	)
+
+	rows, err := s.client.QueryRows(ctx)
+	if err != nil {
+		if !errors.Is(err, sqlquery.ErrNullValueWarning) {
+			return fmt.Errorf("sqlServerScraperHelper: %w", err)
+		}
+		s.logger.Warn("problems encountered getting metric rows", zap.Error(err))
+	}
+
+	var errs []error
+	now := pcommon.NewTimestampFromTime(time.Now())
+	for i, row := range rows {
+		rb := s.setupResourceBuilder(s.mb.NewResourceBuilder(), row)
+		rb.SetSqlserverDatabaseName(row[databaseName])
+
+		totalVal, totalErr := retrieveInt(row, reservedSpaceBytes)
+		freeVal, freeErr := retrieveInt(row, reservedSpaceNotUsedBytes)
+		if totalErr != nil {
+			errs = append(errs, fmt.Errorf("failed to parse %s for row %d: %w", reservedSpaceBytes, i, totalErr))
+		}
+		if freeErr != nil {
+			errs = append(errs, fmt.Errorf("failed to parse %s for row %d: %w", reservedSpaceNotUsedBytes, i, freeErr))
+		}
+
+		if totalErr == nil {
+			errs = append(errs, s.mb.RecordSqlserverDatabasePageFileSizeDataPoint(now, row[reservedSpaceBytes], row[databaseName], metadata.AttributePageFileStateTotal))
+		}
+		if freeErr == nil {
+			errs = append(errs, s.mb.RecordSqlserverDatabasePageFileSizeDataPoint(now, row[reservedSpaceNotUsedBytes], row[databaseName], metadata.AttributePageFileStateFree))
+		}
+		if totalErr == nil && freeErr == nil {
+			usedBytes := max(totalVal.(int64)-freeVal.(int64), 0)
+			errs = append(errs, s.mb.RecordSqlserverDatabasePageFileSizeDataPoint(now, fmt.Sprintf("%d", usedBytes), row[databaseName], metadata.AttributePageFileStateUsed))
 		}
 
 		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
