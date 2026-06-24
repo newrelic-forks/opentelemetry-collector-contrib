@@ -2932,7 +2932,7 @@ func DefaultMetricsConfig() MetricsConfig {
 		},
 		OracledbPgaMemory: OracledbPgaMemoryMetricConfig{
 			Enabled:             true,
-			AggregationStrategy: AggregationStrategySum,
+			AggregationStrategy: AggregationStrategyAvg,
 			EnabledAttributes:   []OracledbPgaMemoryMetricAttributeKey{},
 		},
 		OracledbPhysicalIoCacheWrites: OracledbPhysicalIoCacheWritesMetricConfig{

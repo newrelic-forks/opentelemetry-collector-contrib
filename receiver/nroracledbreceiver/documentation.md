@@ -160,11 +160,11 @@ Total number of parse calls.
 
 ### oracledb.pga_memory
 
-Session PGA (Program Global Area) memory
+Session PGA (Program Global Area) memory currently allocated
 
-| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
-| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
-| By | Sum | Int | Cumulative | true | Development |
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| By | Gauge | Int | Development |
 
 #### Attributes
 
