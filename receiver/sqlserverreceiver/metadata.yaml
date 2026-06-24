@@ -141,7 +141,7 @@ attributes:
     type: string
     requirement_level: recommended
   member.kind:
-    description: Role-membership member breakdown bucket.
+    description: Role-membership member breakdown bucket. `high_privilege` covers db_owner, db_securityadmin, db_accessadmin, db_backupoperator, db_ddladmin.
     type: string
     requirement_level: recommended
     enum: [app_role, cross_role, high_privilege, unique]

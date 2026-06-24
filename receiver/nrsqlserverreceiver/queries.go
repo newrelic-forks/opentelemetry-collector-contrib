@@ -1915,7 +1915,6 @@ INNER JOIN sys.dm_tran_session_transactions AS st WITH (NOLOCK) ON tat.transacti
 INNER JOIN sys.dm_exec_sessions             AS sess WITH (NOLOCK) ON st.session_id = sess.session_id
 WHERE tat.transaction_type IN (1,2,4)
   AND tat.transaction_state IN (2,3)
-  AND sess.session_id > 50
   AND sess.is_user_process = 1
 {filter_instance_name};
 `

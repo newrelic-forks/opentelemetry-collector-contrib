@@ -475,7 +475,7 @@ This metric is only available when the receiver is configured to directly connec
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
 | db.namespace | The database name. | Any Str | Recommended | - |
-| member.kind | Role-membership member breakdown bucket. | Str: ``app_role``, ``cross_role``, ``high_privilege``, ``unique`` | Recommended | - |
+| member.kind | Role-membership member breakdown bucket. `high_privilege` covers db_owner, db_securityadmin, db_accessadmin, db_backupoperator, db_ddladmin. | Str: ``app_role``, ``cross_role``, ``high_privilege``, ``unique`` | Recommended | - |
 
 ### sqlserver.database.role.memberships.count
 
