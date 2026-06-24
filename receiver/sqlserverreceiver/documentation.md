@@ -395,6 +395,139 @@ This metric is only available when the receiver is configured to directly connec
 | db.namespace | The database name. | Any Str | Recommended | - |
 | page_file.state | The state of the database page file (reserved space) allocation. | Str: ``used``, ``free``, ``total`` | Recommended | - |
 
+### sqlserver.database.principals.count
+
+Number of database security principals broken down by type.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {principals} | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| db.namespace | The database name. | Any Str | Recommended | - |
+| principal.type | Database security principal type. | Str: ``sql_user``, ``windows_user``, ``role``, ``application_role``, ``certificate_mapped_user``, ``asymmetric_key_mapped_user`` | Recommended | - |
+
+### sqlserver.database.principals.old
+
+Number of database principals created more than one year ago.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {principals} | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| db.namespace | The database name. | Any Str | Recommended | - |
+
+### sqlserver.database.principals.orphaned_users
+
+Number of SQL users in the database that have no matching server login.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {principals} | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| db.namespace | The database name. | Any Str | Recommended | - |
+
+### sqlserver.database.principals.recently_created
+
+Number of database principals created in the last 30 days.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {principals} | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| db.namespace | The database name. | Any Str | Recommended | - |
+
+### sqlserver.database.role.members.count
+
+Number of database role members broken down by member kind.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {members} | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| db.namespace | The database name. | Any Str | Recommended | - |
+| member.kind | Role-membership member breakdown bucket. | Str: ``app_role``, ``cross_role``, ``high_privilege``, ``unique`` | Recommended | - |
+
+### sqlserver.database.role.memberships.count
+
+Number of database role memberships broken down by kind.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {memberships} | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| db.namespace | The database name. | Any Str | Recommended | - |
+| membership.kind | Role-membership grouping bucket. | Str: ``active``, ``custom``, ``nested``, ``users`` | Recommended | - |
+
+### sqlserver.database.role.permission.risk_level
+
+Risk level assigned to each database role (1=low, 4=high).
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| 1 | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| db.namespace | The database name. | Any Str | Recommended | - |
+| role | The name of the database or server role. | Any Str | Recommended | - |
+
+### sqlserver.database.role.roles.count
+
+Number of database roles broken down by usage state.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {roles} | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| db.namespace | The database name. | Any Str | Recommended | - |
+| role.state | Database role usage state. | Str: ``empty``, ``with_members`` | Recommended | - |
+
 ### sqlserver.database.security.role_membership.count
 
 Number of members in a database role.
@@ -457,6 +590,154 @@ Total number of deadlocks.
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
 | {deadlocks}/s | Gauge | Double | Development |
+
+### sqlserver.failover_cluster.ag.cluster_type
+
+Cluster type of the Always-On Availability Group.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| 1 | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| ag.name | Name of the Always-On Availability Group. | Any Str | Recommended | - |
+| ag.cluster_type | Cluster type of the Always-On Availability Group. | Str: ``wsfc``, ``external``, ``none``, ``unknown`` | Recommended | - |
+
+### sqlserver.failover_cluster.ag.failure_condition_level
+
+Failure condition level configured for the Availability Group (1-5).
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| 1 | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| ag.name | Name of the Always-On Availability Group. | Any Str | Recommended | - |
+
+### sqlserver.failover_cluster.ag.health_check_timeout
+
+Health-check timeout configured for the Availability Group.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| ms | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| ag.name | Name of the Always-On Availability Group. | Any Str | Recommended | - |
+
+### sqlserver.failover_cluster.ag.required_sync_secondaries
+
+Number of synchronized secondary replicas required to commit on the Availability Group.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {secondaries} | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| ag.name | Name of the Always-On Availability Group. | Any Str | Recommended | - |
+
+### sqlserver.failover_cluster.replica.database.queue_size
+
+Size of the log-send or redo queue for an AG database replica.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| By | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| ag.name | Name of the Always-On Availability Group. | Any Str | Recommended | - |
+| replica.server_name | Server name of the availability replica. | Any Str | Recommended | - |
+| db.namespace | The database name. | Any Str | Recommended | - |
+| replica.queue_kind | Type of AG database-replica queue. | Str: ``log_send``, ``redo`` | Recommended | - |
+
+### sqlserver.failover_cluster.replica.database.redo.rate
+
+Redo rate for an AG database replica.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| By/s | Gauge | Double | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| ag.name | Name of the Always-On Availability Group. | Any Str | Recommended | - |
+| replica.server_name | Server name of the availability replica. | Any Str | Recommended | - |
+| db.namespace | The database name. | Any Str | Recommended | - |
+
+### sqlserver.failover_cluster.replica.flow_control_time
+
+Cumulative time spent in AG flow control, in milliseconds per second observed.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| ms | Gauge | Double | Development |
+
+### sqlserver.failover_cluster.replica.role
+
+Role of the availability replica.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| 1 | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| ag.name | Name of the Always-On Availability Group. | Any Str | Recommended | - |
+| replica.server_name | Server name of the availability replica. | Any Str | Recommended | - |
+| replica.role | Availability replica role. | Str: ``primary``, ``secondary``, ``resolving``, ``unknown`` | Recommended | - |
+
+### sqlserver.failover_cluster.replica.synchronization_health
+
+Synchronization health of the availability replica.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| 1 | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| ag.name | Name of the Always-On Availability Group. | Any Str | Recommended | - |
+| replica.server_name | Server name of the availability replica. | Any Str | Recommended | - |
+| replica.sync_health | Synchronization health of the availability replica. | Str: ``healthy``, ``partially_healthy``, ``not_healthy``, ``unknown`` | Recommended | - |
 
 ### sqlserver.index.search.rate
 
@@ -531,6 +812,40 @@ This metric is only available when the receiver is configured to directly connec
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | s | Sum | Double | Cumulative | true | Development |
+
+### sqlserver.lock.by_mode.count
+
+Number of currently active locks held in the database, grouped by lock mode.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {locks} | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| db.namespace | The database name. | Any Str | Recommended | - |
+| lock.mode | SQL Server lock request mode. | Str: ``shared``, ``exclusive``, ``update``, ``intent``, ``schema``, ``bulk_update``, ``shared_intent_exclusive`` | Recommended | - |
+
+### sqlserver.lock.by_resource.count
+
+Number of currently active locks held in the database, grouped by resource type.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {locks} | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| db.namespace | The database name. | Any Str | Recommended | - |
+| lock.resource | SQL Server lock resource type. | Str: ``key``, ``page``, ``row``, ``table``, ``extent``, ``file``, ``hobt``, ``metadata``, ``application``, ``allocation_unit``, ``database_level`` | Recommended | - |
 
 ### sqlserver.lock.timeout.rate
 
@@ -889,6 +1204,127 @@ The number of tables.
 | table.state | The state of the table. | Str: ``active``, ``inactive`` | Recommended | - |
 | table.status | The status of the table. | Str: ``temporary``, ``permanent`` | Recommended | - |
 
+### sqlserver.tempdb.allocation.wait_time.total
+
+Cumulative wait time on tempdb allocation pages, broken down by page type.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
+| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
+| s | Sum | Double | Cumulative | true | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| allocation.page_type | TempDB allocation-page wait type. | Str: ``gam``, ``sgam``, ``pfs``, ``other`` | Recommended | - |
+
+### sqlserver.tempdb.contention.waiters.count
+
+Number of tempdb pagelatch wait types with at least one active waiter.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {waiters} | Gauge | Int | Development |
+
+### sqlserver.tempdb.data_files.count
+
+Number of tempdb data files configured on the instance.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {files} | Gauge | Int | Development |
+
+### sqlserver.tempdb.file.size
+
+Size of each tempdb data or log file.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| By | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| file_type | The type of file being monitored. | Any Str | Recommended | - |
+| tempdb.file.id | Numeric file_id within tempdb (sys.master_files.file_id). | Any Int | Recommended | - |
+
+### sqlserver.tempdb.space.usage
+
+Space used by tempdb, broken down by allocation category.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| By | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| tempdb.space_kind | TempDB space usage category. | Str: ``user_objects``, ``internal_objects``, ``version_store``, ``free`` | Recommended | - |
+
+### sqlserver.thread_pool.tasks.count
+
+Number of SQL Server tasks broken down by state.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {tasks} | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| task.state | SQL Server task state for thread-pool diagnostics. | Str: ``current``, ``queued``, ``waiting_for_threadpool`` | Recommended | - |
+
+### sqlserver.thread_pool.workers.count
+
+Number of SQL Server worker threads broken down by state.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {workers} | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| worker.state | SQL Server worker state. | Str: ``running``, ``suspended_or_sleeping`` | Recommended | - |
+
+### sqlserver.thread_pool.workers.max
+
+Maximum number of SQL Server worker threads configured on the instance.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {workers} | Gauge | Int | Development |
+
+### sqlserver.thread_pool.workers.utilization
+
+Fraction of configured SQL Server worker threads currently running.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| 1 | Gauge | Double | Development |
+
 ### sqlserver.transaction.delay
 
 Time consumed in transaction delays.
@@ -897,6 +1333,16 @@ Time consumed in transaction delays.
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | ms | Sum | Double | Cumulative | false | Development |
 
+### sqlserver.transaction.longest_running_time
+
+Age in seconds of the longest currently-open transaction on the server.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| s | Gauge | Double | Development |
+
 ### sqlserver.transaction.mirror_write.rate
 
 Total number of mirror write transactions.
@@ -904,6 +1350,26 @@ Total number of mirror write transactions.
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
 | {transactions}/s | Gauge | Double | Development |
+
+### sqlserver.transaction.version_cleanup.rate
+
+Cumulative bytes cleaned from the tempdb version store.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
+| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
+| By | Sum | Double | Cumulative | true | Development |
+
+### sqlserver.transaction.version_generation.rate
+
+Cumulative bytes of row versions written to the tempdb version store.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
+| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
+| By | Sum | Double | Cumulative | true | Development |
 
 ## Default Events
 
