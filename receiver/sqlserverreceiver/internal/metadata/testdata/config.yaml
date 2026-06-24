@@ -41,6 +41,30 @@ all_set:
     sqlserver.database.page_file.size:
       enabled: true
       attributes: ["db.namespace","page_file.state"]
+    sqlserver.database.principals.count:
+      enabled: true
+      attributes: ["db.namespace","principal.type"]
+    sqlserver.database.principals.old:
+      enabled: true
+      attributes: ["db.namespace"]
+    sqlserver.database.principals.orphaned_users:
+      enabled: true
+      attributes: ["db.namespace"]
+    sqlserver.database.principals.recently_created:
+      enabled: true
+      attributes: ["db.namespace"]
+    sqlserver.database.role.members.count:
+      enabled: true
+      attributes: ["db.namespace","member.kind"]
+    sqlserver.database.role.memberships.count:
+      enabled: true
+      attributes: ["db.namespace","membership.kind"]
+    sqlserver.database.role.permission.risk_level:
+      enabled: true
+      attributes: ["db.namespace","role"]
+    sqlserver.database.role.roles.count:
+      enabled: true
+      attributes: ["db.namespace","role.state"]
     sqlserver.database.security.role_membership.count:
       enabled: true
       attributes: ["db.namespace","role"]
@@ -54,6 +78,32 @@ all_set:
       attributes: ["db.namespace"]
     sqlserver.deadlock.rate:
       enabled: true
+    sqlserver.failover_cluster.ag.cluster_type:
+      enabled: true
+      attributes: ["ag.name","ag.cluster_type"]
+    sqlserver.failover_cluster.ag.failure_condition_level:
+      enabled: true
+      attributes: ["ag.name"]
+    sqlserver.failover_cluster.ag.health_check_timeout:
+      enabled: true
+      attributes: ["ag.name"]
+    sqlserver.failover_cluster.ag.required_sync_secondaries:
+      enabled: true
+      attributes: ["ag.name"]
+    sqlserver.failover_cluster.replica.database.queue_size:
+      enabled: true
+      attributes: ["ag.name","replica.server_name","db.namespace","replica.queue_kind"]
+    sqlserver.failover_cluster.replica.database.redo.rate:
+      enabled: true
+      attributes: ["ag.name","replica.server_name","db.namespace"]
+    sqlserver.failover_cluster.replica.flow_control_time:
+      enabled: true
+    sqlserver.failover_cluster.replica.role:
+      enabled: true
+      attributes: ["ag.name","replica.server_name","replica.role"]
+    sqlserver.failover_cluster.replica.synchronization_health:
+      enabled: true
+      attributes: ["ag.name","replica.server_name","replica.sync_health"]
     sqlserver.index.search.rate:
       enabled: true
     sqlserver.kill_connection.error.rate:
@@ -69,6 +119,12 @@ all_set:
       enabled: true
     sqlserver.latch.wait_time.total:
       enabled: true
+    sqlserver.lock.by_mode.count:
+      enabled: true
+      attributes: ["db.namespace","lock.mode"]
+    sqlserver.lock.by_resource.count:
+      enabled: true
+      attributes: ["db.namespace","lock.resource"]
     sqlserver.lock.timeout.rate:
       enabled: true
     sqlserver.lock.wait.count:
@@ -160,11 +216,40 @@ all_set:
     sqlserver.table.count:
       enabled: true
       attributes: ["table.state","table.status"]
+    sqlserver.tempdb.allocation.wait_time.total:
+      enabled: true
+      attributes: ["allocation.page_type"]
+    sqlserver.tempdb.contention.waiters.count:
+      enabled: true
+    sqlserver.tempdb.data_files.count:
+      enabled: true
+    sqlserver.tempdb.file.size:
+      enabled: true
+      attributes: ["file_type","tempdb.file.id"]
+    sqlserver.tempdb.space.usage:
+      enabled: true
+      attributes: ["tempdb.space_kind"]
+    sqlserver.thread_pool.tasks.count:
+      enabled: true
+      attributes: ["task.state"]
+    sqlserver.thread_pool.workers.count:
+      enabled: true
+      attributes: ["worker.state"]
+    sqlserver.thread_pool.workers.max:
+      enabled: true
+    sqlserver.thread_pool.workers.utilization:
+      enabled: true
     sqlserver.transaction.delay:
+      enabled: true
+    sqlserver.transaction.longest_running_time:
       enabled: true
     sqlserver.transaction.mirror_write.rate:
       enabled: true
     sqlserver.transaction.rate:
+      enabled: true
+    sqlserver.transaction.version_cleanup.rate:
+      enabled: true
+    sqlserver.transaction.version_generation.rate:
       enabled: true
     sqlserver.transaction.write.rate:
       enabled: true
@@ -248,6 +333,30 @@ reaggregate_set:
     sqlserver.database.page_file.size:
       enabled: true
       attributes: []
+    sqlserver.database.principals.count:
+      enabled: true
+      attributes: []
+    sqlserver.database.principals.old:
+      enabled: true
+      attributes: []
+    sqlserver.database.principals.orphaned_users:
+      enabled: true
+      attributes: []
+    sqlserver.database.principals.recently_created:
+      enabled: true
+      attributes: []
+    sqlserver.database.role.members.count:
+      enabled: true
+      attributes: []
+    sqlserver.database.role.memberships.count:
+      enabled: true
+      attributes: []
+    sqlserver.database.role.permission.risk_level:
+      enabled: true
+      attributes: []
+    sqlserver.database.role.roles.count:
+      enabled: true
+      attributes: []
     sqlserver.database.security.role_membership.count:
       enabled: true
       attributes: []
@@ -261,6 +370,32 @@ reaggregate_set:
       attributes: []
     sqlserver.deadlock.rate:
       enabled: true
+    sqlserver.failover_cluster.ag.cluster_type:
+      enabled: true
+      attributes: []
+    sqlserver.failover_cluster.ag.failure_condition_level:
+      enabled: true
+      attributes: []
+    sqlserver.failover_cluster.ag.health_check_timeout:
+      enabled: true
+      attributes: []
+    sqlserver.failover_cluster.ag.required_sync_secondaries:
+      enabled: true
+      attributes: []
+    sqlserver.failover_cluster.replica.database.queue_size:
+      enabled: true
+      attributes: []
+    sqlserver.failover_cluster.replica.database.redo.rate:
+      enabled: true
+      attributes: []
+    sqlserver.failover_cluster.replica.flow_control_time:
+      enabled: true
+    sqlserver.failover_cluster.replica.role:
+      enabled: true
+      attributes: []
+    sqlserver.failover_cluster.replica.synchronization_health:
+      enabled: true
+      attributes: []
     sqlserver.index.search.rate:
       enabled: true
     sqlserver.kill_connection.error.rate:
@@ -276,6 +411,12 @@ reaggregate_set:
       enabled: true
     sqlserver.latch.wait_time.total:
       enabled: true
+    sqlserver.lock.by_mode.count:
+      enabled: true
+      attributes: []
+    sqlserver.lock.by_resource.count:
+      enabled: true
+      attributes: []
     sqlserver.lock.timeout.rate:
       enabled: true
     sqlserver.lock.wait.count:
@@ -367,11 +508,40 @@ reaggregate_set:
     sqlserver.table.count:
       enabled: true
       attributes: []
+    sqlserver.tempdb.allocation.wait_time.total:
+      enabled: true
+      attributes: []
+    sqlserver.tempdb.contention.waiters.count:
+      enabled: true
+    sqlserver.tempdb.data_files.count:
+      enabled: true
+    sqlserver.tempdb.file.size:
+      enabled: true
+      attributes: []
+    sqlserver.tempdb.space.usage:
+      enabled: true
+      attributes: []
+    sqlserver.thread_pool.tasks.count:
+      enabled: true
+      attributes: []
+    sqlserver.thread_pool.workers.count:
+      enabled: true
+      attributes: []
+    sqlserver.thread_pool.workers.max:
+      enabled: true
+    sqlserver.thread_pool.workers.utilization:
+      enabled: true
     sqlserver.transaction.delay:
+      enabled: true
+    sqlserver.transaction.longest_running_time:
       enabled: true
     sqlserver.transaction.mirror_write.rate:
       enabled: true
     sqlserver.transaction.rate:
+      enabled: true
+    sqlserver.transaction.version_cleanup.rate:
+      enabled: true
+    sqlserver.transaction.version_generation.rate:
       enabled: true
     sqlserver.transaction.write.rate:
       enabled: true
@@ -455,6 +625,30 @@ none_set:
     sqlserver.database.page_file.size:
       enabled: false
       attributes: ["db.namespace","page_file.state"]
+    sqlserver.database.principals.count:
+      enabled: false
+      attributes: ["db.namespace","principal.type"]
+    sqlserver.database.principals.old:
+      enabled: false
+      attributes: ["db.namespace"]
+    sqlserver.database.principals.orphaned_users:
+      enabled: false
+      attributes: ["db.namespace"]
+    sqlserver.database.principals.recently_created:
+      enabled: false
+      attributes: ["db.namespace"]
+    sqlserver.database.role.members.count:
+      enabled: false
+      attributes: ["db.namespace","member.kind"]
+    sqlserver.database.role.memberships.count:
+      enabled: false
+      attributes: ["db.namespace","membership.kind"]
+    sqlserver.database.role.permission.risk_level:
+      enabled: false
+      attributes: ["db.namespace","role"]
+    sqlserver.database.role.roles.count:
+      enabled: false
+      attributes: ["db.namespace","role.state"]
     sqlserver.database.security.role_membership.count:
       enabled: false
       attributes: ["db.namespace","role"]
@@ -468,6 +662,32 @@ none_set:
       attributes: ["db.namespace"]
     sqlserver.deadlock.rate:
       enabled: false
+    sqlserver.failover_cluster.ag.cluster_type:
+      enabled: false
+      attributes: ["ag.name","ag.cluster_type"]
+    sqlserver.failover_cluster.ag.failure_condition_level:
+      enabled: false
+      attributes: ["ag.name"]
+    sqlserver.failover_cluster.ag.health_check_timeout:
+      enabled: false
+      attributes: ["ag.name"]
+    sqlserver.failover_cluster.ag.required_sync_secondaries:
+      enabled: false
+      attributes: ["ag.name"]
+    sqlserver.failover_cluster.replica.database.queue_size:
+      enabled: false
+      attributes: ["ag.name","replica.server_name","db.namespace","replica.queue_kind"]
+    sqlserver.failover_cluster.replica.database.redo.rate:
+      enabled: false
+      attributes: ["ag.name","replica.server_name","db.namespace"]
+    sqlserver.failover_cluster.replica.flow_control_time:
+      enabled: false
+    sqlserver.failover_cluster.replica.role:
+      enabled: false
+      attributes: ["ag.name","replica.server_name","replica.role"]
+    sqlserver.failover_cluster.replica.synchronization_health:
+      enabled: false
+      attributes: ["ag.name","replica.server_name","replica.sync_health"]
     sqlserver.index.search.rate:
       enabled: false
     sqlserver.kill_connection.error.rate:
@@ -483,6 +703,12 @@ none_set:
       enabled: false
     sqlserver.latch.wait_time.total:
       enabled: false
+    sqlserver.lock.by_mode.count:
+      enabled: false
+      attributes: ["db.namespace","lock.mode"]
+    sqlserver.lock.by_resource.count:
+      enabled: false
+      attributes: ["db.namespace","lock.resource"]
     sqlserver.lock.timeout.rate:
       enabled: false
     sqlserver.lock.wait.count:
@@ -574,11 +800,40 @@ none_set:
     sqlserver.table.count:
       enabled: false
       attributes: ["table.state","table.status"]
+    sqlserver.tempdb.allocation.wait_time.total:
+      enabled: false
+      attributes: ["allocation.page_type"]
+    sqlserver.tempdb.contention.waiters.count:
+      enabled: false
+    sqlserver.tempdb.data_files.count:
+      enabled: false
+    sqlserver.tempdb.file.size:
+      enabled: false
+      attributes: ["file_type","tempdb.file.id"]
+    sqlserver.tempdb.space.usage:
+      enabled: false
+      attributes: ["tempdb.space_kind"]
+    sqlserver.thread_pool.tasks.count:
+      enabled: false
+      attributes: ["task.state"]
+    sqlserver.thread_pool.workers.count:
+      enabled: false
+      attributes: ["worker.state"]
+    sqlserver.thread_pool.workers.max:
+      enabled: false
+    sqlserver.thread_pool.workers.utilization:
+      enabled: false
     sqlserver.transaction.delay:
+      enabled: false
+    sqlserver.transaction.longest_running_time:
       enabled: false
     sqlserver.transaction.mirror_write.rate:
       enabled: false
     sqlserver.transaction.rate:
+      enabled: false
+    sqlserver.transaction.version_cleanup.rate:
+      enabled: false
+    sqlserver.transaction.version_generation.rate:
       enabled: false
     sqlserver.transaction.write.rate:
       enabled: false
