@@ -42,7 +42,8 @@ func NewFactory() receiver.Factory {
 		metadata.Type,
 		createDefaultConfig,
 		receiver.WithMetrics(createMetricsReceiver, metadata.MetricsStability),
-		receiver.WithLogs(createLogsReceiver, metadata.LogsStability))
+		receiver.WithLogs(createLogsReceiver, metadata.LogsStability),
+	)
 }
 
 func createDefaultConfig() component.Config {
@@ -82,7 +83,156 @@ func setupQueries(cfg *Config) []string {
 		queries = append(queries, getSQLServerWaitStatsQuery(cfg.InstanceName))
 	}
 
+	if cfg.Metrics.SqlserverMemoryTarget.Enabled {
+		queries = append(queries, getSQLServerMemoryTargetQuery(cfg.InstanceName))
+	}
+
+	if cfg.Metrics.SqlserverDatabaseFileSize.Enabled {
+		queries = append(queries, getSQLServerDatabaseSizeQuery(cfg.InstanceName))
+	}
+
+	if cfg.Metrics.SqlserverServerSecurityPrincipalCount.Enabled {
+		queries = append(queries, getSQLServerSecurityPrincipalsQuery(cfg.InstanceName))
+	}
+
+	if cfg.Metrics.SqlserverServerSecurityRoleMembershipCount.Enabled {
+		queries = append(queries, getSQLServerSecurityRoleMembersQuery(cfg.InstanceName))
+	}
+
+	if cfg.Metrics.SqlserverDatabaseSecurityRoleMembershipCount.Enabled {
+		queries = append(queries, getSQLServerDatabaseSecurityRoleMembersQuery(cfg.InstanceName))
+	}
+
+	if cfg.Metrics.SqlserverOsMemoryUsage.Enabled || cfg.Metrics.SqlserverOsMemoryUtilization.Enabled {
+		queries = append(queries, getSQLServerOSMemoryQuery(cfg.InstanceName))
+	}
+
+	if cfg.Metrics.SqlserverOsDiskSize.Enabled {
+		queries = append(queries, getSQLServerOSDiskQuery(cfg.InstanceName))
+	}
+
+	if cfg.Metrics.SqlserverOsSchedulerRunnableTasksCount.Enabled {
+		queries = append(queries, getSQLServerOSSchedulerRunnableTasksQuery(cfg.InstanceName))
+	}
+
+	if cfg.Metrics.SqlserverProcessCount.Enabled {
+		queries = append(queries, getSQLServerProcessCountQuery(cfg.InstanceName))
+	}
+
+	if cfg.Metrics.SqlserverDatabasePageFileSize.Enabled {
+		queries = append(queries, getSQLServerDatabasePageFileQuery(cfg.InstanceName))
+	}
+
+	if cfg.Metrics.SqlserverLockByModeCount.Enabled || cfg.Metrics.SqlserverLockByResourceCount.Enabled {
+		queries = append(queries, getSQLServerLockQuery(cfg.InstanceName))
+	}
+
+	if isThreadPoolQueryEnabled(&cfg.Metrics) {
+		queries = append(queries, getSQLServerThreadPoolQuery(cfg.InstanceName))
+	}
+
+	if isTempDBQueryEnabled(&cfg.Metrics) {
+		queries = append(queries, getSQLServerTempDBQuery(cfg.InstanceName))
+	}
+
+	if cfg.Metrics.SqlserverTempdbFileSize.Enabled {
+		queries = append(queries, getSQLServerTempDBFileQuery(cfg.InstanceName))
+	}
+
+	if isFailoverClusterAGQueryEnabled(&cfg.Metrics) {
+		queries = append(queries, getSQLServerFailoverClusterAGQuery(cfg.InstanceName))
+	}
+
+	if isFailoverClusterReplicaQueryEnabled(&cfg.Metrics) {
+		queries = append(queries, getSQLServerFailoverClusterReplicaQuery(cfg.InstanceName))
+	}
+
+	if isFailoverClusterReplicaDatabaseQueryEnabled(&cfg.Metrics) {
+		queries = append(queries, getSQLServerFailoverClusterReplicaDatabaseQuery(cfg.InstanceName))
+	}
+
+	if isDatabasePrincipalsQueryEnabled(&cfg.Metrics) {
+		queries = append(queries, getSQLServerDatabasePrincipalsQuery(cfg.InstanceName))
+	}
+
+	if isDatabaseRoleMembershipQueryEnabled(&cfg.Metrics) {
+		queries = append(queries, getSQLServerDatabaseRoleMembershipQuery(cfg.InstanceName))
+	}
+
+	if cfg.Metrics.SqlserverDatabaseRolePermissionRiskLevel.Enabled {
+		queries = append(queries, getSQLServerDatabaseRoleRiskLevelQuery(cfg.InstanceName))
+	}
+
+	if cfg.Metrics.SqlserverTransactionLongestRunningTime.Enabled {
+		queries = append(queries, getSQLServerLongestRunningTransactionQuery(cfg.InstanceName))
+	}
+
 	return queries
+}
+
+func isDatabasePrincipalsQueryEnabled(metrics *metadata.MetricsConfig) bool {
+	if metrics == nil {
+		return false
+	}
+	return metrics.SqlserverDatabasePrincipalsCount.Enabled ||
+		metrics.SqlserverDatabasePrincipalsOld.Enabled ||
+		metrics.SqlserverDatabasePrincipalsOrphanedUsers.Enabled ||
+		metrics.SqlserverDatabasePrincipalsRecentlyCreated.Enabled
+}
+
+func isDatabaseRoleMembershipQueryEnabled(metrics *metadata.MetricsConfig) bool {
+	if metrics == nil {
+		return false
+	}
+	return metrics.SqlserverDatabaseRoleMembersCount.Enabled ||
+		metrics.SqlserverDatabaseRoleMembershipsCount.Enabled ||
+		metrics.SqlserverDatabaseRoleRolesCount.Enabled
+}
+
+func isFailoverClusterAGQueryEnabled(metrics *metadata.MetricsConfig) bool {
+	if metrics == nil {
+		return false
+	}
+	return metrics.SqlserverFailoverClusterAgClusterType.Enabled ||
+		metrics.SqlserverFailoverClusterAgFailureConditionLevel.Enabled ||
+		metrics.SqlserverFailoverClusterAgHealthCheckTimeout.Enabled ||
+		metrics.SqlserverFailoverClusterAgRequiredSyncSecondaries.Enabled
+}
+
+func isFailoverClusterReplicaQueryEnabled(metrics *metadata.MetricsConfig) bool {
+	if metrics == nil {
+		return false
+	}
+	return metrics.SqlserverFailoverClusterReplicaRole.Enabled ||
+		metrics.SqlserverFailoverClusterReplicaSynchronizationHealth.Enabled
+}
+
+func isFailoverClusterReplicaDatabaseQueryEnabled(metrics *metadata.MetricsConfig) bool {
+	if metrics == nil {
+		return false
+	}
+	return metrics.SqlserverFailoverClusterReplicaDatabaseQueueSize.Enabled ||
+		metrics.SqlserverFailoverClusterReplicaDatabaseRedoRate.Enabled
+}
+
+func isThreadPoolQueryEnabled(metrics *metadata.MetricsConfig) bool {
+	if metrics == nil {
+		return false
+	}
+	return metrics.SqlserverThreadPoolWorkersCount.Enabled ||
+		metrics.SqlserverThreadPoolWorkersMax.Enabled ||
+		metrics.SqlserverThreadPoolWorkersUtilization.Enabled ||
+		metrics.SqlserverThreadPoolTasksCount.Enabled
+}
+
+func isTempDBQueryEnabled(metrics *metadata.MetricsConfig) bool {
+	if metrics == nil {
+		return false
+	}
+	return metrics.SqlserverTempdbAllocationWaitTimeTotal.Enabled ||
+		metrics.SqlserverTempdbContentionWaitersCount.Enabled ||
+		metrics.SqlserverTempdbDataFilesCount.Enabled ||
+		metrics.SqlserverTempdbSpaceUsage.Enabled
 }
 
 func setupLogQueries(cfg *Config) []string {
@@ -237,7 +387,8 @@ func setupLogsScrapers(params receiver.Settings, cfg *Config) ([]scraperhelper.C
 			scraper.NewFactory(metadata.Type, nil,
 				scraper.WithLogs(func(context.Context, scraper.Settings, component.Config) (scraper.Logs, error) {
 					return s, nil
-				}, component.StabilityLevelAlpha)), nil)
+				}, component.StabilityLevelAlpha)), nil,
+		)
 		opts = append(opts, opt)
 	}
 
@@ -259,12 +410,16 @@ func isPerfCounterQueryEnabled(metrics *metadata.MetricsConfig) bool {
 		return false
 	}
 
-	return metrics.SqlserverBatchRequestRate.Enabled ||
+	return metrics.SqlserverBatchCompilationUtilization.Enabled ||
+		metrics.SqlserverBatchPageSplitUtilization.Enabled ||
+		metrics.SqlserverBatchRequestRate.Enabled ||
 		metrics.SqlserverBatchSQLCompilationRate.Enabled ||
 		metrics.SqlserverBatchSQLRecompilationRate.Enabled ||
 		metrics.SqlserverDatabaseBackupOrRestoreRate.Enabled ||
 		metrics.SqlserverDatabaseExecutionErrors.Enabled ||
 		metrics.SqlserverDatabaseFullScanRate.Enabled ||
+		metrics.SqlserverDatabaseTransactionsActive.Enabled ||
+		metrics.SqlserverKillConnectionErrorRate.Enabled ||
 		metrics.SqlserverDatabaseTempdbSpace.Enabled ||
 		metrics.SqlserverDatabaseTempdbVersionStoreSize.Enabled ||
 		metrics.SqlserverDeadlockRate.Enabled ||
@@ -288,6 +443,9 @@ func isPerfCounterQueryEnabled(metrics *metadata.MetricsConfig) bool {
 		metrics.SqlserverPageBufferCacheHitRatio.Enabled ||
 		metrics.SqlserverPageLookupRate.Enabled ||
 		metrics.SqlserverProcessesBlocked.Enabled ||
+		metrics.SqlserverFailoverClusterReplicaFlowControlTime.Enabled ||
+		metrics.SqlserverTransactionVersionCleanupRate.Enabled ||
+		metrics.SqlserverTransactionVersionGenerationRate.Enabled ||
 		metrics.SqlserverReplicaDataRate.Enabled ||
 		metrics.SqlserverResourcePoolDiskThrottledReadRate.Enabled ||
 		metrics.SqlserverResourcePoolDiskOperations.Enabled ||
@@ -307,5 +465,6 @@ func isWaitStatsQueryEnabled(metrics *metadata.MetricsConfig) bool {
 		return false
 	}
 
-	return metrics.SqlserverOsWaitDuration.Enabled
+	return metrics.SqlserverOsWaitDuration.Enabled ||
+		metrics.SqlserverOsWaitTasksCount.Enabled
 }

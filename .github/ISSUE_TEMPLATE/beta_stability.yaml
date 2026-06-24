@@ -152,6 +152,8 @@ body:
       - internal/kafka
       - internal/kubelet
       - internal/metadataproviders
+      - internal/nrcommon
+      - internal/nrsqlquery
       - internal/otelarrow
       - internal/pdatautil
       - internal/rabbitmq
@@ -319,6 +321,8 @@ body:
       - receiver/namedpipe
       - receiver/netflow
       - receiver/nginx
+      - receiver/nroracledb
+      - receiver/nrsqlserver
       - receiver/nsxt
       - receiver/ntp
       - receiver/oracledb
