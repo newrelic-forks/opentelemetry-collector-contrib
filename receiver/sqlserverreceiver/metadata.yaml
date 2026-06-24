@@ -1032,7 +1032,7 @@ metrics:
       monotonic: true
       aggregation_temporality: cumulative
       value_type: int
-    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server. Reports lock waits from user queries only (default workload group). SQL Server internal background activity is excluded.
   sqlserver.lock.wait.rate:
     enabled: true
     description: Number of lock requests resulting in a wait.
@@ -1121,6 +1121,7 @@ metrics:
       monotonic: false
       value_type: double
     attributes: []
+    extended_documentation: Reports memory used by user workloads only (default resource pool). SQL Server internal background activity is excluded.
   sqlserver.os.disk.size:
     enabled: false
     description: Total disk space across volumes hosting SQL Server database files.

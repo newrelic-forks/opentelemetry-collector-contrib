@@ -859,7 +859,7 @@ Total number of lock timeouts.
 
 Cumulative count of lock waits that occurred.
 
-This metric is only available when the receiver is configured to directly connect to SQL Server.
+This metric is only available when the receiver is configured to directly connect to SQL Server. Reports lock waits from user queries only (default workload group). SQL Server internal background activity is excluded.
 
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
@@ -950,6 +950,8 @@ This metric is only available when the receiver is configured to directly connec
 ### sqlserver.memory.usage
 
 Total memory in use.
+
+Reports memory used by user workloads only (default resource pool). SQL Server internal background activity is excluded.
 
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |

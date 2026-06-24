@@ -512,7 +512,7 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 	const totalServerMemory = "Total Server Memory (KB)"
 	const cachePages = "Cache Pages"
 	const totalPages = "Total Pages"
-	const targetPages = "Target Pages"
+	const targetPages = "Target pages"
 	const databasePages = "Database pages"
 	const stolenPages = "Stolen Pages"
 	const reservedPages = "Reserved Pages"
@@ -915,6 +915,9 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 				s.mb.RecordSqlserverUserConnectionCountDataPoint(now, val.(int64))
 			}
 		case usedMemory:
+			if row["instance"] != "default" {
+				break
+			}
 			val, err := retrieveFloat(row, valueKey)
 			if err != nil {
 				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, usedMemory)
