@@ -859,11 +859,17 @@ Total number of lock timeouts.
 
 Cumulative count of lock waits that occurred.
 
-This metric is only available when the receiver is configured to directly connect to SQL Server. Reports lock waits from user queries only (default workload group). SQL Server internal background activity is excluded.
+This metric is only available when the receiver is configured to directly connect to SQL Server.
 
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {wait} | Sum | Int | Cumulative | true | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| workload_group.name | The name of the SQL Server Resource Governor workload group. | Str: ``default``, ``internal`` | Recommended | - |
 
 ### sqlserver.login.rate
 
@@ -951,11 +957,17 @@ This metric is only available when the receiver is configured to directly connec
 
 Total memory in use.
 
-Reports memory used by user workloads only (default resource pool). SQL Server internal background activity is excluded.
+This metric is only available when the receiver is configured to directly connect to SQL Server.
 
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | KB | Sum | Double | Cumulative | false | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| workload_group.name | The name of the SQL Server Resource Governor workload group. | Str: ``default``, ``internal`` | Recommended | - |
 
 ### sqlserver.os.disk.size
 

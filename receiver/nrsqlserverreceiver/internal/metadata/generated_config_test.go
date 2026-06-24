@@ -231,7 +231,9 @@ func TestMetricsBuilderConfig(t *testing.T) {
 						Enabled: true,
 					},
 					SqlserverLockWaitCount: SqlserverLockWaitCountMetricConfig{
-						Enabled: true,
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []SqlserverLockWaitCountMetricAttributeKey{SqlserverLockWaitCountMetricAttributeKeyWorkloadGroupName},
 					},
 					SqlserverLockWaitRate: SqlserverLockWaitRateMetricConfig{
 						Enabled: true,
@@ -267,7 +269,9 @@ func TestMetricsBuilderConfig(t *testing.T) {
 						Enabled: true,
 					},
 					SqlserverMemoryUsage: SqlserverMemoryUsageMetricConfig{
-						Enabled: true,
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []SqlserverMemoryUsageMetricAttributeKey{SqlserverMemoryUsageMetricAttributeKeyWorkloadGroupName},
 					},
 					SqlserverOsDiskSize: SqlserverOsDiskSizeMetricConfig{
 						Enabled: true,
@@ -672,7 +676,9 @@ func TestMetricsBuilderConfig(t *testing.T) {
 						Enabled: false,
 					},
 					SqlserverLockWaitCount: SqlserverLockWaitCountMetricConfig{
-						Enabled: false,
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []SqlserverLockWaitCountMetricAttributeKey{SqlserverLockWaitCountMetricAttributeKeyWorkloadGroupName},
 					},
 					SqlserverLockWaitRate: SqlserverLockWaitRateMetricConfig{
 						Enabled: false,
@@ -708,7 +714,9 @@ func TestMetricsBuilderConfig(t *testing.T) {
 						Enabled: false,
 					},
 					SqlserverMemoryUsage: SqlserverMemoryUsageMetricConfig{
-						Enabled: false,
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []SqlserverMemoryUsageMetricAttributeKey{SqlserverMemoryUsageMetricAttributeKeyWorkloadGroupName},
 					},
 					SqlserverOsDiskSize: SqlserverOsDiskSizeMetricConfig{
 						Enabled: false,
@@ -1251,6 +1259,18 @@ func TestSqlserverLockByResourceCountMetricsConfig_Validate(t *testing.T) {
 	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
 }
 
+func TestSqlserverLockWaitCountMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().SqlserverLockWaitCount
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []SqlserverLockWaitCountMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric sqlserver.lock.wait.count doesn't have an attribute invalid, valid attributes: [workload_group.name]")
+
+	cfg = DefaultMetricsConfig().SqlserverLockWaitCount
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
 func TestSqlserverMemoryAreaMetricsConfig_Validate(t *testing.T) {
 	cfg := DefaultMetricsConfig().SqlserverMemoryArea
 	require.NoError(t, cfg.Validate())
@@ -1283,6 +1303,18 @@ func TestSqlserverMemoryPageCountMetricsConfig_Validate(t *testing.T) {
 	require.ErrorContains(t, cfg.Validate(), "metric sqlserver.memory.page.count doesn't have an attribute invalid, valid attributes: [page.pool]")
 
 	cfg = DefaultMetricsConfig().SqlserverMemoryPageCount
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
+func TestSqlserverMemoryUsageMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().SqlserverMemoryUsage
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []SqlserverMemoryUsageMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric sqlserver.memory.usage doesn't have an attribute invalid, valid attributes: [workload_group.name]")
+
+	cfg = DefaultMetricsConfig().SqlserverMemoryUsage
 	cfg.AggregationStrategy = "invalid"
 	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
 }

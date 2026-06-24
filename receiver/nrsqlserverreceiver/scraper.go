@@ -725,7 +725,8 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, lockWaitCount)
 				errs = append(errs, err)
 			} else {
-				s.mb.RecordSqlserverLockWaitCountDataPoint(now, val.(int64))
+				wgAttr := metadata.MapAttributeWorkloadGroupName[row[instanceKey]]
+				s.mb.RecordSqlserverLockWaitCountDataPoint(now, val.(int64), wgAttr)
 			}
 		case lockWaits:
 			val, err := retrieveFloat(row, valueKey)
@@ -914,15 +915,13 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 				s.mb.RecordSqlserverUserConnectionCountDataPoint(now, val.(int64))
 			}
 		case usedMemory:
-			if row["instance"] != "default" {
-				break
-			}
 			val, err := retrieveFloat(row, valueKey)
 			if err != nil {
 				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, usedMemory)
 				errs = append(errs, err)
 			} else {
-				s.mb.RecordSqlserverMemoryUsageDataPoint(now, val.(float64))
+				wgAttr := metadata.MapAttributeWorkloadGroupName[row[instanceKey]]
+				s.mb.RecordSqlserverMemoryUsageDataPoint(now, val.(float64), wgAttr)
 			}
 		case versionStoreSize:
 			val, err := retrieveFloat(row, valueKey)

@@ -87,7 +87,7 @@ SELECT DISTINCT
 			,'Database Pages'
 			,'Cache Pages'
 			,'Total Pages'
-			,'Target Pages'
+			,'Target pages'
 			,'Stolen Pages'
 			,'Reserved Pages'
 			,'Free Pages'

@@ -278,7 +278,6 @@ FROM
 	FROM sys.[dm_resource_governor_workload_groups] AS rgwg
 	INNER JOIN sys.[dm_resource_governor_resource_pools] AS rgrp
 		ON rgwg.[pool_id] = rgrp.[pool_id]
-	WHERE rgwg.name = ''default''
 ) AS rg
 UNPIVOT (
     value FOR counter IN ( [Request Count], [Queued Request Count], [CPU Limit Violation Count], [CPU Usage Time], [Lock Wait Count], [Lock Wait Time], [Reduced Memory Grant Count] ' + @PivotColumns + N')
