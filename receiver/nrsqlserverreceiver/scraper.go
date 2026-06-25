@@ -2049,7 +2049,14 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 			rawFullText := row[fullQueryText]
 			stmtStartOff, _ := strconv.Atoi(row[statementStartOffset])
 			stmtEndOff, _ := strconv.Atoi(row[statementEndOffset])
-			dbSQLCommentsVal = sqlcomments.ExtractAndFilterComments(rawFullText, s.config.AllowedCommentKeys)
+			commentText := rawFullText
+			if stmtStartOff > 0 {
+				startPos := utf16OffsetToBytePos(rawFullText, stmtStartOff)
+				if startPos < len(rawFullText) {
+					commentText = stripParameterDeclarations(rawFullText[:startPos])
+				}
+			}
+			dbSQLCommentsVal = sqlcomments.ExtractAndFilterComments(commentText, s.config.AllowedCommentKeys)
 			nrServiceGUIDVal = sqlcomments.ExtractValueForKey(dbSQLCommentsVal, "nr_service_guid")
 			obfuscated, err := s.obfuscator.obfuscateFullSQLString(rawFullText, stmtStartOff, stmtEndOff)
 			if err != nil {
@@ -2410,7 +2417,14 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 			rawFullText := row[fullQueryTextCol]
 			stmtStartOff, _ := strconv.Atoi(row[stmtStartOffsetCol])
 			stmtEndOff, _ := strconv.Atoi(row[stmtEndOffsetCol])
-			dbSQLCommentsVal = sqlcomments.ExtractAndFilterComments(rawFullText, s.config.AllowedCommentKeys)
+			commentText := rawFullText
+			if stmtStartOff > 0 {
+				startPos := utf16OffsetToBytePos(rawFullText, stmtStartOff)
+				if startPos < len(rawFullText) {
+					commentText = stripParameterDeclarations(rawFullText[:startPos])
+				}
+			}
+			dbSQLCommentsVal = sqlcomments.ExtractAndFilterComments(commentText, s.config.AllowedCommentKeys)
 			nrServiceGUIDVal = sqlcomments.ExtractValueForKey(dbSQLCommentsVal, "nr_service_guid")
 			obfuscated, err := s.obfuscator.obfuscateFullSQLString(rawFullText, stmtStartOff, stmtEndOff)
 			if err != nil {
