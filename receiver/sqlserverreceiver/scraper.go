@@ -2395,6 +2395,9 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 
 	for _, row := range rows {
 		queryHashVal := hex.EncodeToString([]byte(row[queryHash]))
+		if queryHashVal == "0000000000000000" {
+			continue
+		}
 		queryPlanHashVal := hex.EncodeToString([]byte(row[queryPlanHash]))
 
 		clientPortVal := s.retrieveValue(row, clientPort, &errs, retrieveInt).(int64)
