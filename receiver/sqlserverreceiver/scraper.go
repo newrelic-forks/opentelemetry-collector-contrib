@@ -1332,8 +1332,14 @@ func (s *sqlServerScraperHelper) recordOSDiskMetrics(ctx context.Context) error 
 	var errs []error
 	now := pcommon.NewTimestampFromTime(time.Now())
 	for _, row := range rows {
+		v := row[totalDiskBytes]
+		if v == "" {
+			// dm_os_volume_stats can return NULL total_bytes on FCI / cluster nodes
+			// for volumes the local node cannot enumerate. Skip rather than emit a fake 0.
+			continue
+		}
 		rb := s.setupResourceBuilder(s.mb.NewResourceBuilder(), row)
-		errs = append(errs, s.mb.RecordSqlserverOsDiskSizeDataPoint(now, row[totalDiskBytes]))
+		errs = append(errs, s.mb.RecordSqlserverOsDiskSizeDataPoint(now, v))
 		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
 	}
 
