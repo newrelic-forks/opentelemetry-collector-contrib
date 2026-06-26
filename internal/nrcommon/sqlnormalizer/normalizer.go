@@ -67,7 +67,6 @@ func (s *sqlNormalizerState) advanceBy2() {
 }
 
 // isIdentifierChar checks if a character is valid in an identifier.
-// Matches Java: Character.isLetterOrDigit(c) || c == '_'
 func isIdentifierChar(c byte) bool {
 	return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
 }
