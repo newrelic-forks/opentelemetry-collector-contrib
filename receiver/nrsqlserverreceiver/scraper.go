@@ -2049,23 +2049,25 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 		var fullQueryTextVal, dbSQLCommentsVal, nrServiceGUIDVal, dbQueryTextNormalizedHashVal string
 		if s.config.CollectFullQueryText {
 			rawFullText := row[fullQueryText]
-			stmtStartOff, _ := strconv.Atoi(row[statementStartOffset])
-			stmtEndOff, _ := strconv.Atoi(row[statementEndOffset])
-			commentText := rawFullText
-			if stmtStartOff > 0 {
-				startPos := utf16OffsetToBytePos(rawFullText, stmtStartOff)
-				if startPos < len(rawFullText) {
-					commentText = stripParameterDeclarations(rawFullText[:startPos])
+			if rawFullText != "" {
+				stmtStartOff, _ := strconv.Atoi(row[statementStartOffset])
+				stmtEndOff, _ := strconv.Atoi(row[statementEndOffset])
+				commentText := rawFullText
+				if stmtStartOff > 0 {
+					startPos := utf16OffsetToBytePos(rawFullText, stmtStartOff)
+					if startPos < len(rawFullText) {
+						commentText = stripParameterDeclarations(rawFullText[:startPos])
+					}
 				}
-			}
-			dbSQLCommentsVal = sqlcomments.ExtractAndFilterComments(commentText, s.config.AllowedCommentKeys)
-			nrServiceGUIDVal = sqlcomments.ExtractValueForKey(dbSQLCommentsVal, "nr_service_guid")
-			obfuscated, err := s.obfuscator.obfuscateFullSQLString(rawFullText, stmtStartOff, stmtEndOff)
-			if err != nil {
-				s.logger.Error(fmt.Sprintf("failed to obfuscate full SQL text: %v", err))
-			} else {
-				fullQueryTextVal = obfuscated
-				_, dbQueryTextNormalizedHashVal = sqlnormalizer.NormalizeSQLAndHash(obfuscated)
+				dbSQLCommentsVal = sqlcomments.ExtractAndFilterComments(commentText, s.config.AllowedCommentKeys)
+				nrServiceGUIDVal = sqlcomments.ExtractValueForKey(dbSQLCommentsVal, "nr_service_guid")
+				obfuscated, err := s.obfuscator.obfuscateFullSQLString(rawFullText, stmtStartOff, stmtEndOff)
+				if err != nil {
+					s.logger.Error(fmt.Sprintf("failed to obfuscate full SQL text: %v", err))
+				} else {
+					fullQueryTextVal = obfuscated
+					_, dbQueryTextNormalizedHashVal = sqlnormalizer.NormalizeSQLAndHash(obfuscated)
+				}
 			}
 		}
 
@@ -2400,6 +2402,9 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 
 	for _, row := range rows {
 		queryHashVal := hex.EncodeToString([]byte(row[queryHash]))
+		if queryHashVal == "0000000000000000" {
+			continue
+		}
 		queryPlanHashVal := hex.EncodeToString([]byte(row[queryPlanHash]))
 
 		clientPortVal := s.retrieveValue(row, clientPort, &errs, retrieveInt).(int64)
@@ -2417,23 +2422,25 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 		var fullQueryTextVal, dbSQLCommentsVal, nrServiceGUIDVal, dbQueryTextNormalizedHashVal string
 		if s.config.CollectFullQueryText {
 			rawFullText := row[fullQueryTextCol]
-			stmtStartOff, _ := strconv.Atoi(row[stmtStartOffsetCol])
-			stmtEndOff, _ := strconv.Atoi(row[stmtEndOffsetCol])
-			commentText := rawFullText
-			if stmtStartOff > 0 {
-				startPos := utf16OffsetToBytePos(rawFullText, stmtStartOff)
-				if startPos < len(rawFullText) {
-					commentText = stripParameterDeclarations(rawFullText[:startPos])
+			if rawFullText != "" {
+				stmtStartOff, _ := strconv.Atoi(row[stmtStartOffsetCol])
+				stmtEndOff, _ := strconv.Atoi(row[stmtEndOffsetCol])
+				commentText := rawFullText
+				if stmtStartOff > 0 {
+					startPos := utf16OffsetToBytePos(rawFullText, stmtStartOff)
+					if startPos < len(rawFullText) {
+						commentText = stripParameterDeclarations(rawFullText[:startPos])
+					}
 				}
-			}
-			dbSQLCommentsVal = sqlcomments.ExtractAndFilterComments(commentText, s.config.AllowedCommentKeys)
-			nrServiceGUIDVal = sqlcomments.ExtractValueForKey(dbSQLCommentsVal, "nr_service_guid")
-			obfuscated, err := s.obfuscator.obfuscateFullSQLString(rawFullText, stmtStartOff, stmtEndOff)
-			if err != nil {
-				s.logger.Error(fmt.Sprintf("failed to obfuscate full SQL text: %v", err))
-			} else {
-				fullQueryTextVal = obfuscated
-				_, dbQueryTextNormalizedHashVal = sqlnormalizer.NormalizeSQLAndHash(obfuscated)
+				dbSQLCommentsVal = sqlcomments.ExtractAndFilterComments(commentText, s.config.AllowedCommentKeys)
+				nrServiceGUIDVal = sqlcomments.ExtractValueForKey(dbSQLCommentsVal, "nr_service_guid")
+				obfuscated, err := s.obfuscator.obfuscateFullSQLString(rawFullText, stmtStartOff, stmtEndOff)
+				if err != nil {
+					s.logger.Error(fmt.Sprintf("failed to obfuscate full SQL text: %v", err))
+				} else {
+					fullQueryTextVal = obfuscated
+					_, dbQueryTextNormalizedHashVal = sqlnormalizer.NormalizeSQLAndHash(obfuscated)
+				}
 			}
 		}
 
