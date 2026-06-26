@@ -350,21 +350,22 @@ func setupSQLServerLogsScrapers(params receiver.Settings, cfg *Config) []*sqlSer
 // connection. Messages will be logged at the INFO level in such cases.
 func setupScrapers(params receiver.Settings, cfg *Config) ([]scraperhelper.ControllerOption, error) {
 	sqlServerScrapers := setupSQLServerScrapers(params, cfg)
-
-	var opts []scraperhelper.ControllerOption
-	for _, sqlScraper := range sqlServerScrapers {
-		s, err := scraper.NewMetrics(sqlScraper.ScrapeMetrics,
-			scraper.WithStart(sqlScraper.Start),
-			scraper.WithShutdown(sqlScraper.Shutdown))
-		if err != nil {
-			return nil, err
-		}
-
-		opt := scraperhelper.AddMetricsScraper(metadata.Type, s)
-		opts = append(opts, opt)
+	if len(sqlServerScrapers) == 0 {
+		return nil, nil
 	}
 
-	return opts, nil
+	// Wrap all per-query scrapers behind a single dispatcher that runs them
+	// concurrently with a configurable cap. The collector controller still
+	// sees one scraper.Metrics per receiver instance.
+	dispatcher := newConcurrentMetricsScraper(sqlServerScrapers, cfg.EffectiveMaxConcurrentQueries(), params.Logger)
+	s, err := scraper.NewMetrics(dispatcher.ScrapeMetrics,
+		scraper.WithStart(dispatcher.Start),
+		scraper.WithShutdown(dispatcher.Shutdown))
+	if err != nil {
+		return nil, err
+	}
+
+	return []scraperhelper.ControllerOption{scraperhelper.AddMetricsScraper(metadata.Type, s)}, nil
 }
 
 // Note: This method will fail silently if there is no work to do. This is an acceptable use case
