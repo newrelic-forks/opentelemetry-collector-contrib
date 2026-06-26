@@ -15,7 +15,6 @@ package sqlnormalizer // import "github.com/newrelic-forks/opentelemetry-collect
 import (
 	"crypto/md5" // #nosec G501 -- MD5 required for hash compatibility with the New Relic Java APM agent, not for security.
 	"encoding/hex"
-	"fmt"
 	"strings"
 )
 
@@ -274,10 +273,6 @@ func NormalizeSQL(sql string) string {
 		return ""
 	}
 
-	// Log original SQL
-	originalSQL := sql
-	fmt.Printf("[SQL Normalizer] BEFORE normalization:\n%s\n", originalSQL)
-
 	// Phase 1: Convert to uppercase (matches Java: sql.toUpperCase(Locale.ROOT))
 	sql = strings.ToUpper(sql)
 
@@ -285,12 +280,7 @@ func NormalizeSQL(sql string) string {
 	sql = normalizeParametersAndLiterals(sql)
 
 	// Phase 3: Remove comments and strip all whitespace (stripWhitespace=true)
-	normalizedSQL := removeCommentsAndNormalizeWhitespace(sql)
-
-	// Log normalized SQL
-	fmt.Printf("[SQL Normalizer] AFTER normalization:\n%s\n\n", normalizedSQL)
-
-	return normalizedSQL
+	return removeCommentsAndNormalizeWhitespace(sql)
 }
 
 // isPrecededByIn checks if the result is preceded by "IN".
@@ -601,10 +591,12 @@ func GenerateMD5Hash(normalizedSQL string) string {
 //	// hash: "e78f13a21009ebcb6fdef9e996a24c9d"
 func NormalizeSQLAndHash(sql string) (normalizedSQL, md5Hash string) {
 	normalizedSQL = NormalizeSQL(sql)
+	// Matches Java SqlHashUtil.normalizeAndHash: empty input (or input that
+	// normalizes to empty) yields an empty hash rather than the MD5 of "".
+	if normalizedSQL == "" {
+		return "", ""
+	}
 	md5Hash = GenerateMD5Hash(normalizedSQL)
-
-	// Log the generated hash
-	fmt.Printf("[SQL Normalizer] Generated MD5 hash: %s\n\n", md5Hash)
 
 	return normalizedSQL, md5Hash
 }

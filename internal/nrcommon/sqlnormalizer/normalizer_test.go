@@ -381,6 +381,18 @@ func TestNormalizeSQLAndHash(t *testing.T) {
 	}
 }
 
+func TestNormalizeSQLAndHash_EmptyReturnsEmptyHash(t *testing.T) {
+	// Matches Java SqlHashUtil.normalizeAndHash: input that is empty or
+	// normalizes to empty yields an empty hash, not the MD5 of "".
+	for _, input := range []string{"", "   ", "\t\n\r"} {
+		t.Run(input, func(t *testing.T) {
+			normalized, hash := NormalizeSQLAndHash(input)
+			assert.Empty(t, normalized)
+			assert.Empty(t, hash)
+		})
+	}
+}
+
 func TestNormalizeSQL_EdgeCases(t *testing.T) {
 	tests := []struct {
 		name     string
