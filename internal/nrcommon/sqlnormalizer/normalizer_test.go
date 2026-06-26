@@ -260,6 +260,17 @@ func TestNormalizeSQL_Comments(t *testing.T) {
 			input:    "SELECT * FROM users /* unclosed",
 			expected: "SELECT*FROMUSERS?",
 		},
+		{
+			// '#' inside an identifier (Oracle obj#/con#) must NOT be treated as a comment
+			name:     "hash inside Oracle identifiers preserved",
+			input:    "SELECT obj#, con# FROM RecycleBin$",
+			expected: "SELECTOBJ#,CON#FROMRECYCLEBIN$",
+		},
+		{
+			name:     "Oracle RecycleBin$ query not swallowed by #",
+			input:    "select obj#, type#, flags, related, bo, purgeobj, con#    from RecycleBin$    where ts#=:? and to_number(bitand(flags, ?)) = ?    order by dropscn",
+			expected: "SELECTOBJ#,TYPE#,FLAGS,RELATED,BO,PURGEOBJ,CON#FROMRECYCLEBIN$WHERETS#=:?ANDTO_NUMBER(BITAND(FLAGS,?))=?ORDERBYDROPSCN",
+		},
 	}
 
 	for _, tt := range tests {
