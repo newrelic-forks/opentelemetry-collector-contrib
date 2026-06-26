@@ -37,6 +37,9 @@ properties:
     type: string
   instance_name:
     type: string
+  max_concurrent_queries:
+    description: MaxConcurrentQueries bounds how many direct-connection metric queries the receiver runs in parallel per scrape cycle. 0 means use the default (4).
+    type: integer
   password:
     $ref: go.opentelemetry.io/collector/config/configopaque.string
   port:

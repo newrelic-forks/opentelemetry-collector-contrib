@@ -117,7 +117,9 @@ func extractCleanText(fullText string, statementStartOffset, statementEndOffset 
 
 	endPos := len(fullText)
 	if statementEndOffset > 0 {
-		endPos = min(utf16OffsetToBytePos(fullText, statementEndOffset), len(fullText))
+		// statement_end_offset is inclusive (points to first byte of last char),
+		// add 2 to make it exclusive for the Go slice (1 UTF-16 code unit = 2 bytes)
+		endPos = min(utf16OffsetToBytePos(fullText, statementEndOffset+2), len(fullText))
 	}
 
 	preamble := fullText[:startPos]

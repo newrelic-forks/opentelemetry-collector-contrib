@@ -236,7 +236,7 @@ func TestExtractCleanText(t *testing.T) {
 			name:                 "batch with multiple statements uses end offset to bound",
 			fullText:             "(@P0 int)/*nr_service_guid=\"x\"*/UPDATE t1 SET a=1;SELECT * FROM t2",
 			statementStartOffset: 64, // 32 chars * 2 = 64, 'U' of UPDATE
-			statementEndOffset:   98, // 49 chars * 2 = 98, up to ';'
+			statementEndOffset:   96, // 48 chars * 2 = 96, inclusive offset of last char '1'
 			expected:             `/*nr_service_guid="x"*/UPDATE t1 SET a=1`,
 		},
 		{

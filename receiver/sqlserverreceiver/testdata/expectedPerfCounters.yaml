@@ -1486,6 +1486,10 @@ resourceMetrics:
               aggregationTemporality: 2
               dataPoints:
                 - asDouble: 24944
+                  attributes:
+                    - key: workload_group.name
+                      value:
+                        stringValue: default
                   startTimeUnixNano: "1000000"
                   timeUnixNano: "2000000"
             unit: KB
@@ -1827,6 +1831,10 @@ resourceMetrics:
               aggregationTemporality: 2
               dataPoints:
                 - asDouble: 234720
+                  attributes:
+                    - key: workload_group.name
+                      value:
+                        stringValue: internal
                   startTimeUnixNano: "1000000"
                   timeUnixNano: "2000000"
             unit: KB
@@ -2049,6 +2057,10 @@ resourceMetrics:
               aggregationTemporality: 2
               dataPoints:
                 - asInt: "0"
+                  attributes:
+                    - key: workload_group.name
+                      value:
+                        stringValue: default
                   startTimeUnixNano: "1000000"
                   timeUnixNano: "2000000"
               isMonotonic: true
@@ -2087,6 +2099,10 @@ resourceMetrics:
               aggregationTemporality: 2
               dataPoints:
                 - asInt: "20"
+                  attributes:
+                    - key: workload_group.name
+                      value:
+                        stringValue: internal
                   startTimeUnixNano: "1000000"
                   timeUnixNano: "2000000"
               isMonotonic: true
