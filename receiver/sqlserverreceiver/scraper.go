@@ -512,7 +512,7 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 	const totalServerMemory = "Total Server Memory (KB)"
 	const cachePages = "Cache Pages"
 	const totalPages = "Total Pages"
-	const targetPages = "Target Pages"
+	const targetPages = "Target pages"
 	const databasePages = "Database pages"
 	const stolenPages = "Stolen Pages"
 	const reservedPages = "Reserved Pages"
@@ -726,7 +726,8 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, lockWaitCount)
 				errs = append(errs, err)
 			} else {
-				s.mb.RecordSqlserverLockWaitCountDataPoint(now, val.(int64))
+				wgAttr := metadata.MapAttributeWorkloadGroupName[row[instanceKey]]
+				s.mb.RecordSqlserverLockWaitCountDataPoint(now, val.(int64), wgAttr)
 			}
 		case lockWaits:
 			val, err := retrieveFloat(row, valueKey)
@@ -920,7 +921,8 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, usedMemory)
 				errs = append(errs, err)
 			} else {
-				s.mb.RecordSqlserverMemoryUsageDataPoint(now, val.(float64))
+				wgAttr := metadata.MapAttributeWorkloadGroupName[row[instanceKey]]
+				s.mb.RecordSqlserverMemoryUsageDataPoint(now, val.(float64), wgAttr)
 			}
 		case versionStoreSize:
 			val, err := retrieveFloat(row, valueKey)

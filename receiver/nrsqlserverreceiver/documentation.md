@@ -865,6 +865,12 @@ This metric is only available when the receiver is configured to directly connec
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | {wait} | Sum | Int | Cumulative | true | Development |
 
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| workload_group.name | The name of the SQL Server Resource Governor workload group. | Str: ``default``, ``internal`` | Recommended | - |
+
 ### sqlserver.login.rate
 
 Total number of logins.
@@ -951,9 +957,17 @@ This metric is only available when the receiver is configured to directly connec
 
 Total memory in use.
 
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | KB | Sum | Double | Cumulative | false | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| workload_group.name | The name of the SQL Server Resource Governor workload group. | Str: ``default``, ``internal`` | Recommended | - |
 
 ### sqlserver.os.disk.size
 

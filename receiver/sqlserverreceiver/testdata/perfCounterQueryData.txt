@@ -3151,7 +3151,7 @@
   },
   {
     "computer_name": "abcde",
-    "counter": "Target Pages",
+    "counter": "Target pages",
     "counter_type": "65792",
     "instance": "",
     "measurement": "sqlserver_performance",
