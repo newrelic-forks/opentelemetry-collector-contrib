@@ -95,9 +95,11 @@ func TestMetricsBuilder(t *testing.T) {
 			aggMap["sqlserver.latch.superlatch.transition.rate"] = mb.metricSqlserverLatchSuperlatchTransitionRate.config.AggregationStrategy
 			aggMap["sqlserver.lock.by_mode.count"] = mb.metricSqlserverLockByModeCount.config.AggregationStrategy
 			aggMap["sqlserver.lock.by_resource.count"] = mb.metricSqlserverLockByResourceCount.config.AggregationStrategy
+			aggMap["sqlserver.lock.wait.count"] = mb.metricSqlserverLockWaitCount.config.AggregationStrategy
 			aggMap["sqlserver.memory.area"] = mb.metricSqlserverMemoryArea.config.AggregationStrategy
 			aggMap["sqlserver.memory.cache.object.count"] = mb.metricSqlserverMemoryCacheObjectCount.config.AggregationStrategy
 			aggMap["sqlserver.memory.page.count"] = mb.metricSqlserverMemoryPageCount.config.AggregationStrategy
+			aggMap["sqlserver.memory.usage"] = mb.metricSqlserverMemoryUsage.config.AggregationStrategy
 			aggMap["sqlserver.os.memory.usage"] = mb.metricSqlserverOsMemoryUsage.config.AggregationStrategy
 			aggMap["sqlserver.os.wait.duration"] = mb.metricSqlserverOsWaitDuration.config.AggregationStrategy
 			aggMap["sqlserver.os.wait.tasks.count"] = mb.metricSqlserverOsWaitTasksCount.config.AggregationStrategy
@@ -356,7 +358,10 @@ func TestMetricsBuilder(t *testing.T) {
 			mb.RecordSqlserverLockTimeoutRateDataPoint(ts, 1)
 
 			allMetricsCount++
-			mb.RecordSqlserverLockWaitCountDataPoint(ts, 1)
+			mb.RecordSqlserverLockWaitCountDataPoint(ts, 1, AttributeWorkloadGroupNameDefault)
+			if tt.name == "reaggregate_set" {
+				mb.RecordSqlserverLockWaitCountDataPoint(ts, 3, AttributeWorkloadGroupNameInternal)
+			}
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordSqlserverLockWaitRateDataPoint(ts, 1)
@@ -395,7 +400,10 @@ func TestMetricsBuilder(t *testing.T) {
 			mb.RecordSqlserverMemoryTargetDataPoint(ts, "1")
 
 			allMetricsCount++
-			mb.RecordSqlserverMemoryUsageDataPoint(ts, 1)
+			mb.RecordSqlserverMemoryUsageDataPoint(ts, 1, AttributeWorkloadGroupNameDefault)
+			if tt.name == "reaggregate_set" {
+				mb.RecordSqlserverMemoryUsageDataPoint(ts, 3, AttributeWorkloadGroupNameInternal)
+			}
 
 			allMetricsCount++
 			mb.RecordSqlserverOsDiskSizeDataPoint(ts, "1")
@@ -636,9 +644,11 @@ func TestMetricsBuilder(t *testing.T) {
 				assert.Empty(t, mb.metricSqlserverLatchSuperlatchTransitionRate.aggDataPoints)
 				assert.Empty(t, mb.metricSqlserverLockByModeCount.aggDataPoints)
 				assert.Empty(t, mb.metricSqlserverLockByResourceCount.aggDataPoints)
+				assert.Empty(t, mb.metricSqlserverLockWaitCount.aggDataPoints)
 				assert.Empty(t, mb.metricSqlserverMemoryArea.aggDataPoints)
 				assert.Empty(t, mb.metricSqlserverMemoryCacheObjectCount.aggDataPoints)
 				assert.Empty(t, mb.metricSqlserverMemoryPageCount.aggDataPoints)
+				assert.Empty(t, mb.metricSqlserverMemoryUsage.aggDataPoints)
 				assert.Empty(t, mb.metricSqlserverOsMemoryUsage.aggDataPoints)
 				assert.Empty(t, mb.metricSqlserverOsWaitDuration.aggDataPoints)
 				assert.Empty(t, mb.metricSqlserverOsWaitTasksCount.aggDataPoints)
@@ -2219,19 +2229,49 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
 					assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
 				case "sqlserver.lock.wait.count":
-					assert.False(t, validatedMetrics["sqlserver.lock.wait.count"], "Found a duplicate in the metrics slice: sqlserver.lock.wait.count")
-					validatedMetrics["sqlserver.lock.wait.count"] = true
-					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
-					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
-					assert.Equal(t, "Cumulative count of lock waits that occurred.", mi.Description())
-					assert.Equal(t, "{wait}", mi.Unit())
-					assert.True(t, mi.Sum().IsMonotonic())
-					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
-					dp := mi.Sum().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["sqlserver.lock.wait.count"], "Found a duplicate in the metrics slice: sqlserver.lock.wait.count")
+						validatedMetrics["sqlserver.lock.wait.count"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+						assert.Equal(t, "Cumulative count of lock waits that occurred.", mi.Description())
+						assert.Equal(t, "{wait}", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						assert.Equal(t, int64(1), dp.IntValue())
+						workloadGroupNameAttrVal, ok := dp.Attributes().Get("workload_group.name")
+						assert.True(t, ok)
+						assert.Equal(t, "default", workloadGroupNameAttrVal.Str())
+					} else {
+						assert.False(t, validatedMetrics["sqlserver.lock.wait.count"], "Found a duplicate in the metrics slice: sqlserver.lock.wait.count")
+						validatedMetrics["sqlserver.lock.wait.count"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+						assert.Equal(t, "Cumulative count of lock waits that occurred.", mi.Description())
+						assert.Equal(t, "{wait}", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						switch aggMap["sqlserver.lock.wait.count"] {
+						case "sum":
+							assert.Equal(t, int64(4), dp.IntValue())
+						case "avg":
+							assert.Equal(t, int64(2), dp.IntValue())
+						case "min":
+							assert.Equal(t, int64(1), dp.IntValue())
+						case "max":
+							assert.Equal(t, int64(3), dp.IntValue())
+						}
+						_, ok := dp.Attributes().Get("workload_group.name")
+						assert.False(t, ok)
+					}
 				case "sqlserver.lock.wait.rate":
 					assert.False(t, validatedMetrics["sqlserver.lock.wait.rate"], "Found a duplicate in the metrics slice: sqlserver.lock.wait.rate")
 					validatedMetrics["sqlserver.lock.wait.rate"] = true
@@ -2427,19 +2467,49 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
 				case "sqlserver.memory.usage":
-					assert.False(t, validatedMetrics["sqlserver.memory.usage"], "Found a duplicate in the metrics slice: sqlserver.memory.usage")
-					validatedMetrics["sqlserver.memory.usage"] = true
-					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
-					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
-					assert.Equal(t, "Total memory in use.", mi.Description())
-					assert.Equal(t, "KB", mi.Unit())
-					assert.False(t, mi.Sum().IsMonotonic())
-					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
-					dp := mi.Sum().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
-					assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["sqlserver.memory.usage"], "Found a duplicate in the metrics slice: sqlserver.memory.usage")
+						validatedMetrics["sqlserver.memory.usage"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+						assert.Equal(t, "Total memory in use.", mi.Description())
+						assert.Equal(t, "KB", mi.Unit())
+						assert.False(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
+						assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
+						workloadGroupNameAttrVal, ok := dp.Attributes().Get("workload_group.name")
+						assert.True(t, ok)
+						assert.Equal(t, "default", workloadGroupNameAttrVal.Str())
+					} else {
+						assert.False(t, validatedMetrics["sqlserver.memory.usage"], "Found a duplicate in the metrics slice: sqlserver.memory.usage")
+						validatedMetrics["sqlserver.memory.usage"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+						assert.Equal(t, "Total memory in use.", mi.Description())
+						assert.Equal(t, "KB", mi.Unit())
+						assert.False(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
+						switch aggMap["sqlserver.memory.usage"] {
+						case "sum":
+							assert.InDelta(t, float64(4), dp.DoubleValue(), 0.01)
+						case "avg":
+							assert.InDelta(t, float64(2), dp.DoubleValue(), 0.01)
+						case "min":
+							assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
+						case "max":
+							assert.InDelta(t, float64(3), dp.DoubleValue(), 0.01)
+						}
+						_, ok := dp.Attributes().Get("workload_group.name")
+						assert.False(t, ok)
+					}
 				case "sqlserver.os.disk.size":
 					assert.False(t, validatedMetrics["sqlserver.os.disk.size"], "Found a duplicate in the metrics slice: sqlserver.os.disk.size")
 					validatedMetrics["sqlserver.os.disk.size"] = true

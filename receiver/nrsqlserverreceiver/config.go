@@ -61,6 +61,10 @@ type Config struct {
 	Server   string              `mapstructure:"server"`
 	Username string              `mapstructure:"username"`
 
+	// MaxConcurrentQueries bounds how many direct-connection metric queries the
+	// receiver runs in parallel per scrape cycle. 0 means use the default (4).
+	MaxConcurrentQueries int `mapstructure:"max_concurrent_queries"`
+
 	// Flag to check if the connection is direct or not. It should only be
 	// used after a successful call to the `Validate` method.
 	isDirectDBConnectionEnabled bool
@@ -88,9 +92,21 @@ func (cfg *Config) Validate() error {
 		return errors.New("`top_query_collection.collection_interval` must not be less than 0")
 	}
 
+	if cfg.MaxConcurrentQueries < 0 {
+		return errors.New("`max_concurrent_queries` must not be negative")
+	}
+
 	cfg.isDirectDBConnectionEnabled, err = directDBConnectionEnabled(cfg)
 
 	return err
+}
+
+// EffectiveMaxConcurrentQueries returns the user-configured cap or the default (4).
+func (cfg *Config) EffectiveMaxConcurrentQueries() int {
+	if cfg.MaxConcurrentQueries <= 0 {
+		return 4
+	}
+	return cfg.MaxConcurrentQueries
 }
 
 func directDBConnectionEnabled(config *Config) (bool, error) {

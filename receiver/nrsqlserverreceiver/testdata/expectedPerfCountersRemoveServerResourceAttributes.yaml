@@ -1246,6 +1246,10 @@ resourceMetrics:
               aggregationTemporality: 2
               dataPoints:
                 - asDouble: 24944
+                  attributes:
+                    - key: workload_group.name
+                      value:
+                        stringValue: default
                   startTimeUnixNano: "1000000"
                   timeUnixNano: "2000000"
             unit: KB
@@ -1533,6 +1537,10 @@ resourceMetrics:
               aggregationTemporality: 2
               dataPoints:
                 - asDouble: 234720
+                  attributes:
+                    - key: workload_group.name
+                      value:
+                        stringValue: internal
                   startTimeUnixNano: "1000000"
                   timeUnixNano: "2000000"
             unit: KB
@@ -1719,6 +1727,10 @@ resourceMetrics:
               aggregationTemporality: 2
               dataPoints:
                 - asInt: "0"
+                  attributes:
+                    - key: workload_group.name
+                      value:
+                        stringValue: default
                   startTimeUnixNano: "1000000"
                   timeUnixNano: "2000000"
               isMonotonic: true
@@ -1751,6 +1763,10 @@ resourceMetrics:
               aggregationTemporality: 2
               dataPoints:
                 - asInt: "20"
+                  attributes:
+                    - key: workload_group.name
+                      value:
+                        stringValue: internal
                   startTimeUnixNano: "1000000"
                   timeUnixNano: "2000000"
               isMonotonic: true
@@ -1989,40 +2005,6 @@ resourceMetrics:
                     - key: page.pool
                       value:
                         stringValue: total
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
-            name: sqlserver.memory.page.count
-            unit: '{page}'
-        scope:
-          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
-          version: latest
-  - resource:
-      attributes:
-        - key: host.name
-          value:
-            stringValue: 0.0.0.0
-        - key: service.instance.id
-          value:
-            stringValue: 0.0.0.0:1433
-        - key: service.name
-          value:
-            stringValue: unknown_service:microsoft.sql_server
-        - key: service.namespace
-          value:
-            stringValue: ""
-        - key: sqlserver.instance.name
-          value:
-            stringValue: d26d40521426
-    scopeMetrics:
-      - metrics:
-          - description: Number of pages in the SQL Server buffer pool.
-            gauge:
-              dataPoints:
-                - asInt: "7168"
-                  attributes:
-                    - key: page.pool
-                      value:
-                        stringValue: target
                   startTimeUnixNano: "1000000"
                   timeUnixNano: "2000000"
             name: sqlserver.memory.page.count

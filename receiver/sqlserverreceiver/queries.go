@@ -1492,7 +1492,8 @@ SELECT
 	CAST(SUM(CASE WHEN tl.resource_type = 'ALLOCATION_UNIT' THEN 1 ELSE 0 END) AS BIGINT) AS [resource_allocation_unit],
 	CAST(SUM(CASE WHEN tl.resource_type = 'DATABASE'        THEN 1 ELSE 0 END) AS BIGINT) AS [resource_database_level]
 FROM sys.dm_tran_locks tl WITH (NOLOCK)
-WHERE tl.resource_database_id > 0
+WHERE tl.resource_database_id > 4 -- exclude system DBs (master=1, tempdb=2, model=3, msdb=4)
+	AND DB_NAME(tl.resource_database_id) IS NOT NULL -- guard against transient unresolvable IDs
 {filter_instance_name}
 GROUP BY tl.resource_database_id
 HAVING COUNT(*) > 0;
