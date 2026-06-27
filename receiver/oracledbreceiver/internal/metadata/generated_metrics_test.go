@@ -469,12 +469,6 @@ func TestMetricsBuilder(t *testing.T) {
 				mb.RecordOracledbUserRollbacksDataPoint(ts, "3", "oracle.db.pdb-val-2")
 			}
 
-			allMetricsCount++
-			mb.RecordSystemCPUPhysicalCountDataPoint(ts, 1)
-
-			allMetricsCount++
-			mb.RecordSystemMemoryLimitDataPoint(ts, 1)
-
 			rb := mb.NewResourceBuilder()
 			rb.SetHostName("host.name-val")
 			rb.SetOracleDbHostingType("oracle.db.hosting_type-val")
@@ -2765,30 +2759,6 @@ func TestMetricsBuilder(t *testing.T) {
 						_, ok := dp.Attributes().Get("oracle.db.pdb")
 						assert.False(t, ok)
 					}
-				case "system.cpu.physical.count":
-					assert.False(t, validatedMetrics["system.cpu.physical.count"], "Found a duplicate in the metrics slice: system.cpu.physical.count")
-					validatedMetrics["system.cpu.physical.count"] = true
-					assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
-					assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
-					assert.Equal(t, "Number of physical CPUs available to the Oracle server as reported by the operating system.", mi.Description())
-					assert.Equal(t, "{cpu}", mi.Unit())
-					dp := mi.Gauge().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
-				case "system.memory.limit":
-					assert.False(t, validatedMetrics["system.memory.limit"], "Found a duplicate in the metrics slice: system.memory.limit")
-					validatedMetrics["system.memory.limit"] = true
-					assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
-					assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
-					assert.Equal(t, "Total physical memory available to the Oracle server in bytes.", mi.Description())
-					assert.Equal(t, "By", mi.Unit())
-					dp := mi.Gauge().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
 				}
 			}
 		})

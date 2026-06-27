@@ -2706,46 +2706,6 @@ func (ms *OracledbUserRollbacksMetricConfig) Validate() error {
 	return nil
 }
 
-// SystemCPUPhysicalCountMetricConfig provides config for the system.cpu.physical.count metric.
-type SystemCPUPhysicalCountMetricConfig struct {
-	Enabled          bool `mapstructure:"enabled"`
-	enabledSetByUser bool
-}
-
-func (ms *SystemCPUPhysicalCountMetricConfig) Unmarshal(parser *confmap.Conf) error {
-	if parser == nil {
-		return nil
-	}
-
-	err := parser.Unmarshal(ms)
-	if err != nil {
-		return err
-	}
-
-	ms.enabledSetByUser = parser.IsSet("enabled")
-	return nil
-}
-
-// SystemMemoryLimitMetricConfig provides config for the system.memory.limit metric.
-type SystemMemoryLimitMetricConfig struct {
-	Enabled          bool `mapstructure:"enabled"`
-	enabledSetByUser bool
-}
-
-func (ms *SystemMemoryLimitMetricConfig) Unmarshal(parser *confmap.Conf) error {
-	if parser == nil {
-		return nil
-	}
-
-	err := parser.Unmarshal(ms)
-	if err != nil {
-		return err
-	}
-
-	ms.enabledSetByUser = parser.IsSet("enabled")
-	return nil
-}
-
 // MetricsConfig provides config for oracledb metrics.
 type MetricsConfig struct {
 	OracledbBufferCacheUtilization                OracledbBufferCacheUtilizationMetricConfig                `mapstructure:"oracledb.buffer_cache.utilization"`
@@ -2815,8 +2775,6 @@ type MetricsConfig struct {
 	OracledbTransactionsUsage                     OracledbTransactionsUsageMetricConfig                     `mapstructure:"oracledb.transactions.usage"`
 	OracledbUserCommits                           OracledbUserCommitsMetricConfig                           `mapstructure:"oracledb.user_commits"`
 	OracledbUserRollbacks                         OracledbUserRollbacksMetricConfig                         `mapstructure:"oracledb.user_rollbacks"`
-	SystemCPUPhysicalCount                        SystemCPUPhysicalCountMetricConfig                        `mapstructure:"system.cpu.physical.count"`
-	SystemMemoryLimit                             SystemMemoryLimitMetricConfig                             `mapstructure:"system.memory.limit"`
 }
 
 func DefaultMetricsConfig() MetricsConfig {
@@ -3117,12 +3075,6 @@ func DefaultMetricsConfig() MetricsConfig {
 			Enabled:             true,
 			AggregationStrategy: AggregationStrategySum,
 			EnabledAttributes:   []OracledbUserRollbacksMetricAttributeKey{},
-		},
-		SystemCPUPhysicalCount: SystemCPUPhysicalCountMetricConfig{
-			Enabled: false,
-		},
-		SystemMemoryLimit: SystemMemoryLimitMetricConfig{
-			Enabled: false,
 		},
 	}
 }

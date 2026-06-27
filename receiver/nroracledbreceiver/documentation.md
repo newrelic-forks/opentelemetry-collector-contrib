@@ -740,7 +740,7 @@ Fraction of redo allocations that succeeded without space contention, as compute
 
 ### oracledb.sga.limit
 
-Maximum size of the System Global Area (SGA) in bytes as reported by V$SGAINFO (Maximum SGA Size).
+Maximum size of the System Global Area (SGA).
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
@@ -748,17 +748,17 @@ Maximum size of the System Global Area (SGA) in bytes as reported by V$SGAINFO (
 
 ### oracledb.sga.usage
 
-Size in bytes of each component of the System Global Area (SGA) as reported by V$SGAINFO.
+Size of each component of the System Global Area (SGA).
 
-| Unit | Metric Type | Value Type | Stability |
-| ---- | ----------- | ---------- | --------- |
-| By | Gauge | Int | Development |
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
+| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
+| By | Sum | Int | Cumulative | false | Development |
 
 #### Attributes
 
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
-| oracledb.sga.component.name | Name of the SGA memory component as reported by V$SGAINFO (e.g. Buffer Cache, Shared Pool, Log Buffer). | Any Str | Recommended | - |
+| oracledb.sga.component.name | Name of the SGA memory component. | Str: ``Fixed SGA Size``, ``Redo Buffers``, ``Buffer Cache Size``, ``Shared Pool Size``, ``Large Pool Size``, ``Java Pool Size``, ``Streams Pool Size``, ``Shared IO Pool Size``, ``Data Transfer Cache Size``, ``In-Memory Area Size`` | Recommended | - |
 
 ### oracledb.shared_pool.utilization
 
@@ -843,17 +843,17 @@ Current OS load average as reported by the operating system.
 | ---- | ----------- | ---------- | --------- |
 | 1 | Gauge | Double | Development |
 
-### system.cpu.physical.count
+### oracledb.system.cpu.physical.count
 
-Number of physical CPUs available to the Oracle server as reported by the operating system.
+Number of physical CPUs available to the Oracle server.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
 | {cpu} | Gauge | Int | Development |
 
-### system.memory.limit
+### oracledb.system.memory.limit
 
-Total physical memory available to the Oracle server in bytes.
+Total physical memory available to the Oracle server.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |

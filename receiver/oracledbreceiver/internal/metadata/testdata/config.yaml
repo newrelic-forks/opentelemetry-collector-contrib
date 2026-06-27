@@ -183,10 +183,6 @@ all_set:
     oracledb.user_rollbacks:
       enabled: true
       attributes: ["oracle.db.pdb"]
-    system.cpu.physical.count:
-      enabled: true
-    system.memory.limit:
-      enabled: true
   events:
     db.server.query_sample:
       enabled: true
@@ -393,10 +389,6 @@ reaggregate_set:
     oracledb.user_rollbacks:
       enabled: true
       attributes: []
-    system.cpu.physical.count:
-      enabled: true
-    system.memory.limit:
-      enabled: true
   events:
     db.server.query_sample:
       enabled: true
@@ -603,10 +595,6 @@ none_set:
     oracledb.user_rollbacks:
       enabled: false
       attributes: ["oracle.db.pdb"]
-    system.cpu.physical.count:
-      enabled: false
-    system.memory.limit:
-      enabled: false
   events:
     db.server.query_sample:
       enabled: false

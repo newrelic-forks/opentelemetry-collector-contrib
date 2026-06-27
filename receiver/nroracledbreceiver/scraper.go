@@ -137,6 +137,10 @@ const (
 	colUsedDBSize          = "USED_DB_SIZE"
 	colAllocatedDBSize     = "ALLOCATED_DB_SIZE"
 
+	// sgaMaxSize is the row routed to oracledb.sga.limit; other non-component
+	// rows are filtered via MapAttributeOracledbSgaComponentName.
+	sgaMaxSize = "Maximum SGA Size"
+
 	sqlIDAttr        = "SQL_ID"
 	childAddressAttr = "CHILD_ADDRESS"
 	childNumberAttr  = "CHILD_NUMBER"
@@ -712,9 +716,16 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 	}
 
 	s.collectDataDictHitRatio(ctx, &scrapeErrors)
-	s.collectOSStat(ctx, &scrapeErrors)
+	if s.metricsBuilderConfig.Metrics.OracledbSystemCPUPhysicalCount.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbSystemCPULoad.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbSystemMemoryLimit.Enabled {
+		s.collectOSStat(ctx, &scrapeErrors)
+	}
 	s.collectRecycleBinSize(ctx, &scrapeErrors)
-	s.collectSGAInfo(ctx, &scrapeErrors)
+	if s.metricsBuilderConfig.Metrics.OracledbSgaUsage.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbSgaLimit.Enabled {
+		s.collectSGAInfo(ctx, &scrapeErrors)
+	}
 	s.collectStorageUsage(ctx, &scrapeErrors)
 	s.collectSysMetrics(ctx, &scrapeErrors)
 
@@ -749,11 +760,6 @@ func (s *oracleScraper) collectDataDictHitRatio(ctx context.Context, scrapeError
 }
 
 func (s *oracleScraper) collectOSStat(ctx context.Context, scrapeErrors *[]error) {
-	if !s.metricsBuilderConfig.Metrics.SystemCPUPhysicalCount.Enabled &&
-		!s.metricsBuilderConfig.Metrics.OracledbSystemCPULoad.Enabled &&
-		!s.metricsBuilderConfig.Metrics.SystemMemoryLimit.Enabled {
-		return
-	}
 	now := pcommon.NewTimestampFromTime(time.Now())
 	rows, err := s.osStatClient.metricRows(ctx)
 	if err != nil {
@@ -765,32 +771,26 @@ func (s *oracleScraper) collectOSStat(ctx context.Context, scrapeErrors *[]error
 		statValue := row[colOSStatValue]
 		switch statName {
 		case osStatNameNumCPUs:
-			if s.metricsBuilderConfig.Metrics.SystemCPUPhysicalCount.Enabled {
-				val, err := strconv.ParseInt(statValue, 10, 64)
-				if err != nil {
-					*scrapeErrors = append(*scrapeErrors, fmt.Errorf("failed to parse int64 for SystemCPUPhysicalCount, value was %s: %w", statValue, err))
-					continue
-				}
-				s.mb.RecordSystemCPUPhysicalCountDataPoint(now, val)
+			val, err := strconv.ParseInt(statValue, 10, 64)
+			if err != nil {
+				*scrapeErrors = append(*scrapeErrors, fmt.Errorf("failed to parse int64 for OracledbSystemCPUPhysicalCount, value was %s: %w", statValue, err))
+				continue
 			}
+			s.mb.RecordOracledbSystemCPUPhysicalCountDataPoint(now, val)
 		case osStatNameLoad:
-			if s.metricsBuilderConfig.Metrics.OracledbSystemCPULoad.Enabled {
-				val, err := strconv.ParseFloat(statValue, 64)
-				if err != nil {
-					*scrapeErrors = append(*scrapeErrors, fmt.Errorf("failed to parse float64 for OracledbSystemCPULoad, value was %s: %w", statValue, err))
-					continue
-				}
-				s.mb.RecordOracledbSystemCPULoadDataPoint(now, val)
+			val, err := strconv.ParseFloat(statValue, 64)
+			if err != nil {
+				*scrapeErrors = append(*scrapeErrors, fmt.Errorf("failed to parse float64 for OracledbSystemCPULoad, value was %s: %w", statValue, err))
+				continue
 			}
+			s.mb.RecordOracledbSystemCPULoadDataPoint(now, val)
 		case osStatNamePhysicalMemory:
-			if s.metricsBuilderConfig.Metrics.SystemMemoryLimit.Enabled {
-				val, err := strconv.ParseInt(statValue, 10, 64)
-				if err != nil {
-					*scrapeErrors = append(*scrapeErrors, fmt.Errorf("failed to parse int64 for SystemMemoryLimit, value was %s: %w", statValue, err))
-					continue
-				}
-				s.mb.RecordSystemMemoryLimitDataPoint(now, val)
+			val, err := strconv.ParseInt(statValue, 10, 64)
+			if err != nil {
+				*scrapeErrors = append(*scrapeErrors, fmt.Errorf("failed to parse int64 for OracledbSystemMemoryLimit, value was %s: %w", statValue, err))
+				continue
 			}
+			s.mb.RecordOracledbSystemMemoryLimitDataPoint(now, val)
 		}
 	}
 }
@@ -815,13 +815,7 @@ func (s *oracleScraper) collectRecycleBinSize(ctx context.Context, scrapeErrors 
 	}
 }
 
-const sgaMaxComponentName = "Maximum SGA Size"
-
 func (s *oracleScraper) collectSGAInfo(ctx context.Context, scrapeErrors *[]error) {
-	if !s.metricsBuilderConfig.Metrics.OracledbSgaUsage.Enabled &&
-		!s.metricsBuilderConfig.Metrics.OracledbSgaLimit.Enabled {
-		return
-	}
 	now := pcommon.NewTimestampFromTime(time.Now())
 	rows, err := s.sgaInfoClient.metricRows(ctx)
 	if err != nil {
@@ -834,13 +828,20 @@ func (s *oracleScraper) collectSGAInfo(ctx context.Context, scrapeErrors *[]erro
 			*scrapeErrors = append(*scrapeErrors, fmt.Errorf("failed to parse int64 for OracledbSgaUsage, value was %s: %w", row[colSGAInfoBytes], err))
 			continue
 		}
-		if row[colSGAInfoName] == sgaMaxComponentName {
-			if s.metricsBuilderConfig.Metrics.OracledbSgaLimit.Enabled {
-				s.mb.RecordOracledbSgaLimitDataPoint(now, val)
-			}
-		} else if s.metricsBuilderConfig.Metrics.OracledbSgaUsage.Enabled {
-			s.mb.RecordOracledbSgaUsageDataPoint(now, val, row[colSGAInfoName])
+		name := row[colSGAInfoName]
+		if name == sgaMaxSize {
+			s.mb.RecordOracledbSgaLimitDataPoint(now, val)
+			continue
 		}
+		// Skip rows that are not allocated SGA components. Filtering these out
+		// keeps sum(oracledb.sga.usage) consistent with oracledb.sga.limit per
+		// OTel semantic conventions. Unknown future component names are also
+		// skipped via the MapAttributeOracledbSgaComponentName lookup below.
+		component, ok := metadata.MapAttributeOracledbSgaComponentName[name]
+		if !ok {
+			continue
+		}
+		s.mb.RecordOracledbSgaUsageDataPoint(now, val, component)
 	}
 }
 
