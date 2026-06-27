@@ -163,6 +163,10 @@ all_set:
       enabled: true
     oracledb.system.cpu.load:
       enabled: true
+    oracledb.system.cpu.physical.count:
+      enabled: true
+    oracledb.system.memory.limit:
+      enabled: true
     oracledb.tablespace_size.limit:
       enabled: true
       attributes: ["tablespace_name","oracle.db.pdb"]
@@ -369,6 +373,10 @@ reaggregate_set:
       enabled: true
     oracledb.system.cpu.load:
       enabled: true
+    oracledb.system.cpu.physical.count:
+      enabled: true
+    oracledb.system.memory.limit:
+      enabled: true
     oracledb.tablespace_size.limit:
       enabled: true
       attributes: []
@@ -574,6 +582,10 @@ none_set:
     oracledb.storage.utilization:
       enabled: false
     oracledb.system.cpu.load:
+      enabled: false
+    oracledb.system.cpu.physical.count:
+      enabled: false
+    oracledb.system.memory.limit:
       enabled: false
     oracledb.tablespace_size.limit:
       enabled: false
