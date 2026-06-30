@@ -286,5 +286,5 @@ providers:
 # file before passing it to OCB, to ensure that local versions are used for all
 # Contrib modules.
 replaces:
-  # New Relic fork receiver lives in-tree; point its module path at the local source.
   - github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nroracledbreceiver => ../../receiver/nroracledbreceiver
+  - github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon => ../../internal/nrcommon
