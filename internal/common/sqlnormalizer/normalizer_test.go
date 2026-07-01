@@ -260,6 +260,17 @@ func TestNormalizeSQL_Comments(t *testing.T) {
 			input:    "SELECT * FROM users /* unclosed",
 			expected: "SELECT*FROMUSERS?",
 		},
+		{
+			// '#' inside an identifier (Oracle obj#/con#) must NOT be treated as a comment
+			name:     "hash inside Oracle identifiers preserved",
+			input:    "SELECT obj#, con# FROM RecycleBin$",
+			expected: "SELECTOBJ#,CON#FROMRECYCLEBIN$",
+		},
+		{
+			name:     "Oracle RecycleBin$ query not swallowed by #",
+			input:    "select obj#, type#, flags, related, bo, purgeobj, con#    from RecycleBin$    where ts#=:? and to_number(bitand(flags, ?)) = ?    order by dropscn",
+			expected: "SELECTOBJ#,TYPE#,FLAGS,RELATED,BO,PURGEOBJ,CON#FROMRECYCLEBIN$WHERETS#=:?ANDTO_NUMBER(BITAND(FLAGS,?))=?ORDERBYDROPSCN",
+		},
 	}
 
 	for _, tt := range tests {
@@ -366,6 +377,18 @@ func TestNormalizeSQLAndHash(t *testing.T) {
 			normalized, hash := NormalizeSQLAndHash(tt.input)
 			assert.Equal(t, tt.expectedNormalized, normalized)
 			assert.Equal(t, tt.expectedHash, hash)
+		})
+	}
+}
+
+func TestNormalizeSQLAndHash_EmptyReturnsEmptyHash(t *testing.T) {
+	// Matches Java SqlHashUtil.normalizeAndHash: input that is empty or
+	// normalizes to empty yields an empty hash, not the MD5 of "".
+	for _, input := range []string{"", "   ", "\t\n\r"} {
+		t.Run(input, func(t *testing.T) {
+			normalized, hash := NormalizeSQLAndHash(input)
+			assert.Empty(t, normalized)
+			assert.Empty(t, hash)
 		})
 	}
 }
