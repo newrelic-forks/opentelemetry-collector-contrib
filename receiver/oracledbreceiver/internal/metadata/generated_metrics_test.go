@@ -395,9 +395,9 @@ func TestMetricsBuilder(t *testing.T) {
 			mb.RecordOracledbSgaLimitDataPoint(ts, 1)
 
 			allMetricsCount++
-			mb.RecordOracledbSgaUsageDataPoint(ts, 1, "oracledb.sga.component.name-val")
+			mb.RecordOracledbSgaUsageDataPoint(ts, 1, AttributeOracledbSgaComponentNameFixedSGASize)
 			if tt.name == "reaggregate_set" {
-				mb.RecordOracledbSgaUsageDataPoint(ts, 3, "oracledb.sga.component.name-val-2")
+				mb.RecordOracledbSgaUsageDataPoint(ts, 3, AttributeOracledbSgaComponentNameRedoBuffers)
 			}
 
 			allMetricsCount++
@@ -432,6 +432,12 @@ func TestMetricsBuilder(t *testing.T) {
 
 			allMetricsCount++
 			mb.RecordOracledbSystemCPULoadDataPoint(ts, 1)
+
+			allMetricsCount++
+			mb.RecordOracledbSystemCPUPhysicalCountDataPoint(ts, 1)
+
+			allMetricsCount++
+			mb.RecordOracledbSystemMemoryLimitDataPoint(ts, 1)
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordOracledbTablespaceSizeLimitDataPoint(ts, 1, "tablespace_name-val", "oracle.db.pdb-val")
@@ -462,12 +468,6 @@ func TestMetricsBuilder(t *testing.T) {
 			if tt.name == "reaggregate_set" {
 				mb.RecordOracledbUserRollbacksDataPoint(ts, "3", "oracle.db.pdb-val-2")
 			}
-
-			allMetricsCount++
-			mb.RecordSystemCPUPhysicalCountDataPoint(ts, 1)
-
-			allMetricsCount++
-			mb.RecordSystemMemoryLimitDataPoint(ts, 1)
 
 			rb := mb.NewResourceBuilder()
 			rb.SetHostName("host.name-val")
@@ -2291,7 +2291,7 @@ func TestMetricsBuilder(t *testing.T) {
 					validatedMetrics["oracledb.sga.limit"] = true
 					assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
 					assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
-					assert.Equal(t, "Maximum size of the System Global Area (SGA) in bytes as reported by V$SGAINFO (Maximum SGA Size).", mi.Description())
+					assert.Equal(t, "Maximum size of the System Global Area (SGA).", mi.Description())
 					assert.Equal(t, "By", mi.Unit())
 					dp := mi.Gauge().DataPoints().At(0)
 					assert.Equal(t, start, dp.StartTimestamp())
@@ -2302,26 +2302,30 @@ func TestMetricsBuilder(t *testing.T) {
 					if tt.name != "reaggregate_set" {
 						assert.False(t, validatedMetrics["oracledb.sga.usage"], "Found a duplicate in the metrics slice: oracledb.sga.usage")
 						validatedMetrics["oracledb.sga.usage"] = true
-						assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
-						assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
-						assert.Equal(t, "Size in bytes of each component of the System Global Area (SGA) as reported by V$SGAINFO.", mi.Description())
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+						assert.Equal(t, "Size of each component of the System Global Area (SGA).", mi.Description())
 						assert.Equal(t, "By", mi.Unit())
-						dp := mi.Gauge().DataPoints().At(0)
+						assert.False(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
 						assert.Equal(t, start, dp.StartTimestamp())
 						assert.Equal(t, ts, dp.Timestamp())
 						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 						assert.Equal(t, int64(1), dp.IntValue())
 						oracledbSgaComponentNameAttrVal, ok := dp.Attributes().Get("oracledb.sga.component.name")
 						assert.True(t, ok)
-						assert.Equal(t, "oracledb.sga.component.name-val", oracledbSgaComponentNameAttrVal.Str())
+						assert.Equal(t, "Fixed SGA Size", oracledbSgaComponentNameAttrVal.Str())
 					} else {
 						assert.False(t, validatedMetrics["oracledb.sga.usage"], "Found a duplicate in the metrics slice: oracledb.sga.usage")
 						validatedMetrics["oracledb.sga.usage"] = true
-						assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
-						assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
-						assert.Equal(t, "Size in bytes of each component of the System Global Area (SGA) as reported by V$SGAINFO.", mi.Description())
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+						assert.Equal(t, "Size of each component of the System Global Area (SGA).", mi.Description())
 						assert.Equal(t, "By", mi.Unit())
-						dp := mi.Gauge().DataPoints().At(0)
+						assert.False(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
 						assert.Equal(t, start, dp.StartTimestamp())
 						assert.Equal(t, ts, dp.Timestamp())
 						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
@@ -2541,6 +2545,30 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
 					assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
+				case "oracledb.system.cpu.physical.count":
+					assert.False(t, validatedMetrics["oracledb.system.cpu.physical.count"], "Found a duplicate in the metrics slice: oracledb.system.cpu.physical.count")
+					validatedMetrics["oracledb.system.cpu.physical.count"] = true
+					assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
+					assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
+					assert.Equal(t, "Number of physical CPUs available to the Oracle server.", mi.Description())
+					assert.Equal(t, "{cpu}", mi.Unit())
+					dp := mi.Gauge().DataPoints().At(0)
+					assert.Equal(t, start, dp.StartTimestamp())
+					assert.Equal(t, ts, dp.Timestamp())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+					assert.Equal(t, int64(1), dp.IntValue())
+				case "oracledb.system.memory.limit":
+					assert.False(t, validatedMetrics["oracledb.system.memory.limit"], "Found a duplicate in the metrics slice: oracledb.system.memory.limit")
+					validatedMetrics["oracledb.system.memory.limit"] = true
+					assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
+					assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
+					assert.Equal(t, "Total physical memory available to the Oracle server.", mi.Description())
+					assert.Equal(t, "By", mi.Unit())
+					dp := mi.Gauge().DataPoints().At(0)
+					assert.Equal(t, start, dp.StartTimestamp())
+					assert.Equal(t, ts, dp.Timestamp())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+					assert.Equal(t, int64(1), dp.IntValue())
 				case "oracledb.tablespace_size.limit":
 					if tt.name != "reaggregate_set" {
 						assert.False(t, validatedMetrics["oracledb.tablespace_size.limit"], "Found a duplicate in the metrics slice: oracledb.tablespace_size.limit")
@@ -2731,30 +2759,6 @@ func TestMetricsBuilder(t *testing.T) {
 						_, ok := dp.Attributes().Get("oracle.db.pdb")
 						assert.False(t, ok)
 					}
-				case "system.cpu.physical.count":
-					assert.False(t, validatedMetrics["system.cpu.physical.count"], "Found a duplicate in the metrics slice: system.cpu.physical.count")
-					validatedMetrics["system.cpu.physical.count"] = true
-					assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
-					assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
-					assert.Equal(t, "Number of physical CPUs available to the Oracle server as reported by the operating system.", mi.Description())
-					assert.Equal(t, "{cpu}", mi.Unit())
-					dp := mi.Gauge().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
-				case "system.memory.limit":
-					assert.False(t, validatedMetrics["system.memory.limit"], "Found a duplicate in the metrics slice: system.memory.limit")
-					validatedMetrics["system.memory.limit"] = true
-					assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
-					assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
-					assert.Equal(t, "Total physical memory available to the Oracle server in bytes.", mi.Description())
-					assert.Equal(t, "By", mi.Unit())
-					dp := mi.Gauge().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
 				}
 			}
 		})

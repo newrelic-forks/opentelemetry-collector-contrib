@@ -464,7 +464,7 @@ func TestScraper_ScrapeOSStat(t *testing.T) {
 				}
 				return &fakeDbClient{Responses: [][]metricRow{queryResponses[s]}}
 			},
-			errWanted: `failed to parse int64 for SystemCPUPhysicalCount, value was bad`,
+			errWanted: `failed to parse int64 for OracledbSystemCPUPhysicalCount, value was bad`,
 		},
 		{
 			name: "bad LOAD value",
@@ -488,15 +488,15 @@ func TestScraper_ScrapeOSStat(t *testing.T) {
 				}
 				return &fakeDbClient{Responses: [][]metricRow{queryResponses[s]}}
 			},
-			errWanted: `failed to parse int64 for SystemMemoryLimit, value was bad`,
+			errWanted: `failed to parse int64 for OracledbSystemMemoryLimit, value was bad`,
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := metadata.NewDefaultMetricsBuilderConfig()
-			cfg.Metrics.SystemCPUPhysicalCount.Enabled = true
+			cfg.Metrics.OracledbSystemCPUPhysicalCount.Enabled = true
 			cfg.Metrics.OracledbSystemCPULoad.Enabled = true
-			cfg.Metrics.SystemMemoryLimit.Enabled = true
+			cfg.Metrics.OracledbSystemMemoryLimit.Enabled = true
 
 			scrpr := oracleScraper{
 				logger: zap.NewNop(),
@@ -520,23 +520,21 @@ func TestScraper_ScrapeOSStat(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				metrics := m.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
-
-				intMetricMap := make(map[string]int64)
-				doubleMetricMap := make(map[string]float64)
 				for i := 0; i < metrics.Len(); i++ {
 					metric := metrics.At(i)
-					if metric.Type() == pmetric.MetricTypeGauge && metric.Gauge().DataPoints().Len() > 0 {
-						dp := metric.Gauge().DataPoints().At(0)
-						if dp.ValueType() == pmetric.NumberDataPointValueTypeDouble {
-							doubleMetricMap[metric.Name()] = dp.DoubleValue()
-						} else {
-							intMetricMap[metric.Name()] = dp.IntValue()
-						}
+					if metric.Type() != pmetric.MetricTypeGauge || metric.Gauge().DataPoints().Len() == 0 {
+						continue
+					}
+					dp := metric.Gauge().DataPoints().At(0)
+					switch metric.Name() {
+					case "oracledb.system.cpu.physical.count":
+						assert.Equal(t, int64(8), dp.IntValue())
+					case "oracledb.system.cpu.load":
+						assert.InDelta(t, 1.5, dp.DoubleValue(), floatDelta)
+					case "oracledb.system.memory.limit":
+						assert.Equal(t, int64(17179869184), dp.IntValue())
 					}
 				}
-				assert.Equal(t, int64(8), intMetricMap["system.cpu.physical.count"])
-				assert.InDelta(t, 1.5, doubleMetricMap["oracledb.system.cpu.load"], floatDelta)
-				assert.Equal(t, int64(17179869184), intMetricMap["system.memory.limit"])
 			}
 		})
 	}
@@ -1618,27 +1616,44 @@ func TestScraper_ScrapeSGAInfo(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				metrics := m.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
-				sgaUsageMap := make(map[string]int64)
+				// Names that must never appear as oracledb.sga.usage components.
+				excluded := map[string]struct{}{
+					"Maximum SGA Size":                {},
+					"Granule Size":                    {},
+					"Free SGA Memory Available":       {},
+					"Startup overhead in Shared Pool": {},
+				}
+				// Components we expect (with their fixture sizes).
+				wantUsage := map[string]int64{
+					"Fixed SGA Size":           9292416,
+					"Redo Buffers":             14598144,
+					"Buffer Cache Size":        1375731712,
+					"Shared Pool Size":         536870912,
+					"Large Pool Size":          33554432,
+					"Java Pool Size":           0,
+					"Streams Pool Size":        0,
+					"Shared IO Pool Size":      134217728,
+					"Data Transfer Cache Size": 0,
+				}
+				gotUsage := map[string]int64{}
 				var sgaLimit int64
 				for i := 0; i < metrics.Len(); i++ {
 					metric := metrics.At(i)
 					switch metric.Name() {
 					case "oracledb.sga.usage":
-						for j := 0; j < metric.Gauge().DataPoints().Len(); j++ {
-							dp := metric.Gauge().DataPoints().At(j)
-							component, _ := dp.Attributes().Get("oracledb.sga.component.name")
-							sgaUsageMap[component.Str()] = dp.IntValue()
+						for j := 0; j < metric.Sum().DataPoints().Len(); j++ {
+							dp := metric.Sum().DataPoints().At(j)
+							name, _ := dp.Attributes().Get("oracledb.sga.component.name")
+							_, isExcluded := excluded[name.Str()]
+							assert.Falsef(t, isExcluded, "row %q must not be emitted as oracledb.sga.usage", name.Str())
+							gotUsage[name.Str()] = dp.IntValue()
 						}
 					case "oracledb.sga.limit":
 						sgaLimit = metric.Gauge().DataPoints().At(0).IntValue()
 					}
 				}
-				assert.Equal(t, int64(1375731712), sgaUsageMap["Buffer Cache Size"])
-				assert.Equal(t, int64(536870912), sgaUsageMap["Shared Pool Size"])
-				assert.Equal(t, int64(14598144), sgaUsageMap["Redo Buffers"])
+				assert.Equal(t, wantUsage, gotUsage)
 				assert.Equal(t, int64(2147483648), sgaLimit)
-				// Maximum SGA Size row should not appear in usage map
-				assert.NotContains(t, sgaUsageMap, "Maximum SGA Size")
 			}
 		})
 	}
