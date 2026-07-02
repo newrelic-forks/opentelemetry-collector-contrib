@@ -794,7 +794,7 @@ Size of each component of the System Global Area (SGA).
 
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
-| oracledb.sga.component.name | Name of the SGA component. | Str: ``fixed_sga_size``, ``redo_buffers``, ``buffer_cache_size``, ``shared_pool_size``, ``large_pool_size``, ``java_pool_size``, ``streams_pool_size``, ``shared_io_pool_size``, ``data_transfer_cache_size``, ``in_memory_area_size`` | Recommended | - |
+| oracledb.sga.component.name | Name of the SGA component. | Str: ``buffer_cache``, ``data_transfer_cache``, ``fixed_sga``, ``in_memory_area``, ``java_pool``, ``large_pool``, ``redo_buffers``, ``shared_io_pool``, ``shared_pool``, ``streams_pool`` | Recommended | - |
 
 ### oracledb.shared_pool.utilization
 

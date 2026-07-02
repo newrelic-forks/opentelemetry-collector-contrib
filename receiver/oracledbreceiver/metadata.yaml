@@ -298,16 +298,16 @@ attributes:
     description: Name of the SGA component.
     type: string
     enum:
-      - fixed_sga_size
+      - buffer_cache
+      - data_transfer_cache
+      - fixed_sga
+      - in_memory_area
+      - java_pool
+      - large_pool
       - redo_buffers
-      - buffer_cache_size
-      - shared_pool_size
-      - large_pool_size
-      - java_pool_size
-      - streams_pool_size
-      - shared_io_pool_size
-      - data_transfer_cache_size
-      - in_memory_area_size
+      - shared_io_pool
+      - shared_pool
+      - streams_pool
     requirement_level: recommended
   oracledb.sid:
     description: ID of the Oracle Server session.

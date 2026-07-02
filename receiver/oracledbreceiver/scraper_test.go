@@ -1702,15 +1702,15 @@ func TestScraper_ScrapeSGAInfo(t *testing.T) {
 			require.NoError(t, err)
 			metrics := m.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
 			wantUsage := map[string]int64{
-				"fixed_sga_size":           9292416,
-				"redo_buffers":             14598144,
-				"buffer_cache_size":        1375731712,
-				"shared_pool_size":         536870912,
-				"large_pool_size":          33554432,
-				"java_pool_size":           0,
-				"streams_pool_size":        0,
-				"shared_io_pool_size":      134217728,
-				"data_transfer_cache_size": 0,
+				"buffer_cache":        1375731712,
+				"data_transfer_cache": 0,
+				"fixed_sga":           9292416,
+				"java_pool":           0,
+				"large_pool":          33554432,
+				"redo_buffers":        14598144,
+				"shared_io_pool":      134217728,
+				"shared_pool":         536870912,
+				"streams_pool":        0,
 			}
 			gotUsage := map[string]int64{}
 			var sgaLimit int64

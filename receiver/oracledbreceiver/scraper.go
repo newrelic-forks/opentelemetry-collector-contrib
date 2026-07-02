@@ -159,8 +159,8 @@ const (
 	colMetricName          = "METRIC_NAME"
 	colName                = "NAME"
 	colRecycleBinSizeBytes = "RECYCLE_BIN_SIZE_BYTES"
-	colSGAInfoName         = "NAME"
 	colSGAInfoBytes        = "BYTES"
+	colSGAInfoName         = "NAME"
 	colUsedDBSize          = "USED_DB_SIZE"
 	colValue               = "VALUE"
 
@@ -224,16 +224,16 @@ var (
 // is not in this map are skipped so that sum(oracledb.sga.usage) stays
 // consistent with oracledb.sga.limit.
 var sgaComponentNames = map[string]metadata.AttributeOracledbSgaComponentName{
-	"Fixed SGA Size":           metadata.AttributeOracledbSgaComponentNameFixedSgaSize,
+	"Buffer Cache Size":        metadata.AttributeOracledbSgaComponentNameBufferCache,
+	"Data Transfer Cache Size": metadata.AttributeOracledbSgaComponentNameDataTransferCache,
+	"Fixed SGA Size":           metadata.AttributeOracledbSgaComponentNameFixedSga,
+	"In-Memory Area Size":      metadata.AttributeOracledbSgaComponentNameInMemoryArea,
+	"Java Pool Size":           metadata.AttributeOracledbSgaComponentNameJavaPool,
+	"Large Pool Size":          metadata.AttributeOracledbSgaComponentNameLargePool,
 	"Redo Buffers":             metadata.AttributeOracledbSgaComponentNameRedoBuffers,
-	"Buffer Cache Size":        metadata.AttributeOracledbSgaComponentNameBufferCacheSize,
-	"Shared Pool Size":         metadata.AttributeOracledbSgaComponentNameSharedPoolSize,
-	"Large Pool Size":          metadata.AttributeOracledbSgaComponentNameLargePoolSize,
-	"Java Pool Size":           metadata.AttributeOracledbSgaComponentNameJavaPoolSize,
-	"Streams Pool Size":        metadata.AttributeOracledbSgaComponentNameStreamsPoolSize,
-	"Shared IO Pool Size":      metadata.AttributeOracledbSgaComponentNameSharedIoPoolSize,
-	"Data Transfer Cache Size": metadata.AttributeOracledbSgaComponentNameDataTransferCacheSize,
-	"In-Memory Area Size":      metadata.AttributeOracledbSgaComponentNameInMemoryAreaSize,
+	"Shared IO Pool Size":      metadata.AttributeOracledbSgaComponentNameSharedIoPool,
+	"Shared Pool Size":         metadata.AttributeOracledbSgaComponentNameSharedPool,
+	"Streams Pool Size":        metadata.AttributeOracledbSgaComponentNameStreamsPool,
 }
 
 type dbProviderFunc func() (*sql.DB, error)

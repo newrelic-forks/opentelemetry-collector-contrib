@@ -447,57 +447,57 @@ type AttributeOracledbSgaComponentName int
 
 const (
 	_ AttributeOracledbSgaComponentName = iota
-	AttributeOracledbSgaComponentNameFixedSgaSize
+	AttributeOracledbSgaComponentNameBufferCache
+	AttributeOracledbSgaComponentNameDataTransferCache
+	AttributeOracledbSgaComponentNameFixedSga
+	AttributeOracledbSgaComponentNameInMemoryArea
+	AttributeOracledbSgaComponentNameJavaPool
+	AttributeOracledbSgaComponentNameLargePool
 	AttributeOracledbSgaComponentNameRedoBuffers
-	AttributeOracledbSgaComponentNameBufferCacheSize
-	AttributeOracledbSgaComponentNameSharedPoolSize
-	AttributeOracledbSgaComponentNameLargePoolSize
-	AttributeOracledbSgaComponentNameJavaPoolSize
-	AttributeOracledbSgaComponentNameStreamsPoolSize
-	AttributeOracledbSgaComponentNameSharedIoPoolSize
-	AttributeOracledbSgaComponentNameDataTransferCacheSize
-	AttributeOracledbSgaComponentNameInMemoryAreaSize
+	AttributeOracledbSgaComponentNameSharedIoPool
+	AttributeOracledbSgaComponentNameSharedPool
+	AttributeOracledbSgaComponentNameStreamsPool
 )
 
 // String returns the string representation of the AttributeOracledbSgaComponentName.
 func (av AttributeOracledbSgaComponentName) String() string {
 	switch av {
-	case AttributeOracledbSgaComponentNameFixedSgaSize:
-		return "fixed_sga_size"
+	case AttributeOracledbSgaComponentNameBufferCache:
+		return "buffer_cache"
+	case AttributeOracledbSgaComponentNameDataTransferCache:
+		return "data_transfer_cache"
+	case AttributeOracledbSgaComponentNameFixedSga:
+		return "fixed_sga"
+	case AttributeOracledbSgaComponentNameInMemoryArea:
+		return "in_memory_area"
+	case AttributeOracledbSgaComponentNameJavaPool:
+		return "java_pool"
+	case AttributeOracledbSgaComponentNameLargePool:
+		return "large_pool"
 	case AttributeOracledbSgaComponentNameRedoBuffers:
 		return "redo_buffers"
-	case AttributeOracledbSgaComponentNameBufferCacheSize:
-		return "buffer_cache_size"
-	case AttributeOracledbSgaComponentNameSharedPoolSize:
-		return "shared_pool_size"
-	case AttributeOracledbSgaComponentNameLargePoolSize:
-		return "large_pool_size"
-	case AttributeOracledbSgaComponentNameJavaPoolSize:
-		return "java_pool_size"
-	case AttributeOracledbSgaComponentNameStreamsPoolSize:
-		return "streams_pool_size"
-	case AttributeOracledbSgaComponentNameSharedIoPoolSize:
-		return "shared_io_pool_size"
-	case AttributeOracledbSgaComponentNameDataTransferCacheSize:
-		return "data_transfer_cache_size"
-	case AttributeOracledbSgaComponentNameInMemoryAreaSize:
-		return "in_memory_area_size"
+	case AttributeOracledbSgaComponentNameSharedIoPool:
+		return "shared_io_pool"
+	case AttributeOracledbSgaComponentNameSharedPool:
+		return "shared_pool"
+	case AttributeOracledbSgaComponentNameStreamsPool:
+		return "streams_pool"
 	}
 	return ""
 }
 
 // MapAttributeOracledbSgaComponentName is a helper map of string to AttributeOracledbSgaComponentName attribute value.
 var MapAttributeOracledbSgaComponentName = map[string]AttributeOracledbSgaComponentName{
-	"fixed_sga_size":           AttributeOracledbSgaComponentNameFixedSgaSize,
-	"redo_buffers":             AttributeOracledbSgaComponentNameRedoBuffers,
-	"buffer_cache_size":        AttributeOracledbSgaComponentNameBufferCacheSize,
-	"shared_pool_size":         AttributeOracledbSgaComponentNameSharedPoolSize,
-	"large_pool_size":          AttributeOracledbSgaComponentNameLargePoolSize,
-	"java_pool_size":           AttributeOracledbSgaComponentNameJavaPoolSize,
-	"streams_pool_size":        AttributeOracledbSgaComponentNameStreamsPoolSize,
-	"shared_io_pool_size":      AttributeOracledbSgaComponentNameSharedIoPoolSize,
-	"data_transfer_cache_size": AttributeOracledbSgaComponentNameDataTransferCacheSize,
-	"in_memory_area_size":      AttributeOracledbSgaComponentNameInMemoryAreaSize,
+	"buffer_cache":        AttributeOracledbSgaComponentNameBufferCache,
+	"data_transfer_cache": AttributeOracledbSgaComponentNameDataTransferCache,
+	"fixed_sga":           AttributeOracledbSgaComponentNameFixedSga,
+	"in_memory_area":      AttributeOracledbSgaComponentNameInMemoryArea,
+	"java_pool":           AttributeOracledbSgaComponentNameJavaPool,
+	"large_pool":          AttributeOracledbSgaComponentNameLargePool,
+	"redo_buffers":        AttributeOracledbSgaComponentNameRedoBuffers,
+	"shared_io_pool":      AttributeOracledbSgaComponentNameSharedIoPool,
+	"shared_pool":         AttributeOracledbSgaComponentNameSharedPool,
+	"streams_pool":        AttributeOracledbSgaComponentNameStreamsPool,
 }
 
 // AttributeOracledbSortType specifies the value oracledb.sort.type attribute.
