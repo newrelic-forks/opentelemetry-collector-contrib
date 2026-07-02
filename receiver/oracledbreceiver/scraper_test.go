@@ -1374,6 +1374,53 @@ func TestScraper_ScrapeSysMetrics_CDBRoot_PdbAttrDisabled(t *testing.T) {
 	assert.InDelta(t, 55.66, metricMap["oracledb.database.cpu.utilization"], floatDelta)
 }
 
+// On a CDB root, if the container-grants probe fails, isCDBRoot stays false
+// and start() wires the single-container clients. Any CDB SQL fired at scrape
+// time would trip a fail-fast trap.
+func TestScraper_StartCDBRoot_FallbackWhenGrantsMissing(t *testing.T) {
+	cfg := metadata.NewDefaultMetricsBuilderConfig()
+	// Enable one metric per fallback query family so scrape() actually invokes
+	// the fallback clients — otherwise the trap-clients below are unreachable.
+	cfg.Metrics.OracledbEnqueueDeadlocks.Enabled = true
+	cfg.Metrics.OracledbSessionsUsage.Enabled = true
+	cfg.Metrics.OracledbTablespaceSizeUsage.Enabled = true
+	cfg.Metrics.OracledbBufferCacheUtilization.Enabled = true
+
+	scrpr := oracleScraper{
+		logger: zap.NewNop(),
+		mb:     metadata.NewMetricsBuilder(cfg, receivertest.NewNopSettings(metadata.Type)),
+		dbProviderFunc: func() (*sql.DB, error) {
+			return nil, nil
+		},
+		clientProviderFunc: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+			if s == containerGrantsProbeSQL {
+				return &fakeDbClient{Err: errors.New("ORA-00942: table or view does not exist")}
+			}
+			// Trap the CDB SQLs so the test breaks if start() wires them.
+			switch s {
+			case statsCDBSQL, sessionCountCDBSQL, tablespaceUsageCDBSQL, sysmetricCDBSQL:
+				return &fakeDbClient{Err: errors.New("should not be called")}
+			}
+			return &fakeDbClient{Responses: [][]metricRow{queryResponses[s]}}
+		},
+		id:                   component.ID{},
+		metricsBuilderConfig: cfg,
+		instanceInfo:         oracleInstanceInfo{isCDB: true, connectedToPDB: false},
+	}
+
+	err := scrpr.start(t.Context(), componenttest.NewNopHost())
+	require.NoError(t, err)
+	defer func() {
+		assert.NoError(t, scrpr.shutdown(t.Context()))
+	}()
+
+	require.False(t, scrpr.isCDBRoot)
+	require.Nil(t, scrpr.sysmetricCDBClient)
+
+	_, err = scrpr.scrape(t.Context())
+	require.NoError(t, err)
+}
+
 func TestGetInstanceId(t *testing.T) {
 	localhostName, _ := os.Hostname()
 

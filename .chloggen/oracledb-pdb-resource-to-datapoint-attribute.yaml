@@ -24,6 +24,11 @@ subtext: |
   reading it from resource scope) will need to be updated to read it from data-point
   attributes. Because the attribute is `opt_in`, it must also be explicitly enabled on
   each metric that should carry it via `metrics.<name>.attributes: [oracle.db.pdb]`.
+  Per-PDB collection additionally requires SELECT on `V_$CON_SYSSTAT`, `V_$CON_SYSMETRIC`,
+  `V_$CONTAINERS`, `CDB_TABLESPACE_USAGE_METRICS`, and `CDB_TABLESPACES` (with
+  `CONTAINER=ALL` for common users). If those grants are not present, the receiver
+  detects it at startup and falls back to the single-container query set, so existing
+  CDB deployments upgrading without adding the new grants keep working unchanged.
 
 # If your change doesn't affect end users or the exported elements of any package,
 # you should instead start your pull request title with [chore] or use the "Skip Changelog" label.

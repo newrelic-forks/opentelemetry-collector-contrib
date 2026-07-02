@@ -44,6 +44,12 @@ const (
 	// rows, so no group_id filter is required.
 	sysmetricCDBSQL = "SELECT s.metric_name AS METRIC_NAME, s.value AS VALUE, c.name AS PDB_NAME FROM v$con_sysmetric s, v$containers c WHERE s.con_id = c.con_id(+)"
 
+	// containerGrantsProbeSQL detects whether the user has the grants needed
+	// for per-PDB collection. On failure the receiver falls back to the
+	// single-container query set.
+	containerGrantsProbeSQL     = "SELECT 1 FROM v$con_sysstat WHERE ROWNUM = 1"
+	containerGrantsProbeTimeout = 5 * time.Second
+
 	// V$SYSMETRIC metric_name values (group_id=2, 60-second interval)
 	sysmetricBufferCacheHitRatio      = "Buffer Cache Hit Ratio"
 	sysmetricHostCPUUtilization       = "Host CPU Utilization (%)"
@@ -334,8 +340,11 @@ func (s *oracleScraper) start(ctx context.Context, _ component.Host) error {
 			s.logger,
 		)
 	}
-	// Use CDB-aware queries when connected to a CDB root; fall back to single-container queries otherwise.
-	s.isCDBRoot = s.instanceInfo.isCDB && !s.instanceInfo.connectedToPDB
+	// Enable CDB-aware queries only when connected to a CDB root and the user
+	// has the grants for per-PDB collection; otherwise use single-container
+	// queries so upgrades without the new grants keep working.
+	s.isCDBRoot = s.instanceInfo.isCDB && !s.instanceInfo.connectedToPDB &&
+		s.hasContainerGrants(ctx, s.clientProviderFunc(s.db, containerGrantsProbeSQL, s.logger))
 	if s.isCDBRoot {
 		s.logger.Info("oracledbreceiver: connected to CDB root; using CDB-aware queries for per-PDB metrics")
 		s.statsClient = s.clientProviderFunc(s.db, statsCDBSQL, s.logger)
@@ -1160,6 +1169,20 @@ func (s *oracleScraper) anySysmetricPdbAttrEnabled() bool {
 // the oracle.db.pdb key. Generic over the per-metric string-typed key alias.
 func hasPdbAttr[T ~string](keys []T) bool {
 	return slices.Contains(keys, T("oracle.db.pdb"))
+}
+
+// hasContainerGrants reports whether the user has the grants required for
+// per-PDB collection. Any error resolves to false and logs a warning that
+// points operators at the README.
+func (s *oracleScraper) hasContainerGrants(ctx context.Context, probe dbClient) bool {
+	probeCtx, cancel := context.WithTimeout(ctx, containerGrantsProbeTimeout)
+	defer cancel()
+	if _, err := probe.metricRows(probeCtx); err != nil {
+		s.logger.Warn("oracledbreceiver: per-PDB grants not available; using single-container queries. See the receiver README 'Per-PDB metrics' section.",
+			zap.Error(err))
+		return false
+	}
+	return true
 }
 
 // recordSysmetric records a single sysmetric data point based on the Oracle metric name.
