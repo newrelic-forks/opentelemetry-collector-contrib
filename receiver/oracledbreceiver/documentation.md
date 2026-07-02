@@ -867,7 +867,7 @@ Number of CPUs or processors available to the Oracle server, as reported by the 
 
 ### oracledb.system.memory.limit
 
-Total physical memory available to the Oracle server.
+Total number of bytes of physical memory on the host running the Oracle server.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
@@ -879,7 +879,7 @@ Current number of processes that are either running or in the ready state, waiti
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
-| {processes} | Gauge | Double | Development |
+| {process} | Gauge | Double | Development |
 
 ## Default Events
 

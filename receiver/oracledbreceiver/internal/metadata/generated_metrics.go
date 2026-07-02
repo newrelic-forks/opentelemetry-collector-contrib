@@ -5887,7 +5887,7 @@ type metricOracledbSystemMemoryLimit struct {
 // init fills oracledb.system.memory.limit metric with initial data.
 func (m *metricOracledbSystemMemoryLimit) init() {
 	m.data.SetName("oracledb.system.memory.limit")
-	m.data.SetDescription("Total physical memory available to the Oracle server.")
+	m.data.SetDescription("Total number of bytes of physical memory on the host running the Oracle server.")
 	m.data.SetUnit("By")
 	m.data.SetEmptyGauge()
 }
@@ -5938,7 +5938,7 @@ type metricOracledbSystemProcessCount struct {
 func (m *metricOracledbSystemProcessCount) init() {
 	m.data.SetName("oracledb.system.process.count")
 	m.data.SetDescription("Current number of processes that are either running or in the ready state, waiting to be selected by the operating-system scheduler to run.")
-	m.data.SetUnit("{processes}")
+	m.data.SetUnit("{process}")
 	m.data.SetEmptyGauge()
 }
 

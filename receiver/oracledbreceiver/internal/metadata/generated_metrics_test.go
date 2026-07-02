@@ -2191,7 +2191,7 @@ func TestMetricsBuilder(t *testing.T) {
 					validatedMetrics["oracledb.system.memory.limit"] = true
 					assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
 					assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
-					assert.Equal(t, "Total physical memory available to the Oracle server.", mi.Description())
+					assert.Equal(t, "Total number of bytes of physical memory on the host running the Oracle server.", mi.Description())
 					assert.Equal(t, "By", mi.Unit())
 					dp := mi.Gauge().DataPoints().At(0)
 					assert.Equal(t, start, dp.StartTimestamp())
@@ -2204,7 +2204,7 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
 					assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
 					assert.Equal(t, "Current number of processes that are either running or in the ready state, waiting to be selected by the operating-system scheduler to run.", mi.Description())
-					assert.Equal(t, "{processes}", mi.Unit())
+					assert.Equal(t, "{process}", mi.Unit())
 					dp := mi.Gauge().DataPoints().At(0)
 					assert.Equal(t, start, dp.StartTimestamp())
 					assert.Equal(t, ts, dp.Timestamp())

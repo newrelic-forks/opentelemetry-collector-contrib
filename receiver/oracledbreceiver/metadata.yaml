@@ -1210,7 +1210,7 @@ metrics:
       value_type: int
     unit: "{cpu}"
   oracledb.system.memory.limit:
-    description: Total physical memory available to the Oracle server.
+    description: Total number of bytes of physical memory on the host running the Oracle server.
     enabled: false
     stability: development
     gauge:
@@ -1222,7 +1222,7 @@ metrics:
     stability: development
     gauge:
       value_type: double
-    unit: "{processes}"
+    unit: "{process}"
   oracledb.tablespace_size.limit:
     attributes:
       - tablespace_name
