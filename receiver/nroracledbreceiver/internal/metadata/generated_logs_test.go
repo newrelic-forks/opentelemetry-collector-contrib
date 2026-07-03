@@ -4,9 +4,6 @@ package metadata
 
 import (
 	"context"
-	"testing"
-	"time"
-
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/plog"
@@ -14,6 +11,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
+	"testing"
+	"time"
 )
 
 type eventsTestDataSet int
@@ -34,7 +33,6 @@ func TestLogsBuilderAppendLogRecord(t *testing.T) {
 	rb.SetHostName("host.name-val")
 	rb.SetOracleDbHostingType("oracle.db.hosting_type-val")
 	rb.SetOracleDbOpenMode("oracle.db.open_mode-val")
-	rb.SetOracleDbPdb("oracle.db.pdb-val")
 	rb.SetOracleDbRole("oracle.db.role-val")
 	rb.SetOracleDbVersion("oracle.db.version-val")
 	rb.SetOracledbInstanceName("oracledb.instance.name-val")
@@ -148,7 +146,6 @@ func TestLogsBuilder(t *testing.T) {
 			rb.SetHostName("host.name-val")
 			rb.SetOracleDbHostingType("oracle.db.hosting_type-val")
 			rb.SetOracleDbOpenMode("oracle.db.open_mode-val")
-			rb.SetOracleDbPdb("oracle.db.pdb-val")
 			rb.SetOracleDbRole("oracle.db.role-val")
 			rb.SetOracleDbVersion("oracle.db.version-val")
 			rb.SetOracledbInstanceName("oracledb.instance.name-val")
