@@ -472,8 +472,7 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 		}
 
 		for _, row := range rows {
-			// pdbName is set for CDB-root queries; empty for non-CDB or direct-PDB connections.
-			pdbName := row["PDB_NAME"]
+			pdbName := s.pdbNameForRow(row)
 			switch row["NAME"] {
 			case enqueueDeadlocks:
 				err := s.mb.RecordOracledbEnqueueDeadlocksDataPoint(now, row["VALUE"], pdbName)
@@ -877,9 +876,8 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 			scrapeErrors = append(scrapeErrors, fmt.Errorf("error executing %s: %w", sessionQueryName, err))
 		}
 		for _, row := range rows {
-			// pdbName is populated from PDB_NAME in CDB-root queries; empty for non-CDB.
 			err := s.mb.RecordOracledbSessionsUsageDataPoint(pcommon.NewTimestampFromTime(time.Now()), row["VALUE"],
-				row["TYPE"], row["STATUS"], row["PDB_NAME"])
+				row["TYPE"], row["STATUS"], s.pdbNameForRow(row))
 			if err != nil {
 				scrapeErrors = append(scrapeErrors, err)
 			}
@@ -968,8 +966,7 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 			now := pcommon.NewTimestampFromTime(time.Now())
 			for _, row := range rows {
 				tablespaceName := row["TABLESPACE_NAME"]
-				// pdbName is set for CDB-root queries; empty for non-CDB or direct-PDB connections.
-				pdbName := row["PDB_NAME"]
+				pdbName := s.pdbNameForRow(row)
 				usedSpaceBlockCount, err := strconv.ParseInt(row["USED_SPACE"], 10, 64)
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, fmt.Errorf("failed to parse int64 for OracledbTablespaceSizeUsage, value was %s: %w", row["USED_SPACE"], err))
@@ -1207,7 +1204,7 @@ func (s *oracleScraper) collectSysMetrics(ctx context.Context, scrapeErrors *[]e
 			for _, row := range rows {
 				metricName := row["METRIC_NAME"]
 				rawVal := row["VALUE"]
-				pdbName := row["PDB_NAME"]
+				pdbName := s.pdbNameForRow(row)
 				val, parseErr := strconv.ParseFloat(rawVal, 64)
 				if parseErr != nil {
 					*scrapeErrors = append(*scrapeErrors, fmt.Errorf("sysmetric %q: failed to parse float64 from %q: %w", metricName, rawVal, parseErr))
