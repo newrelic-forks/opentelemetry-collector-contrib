@@ -16,8 +16,8 @@ issues: [48458]
 # These lines will be padded with 2 spaces and then inserted directly into the document.
 # Use pipe (|) for multiline entries.
 subtext: |
-  Adds the opt-in metrics `oracledb.system.cpu.physical.count`,
-  `oracledb.system.memory.limit`, and `oracledb.system.cpu.load`.
+  Adds the opt-in metrics `oracledb.system.cpu.count`,
+  `oracledb.system.memory.limit`, and `oracledb.system.process.count`.
 
 # If your change doesn't affect end users or the exported elements of any package,
 # you should instead start your pull request title with [chore] or use the "Skip Changelog" label.
