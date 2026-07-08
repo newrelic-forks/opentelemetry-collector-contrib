@@ -1718,8 +1718,8 @@ func TestScraper_ScrapeSGAInfo(t *testing.T) {
 				metric := metrics.At(i)
 				switch metric.Name() {
 				case "oracledb.sga.usage":
-					for j := 0; j < metric.Sum().DataPoints().Len(); j++ {
-						dp := metric.Sum().DataPoints().At(j)
+					for j := 0; j < metric.Gauge().DataPoints().Len(); j++ {
+						dp := metric.Gauge().DataPoints().At(j)
 						name, _ := dp.Attributes().Get("oracledb.sga.component.name")
 						gotUsage[name.Str()] = dp.IntValue()
 					}

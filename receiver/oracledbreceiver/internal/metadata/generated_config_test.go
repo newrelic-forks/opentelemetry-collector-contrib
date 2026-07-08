@@ -286,7 +286,7 @@ func TestMetricsBuilderConfig(t *testing.T) {
 					},
 					OracledbSgaUsage: OracledbSgaUsageMetricConfig{
 						Enabled:             true,
-						AggregationStrategy: AggregationStrategySum,
+						AggregationStrategy: AggregationStrategyAvg,
 						EnabledAttributes:   []OracledbSgaUsageMetricAttributeKey{OracledbSgaUsageMetricAttributeKeyOracledbSgaComponentName},
 					},
 					OracledbSharedPoolUtilization: OracledbSharedPoolUtilizationMetricConfig{
@@ -619,7 +619,7 @@ func TestMetricsBuilderConfig(t *testing.T) {
 					},
 					OracledbSgaUsage: OracledbSgaUsageMetricConfig{
 						Enabled:             false,
-						AggregationStrategy: AggregationStrategySum,
+						AggregationStrategy: AggregationStrategyAvg,
 						EnabledAttributes:   []OracledbSgaUsageMetricAttributeKey{OracledbSgaUsageMetricAttributeKeyOracledbSgaComponentName},
 					},
 					OracledbSharedPoolUtilization: OracledbSharedPoolUtilizationMetricConfig{

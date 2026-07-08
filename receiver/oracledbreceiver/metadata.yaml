@@ -1161,10 +1161,8 @@ metrics:
     description: Size of each component of the System Global Area (SGA).
     enabled: false
     stability: development
-    sum:
+    gauge:
       value_type: int
-      monotonic: false
-      aggregation_temporality: cumulative
     unit: By
   oracledb.shared_pool.utilization:
     description: Fraction of the shared pool that is currently free, as computed by Oracle V$SYSMETRIC (% Free/Total). Low values indicate shared pool pressure.
