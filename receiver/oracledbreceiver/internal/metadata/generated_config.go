@@ -3989,7 +3989,7 @@ func DefaultMetricsConfig() MetricsConfig {
 		},
 		OracledbSgaUsage: OracledbSgaUsageMetricConfig{
 			Enabled:             false,
-			AggregationStrategy: AggregationStrategySum,
+			AggregationStrategy: AggregationStrategyAvg,
 			EnabledAttributes:   []OracledbSgaUsageMetricAttributeKey{OracledbSgaUsageMetricAttributeKeyOracledbSgaComponentName},
 		},
 		OracledbSharedPoolUtilization: OracledbSharedPoolUtilizationMetricConfig{
