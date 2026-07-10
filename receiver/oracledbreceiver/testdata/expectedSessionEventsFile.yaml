@@ -31,6 +31,9 @@ resourceLogs:
               - key: oracledb.wait.duration
                 value:
                   doubleValue: 25.5
+              - key: db.namespace
+                value:
+                  stringValue: ORCL
             body: {}
             eventName: db.server.session.wait_sample
             timeUnixNano: "1759142300369458000"
@@ -53,6 +56,9 @@ resourceLogs:
               - key: oracledb.wait.duration
                 value:
                   doubleValue: 12.3
+              - key: db.namespace
+                value:
+                  stringValue: ORCL
             body: {}
             eventName: db.server.session.wait_sample
             timeUnixNano: "1759142300369458000"
