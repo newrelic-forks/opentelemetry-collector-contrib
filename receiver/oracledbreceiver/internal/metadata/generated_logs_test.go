@@ -337,6 +337,9 @@ func TestLogsBuilder(t *testing.T) {
 					attrVal, ok = lr.Attributes().Get("oracledb.wait.duration")
 					assert.True(t, ok)
 					assert.Equal(t, 22.100000, attrVal.Double())
+					attrVal, ok = lr.Attributes().Get("db.namespace")
+					assert.True(t, ok)
+					assert.Equal(t, "db.namespace-val", attrVal.Str())
 				case "db.server.top_query":
 					assert.False(t, validatedEvents["db.server.top_query"], "Found a duplicate in the events slice: db.server.top_query")
 					validatedEvents["db.server.top_query"] = true
