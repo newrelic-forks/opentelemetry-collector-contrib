@@ -1450,6 +1450,7 @@ func (s *oracleScraper) collectSessionWaitEvents(ctx context.Context, logs plog.
 	const waitClass = "WAIT_CLASS"
 	const totalWaits = "TOTAL_WAITS"
 	const totalTimeWaitedSecs = "TOTAL_TIME_WAITED_SECS"
+	const dbNamespaceCol = "DB_NAMESPACE"
 
 	var scrapeErrors []error
 
@@ -1475,7 +1476,7 @@ func (s *oracleScraper) collectSessionWaitEvents(ctx context.Context, logs plog.
 			continue
 		}
 
-		s.lb.RecordDbServerSessionWaitSampleEvent(ctx, timestamp, row[sid], row[serial], row[event], row[waitClass], totalWaitsVal, totalTimeWaitedSecsVal)
+		s.lb.RecordDbServerSessionWaitSampleEvent(ctx, timestamp, row[sid], row[serial], row[event], row[waitClass], totalWaitsVal, totalTimeWaitedSecsVal, row[dbNamespaceCol])
 	}
 
 	s.lb.Emit(metadata.WithLogsResource(rb.Emit())).ResourceLogs().MoveAndAppendTo(logs.ResourceLogs())
