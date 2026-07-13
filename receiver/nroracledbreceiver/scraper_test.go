@@ -766,11 +766,15 @@ var sessionEventQueryResponses = map[string][]metricRow{
 	sessionEventQuery: {
 		{
 			"SID": "100", "SERIAL#": "12345", "EVENT": "db file sequential read", "WAIT_CLASS": "User I/O",
-			"TOTAL_WAITS": "1500", "TOTAL_TIME_WAITED_SECS": "25.5",
+			"TOTAL_WAITS": "1500", "TOTAL_TIME_WAITED_SECS": "25.5", "DB_NAMESPACE": "ORCL",
 		},
 		{
 			"SID": "101", "SERIAL#": "12346", "EVENT": "log file sync", "WAIT_CLASS": "Commit",
-			"TOTAL_WAITS": "800", "TOTAL_TIME_WAITED_SECS": "12.3",
+			"TOTAL_WAITS": "800", "TOTAL_TIME_WAITED_SECS": "12.3", "DB_NAMESPACE": "ORCL",
+		},
+		{
+			"SID": "102", "SERIAL#": "12347", "EVENT": "buffer busy waits", "WAIT_CLASS": "Concurrency",
+			"TOTAL_WAITS": "50", "TOTAL_TIME_WAITED_SECS": "1.5",
 		},
 	},
 	"invalidSessionEventQuery": {
