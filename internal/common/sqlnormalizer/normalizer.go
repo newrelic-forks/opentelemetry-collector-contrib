@@ -15,26 +15,23 @@ package sqlnormalizer // import "github.com/open-telemetry/opentelemetry-collect
 import (
 	"crypto/md5" // #nosec G501 -- MD5 required for hash compatibility with the New Relic Java APM agent, not for security.
 	"encoding/hex"
-	"fmt"
 	"strings"
 )
 
 // sqlNormalizerState holds state during SQL normalization.
 // This matches the SqlNormalizerState inner class in the Java reference implementation.
 type sqlNormalizerState struct {
-	sql               string
-	length            int
-	idx               int
-	lastWasWhitespace bool
+	sql    string
+	length int
+	idx    int
 }
 
 // newSQLNormalizerState creates a new state machine for SQL normalization.
 func newSQLNormalizerState(sql string) *sqlNormalizerState {
 	return &sqlNormalizerState{
-		sql:               sql,
-		length:            len(sql),
-		idx:               0,
-		lastWasWhitespace: true, // Start as true to trim leading whitespace
+		sql:    sql,
+		length: len(sql),
+		idx:    0,
 	}
 }
 
@@ -69,7 +66,6 @@ func (s *sqlNormalizerState) advanceBy2() {
 }
 
 // isIdentifierChar checks if a character is valid in an identifier.
-// Matches Java: Character.isLetterOrDigit(c) || c == '_'
 func isIdentifierChar(c byte) bool {
 	return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
 }
@@ -266,7 +262,7 @@ func skipPlaceholder(state *sqlNormalizerState) {
 // - Converts to uppercase
 // - Normalizes all parameter placeholders to '?'
 // - Replaces string and numeric literals with '?'
-// - Removes comments (/* */, --, #)
+// - Replaces comments (/* */, --, #) with '?'
 // - Strips ALL whitespace
 // - Normalizes IN clauses: IN (1,2,3) → IN (?)
 //
@@ -277,10 +273,6 @@ func NormalizeSQL(sql string) string {
 		return ""
 	}
 
-	// Log original SQL
-	originalSQL := sql
-	fmt.Printf("[SQL Normalizer] BEFORE normalization:\n%s\n", originalSQL)
-
 	// Phase 1: Convert to uppercase (matches Java: sql.toUpperCase(Locale.ROOT))
 	sql = strings.ToUpper(sql)
 
@@ -288,12 +280,7 @@ func NormalizeSQL(sql string) string {
 	sql = normalizeParametersAndLiterals(sql)
 
 	// Phase 3: Remove comments and strip all whitespace (stripWhitespace=true)
-	normalizedSQL := removeCommentsAndNormalizeWhitespace(sql)
-
-	// Log normalized SQL
-	fmt.Printf("[SQL Normalizer] AFTER normalization:\n%s\n\n", normalizedSQL)
-
-	return normalizedSQL
+	return removeCommentsAndNormalizeWhitespace(sql)
 }
 
 // isPrecededByIn checks if the result is preceded by "IN".
@@ -440,6 +427,24 @@ func isSingleLineCommentStart(state *sqlNormalizerState) bool {
 	return state.current() == '-' && state.hasNext() && state.peek() == '-'
 }
 
+// isHashCommentStart checks if current position starts a MySQL-style # comment.
+//
+// '#' is only treated as a comment when it begins a token (start of input or
+// preceded by whitespace). Otherwise it is considered part of an identifier, so
+// Oracle data-dictionary columns such as obj#, type#, con#, and ts# are
+// preserved rather than swallowed as a comment.
+
+func isHashCommentStart(state *sqlNormalizerState) bool {
+	if state.current() != '#' {
+		return false
+	}
+	if state.idx == 0 {
+		return true
+	}
+	prev := state.sql[state.idx-1]
+	return prev == ' ' || prev == '\t' || prev == '\n' || prev == '\r'
+}
+
 // skipMultilineComment skips over /* */ comment.
 
 func skipMultilineComment(state *sqlNormalizerState) {
@@ -462,12 +467,9 @@ func skipMultilineComment(state *sqlNormalizerState) {
 // skipToEndOfLine skips to end of line for -- and # comments.
 
 func skipToEndOfLine(state *sqlNormalizerState) {
-	// Skip until newline
+	// Skip until newline. The terminating newline itself is left in place;
+	// it is stripped as whitespace by the main loop.
 	for state.hasMore() && state.current() != '\n' && state.current() != '\r' {
-		state.advance()
-	}
-	// Skip the newline character(s)
-	for state.hasMore() && (state.current() == '\n' || state.current() == '\r') {
 		state.advance()
 	}
 }
@@ -477,7 +479,6 @@ func skipToEndOfLine(state *sqlNormalizerState) {
 
 func processStringLiteral(result *strings.Builder, state *sqlNormalizerState) {
 	result.WriteByte(state.current())
-	state.lastWasWhitespace = false
 	state.advance()
 
 	for state.hasMore() {
@@ -496,12 +497,11 @@ func processStringLiteral(result *strings.Builder, state *sqlNormalizerState) {
 			state.advance()
 		}
 	}
-	state.lastWasWhitespace = false
 }
 
-// removeCommentsAndNormalizeWhitespace strips all comments and removes all whitespace.
+// removeCommentsAndNormalizeWhitespace replaces comments with '?' and removes all whitespace.
 // This is phase 2 of the normalization process.
-// Matches Java: removeCommentsAndNormalizeWhitespace() with stripWhitespace=true
+// Matches Java: removeCommentsAndStripWhitespace()
 func removeCommentsAndNormalizeWhitespace(sql string) string {
 	var result strings.Builder
 	result.Grow(len(sql))
@@ -519,21 +519,19 @@ func removeCommentsAndNormalizeWhitespace(sql string) string {
 			// Always replace comments with ? (matches NR APM agent behavior for both prefix and inline)
 			skipMultilineComment(state)
 			result.WriteByte('?')
-			state.lastWasWhitespace = false
 		case isSingleLineCommentStart(state):
 			// Single-line comment --
 			// Always replace comments with ? (matches NR APM agent behavior for both prefix and inline)
 			state.advanceBy2() // Skip --
 			skipToEndOfLine(state)
 			result.WriteByte('?')
-			state.lastWasWhitespace = false
-		case current == '#':
-			// Hash comment
+		case isHashCommentStart(state):
+			// Hash comment (only when # starts a token; otherwise it is part of an
+			// identifier such as Oracle's obj#, type#, con#, ts#)
 			// Always replace comments with ? (matches NR APM agent behavior for both prefix and inline)
 			state.advance() // Skip #
 			skipToEndOfLine(state)
 			result.WriteByte('?')
-			state.lastWasWhitespace = false
 		case current == ' ' || current == '\t' || current == '\n' || current == '\r':
 			// stripWhitespace=true: just skip all whitespace (matches Java line 397-398)
 			state.advance()
@@ -589,14 +587,16 @@ func GenerateMD5Hash(normalizedSQL string) string {
 //
 //	input := "SELECT * FROM users WHERE id = 123 AND name = 'John'"
 //	normalized, hash := NormalizeSQLAndHash(input)
-//	// normalized: "SELECT * FROM USERS WHERE ID = ? AND NAME = ?"
-//	// hash: "62c441c38800ff82bffa5c57dd4f4059"
+//	// normalized: "SELECT*FROMUSERSWHEREID=?ANDNAME=?"
+//	// hash: "e78f13a21009ebcb6fdef9e996a24c9d"
 func NormalizeSQLAndHash(sql string) (normalizedSQL, md5Hash string) {
 	normalizedSQL = NormalizeSQL(sql)
+	// Matches Java SqlHashUtil.normalizeAndHash: empty input (or input that
+	// normalizes to empty) yields an empty hash rather than the MD5 of "".
+	if normalizedSQL == "" {
+		return "", ""
+	}
 	md5Hash = GenerateMD5Hash(normalizedSQL)
-
-	// Log the generated hash
-	fmt.Printf("[SQL Normalizer] Generated MD5 hash: %s\n\n", md5Hash)
 
 	return normalizedSQL, md5Hash
 }
