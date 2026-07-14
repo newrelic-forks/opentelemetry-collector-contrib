@@ -126,30 +126,10 @@ attributes:
     description: The type of file being monitored.
     type: string
     requirement_level: recommended
-  lock.mode:
-    description: SQL Server lock request mode.
-    type: string
-    requirement_level: recommended
-    enum: [shared, exclusive, update, intent, schema, bulk_update, shared_intent_exclusive]
-  lock.resource:
-    description: SQL Server lock resource type.
-    type: string
-    requirement_level: recommended
-    enum: [key, page, row, table, extent, file, hobt, metadata, application, allocation_unit, database_level]
   logical_filename:
     description: The logical filename of the file being monitored.
     type: string
     requirement_level: recommended
-  member.kind:
-    description: Role-membership member breakdown bucket. `high_privilege` covers db_owner, db_securityadmin, db_accessadmin, db_backupoperator, db_ddladmin.
-    type: string
-    requirement_level: recommended
-    enum: [app_role, cross_role, high_privilege, unique]
-  membership.kind:
-    description: Role-membership grouping bucket.
-    type: string
-    requirement_level: recommended
-    enum: [active, custom, nested, users]
   memory.pool:
     description: The functional area of SQL Server memory.
     type: string
@@ -192,11 +172,6 @@ attributes:
     description: The physical filename of the file being monitored.
     type: string
     requirement_level: recommended
-  principal.type:
-    description: Database security principal type.
-    type: string
-    requirement_level: recommended
-    enum: [sql_user, windows_user, role, application_role, certificate_mapped_user, asymmetric_key_mapped_user]
   process.status:
     description: The status of the SQL Server process/session.
     type: string
@@ -226,15 +201,6 @@ attributes:
     type: string
     requirement_level: recommended
     enum: [healthy, partially_healthy, not_healthy, unknown]
-  role:
-    description: The name of the database or server role.
-    type: string
-    requirement_level: recommended
-  role.state:
-    description: Database role usage state.
-    type: string
-    requirement_level: recommended
-    enum: [empty, with_members]
   server.address:
     description: The network address of the server hosting the database.
     type: string
@@ -722,96 +688,6 @@ metrics:
       input_type: string
     attributes: [db.namespace, page_file.state]
     extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
-  sqlserver.database.principals.count:
-    enabled: false
-    description: Number of database security principals broken down by type.
-    stability: development
-    unit: "{principals}"
-    gauge:
-      value_type: int
-      input_type: string
-    attributes: [db.namespace, principal.type]
-    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
-  sqlserver.database.principals.old:
-    enabled: false
-    description: Number of database principals created more than one year ago.
-    stability: development
-    unit: "{principals}"
-    gauge:
-      value_type: int
-      input_type: string
-    attributes: [db.namespace]
-    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
-  sqlserver.database.principals.orphaned_users:
-    enabled: false
-    description: Number of SQL users in the database that have no matching server login.
-    stability: development
-    unit: "{principals}"
-    gauge:
-      value_type: int
-      input_type: string
-    attributes: [db.namespace]
-    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
-  sqlserver.database.principals.recently_created:
-    enabled: false
-    description: Number of database principals created in the last 30 days.
-    stability: development
-    unit: "{principals}"
-    gauge:
-      value_type: int
-      input_type: string
-    attributes: [db.namespace]
-    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
-  sqlserver.database.role.members.count:
-    enabled: false
-    description: Number of database role members broken down by member kind.
-    stability: development
-    unit: "{members}"
-    gauge:
-      value_type: int
-      input_type: string
-    attributes: [db.namespace, member.kind]
-    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
-  sqlserver.database.role.memberships.count:
-    enabled: false
-    description: Number of database role memberships broken down by kind.
-    stability: development
-    unit: "{memberships}"
-    gauge:
-      value_type: int
-      input_type: string
-    attributes: [db.namespace, membership.kind]
-    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
-  sqlserver.database.role.permission.risk_level:
-    enabled: false
-    description: Risk level assigned to each database role (1=low, 4=high).
-    stability: development
-    unit: "1"
-    gauge:
-      value_type: int
-      input_type: string
-    attributes: [db.namespace, role]
-    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
-  sqlserver.database.role.roles.count:
-    enabled: false
-    description: Number of database roles broken down by usage state.
-    stability: development
-    unit: "{roles}"
-    gauge:
-      value_type: int
-      input_type: string
-    attributes: [db.namespace, role.state]
-    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
-  sqlserver.database.security.role_membership.count:
-    enabled: false
-    description: Number of members in a database role.
-    stability: development
-    unit: "{members}"
-    gauge:
-      value_type: int
-      input_type: string
-    attributes: [db.namespace, role]
-    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server. Reports the number of members (principals) assigned to each database-level role. The 'db.namespace' attribute identifies the database, and the 'role' attribute identifies the specific role (e.g., db_owner, db_datareader). Critical for monitoring privilege escalation and compliance. Available on SQL Server 2012+.
   sqlserver.database.tempdb.space:
     enabled: false
     description: Total free space in temporary DB.
@@ -999,26 +875,6 @@ metrics:
       aggregation_temporality: cumulative
       value_type: double
     attributes: []
-    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
-  sqlserver.lock.by_mode.count:
-    enabled: false
-    description: Number of currently active locks held in the database, grouped by lock mode.
-    stability: development
-    unit: "{locks}"
-    gauge:
-      value_type: int
-      input_type: string
-    attributes: [db.namespace, lock.mode]
-    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
-  sqlserver.lock.by_resource.count:
-    enabled: false
-    description: Number of currently active locks held in the database, grouped by resource type.
-    stability: development
-    unit: "{locks}"
-    gauge:
-      value_type: int
-      input_type: string
-    attributes: [db.namespace, lock.resource]
     extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.lock.timeout.rate:
     enabled: false
@@ -1335,26 +1191,6 @@ metrics:
       input_type: string
     attributes: []
     extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
-  sqlserver.server.security.principal.count:
-    enabled: false
-    description: Number of security principals (logins, users) at the server level.
-    stability: development
-    unit: "{principals}"
-    gauge:
-      value_type: int
-      input_type: string
-    attributes: []
-    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server. Tracks server-level security principals including SQL logins, Windows logins, and server roles. Essential for security monitoring and compliance auditing. Available on SQL Server 2012+.
-  sqlserver.server.security.role_membership.count:
-    enabled: false
-    description: Number of members in a server role.
-    stability: development
-    unit: "{members}"
-    gauge:
-      value_type: int
-      input_type: string
-    attributes: [role]
-    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server. Reports the number of members (principals) assigned to each server-level role. The 'role' attribute identifies the specific server role (e.g., sysadmin, securityadmin). Critical for monitoring high-privilege access and compliance. Available on SQL Server 2012+.
   sqlserver.table.count:
     enabled: false
     description: The number of tables.

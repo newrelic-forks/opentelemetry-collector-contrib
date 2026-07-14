@@ -90,18 +90,6 @@ func setupQueries(cfg *Config) []string {
 		queries = append(queries, getSQLServerDatabaseSizeQuery(cfg.InstanceName))
 	}
 
-	if cfg.Metrics.SqlserverServerSecurityPrincipalCount.Enabled {
-		queries = append(queries, getSQLServerSecurityPrincipalsQuery(cfg.InstanceName))
-	}
-
-	if cfg.Metrics.SqlserverServerSecurityRoleMembershipCount.Enabled {
-		queries = append(queries, getSQLServerSecurityRoleMembersQuery(cfg.InstanceName))
-	}
-
-	if cfg.Metrics.SqlserverDatabaseSecurityRoleMembershipCount.Enabled {
-		queries = append(queries, getSQLServerDatabaseSecurityRoleMembersQuery(cfg.InstanceName))
-	}
-
 	if cfg.Metrics.SqlserverOsMemoryUsage.Enabled || cfg.Metrics.SqlserverOsMemoryUtilization.Enabled {
 		queries = append(queries, getSQLServerOSMemoryQuery(cfg.InstanceName))
 	}
@@ -120,10 +108,6 @@ func setupQueries(cfg *Config) []string {
 
 	if cfg.Metrics.SqlserverDatabasePageFileSize.Enabled {
 		queries = append(queries, getSQLServerDatabasePageFileQuery(cfg.InstanceName))
-	}
-
-	if cfg.Metrics.SqlserverLockByModeCount.Enabled || cfg.Metrics.SqlserverLockByResourceCount.Enabled {
-		queries = append(queries, getSQLServerLockQuery(cfg.InstanceName))
 	}
 
 	if isThreadPoolQueryEnabled(&cfg.Metrics) {
@@ -150,42 +134,11 @@ func setupQueries(cfg *Config) []string {
 		queries = append(queries, getSQLServerFailoverClusterReplicaDatabaseQuery(cfg.InstanceName))
 	}
 
-	if isDatabasePrincipalsQueryEnabled(&cfg.Metrics) {
-		queries = append(queries, getSQLServerDatabasePrincipalsQuery(cfg.InstanceName))
-	}
-
-	if isDatabaseRoleMembershipQueryEnabled(&cfg.Metrics) {
-		queries = append(queries, getSQLServerDatabaseRoleMembershipQuery(cfg.InstanceName))
-	}
-
-	if cfg.Metrics.SqlserverDatabaseRolePermissionRiskLevel.Enabled {
-		queries = append(queries, getSQLServerDatabaseRoleRiskLevelQuery(cfg.InstanceName))
-	}
-
 	if cfg.Metrics.SqlserverTransactionLongestRunningTime.Enabled {
 		queries = append(queries, getSQLServerLongestRunningTransactionQuery(cfg.InstanceName))
 	}
 
 	return queries
-}
-
-func isDatabasePrincipalsQueryEnabled(metrics *metadata.MetricsConfig) bool {
-	if metrics == nil {
-		return false
-	}
-	return metrics.SqlserverDatabasePrincipalsCount.Enabled ||
-		metrics.SqlserverDatabasePrincipalsOld.Enabled ||
-		metrics.SqlserverDatabasePrincipalsOrphanedUsers.Enabled ||
-		metrics.SqlserverDatabasePrincipalsRecentlyCreated.Enabled
-}
-
-func isDatabaseRoleMembershipQueryEnabled(metrics *metadata.MetricsConfig) bool {
-	if metrics == nil {
-		return false
-	}
-	return metrics.SqlserverDatabaseRoleMembersCount.Enabled ||
-		metrics.SqlserverDatabaseRoleMembershipsCount.Enabled ||
-		metrics.SqlserverDatabaseRoleRolesCount.Enabled
 }
 
 func isFailoverClusterAGQueryEnabled(metrics *metadata.MetricsConfig) bool {

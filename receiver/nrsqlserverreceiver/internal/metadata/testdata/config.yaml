@@ -41,33 +41,6 @@ all_set:
     sqlserver.database.page_file.size:
       enabled: true
       attributes: ["db.namespace","page_file.state"]
-    sqlserver.database.principals.count:
-      enabled: true
-      attributes: ["db.namespace","principal.type"]
-    sqlserver.database.principals.old:
-      enabled: true
-      attributes: ["db.namespace"]
-    sqlserver.database.principals.orphaned_users:
-      enabled: true
-      attributes: ["db.namespace"]
-    sqlserver.database.principals.recently_created:
-      enabled: true
-      attributes: ["db.namespace"]
-    sqlserver.database.role.members.count:
-      enabled: true
-      attributes: ["db.namespace","member.kind"]
-    sqlserver.database.role.memberships.count:
-      enabled: true
-      attributes: ["db.namespace","membership.kind"]
-    sqlserver.database.role.permission.risk_level:
-      enabled: true
-      attributes: ["db.namespace","role"]
-    sqlserver.database.role.roles.count:
-      enabled: true
-      attributes: ["db.namespace","role.state"]
-    sqlserver.database.security.role_membership.count:
-      enabled: true
-      attributes: ["db.namespace","role"]
     sqlserver.database.tempdb.space:
       enabled: true
       attributes: ["tempdb.state"]
@@ -119,12 +92,6 @@ all_set:
       enabled: true
     sqlserver.latch.wait_time.total:
       enabled: true
-    sqlserver.lock.by_mode.count:
-      enabled: true
-      attributes: ["db.namespace","lock.mode"]
-    sqlserver.lock.by_resource.count:
-      enabled: true
-      attributes: ["db.namespace","lock.resource"]
     sqlserver.lock.timeout.rate:
       enabled: true
     sqlserver.lock.wait.count:
@@ -210,11 +177,6 @@ all_set:
       enabled: true
     sqlserver.resource_pool.disk.throttled.write.rate:
       enabled: true
-    sqlserver.server.security.principal.count:
-      enabled: true
-    sqlserver.server.security.role_membership.count:
-      enabled: true
-      attributes: ["role"]
     sqlserver.table.count:
       enabled: true
       attributes: ["table.state","table.status"]
@@ -335,33 +297,6 @@ reaggregate_set:
     sqlserver.database.page_file.size:
       enabled: true
       attributes: []
-    sqlserver.database.principals.count:
-      enabled: true
-      attributes: []
-    sqlserver.database.principals.old:
-      enabled: true
-      attributes: []
-    sqlserver.database.principals.orphaned_users:
-      enabled: true
-      attributes: []
-    sqlserver.database.principals.recently_created:
-      enabled: true
-      attributes: []
-    sqlserver.database.role.members.count:
-      enabled: true
-      attributes: []
-    sqlserver.database.role.memberships.count:
-      enabled: true
-      attributes: []
-    sqlserver.database.role.permission.risk_level:
-      enabled: true
-      attributes: []
-    sqlserver.database.role.roles.count:
-      enabled: true
-      attributes: []
-    sqlserver.database.security.role_membership.count:
-      enabled: true
-      attributes: []
     sqlserver.database.tempdb.space:
       enabled: true
       attributes: []
@@ -413,12 +348,6 @@ reaggregate_set:
       enabled: true
     sqlserver.latch.wait_time.total:
       enabled: true
-    sqlserver.lock.by_mode.count:
-      enabled: true
-      attributes: []
-    sqlserver.lock.by_resource.count:
-      enabled: true
-      attributes: []
     sqlserver.lock.timeout.rate:
       enabled: true
     sqlserver.lock.wait.count:
@@ -504,11 +433,6 @@ reaggregate_set:
       enabled: true
     sqlserver.resource_pool.disk.throttled.write.rate:
       enabled: true
-    sqlserver.server.security.principal.count:
-      enabled: true
-    sqlserver.server.security.role_membership.count:
-      enabled: true
-      attributes: []
     sqlserver.table.count:
       enabled: true
       attributes: []
@@ -629,33 +553,6 @@ none_set:
     sqlserver.database.page_file.size:
       enabled: false
       attributes: ["db.namespace","page_file.state"]
-    sqlserver.database.principals.count:
-      enabled: false
-      attributes: ["db.namespace","principal.type"]
-    sqlserver.database.principals.old:
-      enabled: false
-      attributes: ["db.namespace"]
-    sqlserver.database.principals.orphaned_users:
-      enabled: false
-      attributes: ["db.namespace"]
-    sqlserver.database.principals.recently_created:
-      enabled: false
-      attributes: ["db.namespace"]
-    sqlserver.database.role.members.count:
-      enabled: false
-      attributes: ["db.namespace","member.kind"]
-    sqlserver.database.role.memberships.count:
-      enabled: false
-      attributes: ["db.namespace","membership.kind"]
-    sqlserver.database.role.permission.risk_level:
-      enabled: false
-      attributes: ["db.namespace","role"]
-    sqlserver.database.role.roles.count:
-      enabled: false
-      attributes: ["db.namespace","role.state"]
-    sqlserver.database.security.role_membership.count:
-      enabled: false
-      attributes: ["db.namespace","role"]
     sqlserver.database.tempdb.space:
       enabled: false
       attributes: ["tempdb.state"]
@@ -707,12 +604,6 @@ none_set:
       enabled: false
     sqlserver.latch.wait_time.total:
       enabled: false
-    sqlserver.lock.by_mode.count:
-      enabled: false
-      attributes: ["db.namespace","lock.mode"]
-    sqlserver.lock.by_resource.count:
-      enabled: false
-      attributes: ["db.namespace","lock.resource"]
     sqlserver.lock.timeout.rate:
       enabled: false
     sqlserver.lock.wait.count:
@@ -798,11 +689,6 @@ none_set:
       enabled: false
     sqlserver.resource_pool.disk.throttled.write.rate:
       enabled: false
-    sqlserver.server.security.principal.count:
-      enabled: false
-    sqlserver.server.security.role_membership.count:
-      enabled: false
-      attributes: ["role"]
     sqlserver.table.count:
       enabled: false
       attributes: ["table.state","table.status"]
