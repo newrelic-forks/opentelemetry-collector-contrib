@@ -163,6 +163,31 @@ const (
 	// sessionCountCDBSQL extends sessionCountSQL with per-PDB breakdown via v$containers join.
 	sessionCountCDBSQL      = "select s.status, s.type, c.name as PDB_NAME, count(*) as VALUE FROM v$session s, v$containers c WHERE s.con_id = c.con_id(+) GROUP BY s.status, s.type, c.name"
 	systemResourceLimitsSQL = "select RESOURCE_NAME, CURRENT_UTILIZATION, LIMIT_VALUE, CASE WHEN TRIM(INITIAL_ALLOCATION) LIKE 'UNLIMITED' THEN '-1' ELSE TRIM(INITIAL_ALLOCATION) END as INITIAL_ALLOCATION, CASE WHEN TRIM(LIMIT_VALUE) LIKE 'UNLIMITED' THEN '-1' ELSE TRIM(LIMIT_VALUE) END as LIMIT_VALUE from v$resource_limit"
+	// systemResourceLimitsPDBSQL derives resource limits for PDB connections (e.g. RDS Oracle) where
+	// v$resource_limit returns no rows. Limits from v$parameter; usage from v$process, v$session,
+	// v$transaction, v$lock. enqueue_locks and enqueue_resources are auto-managed in Oracle 19c and
+	// not exposed as init parameters, so they are omitted.
+	systemResourceLimitsPDBSQL = `SELECT RESOURCE_NAME, CURRENT_UTILIZATION, LIMIT_VALUE FROM (
+  SELECT 'processes' AS RESOURCE_NAME,
+         (SELECT COUNT(*) FROM v$process) AS CURRENT_UTILIZATION,
+         (SELECT value FROM v$parameter WHERE name = 'processes') AS LIMIT_VALUE
+  FROM dual
+  UNION ALL
+  SELECT 'sessions',
+         (SELECT COUNT(*) FROM v$session),
+         (SELECT value FROM v$parameter WHERE name = 'sessions')
+  FROM dual
+  UNION ALL
+  SELECT 'transactions',
+         (SELECT COUNT(*) FROM v$transaction),
+         (SELECT value FROM v$parameter WHERE name = 'transactions')
+  FROM dual
+  UNION ALL
+  SELECT 'dml_locks',
+         (SELECT COUNT(*) FROM v$lock WHERE type = 'TM'),
+         (SELECT value FROM v$parameter WHERE name = 'dml_locks')
+  FROM dual
+)`
 	tablespaceUsageSQL      = `
 		select um.TABLESPACE_NAME, um.USED_SPACE, um.TABLESPACE_SIZE, ts.BLOCK_SIZE
 		FROM DBA_TABLESPACE_USAGE_METRICS um INNER JOIN DBA_TABLESPACES ts
@@ -253,7 +278,8 @@ type clientProviderFunc func(*sql.DB, string, *zap.Logger) dbClient
 type oracleScraper struct {
 	statsClient                dbClient
 	tablespaceUsageClient      dbClient
-	systemResourceLimitsClient dbClient
+	systemResourceLimitsClient    dbClient
+	systemResourceLimitsPDBClient dbClient
 	sessionCountClient         dbClient
 	// isCDBRoot is true when connected to a CDB root (Oracle 12c+); enables per-PDB queries.
 	isCDBRoot                bool
@@ -366,6 +392,9 @@ func (s *oracleScraper) start(ctx context.Context, _ component.Host) error {
 		s.tablespaceUsageClient = s.clientProviderFunc(s.db, tablespaceUsageSQL, s.logger)
 	}
 	s.systemResourceLimitsClient = s.clientProviderFunc(s.db, systemResourceLimitsSQL, s.logger)
+	if s.instanceInfo.connectedToPDB {
+		s.systemResourceLimitsPDBClient = s.clientProviderFunc(s.db, systemResourceLimitsPDBSQL, s.logger)
+	}
 	s.samplesQueryClient = s.clientProviderFunc(s.db, samplesQuery, s.logger)
 	s.sessionEventClient = s.clientProviderFunc(s.db, sessionEventQuery, s.logger)
 	s.dataDictHitRatioClient = s.clientProviderFunc(s.db, dataDictHitRatioSQL, s.logger)
@@ -669,9 +698,14 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 		s.metricsBuilderConfig.Metrics.OracledbEnqueueResourcesLimit.Enabled ||
 		s.metricsBuilderConfig.Metrics.OracledbEnqueueLocksLimit.Enabled ||
 		s.metricsBuilderConfig.Metrics.OracledbEnqueueLocksUsage.Enabled {
-		rows, err := s.systemResourceLimitsClient.metricRows(ctx)
+		// For PDB connections (e.g. RDS), v$resource_limit returns no rows; use derived query instead.
+		resourceLimitsClient := s.systemResourceLimitsClient
+		if s.instanceInfo.connectedToPDB && s.systemResourceLimitsPDBClient != nil {
+			resourceLimitsClient = s.systemResourceLimitsPDBClient
+		}
+		rows, err := resourceLimitsClient.metricRows(ctx)
 		if err != nil {
-			scrapeErrors = append(scrapeErrors, fmt.Errorf("error executing %s: %w", systemResourceLimitsSQL, err))
+			scrapeErrors = append(scrapeErrors, fmt.Errorf("error executing resource limits query: %w", err))
 		}
 		for _, row := range rows {
 			resourceName := row["RESOURCE_NAME"]
