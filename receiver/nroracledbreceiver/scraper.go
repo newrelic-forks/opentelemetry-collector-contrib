@@ -40,6 +40,66 @@ const (
 	sysmetricSQL = "SELECT metric_name, value FROM v$sysmetric WHERE group_id = 2"
 	// sysmetricCDBSQL queries V$CON_SYSMETRIC for per-PDB sysmetric values.
 	sysmetricCDBSQL = "SELECT s.metric_name AS METRIC_NAME, s.value AS VALUE, c.name AS PDB_NAME FROM v$con_sysmetric s, v$containers c WHERE s.con_id = c.con_id(+)"
+	// sysmetricComputedSQL derives the 6 sysmetric metrics absent from V$CON_SYSMETRIC in PDB
+	// context (Buffer Cache Hit Ratio, Host CPU Utilization, Library Cache Hit Ratio, Shared Pool
+	// Free %, Memory Sorts Ratio, Redo Allocation Hit Ratio) from raw V$ statistics.
+	sysmetricComputedSQL = `SELECT metric_name AS METRIC_NAME, value AS VALUE FROM (
+  WITH sysstat AS (
+    SELECT MAX(CASE WHEN name = 'physical reads'                 THEN value END) AS physical_reads,
+           MAX(CASE WHEN name = 'db block gets'                  THEN value END) AS db_block_gets,
+           MAX(CASE WHEN name = 'consistent gets'                THEN value END) AS consistent_gets,
+           MAX(CASE WHEN name = 'sorts (memory)'                 THEN value END) AS sorts_memory,
+           MAX(CASE WHEN name = 'sorts (disk)'                   THEN value END) AS sorts_disk,
+           MAX(CASE WHEN name = 'redo buffer allocation retries' THEN value END) AS redo_retries,
+           MAX(CASE WHEN name = 'redo entries'                   THEN value END) AS redo_entries
+    FROM v$sysstat
+    WHERE name IN ('physical reads','db block gets','consistent gets',
+                   'sorts (memory)','sorts (disk)',
+                   'redo buffer allocation retries','redo entries')
+  ),
+  osstat AS (
+    SELECT MAX(CASE WHEN stat_name = 'BUSY_TIME' THEN value END) AS busy_time,
+           MAX(CASE WHEN stat_name = 'IDLE_TIME' THEN value END) AS idle_time
+    FROM v$osstat WHERE stat_name IN ('BUSY_TIME','IDLE_TIME')
+  ),
+  lc AS (SELECT SUM(pins) AS pins, SUM(pinhits) AS pinhits FROM v$librarycache),
+  sp AS (
+    SELECT SUM(bytes) AS total_bytes,
+           SUM(CASE WHEN name = 'free memory' THEN bytes ELSE 0 END) AS free_bytes
+    FROM v$sgastat WHERE pool = 'shared pool'
+  )
+  SELECT 'Buffer Cache Hit Ratio' AS metric_name,
+         CASE WHEN NVL(db_block_gets,0) + NVL(consistent_gets,0) > 0
+              THEN (1 - NVL(physical_reads,0) / (NVL(db_block_gets,0) + NVL(consistent_gets,0))) * 100
+              ELSE 100 END AS value
+  FROM sysstat
+  UNION ALL
+  SELECT 'Host CPU Utilization (%)',
+         CASE WHEN NVL(busy_time,0) + NVL(idle_time,0) > 0
+              THEN NVL(busy_time,0) / (NVL(busy_time,0) + NVL(idle_time,0)) * 100
+              ELSE 0 END
+  FROM osstat
+  UNION ALL
+  SELECT 'Library Cache Hit Ratio',
+         CASE WHEN NVL(pins,0) > 0 THEN NVL(pinhits,0) / pins * 100 ELSE 100 END
+  FROM lc
+  UNION ALL
+  SELECT 'Shared Pool Free %',
+         CASE WHEN NVL(total_bytes,0) > 0 THEN NVL(free_bytes,0) / total_bytes * 100 ELSE 0 END
+  FROM sp
+  UNION ALL
+  SELECT 'Memory Sorts Ratio',
+         CASE WHEN NVL(sorts_memory,0) + NVL(sorts_disk,0) > 0
+              THEN NVL(sorts_memory,0) / (NVL(sorts_memory,0) + NVL(sorts_disk,0)) * 100
+              ELSE 100 END
+  FROM sysstat
+  UNION ALL
+  SELECT 'Redo Allocation Hit Ratio',
+         CASE WHEN NVL(redo_entries,0) > 0
+              THEN (1 - NVL(redo_retries,0) / redo_entries) * 100
+              ELSE 100 END
+  FROM sysstat
+)`
 
 	// V$SYSMETRIC metric_name values (group_id=2, 60-second interval)
 	sysmetricBufferCacheHitRatio      = "Buffer Cache Hit Ratio"
@@ -206,8 +266,9 @@ type oracleScraper struct {
 	recycleBinSizeClient     dbClient
 	sgaInfoClient            dbClient
 	storageUsageClient       dbClient
-	sysmetricClient          dbClient
-	sysmetricCDBClient       dbClient
+	sysmetricClient         dbClient
+	sysmetricCDBClient      dbClient
+	sysmetricComputedClient dbClient
 	db                       *sql.DB
 	clientProviderFunc       clientProviderFunc
 	mb                       *metadata.MetricsBuilder
@@ -313,8 +374,14 @@ func (s *oracleScraper) start(ctx context.Context, _ component.Host) error {
 	s.sgaInfoClient = s.clientProviderFunc(s.db, sgaInfoSQL, s.logger)
 	s.storageUsageClient = s.clientProviderFunc(s.db, storageUsageSQL, s.logger)
 	s.sysmetricClient = s.clientProviderFunc(s.db, sysmetricSQL, s.logger)
-	if s.isCDBRoot {
+	// sysmetricCDBSQL works from both CDB root and PDB connections (v$containers is accessible in both).
+	// For PDB connections (e.g. RDS Oracle), it returns the 6 sysmetric metrics available in PDB context.
+	if s.isCDBRoot || (s.instanceInfo.isCDB && s.instanceInfo.connectedToPDB) {
 		s.sysmetricCDBClient = s.clientProviderFunc(s.db, sysmetricCDBSQL, s.logger)
+	}
+	// PDB connection: V$SYSMETRIC is empty, so the other 6 metrics must be computed from raw stats.
+	if s.instanceInfo.isCDB && s.instanceInfo.connectedToPDB {
+		s.sysmetricComputedClient = s.clientProviderFunc(s.db, sysmetricComputedSQL, s.logger)
 	}
 	return nil
 }
@@ -368,8 +435,13 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 		}
 
 		for _, row := range rows {
-			// pdbName is set for CDB-root queries; empty for non-CDB or direct-PDB connections.
+			// pdbName is populated from PDB_NAME in CDB-root queries (v$con_sysstat).
+			// For direct-PDB connections (e.g. RDS), v$sysstat has no PDB_NAME column so
+			// fall back to the detected PDB name from instance info.
 			pdbName := row["PDB_NAME"]
+			if pdbName == "" && s.instanceInfo.connectedToPDB {
+				pdbName = s.instanceInfo.pdbName
+			}
 			switch row["NAME"] {
 			case enqueueDeadlocks:
 				err := s.mb.RecordOracledbEnqueueDeadlocksDataPoint(now, row["VALUE"], pdbName)
@@ -915,6 +987,44 @@ func (s *oracleScraper) collectSysMetrics(ctx context.Context, scrapeErrors *[]e
 				seenInContainerMetrics[metricName] = true
 			}
 		}
+	}
+
+	// PDB connection (e.g. RDS Oracle): V$SYSMETRIC is empty in PDB context.
+	// sysmetricCDBClient (v$con_sysmetric) covers 6 of the 12 metrics; sysmetricComputedClient
+	// derives the remaining 6 from raw V$ statistics. seenPDBMetrics prevents double-recording
+	// if a future Oracle version adds the computed metrics to v$con_sysmetric.
+	if s.instanceInfo.isCDB && s.instanceInfo.connectedToPDB {
+		seenPDBMetrics := make(map[string]bool)
+		for _, client := range []dbClient{s.sysmetricCDBClient, s.sysmetricComputedClient} {
+			if client == nil {
+				continue
+			}
+			pdbRows, pdbErr := client.metricRows(ctx)
+			if pdbErr != nil {
+				*scrapeErrors = append(*scrapeErrors, fmt.Errorf("error executing sysmetric PDB query: %w", pdbErr))
+				continue
+			}
+			for _, row := range pdbRows {
+				metricName := row["METRIC_NAME"]
+				if seenPDBMetrics[metricName] {
+					continue
+				}
+				seenPDBMetrics[metricName] = true
+				rawVal := row["VALUE"]
+				val, parseErr := strconv.ParseFloat(rawVal, 64)
+				if parseErr != nil {
+					*scrapeErrors = append(*scrapeErrors, fmt.Errorf("sysmetric %q: failed to parse float64 from %q: %w", metricName, rawVal, parseErr))
+					continue
+				}
+				// sysmetricComputedSQL returns no PDB_NAME column; fall back to detected PDB name.
+				pdbName := row["PDB_NAME"]
+				if pdbName == "" {
+					pdbName = s.instanceInfo.pdbName
+				}
+				s.recordSysmetric(now, metricName, val, pdbName)
+			}
+		}
+		return
 	}
 
 	// Query V$SYSMETRIC for metrics not already seen in V$CON_SYSMETRIC (or all 12 for non-CDB).
