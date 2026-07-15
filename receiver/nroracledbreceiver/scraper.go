@@ -167,7 +167,14 @@ const (
 	// v$resource_limit returns no rows. Limits from v$parameter; usage from v$process, v$session,
 	// v$transaction, v$lock. enqueue_locks and enqueue_resources are auto-managed in Oracle 19c and
 	// not exposed as init parameters, so they are omitted.
-	systemResourceLimitsPDBSQL = `SELECT RESOURCE_NAME, CURRENT_UTILIZATION, LIMIT_VALUE FROM (
+	systemResourceLimitsPDBSQL = `SELECT
+    RESOURCE_NAME,
+    CURRENT_UTILIZATION,
+    CASE
+        WHEN LIMIT_VALUE IS NULL OR TRIM(LIMIT_VALUE) IN ('UNLIMITED', '0') THEN '-1'
+        ELSE TRIM(LIMIT_VALUE)
+    END AS LIMIT_VALUE
+FROM (
   SELECT 'processes' AS RESOURCE_NAME,
          (SELECT COUNT(*) FROM v$process) AS CURRENT_UTILIZATION,
          (SELECT value FROM v$parameter WHERE name = 'processes') AS LIMIT_VALUE
