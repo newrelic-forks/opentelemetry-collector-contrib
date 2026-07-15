@@ -437,8 +437,8 @@ var MetricsInfo = metricsInfo{
 	OracledbStorageUtilization: metricInfo{
 		Name: "oracledb.storage.utilization",
 	},
-	OracledbSystemCPULoad: metricInfo{
-		Name: "oracledb.system.cpu.load",
+	OracledbSystemProcessCount: metricInfo{
+		Name: "oracledb.system.process.count",
 	},
 	OracledbTablespaceSizeLimit: metricInfo{
 		Name:       "oracledb.tablespace_size.limit",
@@ -529,7 +529,7 @@ type metricsInfo struct {
 	OracledbSqlnetIoTransferred                   metricInfo
 	OracledbStorageUsage                          metricInfo
 	OracledbStorageUtilization                    metricInfo
-	OracledbSystemCPULoad                         metricInfo
+	OracledbSystemProcessCount                    metricInfo
 	OracledbTablespaceSizeLimit                   metricInfo
 	OracledbTablespaceSizeUsage                   metricInfo
 	OracledbTransactionsLimit                     metricInfo
@@ -5252,21 +5252,21 @@ func newMetricOracledbStorageUtilization(cfg OracledbStorageUtilizationMetricCon
 	return m
 }
 
-type metricOracledbSystemCPULoad struct {
-	data     pmetric.Metric                    // data buffer for generated metric.
-	config   OracledbSystemCPULoadMetricConfig // metric config provided by user.
-	capacity int                               // max observed number of data points added to the metric.
+type metricOracledbSystemProcessCount struct {
+	data     pmetric.Metric                         // data buffer for generated metric.
+	config   OracledbSystemProcessCountMetricConfig // metric config provided by user.
+	capacity int                                    // max observed number of data points added to the metric.
 }
 
-// init fills oracledb.system.cpu.load metric with initial data.
-func (m *metricOracledbSystemCPULoad) init() {
-	m.data.SetName("oracledb.system.cpu.load")
-	m.data.SetDescription("Current OS load average as reported by the operating system.")
-	m.data.SetUnit("1")
+// init fills oracledb.system.process.count metric with initial data.
+func (m *metricOracledbSystemProcessCount) init() {
+	m.data.SetName("oracledb.system.process.count")
+	m.data.SetDescription("Current number of processes that are either running or in the ready state, waiting to be selected by the operating-system scheduler to run.")
+	m.data.SetUnit("{process}")
 	m.data.SetEmptyGauge()
 }
 
-func (m *metricOracledbSystemCPULoad) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64) {
+func (m *metricOracledbSystemProcessCount) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64) {
 	if !m.config.Enabled {
 		return
 	}
@@ -5277,14 +5277,14 @@ func (m *metricOracledbSystemCPULoad) recordDataPoint(start pcommon.Timestamp, t
 }
 
 // updateCapacity saves max length of data point slices that will be used for the slice capacity.
-func (m *metricOracledbSystemCPULoad) updateCapacity() {
+func (m *metricOracledbSystemProcessCount) updateCapacity() {
 	if m.data.Gauge().DataPoints().Len() > m.capacity {
 		m.capacity = m.data.Gauge().DataPoints().Len()
 	}
 }
 
 // emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
-func (m *metricOracledbSystemCPULoad) emit(metrics pmetric.MetricSlice) {
+func (m *metricOracledbSystemProcessCount) emit(metrics pmetric.MetricSlice) {
 	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
 		m.updateCapacity()
 		m.data.MoveTo(metrics.AppendEmpty())
@@ -5292,8 +5292,8 @@ func (m *metricOracledbSystemCPULoad) emit(metrics pmetric.MetricSlice) {
 	}
 }
 
-func newMetricOracledbSystemCPULoad(cfg OracledbSystemCPULoadMetricConfig) metricOracledbSystemCPULoad {
-	m := metricOracledbSystemCPULoad{config: cfg}
+func newMetricOracledbSystemProcessCount(cfg OracledbSystemProcessCountMetricConfig) metricOracledbSystemProcessCount {
+	m := metricOracledbSystemProcessCount{config: cfg}
 
 	if cfg.Enabled {
 		m.data = pmetric.NewMetric()
@@ -5936,7 +5936,7 @@ type MetricsBuilder struct {
 	metricOracledbSqlnetIoTransferred                   metricOracledbSqlnetIoTransferred
 	metricOracledbStorageUsage                          metricOracledbStorageUsage
 	metricOracledbStorageUtilization                    metricOracledbStorageUtilization
-	metricOracledbSystemCPULoad                         metricOracledbSystemCPULoad
+	metricOracledbSystemProcessCount                    metricOracledbSystemProcessCount
 	metricOracledbTablespaceSizeLimit                   metricOracledbTablespaceSizeLimit
 	metricOracledbTablespaceSizeUsage                   metricOracledbTablespaceSizeUsage
 	metricOracledbTransactionsLimit                     metricOracledbTransactionsLimit
@@ -6028,7 +6028,7 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		metricOracledbSqlnetIoTransferred:                   newMetricOracledbSqlnetIoTransferred(mbc.Metrics.OracledbSqlnetIoTransferred),
 		metricOracledbStorageUsage:                          newMetricOracledbStorageUsage(mbc.Metrics.OracledbStorageUsage),
 		metricOracledbStorageUtilization:                    newMetricOracledbStorageUtilization(mbc.Metrics.OracledbStorageUtilization),
-		metricOracledbSystemCPULoad:                         newMetricOracledbSystemCPULoad(mbc.Metrics.OracledbSystemCPULoad),
+		metricOracledbSystemProcessCount:                    newMetricOracledbSystemProcessCount(mbc.Metrics.OracledbSystemProcessCount),
 		metricOracledbTablespaceSizeLimit:                   newMetricOracledbTablespaceSizeLimit(mbc.Metrics.OracledbTablespaceSizeLimit),
 		metricOracledbTablespaceSizeUsage:                   newMetricOracledbTablespaceSizeUsage(mbc.Metrics.OracledbTablespaceSizeUsage),
 		metricOracledbTransactionsLimit:                     newMetricOracledbTransactionsLimit(mbc.Metrics.OracledbTransactionsLimit),
@@ -6215,7 +6215,7 @@ func (mb *MetricsBuilder) EmitForResource(options ...ResourceMetricsOption) {
 	mb.metricOracledbSqlnetIoTransferred.emit(ils.Metrics())
 	mb.metricOracledbStorageUsage.emit(ils.Metrics())
 	mb.metricOracledbStorageUtilization.emit(ils.Metrics())
-	mb.metricOracledbSystemCPULoad.emit(ils.Metrics())
+	mb.metricOracledbSystemProcessCount.emit(ils.Metrics())
 	mb.metricOracledbTablespaceSizeLimit.emit(ils.Metrics())
 	mb.metricOracledbTablespaceSizeUsage.emit(ils.Metrics())
 	mb.metricOracledbTransactionsLimit.emit(ils.Metrics())
@@ -6740,9 +6740,9 @@ func (mb *MetricsBuilder) RecordOracledbStorageUtilizationDataPoint(ts pcommon.T
 	mb.metricOracledbStorageUtilization.recordDataPoint(mb.startTime, ts, val)
 }
 
-// RecordOracledbSystemCPULoadDataPoint adds a data point to oracledb.system.cpu.load metric.
-func (mb *MetricsBuilder) RecordOracledbSystemCPULoadDataPoint(ts pcommon.Timestamp, val float64) {
-	mb.metricOracledbSystemCPULoad.recordDataPoint(mb.startTime, ts, val)
+// RecordOracledbSystemProcessCountDataPoint adds a data point to oracledb.system.process.count metric.
+func (mb *MetricsBuilder) RecordOracledbSystemProcessCountDataPoint(ts pcommon.Timestamp, val float64) {
+	mb.metricOracledbSystemProcessCount.recordDataPoint(mb.startTime, ts, val)
 }
 
 // RecordOracledbTablespaceSizeLimitDataPoint adds a data point to oracledb.tablespace_size.limit metric.

@@ -750,7 +750,7 @@ func (s *oracleScraper) collectDataDictHitRatio(ctx context.Context, scrapeError
 
 func (s *oracleScraper) collectOSStat(ctx context.Context, scrapeErrors *[]error) {
 	if !s.metricsBuilderConfig.Metrics.SystemCPUPhysicalCount.Enabled &&
-		!s.metricsBuilderConfig.Metrics.OracledbSystemCPULoad.Enabled &&
+		!s.metricsBuilderConfig.Metrics.OracledbSystemProcessCount.Enabled &&
 		!s.metricsBuilderConfig.Metrics.SystemMemoryLimit.Enabled {
 		return
 	}
@@ -774,13 +774,13 @@ func (s *oracleScraper) collectOSStat(ctx context.Context, scrapeErrors *[]error
 				s.mb.RecordSystemCPUPhysicalCountDataPoint(now, val)
 			}
 		case osStatNameLoad:
-			if s.metricsBuilderConfig.Metrics.OracledbSystemCPULoad.Enabled {
+			if s.metricsBuilderConfig.Metrics.OracledbSystemProcessCount.Enabled {
 				val, err := strconv.ParseFloat(statValue, 64)
 				if err != nil {
-					*scrapeErrors = append(*scrapeErrors, fmt.Errorf("failed to parse float64 for OracledbSystemCPULoad, value was %s: %w", statValue, err))
+					*scrapeErrors = append(*scrapeErrors, fmt.Errorf("failed to parse float64 for OracledbSystemProcessCount, value was %s: %w", statValue, err))
 					continue
 				}
-				s.mb.RecordOracledbSystemCPULoadDataPoint(now, val)
+				s.mb.RecordOracledbSystemProcessCountDataPoint(now, val)
 			}
 		case osStatNamePhysicalMemory:
 			if s.metricsBuilderConfig.Metrics.SystemMemoryLimit.Enabled {

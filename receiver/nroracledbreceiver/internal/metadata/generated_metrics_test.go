@@ -431,7 +431,7 @@ func TestMetricsBuilder(t *testing.T) {
 			mb.RecordOracledbStorageUtilizationDataPoint(ts, 1)
 
 			allMetricsCount++
-			mb.RecordOracledbSystemCPULoadDataPoint(ts, 1)
+			mb.RecordOracledbSystemProcessCountDataPoint(ts, 1)
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordOracledbTablespaceSizeLimitDataPoint(ts, 1, "tablespace_name-val", "oracle.db.pdb-val")
@@ -2526,13 +2526,13 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
 					assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
-				case "oracledb.system.cpu.load":
-					assert.False(t, validatedMetrics["oracledb.system.cpu.load"], "Found a duplicate in the metrics slice: oracledb.system.cpu.load")
-					validatedMetrics["oracledb.system.cpu.load"] = true
+				case "oracledb.system.process.count":
+					assert.False(t, validatedMetrics["oracledb.system.process.count"], "Found a duplicate in the metrics slice: oracledb.system.process.count")
+					validatedMetrics["oracledb.system.process.count"] = true
 					assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
 					assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
-					assert.Equal(t, "Current OS load average as reported by the operating system.", mi.Description())
-					assert.Equal(t, "1", mi.Unit())
+					assert.Equal(t, "Current number of processes that are either running or in the ready state, waiting to be selected by the operating-system scheduler to run.", mi.Description())
+					assert.Equal(t, "{process}", mi.Unit())
 					dp := mi.Gauge().DataPoints().At(0)
 					assert.Equal(t, start, dp.StartTimestamp())
 					assert.Equal(t, ts, dp.Timestamp())
