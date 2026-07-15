@@ -10,7 +10,8 @@ exclude  = [
     "^https://techdocs.akamai.com",
     "^https://www.vultr.com",
     "^https://docs.splunk.com",
-    "^https://docs.honeycomb.io"
+    "^https://docs.honeycomb.io",
+    "^https?://(www\\.)?github\\.com/newrelic/dbi"
 ]
 
 # better to be safe and avoid failures
