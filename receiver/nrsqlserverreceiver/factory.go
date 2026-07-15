@@ -166,7 +166,23 @@ func setupQueries(cfg *Config) []string {
 		queries = append(queries, getSQLServerLongestRunningTransactionQuery(cfg.InstanceName))
 	}
 
+	if isIndexPhysicalStatsQueryEnabled(&cfg.Metrics) {
+		queries = append(queries, getSQLServerIndexPhysicalStatsQuery(cfg.InstanceName))
+	}
+
 	return queries
+}
+
+func isIndexPhysicalStatsQueryEnabled(metrics *metadata.MetricsConfig) bool {
+	if metrics == nil {
+		return false
+	}
+
+	return metrics.SqlserverIndexFragmentation.Enabled ||
+		metrics.SqlserverIndexPageCount.Enabled ||
+		metrics.SqlserverIndexPageUtilization.Enabled ||
+		metrics.SqlserverIndexRecordCount.Enabled ||
+		metrics.SqlserverIndexSize.Enabled
 }
 
 func isDatabasePrincipalsQueryEnabled(metrics *metadata.MetricsConfig) bool {

@@ -167,6 +167,8 @@ func (s *sqlServerScraperHelper) ScrapeMetrics(ctx context.Context) (pmetric.Met
 		err = s.recordDatabaseRoleRiskLevelMetrics(ctx)
 	case getSQLServerLongestRunningTransactionQuery(s.config.InstanceName):
 		err = s.recordLongestRunningTransactionMetrics(ctx)
+	case getSQLServerIndexPhysicalStatsQuery(s.config.InstanceName):
+		err = s.recordIndexPhysicalMetrics(ctx)
 	default:
 		return pmetric.Metrics{}, fmt.Errorf("Attempted to get metrics from unsupported query: %s", s.sqlQuery)
 	}
@@ -454,6 +456,30 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 	const counterKey = "counter"
 	const instanceKey = "instance"
 	const valueKey = "value"
+	// Ported upstream perf-counter names (sqlserver.access/connection/error/extent/ghost_record/lock/page/scan_point/worktable metrics).
+	const connectionResetPerSec = "Connection Reset/sec"
+	const extentDeallocationsPerSec = "Extent Deallocations/sec"
+	const extentsAllocatedPerSec = "Extents Allocated/sec"
+	const freeSpaceScansPerSec = "FreeSpace Scans/sec"
+	const lockBlocks = "Lock Blocks"
+	const lockBlocksAllocated = "Lock Blocks Allocated"
+	const lockMemoryKB = "Lock Memory (KB)"
+	const lockOwnerBlocks = "Lock Owner Blocks"
+	const lockOwnerBlocksAllocated = "Lock Owner Blocks Allocated"
+	const lockRequestsPerSec = "Lock Requests/sec"
+	const lockWaitTimeMS = "Lock Wait Time (ms)"
+	const mixedPageAllocationsPerSec = "Mixed page allocations/sec"
+	const pageCompressionAttemptsPerSec = "Page Compression Attempts/sec"
+	const pageDeallocationsPerSec = "Page Deallocations/sec"
+	const pagesAllocatedPerSec = "Pages Allocated/sec"
+	const pagesCompressedPerSec = "Pages Compressed/sec"
+	const probeScansPerSec = "Probe Scans/sec"
+	const rangeScansPerSec = "Range Scans/sec"
+	const readaheadPagesPerSec = "Readahead pages/sec"
+	const scanPointRevalidationsPerSec = "Scan Point Revalidations/sec"
+	const skippedGhostedRecordsPerSec = "Skipped Ghosted Records/sec"
+	const tableLockEscalationsPerSec = "Table Lock Escalations/sec"
+	const worktablesFromCacheRatio = "Worktables From Cache Ratio"
 	// Constants are the columns for metrics from query
 	const activeTempTables = "Active Temp Tables"
 	const activeTransactions = "Active Transactions"
@@ -667,17 +693,26 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 				s.mb.RecordSqlserverDatabaseExecutionErrorsDataPoint(now, val.(int64))
 			}
 		case errorsPerSec:
-			// Errors/sec has multiple instances (User Errors, Kill Connection Errors, ...);
-			// only Kill Connection Errors maps to a metric.
-			if row[instanceKey] != killConnectionErrorsInstance {
+			// Errors/sec has multiple instances (User Errors, Kill Connection Errors, DB Offline
+			// Errors, Info Errors, ...). Upstream sqlserver.error.rate reports every known
+			// category via the sqlserver.error.category attribute; the nr-specific
+			// sqlserver.kill_connection.error.rate additionally reports only the kill-connection
+			// instance for backward compatibility.
+			category, categoryOK := errorCategoryAttr(row[instanceKey])
+			if !categoryOK && row[instanceKey] != killConnectionErrorsInstance {
 				break
 			}
 			val, err := retrieveFloat(row, valueKey)
 			if err != nil {
-				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s/%s", i, err, errorsPerSec, killConnectionErrorsInstance)
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s/%s", i, err, errorsPerSec, row[instanceKey])
 				errs = append(errs, err)
 			} else {
-				s.mb.RecordSqlserverKillConnectionErrorRateDataPoint(now, val.(float64))
+				if categoryOK {
+					s.mb.RecordSqlserverErrorRateDataPoint(now, val.(float64), category)
+				}
+				if row[instanceKey] == killConnectionErrorsInstance {
+					s.mb.RecordSqlserverKillConnectionErrorRateDataPoint(now, val.(float64))
+				}
 			}
 		case freeListStalls:
 			val, err := retrieveInt(row, valueKey)
@@ -1106,6 +1141,191 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 				errs = append(errs, err)
 			} else {
 				s.mb.RecordSqlserverLatchSuperlatchTransitionRateDataPoint(now, val.(float64), metadata.AttributeTransitionDirectionDemotion)
+			}
+		case connectionResetPerSec:
+			val, err := retrieveFloat(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, connectionResetPerSec)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverConnectionResetRateDataPoint(now, val.(float64))
+			}
+		case freeSpaceScansPerSec:
+			val, err := retrieveFloat(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, freeSpaceScansPerSec)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverAccessScanRateDataPoint(now, val.(float64), metadata.AttributeSqlserverAccessScanTypeFreeSpace)
+			}
+		case probeScansPerSec:
+			val, err := retrieveFloat(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, probeScansPerSec)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverAccessScanRateDataPoint(now, val.(float64), metadata.AttributeSqlserverAccessScanTypeProbe)
+			}
+		case rangeScansPerSec:
+			val, err := retrieveFloat(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, rangeScansPerSec)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverAccessScanRateDataPoint(now, val.(float64), metadata.AttributeSqlserverAccessScanTypeRange)
+			}
+		case extentsAllocatedPerSec:
+			val, err := retrieveFloat(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, extentsAllocatedPerSec)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverExtentOperationRateDataPoint(now, val.(float64), metadata.AttributeSqlserverExtentOperationTypeAllocated)
+			}
+		case extentDeallocationsPerSec:
+			val, err := retrieveFloat(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, extentDeallocationsPerSec)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverExtentOperationRateDataPoint(now, val.(float64), metadata.AttributeSqlserverExtentOperationTypeDeallocated)
+			}
+		case skippedGhostedRecordsPerSec:
+			val, err := retrieveFloat(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, skippedGhostedRecordsPerSec)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverGhostRecordSkippedRateDataPoint(now, val.(float64))
+			}
+		case lockBlocks:
+			val, err := retrieveInt(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, lockBlocks)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverLockBlockCountDataPoint(now, val.(int64), metadata.AttributeSqlserverLockBlockTypeBlocks)
+			}
+		case lockBlocksAllocated:
+			val, err := retrieveInt(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, lockBlocksAllocated)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverLockBlockCountDataPoint(now, val.(int64), metadata.AttributeSqlserverLockBlockTypeAllocated)
+			}
+		case lockOwnerBlocks:
+			val, err := retrieveInt(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, lockOwnerBlocks)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverLockBlockCountDataPoint(now, val.(int64), metadata.AttributeSqlserverLockBlockTypeOwner)
+			}
+		case lockOwnerBlocksAllocated:
+			val, err := retrieveInt(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, lockOwnerBlocksAllocated)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverLockBlockCountDataPoint(now, val.(int64), metadata.AttributeSqlserverLockBlockTypeOwnerAllocated)
+			}
+		case lockMemoryKB:
+			val, err := retrieveInt(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, lockMemoryKB)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverLockMemoryDataPoint(now, val.(int64)*1024)
+			}
+		case lockRequestsPerSec:
+			val, err := retrieveFloat(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, lockRequestsPerSec)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverLockRequestRateDataPoint(now, val.(float64))
+			}
+		case lockWaitTimeMS:
+			val, err := retrieveFloat(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, lockWaitTimeMS)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverLockWaitTimeTotalDataPoint(now, val.(float64)/1000.0)
+			}
+		case tableLockEscalationsPerSec:
+			val, err := retrieveFloat(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, tableLockEscalationsPerSec)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverLockEscalationRateDataPoint(now, val.(float64))
+			}
+		case mixedPageAllocationsPerSec:
+			val, err := retrieveFloat(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, mixedPageAllocationsPerSec)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverPageAllocationRateDataPoint(now, val.(float64), metadata.AttributeSqlserverPageAllocationTypeMixed)
+			}
+		case pagesAllocatedPerSec:
+			val, err := retrieveFloat(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, pagesAllocatedPerSec)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverPageAllocationRateDataPoint(now, val.(float64), metadata.AttributeSqlserverPageAllocationTypeAllocated)
+			}
+		case pageDeallocationsPerSec:
+			val, err := retrieveFloat(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, pageDeallocationsPerSec)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverPageAllocationRateDataPoint(now, val.(float64), metadata.AttributeSqlserverPageAllocationTypeDeallocated)
+			}
+		case pageCompressionAttemptsPerSec:
+			val, err := retrieveFloat(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, pageCompressionAttemptsPerSec)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverPageCompressionRateDataPoint(now, val.(float64), metadata.AttributeSqlserverPageCompressionTypeAttempted)
+			}
+		case pagesCompressedPerSec:
+			val, err := retrieveFloat(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, pagesCompressedPerSec)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverPageCompressionRateDataPoint(now, val.(float64), metadata.AttributeSqlserverPageCompressionTypeSucceeded)
+			}
+		case readaheadPagesPerSec:
+			val, err := retrieveFloat(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, readaheadPagesPerSec)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverPageReadAheadRateDataPoint(now, val.(float64))
+			}
+		case scanPointRevalidationsPerSec:
+			val, err := retrieveFloat(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, scanPointRevalidationsPerSec)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverScanPointRevalidationRateDataPoint(now, val.(float64))
+			}
+		case worktablesFromCacheRatio:
+			val, err := retrieveFloat(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, worktablesFromCacheRatio)
+				errs = append(errs, err)
+			} else {
+				// The query returns this ratio counter as a percentage (0-100); emit it as a 0-1 fraction.
+				s.mb.RecordSqlserverWorktableCacheHitRatioDataPoint(now, val.(float64)/100)
 			}
 		}
 
@@ -1950,6 +2170,76 @@ func (s *sqlServerScraperHelper) recordLongestRunningTransactionMetrics(ctx cont
 	return errors.Join(errs...)
 }
 
+func (s *sqlServerScraperHelper) recordIndexPhysicalMetrics(ctx context.Context) error {
+	const (
+		fragKey             = "avg_fragmentation_in_percent"
+		indexIDKey          = "index_id"
+		objectNameKey       = "object_name"
+		pageCountKey        = "page_count"
+		pageSpaceUsedKey    = "avg_page_space_used_in_percent"
+		recordCountKey      = "record_count"
+		schemaNameKey       = "schema_name"
+		sqlServerPageSizeBy = int64(8192) // SQL Server pages are 8 KB
+	)
+
+	rows, err := s.client.QueryRows(ctx)
+	if err != nil {
+		if !errors.Is(err, sqlquery.ErrNullValueWarning) {
+			return fmt.Errorf("sqlServerScraperHelper: %w", err)
+		}
+		s.logger.Warn("problems encountered getting index physical stats rows", zap.Error(err))
+	}
+
+	var errs []error
+	now := pcommon.NewTimestampFromTime(time.Now())
+	for i, row := range rows {
+		rb := s.setupResourceBuilder(s.mb.NewResourceBuilder(), row)
+		rb.SetSqlserverDatabaseName(row[databaseNameKey])
+
+		indexID, err := retrieveInt(row, indexIDKey)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("row %d: failed to parse %s: %w", i, indexIDKey, err))
+			continue
+		}
+
+		val, err := retrieveFloat(row, fragKey)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("row %d: failed to parse %s: %w", i, fragKey, err))
+		} else {
+			s.mb.RecordSqlserverIndexFragmentationDataPoint(now, val.(float64), row[databaseNameKey], indexID.(int64), row[objectNameKey], row[schemaNameKey])
+		}
+
+		pageCount, err := retrieveInt(row, pageCountKey)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("row %d: failed to parse %s: %w", i, pageCountKey, err))
+		} else {
+			errs = append(errs,
+				s.mb.RecordSqlserverIndexPageCountDataPoint(now, row[pageCountKey], row[databaseNameKey], indexID.(int64), row[objectNameKey], row[schemaNameKey]),
+				s.mb.RecordSqlserverIndexSizeDataPoint(now, strconv.FormatInt(pageCount.(int64)*sqlServerPageSizeBy, 10), row[databaseNameKey], indexID.(int64), row[objectNameKey], row[schemaNameKey]),
+			)
+		}
+
+		val, err = retrieveFloat(row, pageSpaceUsedKey)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("row %d: failed to parse %s: %w", i, pageSpaceUsedKey, err))
+		} else {
+			s.mb.RecordSqlserverIndexPageUtilizationDataPoint(now, val.(float64), row[databaseNameKey], indexID.(int64), row[objectNameKey], row[schemaNameKey])
+		}
+
+		errs = append(errs,
+			s.mb.RecordSqlserverIndexRecordCountDataPoint(now, row[recordCountKey], row[databaseNameKey], indexID.(int64), row[objectNameKey], row[schemaNameKey]),
+		)
+
+		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
+	}
+
+	if len(rows) == 0 {
+		s.logger.Info("SQLServerScraperHelper: No rows found by index physical stats query")
+	}
+
+	return errors.Join(errs...)
+}
+
 func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Context) (pcommon.Resource, error) {
 	// Constants are the column names of the database status
 	const (
@@ -2239,6 +2529,30 @@ func sortRows(rows []sqlquery.StringMap, values []int64, maximum uint) []sqlquer
 		results = append(results, item.Value)
 	}
 	return results
+}
+
+// errorCategoryAttr maps a sys.dm_os_performance_counters "Errors/sec" instance
+// name to the sqlserver.error.category attribute. Returns ok=false for instances
+// that do not map to a known category.
+func errorCategoryAttr(instance string) (category metadata.AttributeSqlserverErrorCategory, ok bool) {
+	const (
+		dbOfflineErrors      = "DB Offline Errors"
+		infoErrors           = "Info Errors"
+		killConnectionErrors = "Kill Connection Errors"
+		userErrors           = "User Errors"
+	)
+	switch instance {
+	case dbOfflineErrors:
+		return metadata.AttributeSqlserverErrorCategoryDbOffline, true
+	case infoErrors:
+		return metadata.AttributeSqlserverErrorCategoryInfo, true
+	case killConnectionErrors:
+		return metadata.AttributeSqlserverErrorCategoryKillConnection, true
+	case userErrors:
+		return metadata.AttributeSqlserverErrorCategoryUser, true
+	default:
+		return 0, false
+	}
 }
 
 func retrieveInt(row sqlquery.StringMap, columnName string) (any, error) {
