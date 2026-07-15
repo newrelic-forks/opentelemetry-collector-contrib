@@ -10,7 +10,7 @@ This receiver periodically queries an Oracle Database host to collect metrics.
 | Distributions | [contrib] |
 | Issues        | [![Open issues](https://img.shields.io/github/issues-search/open-telemetry/opentelemetry-collector-contrib?query=is%3Aissue%20is%3Aopen%20label%3Areceiver%2Foracledb%20&label=open&color=orange&logo=opentelemetry)](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues?q=is%3Aopen+is%3Aissue+label%3Areceiver%2Foracledb) [![Closed issues](https://img.shields.io/github/issues-search/open-telemetry/opentelemetry-collector-contrib?query=is%3Aissue%20is%3Aclosed%20label%3Areceiver%2Foracledb%20&label=closed&color=blue&logo=opentelemetry)](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues?q=is%3Aclosed+is%3Aissue+label%3Areceiver%2Foracledb) |
 | Code coverage | [![codecov](https://codecov.io/github/open-telemetry/opentelemetry-collector-contrib/graph/main/badge.svg?component=receiver_oracledb)](https://app.codecov.io/gh/open-telemetry/opentelemetry-collector-contrib/tree/main/?components%5B0%5D=receiver_oracledb&displayType=list) |
-| [Code Owners](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/CONTRIBUTING.md#becoming-a-code-owner)    | [@dmitryax](https://www.github.com/dmitryax), [@crobert-1](https://www.github.com/crobert-1), [@atoulme](https://www.github.com/atoulme) |
+| [Code Owners](https://github.com/open-telemetry/opentelemetry-collector-contrib/blob/main/CONTRIBUTING.md#becoming-a-code-owner)    | [@dmitryax](https://www.github.com/dmitryax), [@crobert-1](https://www.github.com/crobert-1), [@atoulme](https://www.github.com/atoulme), [@ebrdarSplunk](https://www.github.com/ebrdarSplunk), [@XSAM](https://www.github.com/XSAM), [@akshays-19](https://www.github.com/akshays-19), [@sv-splunk](https://www.github.com/sv-splunk), [@splunk-shanu](https://www.github.com/splunk-shanu) |
 
 [development]: https://github.com/open-telemetry/opentelemetry-collector/blob/main/docs/component-stability.md#development
 [alpha]: https://github.com/open-telemetry/opentelemetry-collector/blob/main/docs/component-stability.md#alpha
@@ -98,27 +98,12 @@ permissions to the database user:
 GRANT SELECT ON V_$SESSION TO <username>;
 GRANT SELECT ON V_$SYSSTAT TO <username>;
 GRANT SELECT ON V_$RESOURCE_LIMIT TO <username>;
-GRANT SELECT ON V_$OSSTAT TO <username>;
 GRANT SELECT ON DBA_TABLESPACES TO <username>;
 GRANT SELECT ON DBA_DATA_FILES TO <username>;
 GRANT SELECT ON DBA_TABLESPACE_USAGE_METRICS TO <username>;
 GRANT SELECT ON V_$SGAINFO TO <username>;
 ```
 
-### Per-PDB metrics (CDB multitenant deployments)
-
-When connected to a CDB root (Oracle 12c+), the receiver can collect per-PDB metrics
-by opting in to the `oracle.db.pdb` attribute. The following additional grants are required
-for the common user (with `CONTAINER=ALL`):
-
-```sql
-GRANT SELECT ON V_$CON_SYSSTAT TO <username> CONTAINER=ALL;
-GRANT SELECT ON V_$CON_SYSMETRIC TO <username> CONTAINER=ALL;
-GRANT SELECT ON V_$CONTAINERS TO <username> CONTAINER=ALL;
-GRANT SELECT ON CDB_TABLESPACE_USAGE_METRICS TO <username> CONTAINER=ALL;
-GRANT SELECT ON CDB_TABLESPACES TO <username> CONTAINER=ALL;
-```
-
 ### Events collection
 
 These grants are required for the `db.server.query_sample`, `db.server.top_query`,
@@ -126,7 +111,7 @@ and `db.server.session.wait_sample` events.
 
 ```sql
 GRANT SELECT ON V_$SQL TO <username>;
-GRANT SELECT ON V_$SQL_PLAN TO <username>;
+GRANT SELECT ON V_$SQL_PLAN_STATISTICS_ALL TO <username>;
 GRANT SELECT ON V_$SESSION TO <username>;
 GRANT SELECT ON V_$SESSION_EVENT TO <username>;
 GRANT SELECT ON V_$LOCK TO <username>;
@@ -135,20 +120,11 @@ GRANT SELECT ON DBA_OBJECTS TO <username>;
 GRANT SELECT ON DBA_PROCEDURES TO <username>;
 ```
 
-### Events collection
-
-These grants are required for the `db.server.query_sample`, `db.server.top_query`,
-and `db.server.session.wait_sample` events.
+> [!NOTE]
+> In the SQL query plan details, the LAST_*, OUTPUT_ROWS, and STARTS columns are populated only when Oracle is configured to collect execution plan statistics (for example, STATISTICS_LEVEL=ALL or the GATHER_PLAN_STATISTICS hint). Otherwise, these fields will be NULL or empty. Configuring this Oracle instrumentation may introduce additional runtime overhead. Enable it only if you need these runtime execution statistics for query performance analysis.
 
 ```sql
-GRANT SELECT ON V_$SQL TO <username>;
-GRANT SELECT ON V_$SQL_PLAN TO <username>;
-GRANT SELECT ON V_$SESSION TO <username>;
-GRANT SELECT ON V_$SESSION_EVENT TO <username>;
-GRANT SELECT ON V_$LOCK TO <username>;
-GRANT SELECT ON V_$CONTAINERS TO <username>;
-GRANT SELECT ON DBA_OBJECTS TO <username>;
-GRANT SELECT ON DBA_PROCEDURES TO <username>;
+ALTER SYSTEM SET statistics_level = ALL;
 ```
 
 ## Enabling metrics.
@@ -204,9 +180,7 @@ receivers:
 
 When the `db.server.query_sample` and/or `db.server.top_query` events are enabled, the receiver can
 extract key-value pairs from leading SQL block comments (`/* key=value */`) and emit them as the
-`db.query.comment_tags` attribute on the corresponding logs. As a special case, when
-`nr_service_guid` is present in the allowlist, its value is also emitted on a dedicated
-`db.query.comment_tags.nr_service_guid` attribute for APM correlation.
+`db.query.comment_tags` attribute on the corresponding logs.
 
 This behavior is controlled by the `allowed_comment_keys` option, which can be set independently
 under `top_query_collection` and `query_sample_collection`:
@@ -214,8 +188,6 @@ under `top_query_collection` and `query_sample_collection`:
 - `allowed_comment_keys` (default = `[]`): A list of comment keys to extract. For each enabled
   collection, only keys present in this allowlist are extracted from the leading SQL comment and
   included (as comma-separated `key=value` pairs) in the `db.query.comment_tags` attribute.
-  If `nr_service_guid` is included in the allowlist, its value is additionally emitted as
-  `db.query.comment_tags.nr_service_guid`.
 
 Extraction is disabled unless explicitly configured:
 
@@ -235,15 +207,13 @@ receivers:
       db.server.top_query:
         enabled: true
     top_query_collection:
-      allowed_comment_keys: [application, team, nr_service_guid]
+      allowed_comment_keys: [application, team]
     query_sample_collection:
-      allowed_comment_keys: [application, team, nr_service_guid]
+      allowed_comment_keys: [application, team]
 ```
 
-Given a query such as `/* application=exampleApp,team=payments,nr_service_guid=abc123 */ SELECT * FROM users`,
-the emitted log record will include `db.query.comment_tags` set to
-`application=exampleApp,team=payments,nr_service_guid=abc123`, and additionally
-`db.query.comment_tags.nr_service_guid` set to `abc123`.
+Given a query such as `/* application=exampleApp,team=payments */ SELECT * FROM users`, the emitted
+log record will include `db.query.comment_tags` set to `application=exampleApp,team=payments`. When multiple
+keys are extracted, they are emitted as a comma-separated list of `key=value` pairs.
 
-See [documentation](./documentation.md) for details on the `db.query.comment_tags` and
-`db.query.comment_tags.nr_service_guid` attributes.
+See [documentation](./documentation.md) for details on the `db.query.comment_tags` attribute.

@@ -136,8 +136,6 @@ internal/k8sleaderelectortest internal/k8sleaderelectortest
 internal/kafka internal/kafka
 internal/kubelet internal/kubelet
 internal/metadataproviders internal/metadataproviders
-internal/nrcommon internal/nrcommon
-internal/nrsqlquery internal/nrsqlquery
 internal/otelarrow internal/otelarrow
 internal/pdatautil internal/pdatautil
 internal/rabbitmq internal/rabbitmq
@@ -186,6 +184,7 @@ processor/cumulativetodeltaprocessor processor/cumulativetodelta
 processor/deltatocumulativeprocessor processor/deltatocumulative
 processor/deltatorateprocessor processor/deltatorate
 processor/drainprocessor processor/drain
+processor/dynamicsamplingprocessor processor/dynamicsampling
 processor/filterprocessor processor/filter
 processor/genainormalizerprocessor processor/genainormalizer
 processor/geoipprocessor processor/geoip
@@ -305,8 +304,6 @@ receiver/mysqlreceiver receiver/mysql
 receiver/namedpipereceiver receiver/namedpipe
 receiver/netflowreceiver receiver/netflow
 receiver/nginxreceiver receiver/nginx
-receiver/nroracledbreceiver receiver/nroracledb
-receiver/nrsqlserverreceiver receiver/nrsqlserver
 receiver/nsxtreceiver receiver/nsxt
 receiver/ntpreceiver receiver/ntp
 receiver/oracledbreceiver receiver/oracledb
@@ -328,7 +325,6 @@ receiver/redisreceiver receiver/redis
 receiver/riakreceiver receiver/riak
 receiver/saphanareceiver receiver/saphana
 receiver/signalfxreceiver receiver/signalfx
-receiver/simpleprometheusreceiver receiver/simpleprometheus
 receiver/skywalkingreceiver receiver/skywalking
 receiver/snmpreceiver receiver/snmp
 receiver/snowflakereceiver receiver/snowflake
@@ -363,3 +359,4 @@ reports/distributions/core.yaml reports/distributions/core.yaml
 reports/distributions/contrib.yaml reports/distributions/contrib.yaml
 reports/distributions/k8s.yaml reports/distributions/k8s.yaml
 reports/distributions/otlp.yaml reports/distributions/otlp.yaml
+receiver/simpleprometheusreceiver receiver/simpleprometheus

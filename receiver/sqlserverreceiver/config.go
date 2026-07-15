@@ -46,12 +46,6 @@ type Config struct {
 
 	QuerySample `mapstructure:"query_sample_collection"`
 
-	// CollectFullQueryText enables collection of the full SQL batch text (st.text) in addition
-	// to the statement-level substring already captured in db.query.text.
-	// When enabled, db.query.full_text and query.comments are populated in log records.
-	CollectFullQueryText bool     `mapstructure:"collect_full_query_text"`
-	AllowedCommentKeys   []string `mapstructure:"allowed_comment_keys"`
-
 	InstanceName string `mapstructure:"instance_name"`
 	ComputerName string `mapstructure:"computer_name"`
 
@@ -61,10 +55,6 @@ type Config struct {
 	Port     uint                `mapstructure:"port"`
 	Server   string              `mapstructure:"server"`
 	Username string              `mapstructure:"username"`
-
-	// MaxConcurrentQueries bounds how many direct-connection metric queries the
-	// receiver runs in parallel per scrape cycle. 0 means use the default (4).
-	MaxConcurrentQueries int `mapstructure:"max_concurrent_queries"`
 
 	// Flag to check if the connection is direct or not. It should only be
 	// used after a successful call to the `Validate` method.
@@ -93,21 +83,9 @@ func (cfg *Config) Validate() error {
 		return errors.New("`top_query_collection.collection_interval` must not be less than 0")
 	}
 
-	if cfg.MaxConcurrentQueries < 0 {
-		return errors.New("`max_concurrent_queries` must not be negative")
-	}
-
 	cfg.isDirectDBConnectionEnabled, err = directDBConnectionEnabled(cfg)
 
 	return err
-}
-
-// EffectiveMaxConcurrentQueries returns the user-configured cap or the default (4).
-func (cfg *Config) EffectiveMaxConcurrentQueries() int {
-	if cfg.MaxConcurrentQueries <= 0 {
-		return 4
-	}
-	return cfg.MaxConcurrentQueries
 }
 
 func directDBConnectionEnabled(config *Config) (bool, error) {

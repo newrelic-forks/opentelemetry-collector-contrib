@@ -140,8 +140,6 @@ components:
     - internal/kafka
     - internal/kubelet
     - internal/metadataproviders
-    - internal/nrcommon
-    - internal/nrsqlquery
     - internal/pdatautil
     - internal/rabbitmq
     - internal/sharedcomponent
@@ -195,6 +193,7 @@ components:
     - processor/deltatorate
     - processor/digitaloceandetector
     - processor/drain
+    - processor/dynamic_sampling
     - processor/dynatracedetector
     - processor/filter
     - processor/gen_ai_normalizer
@@ -241,8 +240,8 @@ components:
     - receiver/aerospike
     - receiver/apache
     - receiver/apache_spark
+    - receiver/aws_cloudwatch
     - receiver/aws_lambda
-    - receiver/awscloudwatch
     - receiver/awscontainerinsightreceiver
     - receiver/awsecscontainermetrics
     - receiver/awsfirehose
@@ -301,8 +300,6 @@ components:
     - receiver/named_pipe
     - receiver/netflow
     - receiver/nginx
-    - receiver/nroracledb
-    - receiver/nrsqlserver
     - receiver/nsxt
     - receiver/ntp
     - receiver/oracledb

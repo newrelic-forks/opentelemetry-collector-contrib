@@ -142,8 +142,8 @@ components:
         - aerospike
         - apache
         - apache_spark
+        - aws_cloudwatch
         - aws_lambda
-        - awscloudwatch
         - awscontainerinsightreceiver
         - awsecscontainermetrics
         - awsfirehose
@@ -198,8 +198,6 @@ components:
         - named_pipe
         - netflow
         - nginx
-        - nroracledb
-        - nrsqlserver
         - nsxt
         - ntp
         - oracledb

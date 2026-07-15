@@ -154,8 +154,7 @@ func TestFactory(t *testing.T) {
 					t.Context(),
 					receivertest.NewNopSettings(metadata.Type),
 					nil,
-					consumertest.NewNop(),
-				)
+					consumertest.NewNop())
 				require.ErrorIs(t, err, errConfigNotSQLServer)
 			},
 		},
@@ -263,7 +262,7 @@ func TestSetupQueries(t *testing.T) {
 
 	metricsMetadata, ok := metadata["metrics"].(map[string]any)
 	require.True(t, ok)
-	require.Len(t, metricsMetadata, 109, "Every time metrics are added or removed, the function `setupQueries` must "+
+	require.Len(t, metricsMetadata, 77, "Every time metrics are added or removed, the function `setupQueries` must "+
 		"be modified to properly account for the change. Please update `setupQueries` and then, "+
 		"and only then, update the expected metric count here.")
 }
