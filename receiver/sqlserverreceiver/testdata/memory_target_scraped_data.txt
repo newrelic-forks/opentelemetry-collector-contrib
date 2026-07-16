@@ -1,7 +1,0 @@
-[
-    {
-        "measurement": "sqlserver_memory_target",
-        "sql_instance": "SERVER1",
-        "target_memory_bytes": "17179869184"
-    }
-]

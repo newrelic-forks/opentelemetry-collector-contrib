@@ -85,15 +85,6 @@ resourceLogs:
               - key: sqlserver.procedure_name
                 value:
                   stringValue: ""
-              - key: db.query.full_text
-                value:
-                  stringValue: ""
-              - key: db.query.comment_tags.nr_service_guid
-                value:
-                  stringValue: ""
-              - key: db.query.text.normalized.hash
-                value:
-                  stringValue: ""
               - key: sqlserver.query.last_started
                 value:
                   stringValue: "2026-01-15T10:30:00.0000000+00:00"

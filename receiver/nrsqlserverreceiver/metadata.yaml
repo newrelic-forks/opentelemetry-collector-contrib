@@ -243,6 +243,11 @@ attributes:
     description: The port number on which the server is listening.
     type: int
     requirement_level: recommended
+  sqlserver.access.scan.type:
+    description: The type of access method scan being performed.
+    type: string
+    requirement_level: required
+    enum: [free_space, probe, range]
   sqlserver.blocking.start_time:
     description: Timestamp of when the current blocking wait began (ISO 8601 format).
     type: string
@@ -271,6 +276,11 @@ attributes:
     description: Deadlock priority value for the session.
     type: int
     requirement_level: recommended
+  sqlserver.error.category:
+    description: The category of the SQL Server error.
+    type: string
+    requirement_level: required
+    enum: [db_offline, info, kill_connection, user]
   sqlserver.estimated_completion_time:
     description: Estimated time remaining for the request to complete, in seconds.
     type: double
@@ -279,6 +289,20 @@ attributes:
     description: Number of times that the plan has been executed since it was last compiled, reported in delta value.
     type: int
     requirement_level: recommended
+  sqlserver.extent.operation.type:
+    description: The type of extent allocation operation.
+    type: string
+    requirement_level: required
+    enum: [allocated, deallocated]
+  sqlserver.index.id:
+    description: The identifier of the index.
+    type: int
+    requirement_level: recommended
+  sqlserver.lock.block.type:
+    description: The type of lock block tracked by the lock manager.
+    type: string
+    requirement_level: required
+    enum: [allocated, blocks, owner, owner_allocated]
   sqlserver.lock_timeout:
     description: Lock timeout value in seconds.
     type: double
@@ -287,10 +311,24 @@ attributes:
     description: Number of logical reads (data read from cache/memory).
     type: int
     requirement_level: recommended
+  sqlserver.object.name:
+    description: The name of the database object.
+    type: string
+    requirement_level: recommended
   sqlserver.open_transaction_count:
     description: Number of transactions currently open in the session.
     type: int
     requirement_level: recommended
+  sqlserver.page.allocation.type:
+    description: The type of page allocation operation.
+    type: string
+    requirement_level: required
+    enum: [allocated, deallocated, mixed]
+  sqlserver.page.compression.type:
+    description: The type of page compression operation.
+    type: string
+    requirement_level: required
+    enum: [attempted, succeeded]
   sqlserver.parameterization.result:
     description: The result of an auto-parameterization attempt by the SQL Server query optimizer.
     type: string
@@ -353,6 +391,10 @@ attributes:
   sqlserver.row_count:
     description: Number of rows affected or returned by the query.
     type: int
+    requirement_level: recommended
+  sqlserver.schema.name:
+    description: The name of the database schema.
+    type: string
     requirement_level: recommended
   sqlserver.session.duration:
     description: Total elapsed time in seconds the session has been actively executing requests.
@@ -570,6 +612,15 @@ events:
       - db.query.text.normalized.hash
 
 metrics:
+  sqlserver.access.scan.rate:
+    enabled: false
+    description: Rate of access method scans.
+    stability: development
+    unit: "{scan}/s"
+    gauge:
+      value_type: double
+    attributes: [sqlserver.access.scan.type]
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.attention.rate:
     enabled: false
     description: Number of SQL attentions (client cancellation interrupts) received per second.
@@ -625,6 +676,15 @@ metrics:
     gauge:
       value_type: int
       input_type: string
+  sqlserver.connection.reset.rate:
+    enabled: false
+    description: Number of logical connections reset per second.
+    stability: development
+    unit: "{connection}/s"
+    gauge:
+      value_type: double
+    attributes: []
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.cpu.count:
     enabled: false
     description: Number of CPUs.
@@ -848,6 +908,24 @@ metrics:
     gauge:
       value_type: double
     attributes: []
+  sqlserver.error.rate:
+    enabled: false
+    description: Number of errors raised per second.
+    stability: development
+    unit: "{error}/s"
+    gauge:
+      value_type: double
+    attributes: [sqlserver.error.category]
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
+  sqlserver.extent.operation.rate:
+    enabled: false
+    description: Rate of extent operations.
+    stability: development
+    unit: "{extent}/s"
+    gauge:
+      value_type: double
+    attributes: [sqlserver.extent.operation.type]
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.failover_cluster.ag.cluster_type:
     enabled: false
     description: Cluster type of the Always-On Availability Group.
@@ -936,6 +1014,52 @@ metrics:
       input_type: string
     attributes: [ag.name, replica.server_name, replica.sync_health]
     extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
+  sqlserver.ghost_record.skipped.rate:
+    enabled: false
+    description: Rate of ghosted records skipped during scans.
+    stability: development
+    unit: "{record}/s"
+    gauge:
+      value_type: double
+    attributes: []
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
+  sqlserver.index.fragmentation:
+    enabled: false
+    description: Average fragmentation percentage of the index.
+    stability: development
+    unit: "%"
+    gauge:
+      value_type: double
+    attributes: [db.namespace, sqlserver.index.id, sqlserver.object.name, sqlserver.schema.name]
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
+  sqlserver.index.page.count:
+    enabled: false
+    description: Number of pages in the index.
+    stability: development
+    unit: "{page}"
+    gauge:
+      value_type: int
+      input_type: string
+    attributes: [db.namespace, sqlserver.index.id, sqlserver.object.name, sqlserver.schema.name]
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
+  sqlserver.index.page.utilization:
+    enabled: false
+    description: Average percentage of available data storage space used in all pages of the index.
+    stability: development
+    unit: "%"
+    gauge:
+      value_type: double
+    attributes: [db.namespace, sqlserver.index.id, sqlserver.object.name, sqlserver.schema.name]
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
+  sqlserver.index.record.count:
+    enabled: false
+    description: Total number of records in the index.
+    stability: development
+    unit: "{record}"
+    gauge:
+      value_type: int
+      input_type: string
+    attributes: [db.namespace, sqlserver.index.id, sqlserver.object.name, sqlserver.schema.name]
   sqlserver.index.search.rate:
     enabled: false
     description: Total number of index searches.
@@ -944,6 +1068,16 @@ metrics:
     gauge:
       value_type: double
     attributes: []
+  sqlserver.index.size:
+    enabled: false
+    description: Total size of the index.
+    stability: development
+    unit: "By"
+    gauge:
+      value_type: int
+      input_type: string
+    attributes: [db.namespace, sqlserver.index.id, sqlserver.object.name, sqlserver.schema.name]
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.kill_connection.error.rate:
     enabled: false
     description: Number of kill-connection errors per second.
@@ -1000,6 +1134,15 @@ metrics:
       value_type: double
     attributes: []
     extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
+  sqlserver.lock.block.count:
+    enabled: false
+    description: Number of lock blocks tracked by the lock manager.
+    stability: development
+    unit: "{block}"
+    gauge:
+      value_type: int
+    attributes: [sqlserver.lock.block.type]
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.lock.by_mode.count:
     enabled: false
     description: Number of currently active locks held in the database, grouped by lock mode.
@@ -1019,6 +1162,33 @@ metrics:
       value_type: int
       input_type: string
     attributes: [db.namespace, lock.resource]
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
+  sqlserver.lock.escalation.rate:
+    enabled: false
+    description: Number of lock escalations per second (locks on a table escalated to a larger granularity).
+    stability: development
+    unit: "{escalation}/s"
+    gauge:
+      value_type: double
+    attributes: []
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
+  sqlserver.lock.memory:
+    enabled: false
+    description: Total amount of memory used for locks.
+    stability: development
+    unit: By
+    gauge:
+      value_type: int
+    attributes: []
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
+  sqlserver.lock.request.rate:
+    enabled: false
+    description: Number of new locks and lock conversions per second requested from the lock manager.
+    stability: development
+    unit: "{request}/s"
+    gauge:
+      value_type: double
+    attributes: []
     extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.lock.timeout.rate:
     enabled: false
@@ -1054,6 +1224,17 @@ metrics:
     gauge:
       value_type: double
     extended_documentation: This metric is only available when running on Windows.
+  sqlserver.lock.wait_time.total:
+    enabled: false
+    description: Total wait time in seconds for locks since the last server restart.
+    stability: development
+    unit: s
+    sum:
+      monotonic: true
+      aggregation_temporality: cumulative
+      value_type: double
+    attributes: []
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.login.rate:
     enabled: false
     description: Total number of logins.
@@ -1190,6 +1371,15 @@ metrics:
       input_type: string
     attributes: [wait.category, wait.type]
     extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
+  sqlserver.page.allocation.rate:
+    enabled: false
+    description: Rate of page allocation operations.
+    stability: development
+    unit: "{page}/s"
+    gauge:
+      value_type: double
+    attributes: [sqlserver.page.allocation.type]
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.page.buffer_cache.free_list.stalls.rate:
     enabled: false
     description: Number of free list stalls.
@@ -1213,6 +1403,15 @@ metrics:
     gauge:
       value_type: double
     extended_documentation: This metric is only available when running on Windows.
+  sqlserver.page.compression.rate:
+    enabled: false
+    description: Rate of page compression operations.
+    stability: development
+    unit: "{page}/s"
+    gauge:
+      value_type: double
+    attributes: [sqlserver.page.compression.type]
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.page.lazy_write.rate:
     enabled: true
     description: Number of lazy writes moving dirty pages to disk.
@@ -1246,6 +1445,15 @@ metrics:
       value_type: double
     attributes: [page.operations]
     extended_documentation: This metric is only available when running on Windows.
+  sqlserver.page.read_ahead.rate:
+    enabled: false
+    description: Rate of pages read from disk by the read-ahead manager.
+    stability: development
+    unit: "{page}/s"
+    gauge:
+      value_type: double
+    attributes: []
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.page.split.rate:
     enabled: true
     description: Number of pages split as a result of overflowing index pages.
@@ -1333,6 +1541,15 @@ metrics:
     gauge:
       value_type: double
       input_type: string
+    attributes: []
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
+  sqlserver.scan_point.revalidation.rate:
+    enabled: false
+    description: Rate at which scan points needed to be revalidated.
+    stability: development
+    unit: "{revalidate}/s"
+    gauge:
+      value_type: double
     attributes: []
     extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.server.security.principal.count:
@@ -1579,6 +1796,15 @@ metrics:
     unit: "{connections}"
     gauge:
       value_type: int
+  sqlserver.worktable.cache.hit_ratio:
+    enabled: false
+    description: Fraction of worktables that did not require initialization because they were retrieved from the worktable cache.
+    stability: development
+    unit: "1"
+    gauge:
+      value_type: double
+    attributes: []
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
 
 feature_gates:
   - id: receiver.nrsqlserver.RemoveServerResourceAttribute
