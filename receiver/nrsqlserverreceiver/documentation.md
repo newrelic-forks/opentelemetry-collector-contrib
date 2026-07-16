@@ -577,7 +577,7 @@ Total free space in temporary DB.
 
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
-| KB | Sum | Int | Cumulative | false | Development |
+| kBy | Sum | Int | Cumulative | false | Development |
 
 #### Attributes
 
@@ -591,7 +591,7 @@ TempDB version store size.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
-| KB | Gauge | Double | Development |
+| kBy | Gauge | Double | Development |
 
 ### sqlserver.database.transactions.active
 
@@ -1178,7 +1178,7 @@ This metric is only available when the receiver is configured to directly connec
 
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
-| KB | Sum | Double | Cumulative | false | Development |
+| kBy | Sum | Double | Cumulative | false | Development |
 
 #### Attributes
 

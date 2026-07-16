@@ -876,7 +876,7 @@ metrics:
     enabled: false
     description: Total free space in temporary DB.
     stability: development
-    unit: "KB"
+    unit: kBy
     sum:
       monotonic: false
       aggregation_temporality: cumulative
@@ -886,7 +886,7 @@ metrics:
     enabled: false
     description: TempDB version store size.
     stability: development
-    unit: "KB"
+    unit: kBy
     gauge:
       value_type: double
     attributes: []
@@ -1302,7 +1302,7 @@ metrics:
     enabled: false
     description: Total memory in use.
     stability: development
-    unit: "KB"
+    unit: kBy
     sum:
       aggregation_temporality: cumulative
       monotonic: false

@@ -1252,7 +1252,7 @@ resourceMetrics:
                         stringValue: default
                   startTimeUnixNano: "1000000"
                   timeUnixNano: "2000000"
-            unit: KB
+            unit: kBy
         scope:
           name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
           version: latest
@@ -1543,7 +1543,7 @@ resourceMetrics:
                         stringValue: internal
                   startTimeUnixNano: "1000000"
                   timeUnixNano: "2000000"
-            unit: KB
+            unit: kBy
         scope:
           name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
           version: latest
@@ -1668,7 +1668,7 @@ resourceMetrics:
                         stringValue: free
                   startTimeUnixNano: "1000000"
                   timeUnixNano: "2000000"
-            unit: KB
+            unit: kBy
         scope:
           name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
           version: latest
@@ -1698,7 +1698,7 @@ resourceMetrics:
                   startTimeUnixNano: "1000000"
                   timeUnixNano: "2000000"
             name: sqlserver.database.tempdb.version_store.size
-            unit: KB
+            unit: kBy
         scope:
           name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
           version: latest

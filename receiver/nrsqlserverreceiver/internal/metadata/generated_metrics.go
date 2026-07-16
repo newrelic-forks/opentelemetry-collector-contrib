@@ -3875,7 +3875,7 @@ type metricSqlserverDatabaseTempdbSpace struct {
 func (m *metricSqlserverDatabaseTempdbSpace) init() {
 	m.data.SetName("sqlserver.database.tempdb.space")
 	m.data.SetDescription("Total free space in temporary DB.")
-	m.data.SetUnit("KB")
+	m.data.SetUnit("kBy")
 	m.data.SetEmptySum()
 	m.data.Sum().SetIsMonotonic(false)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
@@ -3965,7 +3965,7 @@ type metricSqlserverDatabaseTempdbVersionStoreSize struct {
 func (m *metricSqlserverDatabaseTempdbVersionStoreSize) init() {
 	m.data.SetName("sqlserver.database.tempdb.version_store.size")
 	m.data.SetDescription("TempDB version store size.")
-	m.data.SetUnit("KB")
+	m.data.SetUnit("kBy")
 	m.data.SetEmptyGauge()
 }
 
@@ -7130,7 +7130,7 @@ type metricSqlserverMemoryUsage struct {
 func (m *metricSqlserverMemoryUsage) init() {
 	m.data.SetName("sqlserver.memory.usage")
 	m.data.SetDescription("Total memory in use.")
-	m.data.SetUnit("KB")
+	m.data.SetUnit("kBy")
 	m.data.SetEmptySum()
 	m.data.Sum().SetIsMonotonic(false)
 	m.data.Sum().SetAggregationTemporality(pmetric.AggregationTemporalityCumulative)
