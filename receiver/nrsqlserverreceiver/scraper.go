@@ -2388,7 +2388,7 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 		}
 
 		queryPlanVal := s.retrieveValue(row, queryPlan, &errs, func(row sqlquery.StringMap, columnName string) (any, error) {
-			return s.obfuscator.obfuscateXMLPlan(row[columnName])
+			return s.obfuscator.obfuscateXMLPlan(row[columnName], s.logger, queryPlanHashVal)
 		})
 
 		rowsReturnedVal := s.retrieveValue(row, rowsReturned, &errs, retrieveInt)

@@ -6,11 +6,11 @@ package nrsqlserverreceiver // import "github.com/newrelic-forks/opentelemetry-c
 import (
 	"bytes"
 	"encoding/xml"
-	"fmt"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/DataDog/datadog-agent/pkg/obfuscate"
+	"go.uber.org/zap"
 )
 
 var collectCommentsConfig = obfuscate.SQLConfig{
@@ -174,7 +174,7 @@ func (o *obfuscator) obfuscateFullSQLString(sql string, statementStartOffset, st
 }
 
 // obfuscateXMLPlan obfuscates SQL text & parameters from the provided SQL Server XML Plan
-func (o *obfuscator) obfuscateXMLPlan(rawPlan string) (string, error) {
+func (o *obfuscator) obfuscateXMLPlan(rawPlan string, logger *zap.Logger, queryPlanHash string) (string, error) {
 	decoder := xml.NewDecoder(strings.NewReader(rawPlan))
 	var buffer bytes.Buffer
 	encoder := xml.NewEncoder(&buffer)
@@ -198,7 +198,7 @@ func (o *obfuscator) obfuscateXMLPlan(rawPlan string) (string, error) {
 						}
 						val, err := o.obfuscateSQLString(elem.Attr[i].Value)
 						if err != nil {
-							fmt.Println("Unable to obfuscate SQL statement in query plan, skipping: " + elem.Attr[i].Value)
+							logger.Warn("Unable to obfuscate SQL statement in query plan, skipping", zap.String("query_plan_hash", queryPlanHash))			
 							return "", nil
 						}
 						elem.Attr[i].Value = val
