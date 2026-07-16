@@ -61,6 +61,13 @@ const (
 	sysmetricRedoAllocationHitRatio   = "Redo Allocation Hit Ratio"
 	sysmetricParseFailureCount        = "Parse Failure Count Per Sec"
 	sysmetricExecuteWithoutParseRatio = "Execute Without Parse Ratio"
+	sysmetricAverageActiveSessions    = "Average Active Sessions"
+	sysmetricCPUUsagePerSec           = "CPU Usage Per Sec"
+	sysmetricCursorCacheHitRatio      = "Cursor Cache Hit Ratio"
+	sysmetricHostCPUUsagePerSec       = "Host CPU Usage Per Sec"
+	sysmetricPGACacheHitPct           = "PGA Cache Hit %"
+	sysmetricResponseTimePerTxn       = "Response Time Per Txn"
+	sysmetricSingleBlockReadLatency   = "Average Synchronous Single-Block Read Latency"
 
 	enqueueDeadlocks               = "enqueue deadlocks"
 	exchangeDeadlocks              = "exchange deadlocks"
@@ -126,32 +133,47 @@ const (
 	sqlnetBytesSentToDBLink          = "bytes sent via SQL*Net to dblink"
 
 	// Workload analysis v$sysstat statistic names.
-	dbTimeStat                   = "DB time"
-	enqueueConversionsStat       = "enqueue conversions"
-	enqueueReleasesStat          = "enqueue releases"
-	enqueueRequestsStat          = "enqueue requests"
-	enqueueTimeoutsStat          = "enqueue timeouts"
-	enqueueWaitsStat             = "enqueue waits"
-	indexFastFullScansDirectStat = "index fast full scans (direct read)"
-	indexFastFullScansFullStat   = "index fast full scans (full)"
-	indexFastFullScansRowidStat  = "index fast full scans (rowid ranges)"
-	lobReadsStat                 = "lob reads"
-	lobWritesStat                = "lob writes"
-	openedCursorsCurrentStat     = "opened cursors current"
-	parseTimeCPUStat             = "parse time cpu"
-	parseTimeElapsedStat         = "parse time elapsed"
-	recursiveCallsStat           = "recursive calls"
-	recursiveCPUUsageStat        = "recursive cpu usage"
-	sessionCursorCacheCountStat  = "session cursor cache count"
-	sessionCursorCacheHitsStat   = "session cursor cache hits"
-	sortsDiskStat                = "sorts (disk)"
-	sortsMemoryStat              = "sorts (memory)"
-	sortsRowsStat                = "sorts (rows)"
-	tableScanRowsGottenStat      = "table scan rows gotten"
-	tableScansDirectReadStat     = "table scans (direct read)"
-	tableScansLongTablesStat     = "table scans (long tables)"
-	tableScansRowidRangesStat    = "table scans (rowid ranges)"
-	userCallsStat                = "user calls"
+	dbTimeStat = "DB time"
+	// Session, JVM, OS, transaction, lock & recovery v$sysstat statistic names.
+	gcCurrentBlockReceiveTime     = "gc current block receive time"
+	javaCallHeapLiveSize          = "java call heap live size"
+	javaCallHeapTotalSize         = "java call heap total size"
+	javaCallHeapUsedSize          = "java call heap used size"
+	osSwaps                       = "OS Swaps"
+	recoveryBlocksRead            = "recovery blocks read"
+	sessionNonIdleWaitCount       = "non-idle wait count"
+	sessionNonIdleWaitTime        = "non-idle wait time"
+	sessionStoredProcedureSpace   = "session stored procedure space"
+	smonInstanceRecoveryPosts     = "SMON posted for instance recovery"
+	smonTxnRecoveryPosts          = "SMON posted for txn recovery for other instances"
+	transactionLockBackgroundTime = "transaction lock background get time"
+	transactionLockForegroundTime = "transaction lock foreground wait time"
+	transactionRollbacks          = "transaction rollbacks"
+	enqueueConversionsStat        = "enqueue conversions"
+	enqueueReleasesStat           = "enqueue releases"
+	enqueueRequestsStat           = "enqueue requests"
+	enqueueTimeoutsStat           = "enqueue timeouts"
+	enqueueWaitsStat              = "enqueue waits"
+	indexFastFullScansDirectStat  = "index fast full scans (direct read)"
+	indexFastFullScansFullStat    = "index fast full scans (full)"
+	indexFastFullScansRowidStat   = "index fast full scans (rowid ranges)"
+	lobReadsStat                  = "lob reads"
+	lobWritesStat                 = "lob writes"
+	openedCursorsCurrentStat      = "opened cursors current"
+	parseTimeCPUStat              = "parse time cpu"
+	parseTimeElapsedStat          = "parse time elapsed"
+	recursiveCallsStat            = "recursive calls"
+	recursiveCPUUsageStat         = "recursive cpu usage"
+	sessionCursorCacheCountStat   = "session cursor cache count"
+	sessionCursorCacheHitsStat    = "session cursor cache hits"
+	sortsDiskStat                 = "sorts (disk)"
+	sortsMemoryStat               = "sorts (memory)"
+	sortsRowsStat                 = "sorts (rows)"
+	tableScanRowsGottenStat       = "table scan rows gotten"
+	tableScansDirectReadStat      = "table scans (direct read)"
+	tableScansLongTablesStat      = "table scans (long tables)"
+	tableScansRowidRangesStat     = "table scans (rowid ranges)"
+	userCallsStat                 = "user calls"
 
 	sessionCountSQL = "select status, type, count(*) as VALUE FROM v$session GROUP BY status, type"
 	// sessionCountCDBSQL extends sessionCountSQL with per-PDB breakdown via v$containers join.
@@ -863,6 +885,76 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 					value /= 100
 					s.mb.RecordOracledbDbTimeDataPoint(now, value, metadata.AttributeOracledbSessionTypeForeground)
 				}
+			// Session, JVM & OS resources
+			case javaCallHeapLiveSize:
+				if err := s.mb.RecordOracledbJvmMemoryLiveDataPoint(now, row["VALUE"]); err != nil {
+					scrapeErrors = append(scrapeErrors, err)
+				}
+			case javaCallHeapTotalSize:
+				if err := s.mb.RecordOracledbJvmMemoryCommittedDataPoint(now, row["VALUE"]); err != nil {
+					scrapeErrors = append(scrapeErrors, err)
+				}
+			case javaCallHeapUsedSize:
+				if err := s.mb.RecordOracledbJvmMemoryUsedDataPoint(now, row["VALUE"]); err != nil {
+					scrapeErrors = append(scrapeErrors, err)
+				}
+			case osSwaps:
+				if err := s.mb.RecordOracledbOsSwapsDataPoint(now, row["VALUE"]); err != nil {
+					scrapeErrors = append(scrapeErrors, err)
+				}
+			case sessionNonIdleWaitCount:
+				if err := s.mb.RecordOracledbSessionWaitsDataPoint(now, row["VALUE"], metadata.AttributeOracledbSessionWaitStateNonIdle); err != nil {
+					scrapeErrors = append(scrapeErrors, err)
+				}
+			case sessionNonIdleWaitTime:
+				value, err := strconv.ParseFloat(row["VALUE"], 64)
+				if err != nil {
+					scrapeErrors = append(scrapeErrors, fmt.Errorf("%s value: %q, %w", sessionNonIdleWaitTime, row["VALUE"], err))
+				} else {
+					s.mb.RecordOracledbSessionWaitTimeDataPoint(now, value/100, metadata.AttributeOracledbSessionWaitStateNonIdle)
+				}
+			case sessionStoredProcedureSpace:
+				if err := s.mb.RecordOracledbSessionStoredProcedureMemoryDataPoint(now, row["VALUE"]); err != nil {
+					scrapeErrors = append(scrapeErrors, err)
+				}
+			// Transactions, Locks & Recovery
+			case gcCurrentBlockReceiveTime:
+				value, err := strconv.ParseFloat(row["VALUE"], 64)
+				if err != nil {
+					scrapeErrors = append(scrapeErrors, fmt.Errorf("%s value: %q, %w", gcCurrentBlockReceiveTime, row["VALUE"], err))
+				} else {
+					s.mb.RecordOracledbGcCurrentBlockTimeDataPoint(now, value/100, metadata.AttributeNetworkIoDirectionReceive)
+				}
+			case recoveryBlocksRead:
+				if err := s.mb.RecordOracledbRecoveryBlocksDataPoint(now, row["VALUE"]); err != nil {
+					scrapeErrors = append(scrapeErrors, err)
+				}
+			case smonInstanceRecoveryPosts:
+				if err := s.mb.RecordOracledbSmonPostsDataPoint(now, row["VALUE"], metadata.AttributeOracledbSmonTypeInstance); err != nil {
+					scrapeErrors = append(scrapeErrors, err)
+				}
+			case smonTxnRecoveryPosts:
+				if err := s.mb.RecordOracledbSmonPostsDataPoint(now, row["VALUE"], metadata.AttributeOracledbSmonTypeTransaction); err != nil {
+					scrapeErrors = append(scrapeErrors, err)
+				}
+			case transactionLockBackgroundTime:
+				value, err := strconv.ParseFloat(row["VALUE"], 64)
+				if err != nil {
+					scrapeErrors = append(scrapeErrors, fmt.Errorf("%s value: %q, %w", transactionLockBackgroundTime, row["VALUE"], err))
+				} else {
+					s.mb.RecordOracledbLockTimeDataPoint(now, value/100, metadata.AttributeOracledbSessionTypeBackground)
+				}
+			case transactionLockForegroundTime:
+				value, err := strconv.ParseFloat(row["VALUE"], 64)
+				if err != nil {
+					scrapeErrors = append(scrapeErrors, fmt.Errorf("%s value: %q, %w", transactionLockForegroundTime, row["VALUE"], err))
+				} else {
+					s.mb.RecordOracledbLockTimeDataPoint(now, value/100, metadata.AttributeOracledbSessionTypeForeground)
+				}
+			case transactionRollbacks:
+				if err := s.mb.RecordOracledbTransactionRollbacksDataPoint(now, row["VALUE"]); err != nil {
+					scrapeErrors = append(scrapeErrors, err)
+				}
 			}
 		}
 	}
@@ -1344,6 +1436,38 @@ func (s *oracleScraper) recordSysmetric(now pcommon.Timestamp, metricName string
 	case sysmetricExecuteWithoutParseRatio:
 		if s.metricsBuilderConfig.Metrics.OracledbExecutionUtilization.Enabled {
 			s.mb.RecordOracledbExecutionUtilizationDataPoint(now, val, metadata.AttributeOracledbParseTypeSoft, pdbName)
+		}
+	case sysmetricAverageActiveSessions:
+		if s.metricsBuilderConfig.Metrics.OracledbSessionAverage.Enabled {
+			s.mb.RecordOracledbSessionAverageDataPoint(now, val, "active")
+		}
+	case sysmetricCPUUsagePerSec:
+		if s.metricsBuilderConfig.Metrics.OracledbCPUUsageRate.Enabled {
+			// Oracle reports CPU Usage Per Sec in centiseconds of CPU per second; convert to CPU-seconds per second.
+			s.mb.RecordOracledbCPUUsageRateDataPoint(now, val/100)
+		}
+	case sysmetricCursorCacheHitRatio:
+		if s.metricsBuilderConfig.Metrics.OracledbCursorCacheUtilization.Enabled {
+			s.mb.RecordOracledbCursorCacheUtilizationDataPoint(now, val)
+		}
+	case sysmetricHostCPUUsagePerSec:
+		if s.metricsBuilderConfig.Metrics.OracledbHostCPUUsageRate.Enabled {
+			// Oracle reports Host CPU Usage Per Sec in centiseconds of CPU per second; convert to CPU-seconds per second.
+			s.mb.RecordOracledbHostCPUUsageRateDataPoint(now, val/100)
+		}
+	case sysmetricPGACacheHitPct:
+		if s.metricsBuilderConfig.Metrics.OracledbPgaCacheUtilization.Enabled {
+			s.mb.RecordOracledbPgaCacheUtilizationDataPoint(now, val)
+		}
+	case sysmetricResponseTimePerTxn:
+		if s.metricsBuilderConfig.Metrics.OracledbTransactionResponseTime.Enabled {
+			// Oracle reports Response Time Per Txn in centiseconds; convert to seconds.
+			s.mb.RecordOracledbTransactionResponseTimeDataPoint(now, val/100)
+		}
+	case sysmetricSingleBlockReadLatency:
+		if s.metricsBuilderConfig.Metrics.OracledbIoSingleBlockReadLatency.Enabled {
+			// Oracle reports single-block read latency in milliseconds; convert to seconds.
+			s.mb.RecordOracledbIoSingleBlockReadLatencyDataPoint(now, val/1000)
 		}
 	}
 }
