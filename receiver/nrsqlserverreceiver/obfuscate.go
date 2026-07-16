@@ -198,7 +198,7 @@ func (o *obfuscator) obfuscateXMLPlan(rawPlan string, logger *zap.Logger, queryP
 						}
 						val, err := o.obfuscateSQLString(elem.Attr[i].Value)
 						if err != nil {
-							logger.Warn("Unable to obfuscate SQL statement in query plan, skipping", zap.String("query_plan_hash", queryPlanHash))			
+							logger.Warn("Unable to obfuscate SQL statement in query plan, skipping", zap.String("query_plan_hash", queryPlanHash))
 							return "", nil
 						}
 						elem.Attr[i].Value = val
