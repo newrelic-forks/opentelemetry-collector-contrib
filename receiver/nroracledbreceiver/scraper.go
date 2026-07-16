@@ -40,47 +40,11 @@ const (
 	sysmetricSQL = "SELECT metric_name, value FROM v$sysmetric WHERE group_id = 2"
 	// sysmetricCDBSQL queries V$CON_SYSMETRIC for per-PDB sysmetric values.
 	sysmetricCDBSQL = "SELECT s.metric_name AS METRIC_NAME, s.value AS VALUE, c.name AS PDB_NAME FROM v$con_sysmetric s, v$containers c WHERE s.con_id = c.con_id(+)"
-	// sysmetricComputedSQL derives the 4 sysmetric metrics absent from V$CON_SYSMETRIC in PDB
-	// context. Buffer Cache Hit Ratio and Memory Sorts Ratio are now provided directly by
-	// sysmetricCDBSQL so are excluded here. The remaining 4 are computed from raw V$ statistics.
-	sysmetricComputedSQL = `SELECT metric_name AS METRIC_NAME, value AS VALUE FROM (
-  WITH sysstat AS (
-    SELECT MAX(CASE WHEN name = 'redo buffer allocation retries' THEN value END) AS redo_retries,
-           MAX(CASE WHEN name = 'redo entries'                   THEN value END) AS redo_entries
-    FROM v$sysstat
-    WHERE name IN ('redo buffer allocation retries','redo entries')
-  ),
-  osstat AS (
-    SELECT MAX(CASE WHEN stat_name = 'BUSY_TIME' THEN value END) AS busy_time,
-           MAX(CASE WHEN stat_name = 'IDLE_TIME' THEN value END) AS idle_time
-    FROM v$osstat WHERE stat_name IN ('BUSY_TIME','IDLE_TIME')
-  ),
-  lc AS (SELECT SUM(pins) AS pins, SUM(pinhits) AS pinhits FROM v$librarycache),
-  sp AS (
-    SELECT SUM(bytes) AS total_bytes,
-           SUM(CASE WHEN name = 'free memory' THEN bytes ELSE 0 END) AS free_bytes
-    FROM v$sgastat WHERE pool = 'shared pool'
-  )
-  SELECT 'Host CPU Utilization (%)' AS metric_name,
-         CASE WHEN NVL(busy_time,0) + NVL(idle_time,0) > 0
-              THEN NVL(busy_time,0) / (NVL(busy_time,0) + NVL(idle_time,0)) * 100
-              ELSE 0 END AS value
-  FROM osstat
-  UNION ALL
-  SELECT 'Library Cache Hit Ratio',
-         CASE WHEN NVL(pins,0) > 0 THEN NVL(pinhits,0) / pins * 100 ELSE 100 END
-  FROM lc
-  UNION ALL
-  SELECT 'Shared Pool Free %',
-         CASE WHEN NVL(total_bytes,0) > 0 THEN NVL(free_bytes,0) / total_bytes * 100 ELSE 0 END
-  FROM sp
-  UNION ALL
-  SELECT 'Redo Allocation Hit Ratio',
-         CASE WHEN NVL(redo_entries,0) > 0
-              THEN (1 - NVL(redo_retries,0) / redo_entries) * 100
-              ELSE 100 END
-  FROM sysstat
-)`
+	sysmetricComputedSQL = `SELECT 'Shared Pool Free %' AS METRIC_NAME,
+       CASE WHEN NVL(SUM(bytes),0) > 0
+            THEN NVL(SUM(CASE WHEN name = 'free memory' THEN bytes ELSE 0 END),0) / SUM(bytes) * 100
+            ELSE 0 END AS VALUE
+FROM v$sgastat WHERE pool = 'shared pool'`
 
 	// V$SYSMETRIC metric_name values (group_id=2, 60-second interval)
 	sysmetricBufferCacheHitRatio      = "Buffer Cache Hit Ratio"
