@@ -9,9 +9,8 @@ exclude  = [
     "^https://bugs.mysql.com",
     "^https://techdocs.akamai.com",
     "^https://www.vultr.com",
+    "^https://docs.splunk.com",
     "^https://docs.honeycomb.io",
-    # Private GitHub teams (e.g. @newrelic/dbi referenced in CODEOWNERS-driven READMEs)
-    # return 404 to unauthenticated lychee fetches.
     "^https?://(www\\.)?github\\.com/newrelic/dbi"
 ]
 

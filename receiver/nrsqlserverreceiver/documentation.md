@@ -220,6 +220,22 @@ metrics:
     enabled: true
 ```
 
+### sqlserver.access.scan.rate
+
+Rate of access method scans.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {scan}/s | Gauge | Double | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| sqlserver.access.scan.type | The type of access method scan being performed. | Str: ``free_space``, ``probe``, ``range`` | Required | - |
+
 ### sqlserver.attention.rate
 
 Number of SQL attentions (client cancellation interrupts) received per second.
@@ -255,6 +271,16 @@ Computer uptime.
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
 | {seconds} | Gauge | Int | Development |
+
+### sqlserver.connection.reset.rate
+
+Number of logical connections reset per second.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {connection}/s | Gauge | Double | Development |
 
 ### sqlserver.cpu.count
 
@@ -591,6 +617,38 @@ Total number of deadlocks.
 | ---- | ----------- | ---------- | --------- |
 | {deadlocks}/s | Gauge | Double | Development |
 
+### sqlserver.error.rate
+
+Number of errors raised per second.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {error}/s | Gauge | Double | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| sqlserver.error.category | The category of the SQL Server error. | Str: ``db_offline``, ``info``, ``kill_connection``, ``user`` | Required | - |
+
+### sqlserver.extent.operation.rate
+
+Rate of extent operations.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {extent}/s | Gauge | Double | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| sqlserver.extent.operation.type | The type of extent allocation operation. | Str: ``allocated``, ``deallocated`` | Required | - |
+
 ### sqlserver.failover_cluster.ag.cluster_type
 
 Cluster type of the Always-On Availability Group.
@@ -739,6 +797,90 @@ This metric is only available when the receiver is configured to directly connec
 | replica.server_name | Server name of the availability replica. | Any Str | Recommended | - |
 | replica.sync_health | Synchronization health of the availability replica. | Str: ``healthy``, ``partially_healthy``, ``not_healthy``, ``unknown`` | Recommended | - |
 
+### sqlserver.ghost_record.skipped.rate
+
+Rate of ghosted records skipped during scans.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {record}/s | Gauge | Double | Development |
+
+### sqlserver.index.fragmentation
+
+Average fragmentation percentage of the index.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| % | Gauge | Double | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| db.namespace | The database name. | Any Str | Recommended | - |
+| sqlserver.index.id | The identifier of the index. | Any Int | Recommended | - |
+| sqlserver.object.name | The name of the database object. | Any Str | Recommended | - |
+| sqlserver.schema.name | The name of the database schema. | Any Str | Recommended | - |
+
+### sqlserver.index.page.count
+
+Number of pages in the index.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {page} | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| db.namespace | The database name. | Any Str | Recommended | - |
+| sqlserver.index.id | The identifier of the index. | Any Int | Recommended | - |
+| sqlserver.object.name | The name of the database object. | Any Str | Recommended | - |
+| sqlserver.schema.name | The name of the database schema. | Any Str | Recommended | - |
+
+### sqlserver.index.page.utilization
+
+Average percentage of available data storage space used in all pages of the index.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| % | Gauge | Double | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| db.namespace | The database name. | Any Str | Recommended | - |
+| sqlserver.index.id | The identifier of the index. | Any Int | Recommended | - |
+| sqlserver.object.name | The name of the database object. | Any Str | Recommended | - |
+| sqlserver.schema.name | The name of the database schema. | Any Str | Recommended | - |
+
+### sqlserver.index.record.count
+
+Total number of records in the index.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {record} | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| db.namespace | The database name. | Any Str | Recommended | - |
+| sqlserver.index.id | The identifier of the index. | Any Int | Recommended | - |
+| sqlserver.object.name | The name of the database object. | Any Str | Recommended | - |
+| sqlserver.schema.name | The name of the database schema. | Any Str | Recommended | - |
+
 ### sqlserver.index.search.rate
 
 Total number of index searches.
@@ -746,6 +888,25 @@ Total number of index searches.
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
 | {searches}/s | Gauge | Double | Development |
+
+### sqlserver.index.size
+
+Total size of the index.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| By | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| db.namespace | The database name. | Any Str | Recommended | - |
+| sqlserver.index.id | The identifier of the index. | Any Int | Recommended | - |
+| sqlserver.object.name | The name of the database object. | Any Str | Recommended | - |
+| sqlserver.schema.name | The name of the database schema. | Any Str | Recommended | - |
 
 ### sqlserver.kill_connection.error.rate
 
@@ -813,6 +974,22 @@ This metric is only available when the receiver is configured to directly connec
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | s | Sum | Double | Cumulative | true | Development |
 
+### sqlserver.lock.block.count
+
+Number of lock blocks tracked by the lock manager.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {block} | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| sqlserver.lock.block.type | The type of lock block tracked by the lock manager. | Str: ``allocated``, ``blocks``, ``owner``, ``owner_allocated`` | Required | - |
+
 ### sqlserver.lock.by_mode.count
 
 Number of currently active locks held in the database, grouped by lock mode.
@@ -847,6 +1024,36 @@ This metric is only available when the receiver is configured to directly connec
 | db.namespace | The database name. | Any Str | Recommended | - |
 | lock.resource | SQL Server lock resource type. | Str: ``key``, ``page``, ``row``, ``table``, ``extent``, ``file``, ``hobt``, ``metadata``, ``application``, ``allocation_unit``, ``database_level`` | Recommended | - |
 
+### sqlserver.lock.escalation.rate
+
+Number of lock escalations per second (locks on a table escalated to a larger granularity).
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {escalation}/s | Gauge | Double | Development |
+
+### sqlserver.lock.memory
+
+Total amount of memory used for locks.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| By | Gauge | Int | Development |
+
+### sqlserver.lock.request.rate
+
+Number of new locks and lock conversions per second requested from the lock manager.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {request}/s | Gauge | Double | Development |
+
 ### sqlserver.lock.timeout.rate
 
 Total number of lock timeouts.
@@ -870,6 +1077,16 @@ This metric is only available when the receiver is configured to directly connec
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
 | workload_group.name | The name of the SQL Server Resource Governor workload group. | Str: ``default``, ``internal`` | Recommended | - |
+
+### sqlserver.lock.wait_time.total
+
+Total wait time in seconds for locks since the last server restart.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
+| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
+| s | Sum | Double | Cumulative | true | Development |
 
 ### sqlserver.login.rate
 
@@ -1049,6 +1266,22 @@ This metric is only available when the receiver is configured to directly connec
 | wait.category | Category of the reason for a wait. | Any Str | Recommended | - |
 | wait.type | Type of the wait, view [WaitTypes documentation](https://learn.microsoft.com/en-us/sql/relational-databases/system-dynamic-management-views/sys-dm-os-wait-stats-transact-sql?view=sql-server-ver16#WaitTypes) for more information. | Any Str | Recommended | - |
 
+### sqlserver.page.allocation.rate
+
+Rate of page allocation operations.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {page}/s | Gauge | Double | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| sqlserver.page.allocation.type | The type of page allocation operation. | Str: ``allocated``, ``deallocated``, ``mixed`` | Required | - |
+
 ### sqlserver.page.buffer_cache.free_list.stalls.rate
 
 Number of free list stalls.
@@ -1057,6 +1290,22 @@ Number of free list stalls.
 | ---- | ----------- | ---------- | --------- |
 | {stalls}/s | Gauge | Int | Development |
 
+### sqlserver.page.compression.rate
+
+Rate of page compression operations.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {page}/s | Gauge | Double | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| sqlserver.page.compression.type | The type of page compression operation. | Str: ``attempted``, ``succeeded`` | Required | - |
+
 ### sqlserver.page.lookup.rate
 
 Total number of page lookups.
@@ -1064,6 +1313,16 @@ Total number of page lookups.
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
 | {lookups}/s | Gauge | Double | Development |
+
+### sqlserver.page.read_ahead.rate
+
+Rate of pages read from disk by the read-ahead manager.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {page}/s | Gauge | Double | Development |
 
 ### sqlserver.parameterization.rate
 
@@ -1176,6 +1435,16 @@ This metric is only available when the receiver is configured to directly connec
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
 | {writes}/s | Gauge | Double | Development |
+
+### sqlserver.scan_point.revalidation.rate
+
+Rate at which scan points needed to be revalidated.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {revalidate}/s | Gauge | Double | Development |
 
 ### sqlserver.server.security.principal.count
 
@@ -1385,6 +1654,16 @@ This metric is only available when the receiver is configured to directly connec
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | By | Sum | Double | Cumulative | true | Development |
 
+### sqlserver.worktable.cache.hit_ratio
+
+Fraction of worktables that did not require initialization because they were retrieved from the worktable cache.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| 1 | Gauge | Double | Development |
+
 ## Default Events
 
 The following events are emitted by default. Each of them can be disabled by applying the following configuration:
@@ -1493,17 +1772,17 @@ top query
 
 ## Resource Attributes
 
-| Name | Description | Values | Enabled | Semantic Convention |
-| ---- | ----------- | ------ | ------- | ------------------- |
-| host.name | The host name of SQL Server | Any Str | true | - |
-| server.address | Name of the database host. | Any Str | false | - |
-| server.port | Server port number. | Any Int | false | - |
-| service.instance.id | A unique identifier of the SQL Server instance in the format host:port. This resource attribute is only available when the receiver is configured to directly connect to SQL Server. | Any Str | true | - |
-| service.name | Logical name of the service. When enabled, defaults to unknown_service:microsoft.sql_server. | Any Str | false | - |
-| service.namespace | Logical namespace for the service (for example team or environment). When enabled, defaults to an empty string until set via configuration. | Any Str | false | - |
-| sqlserver.computer.name | The name of the SQL Server instance being monitored. | Any Str | false | - |
-| sqlserver.database.name | The name of the SQL Server database. | Any Str | true | - |
-| sqlserver.instance.name | The name of the SQL Server instance being monitored. | Any Str | false | - |
+| Name | Description | Values | Enabled | Semantic Convention | Stability |
+| ---- | ----------- | ------ | ------- | ------------------- | --------- |
+| host.name | The host name of SQL Server | Any Str | true | - | - |
+| server.address | Name of the database host. | Any Str | false | - | - |
+| server.port | Server port number. | Any Int | false | - | - |
+| service.instance.id | A unique identifier of the SQL Server instance in the format host:port. This resource attribute is only available when the receiver is configured to directly connect to SQL Server. | Any Str | true | - | - |
+| service.name | Logical name of the service. When enabled, defaults to unknown_service:microsoft.sql_server. | Any Str | false | - | - |
+| service.namespace | Logical namespace for the service (for example team or environment). When enabled, defaults to an empty string until set via configuration. | Any Str | false | - | - |
+| sqlserver.computer.name | The name of the SQL Server instance being monitored. | Any Str | false | - | - |
+| sqlserver.database.name | The name of the SQL Server database. | Any Str | true | - | - |
+| sqlserver.instance.name | The name of the SQL Server instance being monitored. | Any Str | false | - | - |
 
 ## Feature Gates
 

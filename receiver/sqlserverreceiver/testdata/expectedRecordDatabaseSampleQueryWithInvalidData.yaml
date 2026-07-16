@@ -148,21 +148,9 @@ resourceLogs:
               - key: sqlserver.procedure_id
                 value:
                   stringValue: "0"
-              - key: sqlserver.procedure_name
-                value:
-                  stringValue: ""
-              - key: db.query.full_text
-                value:
-                  stringValue: ""
-              - key: db.query.comment_tags.nr_service_guid
-                value:
-                  stringValue: ""
-              - key: db.query.text.normalized.hash
-                value:
-                  stringValue: ""
             body: {}
             eventName: db.server.query_sample
-            timeUnixNano: "1779132411124301000"
+            timeUnixNano: "1781104670101813000"
         scope:
           name: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/sqlserverreceiver
           version: latest

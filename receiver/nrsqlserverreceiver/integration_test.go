@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -98,8 +97,14 @@ func TestEventsScraper(t *testing.T) {
 		validateFunc     func(t *testing.T, scraper *sqlServerScraperHelper, queryCount *atomic.Int32, finished *atomic.Bool)
 	}{
 		{
-			name:        "QuerySample",
-			clientQuery: "WAITFOR DELAY '00:01:00' SELECT * FROM dbo.test_table",
+			name: "QuerySample",
+			// A long-running but hashable query. The query sample scraper skips rows whose
+			// query_hash is 0x0000000000000000 (e.g. control-flow batches such as a bare
+			// WAITFOR), so the sampled statement must be a real query that the optimizer
+			// hashes. The cross join over sys.all_columns keeps the request active long
+			// enough (a couple of seconds per run, re-run in a loop) to be sampled while
+			// still producing a non-zero query_hash.
+			clientQuery: "SELECT COUNT(*) FROM sys.all_columns a CROSS JOIN sys.all_columns b",
 			configModifyFunc: func(cfg *Config) *Config {
 				cfg.Events.DbServerQuerySample.Enabled = true
 				return cfg
@@ -131,8 +136,7 @@ func TestEventsScraper(t *testing.T) {
 						}
 						found = true
 						query := attributes["db.query.text"].(string)
-						// as the query is not a standard query, only the `WAITFOR` part can be returned from db.
-						assert.True(tt, strings.HasPrefix(query, "WAITFOR"), "Expected query to start with WAITFOR, got: %s", query)
+						assert.Contains(tt, query, "sys.all_columns", "Expected the sampled query text, got: %s", query)
 					}
 
 					assert.True(tt, found, "Expected query not found in logs")

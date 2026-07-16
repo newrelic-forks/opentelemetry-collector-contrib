@@ -1,6 +1,8 @@
 default:
 all_set:
   metrics:
+    sqlserver.access.scan.rate:
+      enabled: true
     sqlserver.attention.rate:
       enabled: true
     sqlserver.batch.compilation.utilization:
@@ -14,6 +16,8 @@ all_set:
     sqlserver.batch.sql_recompilation.rate:
       enabled: true
     sqlserver.computer.uptime:
+      enabled: true
+    sqlserver.connection.reset.rate:
       enabled: true
     sqlserver.cpu.count:
       enabled: true
@@ -78,6 +82,10 @@ all_set:
       attributes: ["db.namespace"]
     sqlserver.deadlock.rate:
       enabled: true
+    sqlserver.error.rate:
+      enabled: true
+    sqlserver.extent.operation.rate:
+      enabled: true
     sqlserver.failover_cluster.ag.cluster_type:
       enabled: true
       attributes: ["ag.name","ag.cluster_type"]
@@ -104,8 +112,25 @@ all_set:
     sqlserver.failover_cluster.replica.synchronization_health:
       enabled: true
       attributes: ["ag.name","replica.server_name","replica.sync_health"]
+    sqlserver.ghost_record.skipped.rate:
+      enabled: true
+    sqlserver.index.fragmentation:
+      enabled: true
+      attributes: ["db.namespace","sqlserver.index.id","sqlserver.object.name","sqlserver.schema.name"]
+    sqlserver.index.page.count:
+      enabled: true
+      attributes: ["db.namespace","sqlserver.index.id","sqlserver.object.name","sqlserver.schema.name"]
+    sqlserver.index.page.utilization:
+      enabled: true
+      attributes: ["db.namespace","sqlserver.index.id","sqlserver.object.name","sqlserver.schema.name"]
+    sqlserver.index.record.count:
+      enabled: true
+      attributes: ["db.namespace","sqlserver.index.id","sqlserver.object.name","sqlserver.schema.name"]
     sqlserver.index.search.rate:
       enabled: true
+    sqlserver.index.size:
+      enabled: true
+      attributes: ["db.namespace","sqlserver.index.id","sqlserver.object.name","sqlserver.schema.name"]
     sqlserver.kill_connection.error.rate:
       enabled: true
     sqlserver.latch.superlatch.count:
@@ -119,12 +144,20 @@ all_set:
       enabled: true
     sqlserver.latch.wait_time.total:
       enabled: true
+    sqlserver.lock.block.count:
+      enabled: true
     sqlserver.lock.by_mode.count:
       enabled: true
       attributes: ["db.namespace","lock.mode"]
     sqlserver.lock.by_resource.count:
       enabled: true
       attributes: ["db.namespace","lock.resource"]
+    sqlserver.lock.escalation.rate:
+      enabled: true
+    sqlserver.lock.memory:
+      enabled: true
+    sqlserver.lock.request.rate:
+      enabled: true
     sqlserver.lock.timeout.rate:
       enabled: true
     sqlserver.lock.wait.count:
@@ -133,6 +166,8 @@ all_set:
     sqlserver.lock.wait.rate:
       enabled: true
     sqlserver.lock.wait_time.avg:
+      enabled: true
+    sqlserver.lock.wait_time.total:
       enabled: true
     sqlserver.login.rate:
       enabled: true
@@ -169,11 +204,15 @@ all_set:
     sqlserver.os.wait.tasks.count:
       enabled: true
       attributes: ["wait.category","wait.type"]
+    sqlserver.page.allocation.rate:
+      enabled: true
     sqlserver.page.buffer_cache.free_list.stalls.rate:
       enabled: true
     sqlserver.page.buffer_cache.hit_ratio:
       enabled: true
     sqlserver.page.checkpoint.flush.rate:
+      enabled: true
+    sqlserver.page.compression.rate:
       enabled: true
     sqlserver.page.lazy_write.rate:
       enabled: true
@@ -185,6 +224,8 @@ all_set:
     sqlserver.page.operation.rate:
       enabled: true
       attributes: ["type"]
+    sqlserver.page.read_ahead.rate:
+      enabled: true
     sqlserver.page.split.rate:
       enabled: true
     sqlserver.parameterization.rate:
@@ -209,6 +250,8 @@ all_set:
     sqlserver.resource_pool.disk.throttled.read.rate:
       enabled: true
     sqlserver.resource_pool.disk.throttled.write.rate:
+      enabled: true
+    sqlserver.scan_point.revalidation.rate:
       enabled: true
     sqlserver.server.security.principal.count:
       enabled: true
@@ -268,6 +311,8 @@ all_set:
     sqlserver.transaction_log.usage:
       enabled: true
     sqlserver.user.connection.count:
+      enabled: true
+    sqlserver.worktable.cache.hit_ratio:
       enabled: true
   events:
     db.server.query_sample:
@@ -295,6 +340,8 @@ all_set:
       enabled: true
 reaggregate_set:
   metrics:
+    sqlserver.access.scan.rate:
+      enabled: true
     sqlserver.attention.rate:
       enabled: true
     sqlserver.batch.compilation.utilization:
@@ -308,6 +355,8 @@ reaggregate_set:
     sqlserver.batch.sql_recompilation.rate:
       enabled: true
     sqlserver.computer.uptime:
+      enabled: true
+    sqlserver.connection.reset.rate:
       enabled: true
     sqlserver.cpu.count:
       enabled: true
@@ -372,6 +421,10 @@ reaggregate_set:
       attributes: []
     sqlserver.deadlock.rate:
       enabled: true
+    sqlserver.error.rate:
+      enabled: true
+    sqlserver.extent.operation.rate:
+      enabled: true
     sqlserver.failover_cluster.ag.cluster_type:
       enabled: true
       attributes: []
@@ -398,8 +451,25 @@ reaggregate_set:
     sqlserver.failover_cluster.replica.synchronization_health:
       enabled: true
       attributes: []
+    sqlserver.ghost_record.skipped.rate:
+      enabled: true
+    sqlserver.index.fragmentation:
+      enabled: true
+      attributes: []
+    sqlserver.index.page.count:
+      enabled: true
+      attributes: []
+    sqlserver.index.page.utilization:
+      enabled: true
+      attributes: []
+    sqlserver.index.record.count:
+      enabled: true
+      attributes: []
     sqlserver.index.search.rate:
       enabled: true
+    sqlserver.index.size:
+      enabled: true
+      attributes: []
     sqlserver.kill_connection.error.rate:
       enabled: true
     sqlserver.latch.superlatch.count:
@@ -413,12 +483,20 @@ reaggregate_set:
       enabled: true
     sqlserver.latch.wait_time.total:
       enabled: true
+    sqlserver.lock.block.count:
+      enabled: true
     sqlserver.lock.by_mode.count:
       enabled: true
       attributes: []
     sqlserver.lock.by_resource.count:
       enabled: true
       attributes: []
+    sqlserver.lock.escalation.rate:
+      enabled: true
+    sqlserver.lock.memory:
+      enabled: true
+    sqlserver.lock.request.rate:
+      enabled: true
     sqlserver.lock.timeout.rate:
       enabled: true
     sqlserver.lock.wait.count:
@@ -427,6 +505,8 @@ reaggregate_set:
     sqlserver.lock.wait.rate:
       enabled: true
     sqlserver.lock.wait_time.avg:
+      enabled: true
+    sqlserver.lock.wait_time.total:
       enabled: true
     sqlserver.login.rate:
       enabled: true
@@ -463,11 +543,15 @@ reaggregate_set:
     sqlserver.os.wait.tasks.count:
       enabled: true
       attributes: []
+    sqlserver.page.allocation.rate:
+      enabled: true
     sqlserver.page.buffer_cache.free_list.stalls.rate:
       enabled: true
     sqlserver.page.buffer_cache.hit_ratio:
       enabled: true
     sqlserver.page.checkpoint.flush.rate:
+      enabled: true
+    sqlserver.page.compression.rate:
       enabled: true
     sqlserver.page.lazy_write.rate:
       enabled: true
@@ -479,6 +563,8 @@ reaggregate_set:
     sqlserver.page.operation.rate:
       enabled: true
       attributes: []
+    sqlserver.page.read_ahead.rate:
+      enabled: true
     sqlserver.page.split.rate:
       enabled: true
     sqlserver.parameterization.rate:
@@ -503,6 +589,8 @@ reaggregate_set:
     sqlserver.resource_pool.disk.throttled.read.rate:
       enabled: true
     sqlserver.resource_pool.disk.throttled.write.rate:
+      enabled: true
+    sqlserver.scan_point.revalidation.rate:
       enabled: true
     sqlserver.server.security.principal.count:
       enabled: true
@@ -563,6 +651,8 @@ reaggregate_set:
       enabled: true
     sqlserver.user.connection.count:
       enabled: true
+    sqlserver.worktable.cache.hit_ratio:
+      enabled: true
   events:
     db.server.query_sample:
       enabled: true
@@ -589,6 +679,8 @@ reaggregate_set:
       enabled: true
 none_set:
   metrics:
+    sqlserver.access.scan.rate:
+      enabled: false
     sqlserver.attention.rate:
       enabled: false
     sqlserver.batch.compilation.utilization:
@@ -602,6 +694,8 @@ none_set:
     sqlserver.batch.sql_recompilation.rate:
       enabled: false
     sqlserver.computer.uptime:
+      enabled: false
+    sqlserver.connection.reset.rate:
       enabled: false
     sqlserver.cpu.count:
       enabled: false
@@ -666,6 +760,10 @@ none_set:
       attributes: ["db.namespace"]
     sqlserver.deadlock.rate:
       enabled: false
+    sqlserver.error.rate:
+      enabled: false
+    sqlserver.extent.operation.rate:
+      enabled: false
     sqlserver.failover_cluster.ag.cluster_type:
       enabled: false
       attributes: ["ag.name","ag.cluster_type"]
@@ -692,8 +790,25 @@ none_set:
     sqlserver.failover_cluster.replica.synchronization_health:
       enabled: false
       attributes: ["ag.name","replica.server_name","replica.sync_health"]
+    sqlserver.ghost_record.skipped.rate:
+      enabled: false
+    sqlserver.index.fragmentation:
+      enabled: false
+      attributes: ["db.namespace","sqlserver.index.id","sqlserver.object.name","sqlserver.schema.name"]
+    sqlserver.index.page.count:
+      enabled: false
+      attributes: ["db.namespace","sqlserver.index.id","sqlserver.object.name","sqlserver.schema.name"]
+    sqlserver.index.page.utilization:
+      enabled: false
+      attributes: ["db.namespace","sqlserver.index.id","sqlserver.object.name","sqlserver.schema.name"]
+    sqlserver.index.record.count:
+      enabled: false
+      attributes: ["db.namespace","sqlserver.index.id","sqlserver.object.name","sqlserver.schema.name"]
     sqlserver.index.search.rate:
       enabled: false
+    sqlserver.index.size:
+      enabled: false
+      attributes: ["db.namespace","sqlserver.index.id","sqlserver.object.name","sqlserver.schema.name"]
     sqlserver.kill_connection.error.rate:
       enabled: false
     sqlserver.latch.superlatch.count:
@@ -707,12 +822,20 @@ none_set:
       enabled: false
     sqlserver.latch.wait_time.total:
       enabled: false
+    sqlserver.lock.block.count:
+      enabled: false
     sqlserver.lock.by_mode.count:
       enabled: false
       attributes: ["db.namespace","lock.mode"]
     sqlserver.lock.by_resource.count:
       enabled: false
       attributes: ["db.namespace","lock.resource"]
+    sqlserver.lock.escalation.rate:
+      enabled: false
+    sqlserver.lock.memory:
+      enabled: false
+    sqlserver.lock.request.rate:
+      enabled: false
     sqlserver.lock.timeout.rate:
       enabled: false
     sqlserver.lock.wait.count:
@@ -721,6 +844,8 @@ none_set:
     sqlserver.lock.wait.rate:
       enabled: false
     sqlserver.lock.wait_time.avg:
+      enabled: false
+    sqlserver.lock.wait_time.total:
       enabled: false
     sqlserver.login.rate:
       enabled: false
@@ -757,11 +882,15 @@ none_set:
     sqlserver.os.wait.tasks.count:
       enabled: false
       attributes: ["wait.category","wait.type"]
+    sqlserver.page.allocation.rate:
+      enabled: false
     sqlserver.page.buffer_cache.free_list.stalls.rate:
       enabled: false
     sqlserver.page.buffer_cache.hit_ratio:
       enabled: false
     sqlserver.page.checkpoint.flush.rate:
+      enabled: false
+    sqlserver.page.compression.rate:
       enabled: false
     sqlserver.page.lazy_write.rate:
       enabled: false
@@ -773,6 +902,8 @@ none_set:
     sqlserver.page.operation.rate:
       enabled: false
       attributes: ["type"]
+    sqlserver.page.read_ahead.rate:
+      enabled: false
     sqlserver.page.split.rate:
       enabled: false
     sqlserver.parameterization.rate:
@@ -797,6 +928,8 @@ none_set:
     sqlserver.resource_pool.disk.throttled.read.rate:
       enabled: false
     sqlserver.resource_pool.disk.throttled.write.rate:
+      enabled: false
+    sqlserver.scan_point.revalidation.rate:
       enabled: false
     sqlserver.server.security.principal.count:
       enabled: false
@@ -856,6 +989,8 @@ none_set:
     sqlserver.transaction_log.usage:
       enabled: false
     sqlserver.user.connection.count:
+      enabled: false
+    sqlserver.worktable.cache.hit_ratio:
       enabled: false
   events:
     db.server.query_sample:
