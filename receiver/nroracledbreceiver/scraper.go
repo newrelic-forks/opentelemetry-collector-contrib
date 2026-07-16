@@ -40,22 +40,15 @@ const (
 	sysmetricSQL = "SELECT metric_name, value FROM v$sysmetric WHERE group_id = 2"
 	// sysmetricCDBSQL queries V$CON_SYSMETRIC for per-PDB sysmetric values.
 	sysmetricCDBSQL = "SELECT s.metric_name AS METRIC_NAME, s.value AS VALUE, c.name AS PDB_NAME FROM v$con_sysmetric s, v$containers c WHERE s.con_id = c.con_id(+)"
-	// sysmetricComputedSQL derives the 6 sysmetric metrics absent from V$CON_SYSMETRIC in PDB
-	// context (Buffer Cache Hit Ratio, Host CPU Utilization, Library Cache Hit Ratio, Shared Pool
-	// Free %, Memory Sorts Ratio, Redo Allocation Hit Ratio) from raw V$ statistics.
+	// sysmetricComputedSQL derives the 4 sysmetric metrics absent from V$CON_SYSMETRIC in PDB
+	// context. Buffer Cache Hit Ratio and Memory Sorts Ratio are now provided directly by
+	// sysmetricCDBSQL so are excluded here. The remaining 4 are computed from raw V$ statistics.
 	sysmetricComputedSQL = `SELECT metric_name AS METRIC_NAME, value AS VALUE FROM (
   WITH sysstat AS (
-    SELECT MAX(CASE WHEN name = 'physical reads'                 THEN value END) AS physical_reads,
-           MAX(CASE WHEN name = 'db block gets'                  THEN value END) AS db_block_gets,
-           MAX(CASE WHEN name = 'consistent gets'                THEN value END) AS consistent_gets,
-           MAX(CASE WHEN name = 'sorts (memory)'                 THEN value END) AS sorts_memory,
-           MAX(CASE WHEN name = 'sorts (disk)'                   THEN value END) AS sorts_disk,
-           MAX(CASE WHEN name = 'redo buffer allocation retries' THEN value END) AS redo_retries,
+    SELECT MAX(CASE WHEN name = 'redo buffer allocation retries' THEN value END) AS redo_retries,
            MAX(CASE WHEN name = 'redo entries'                   THEN value END) AS redo_entries
     FROM v$sysstat
-    WHERE name IN ('physical reads','db block gets','consistent gets',
-                   'sorts (memory)','sorts (disk)',
-                   'redo buffer allocation retries','redo entries')
+    WHERE name IN ('redo buffer allocation retries','redo entries')
   ),
   osstat AS (
     SELECT MAX(CASE WHEN stat_name = 'BUSY_TIME' THEN value END) AS busy_time,
@@ -68,16 +61,10 @@ const (
            SUM(CASE WHEN name = 'free memory' THEN bytes ELSE 0 END) AS free_bytes
     FROM v$sgastat WHERE pool = 'shared pool'
   )
-  SELECT 'Buffer Cache Hit Ratio' AS metric_name,
-         CASE WHEN NVL(db_block_gets,0) + NVL(consistent_gets,0) > 0
-              THEN (1 - NVL(physical_reads,0) / (NVL(db_block_gets,0) + NVL(consistent_gets,0))) * 100
-              ELSE 100 END AS value
-  FROM sysstat
-  UNION ALL
-  SELECT 'Host CPU Utilization (%)',
+  SELECT 'Host CPU Utilization (%)' AS metric_name,
          CASE WHEN NVL(busy_time,0) + NVL(idle_time,0) > 0
               THEN NVL(busy_time,0) / (NVL(busy_time,0) + NVL(idle_time,0)) * 100
-              ELSE 0 END
+              ELSE 0 END AS value
   FROM osstat
   UNION ALL
   SELECT 'Library Cache Hit Ratio',
@@ -87,12 +74,6 @@ const (
   SELECT 'Shared Pool Free %',
          CASE WHEN NVL(total_bytes,0) > 0 THEN NVL(free_bytes,0) / total_bytes * 100 ELSE 0 END
   FROM sp
-  UNION ALL
-  SELECT 'Memory Sorts Ratio',
-         CASE WHEN NVL(sorts_memory,0) + NVL(sorts_disk,0) > 0
-              THEN NVL(sorts_memory,0) / (NVL(sorts_memory,0) + NVL(sorts_disk,0)) * 100
-              ELSE 100 END
-  FROM sysstat
   UNION ALL
   SELECT 'Redo Allocation Hit Ratio',
          CASE WHEN NVL(redo_entries,0) > 0
