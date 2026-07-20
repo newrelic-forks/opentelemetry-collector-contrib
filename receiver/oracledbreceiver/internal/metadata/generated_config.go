@@ -322,10 +322,20 @@ func (ms *OracledbConsistentGetsMetricConfig) Validate() error {
 	return nil
 }
 
+// OracledbCPUUsageRateMetricAttributeKey specifies the key of an attribute for the oracledb.cpu.usage.rate metric.
+type OracledbCPUUsageRateMetricAttributeKey string
+
+const (
+	OracledbCPUUsageRateMetricAttributeKeyOracleDbPdb OracledbCPUUsageRateMetricAttributeKey = "oracle.db.pdb"
+)
+
 // OracledbCPUUsageRateMetricConfig provides config for the oracledb.cpu.usage.rate metric.
 type OracledbCPUUsageRateMetricConfig struct {
 	Enabled          bool `mapstructure:"enabled"`
 	enabledSetByUser bool
+
+	AggregationStrategy string                                   `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []OracledbCPUUsageRateMetricAttributeKey `mapstructure:"attributes"`
 }
 
 func (ms *OracledbCPUUsageRateMetricConfig) Unmarshal(parser *confmap.Conf) error {
@@ -339,6 +349,24 @@ func (ms *OracledbCPUUsageRateMetricConfig) Unmarshal(parser *confmap.Conf) erro
 	}
 
 	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *OracledbCPUUsageRateMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case OracledbCPUUsageRateMetricAttributeKeyOracleDbPdb:
+		default:
+			return fmt.Errorf("metric oracledb.cpu.usage.rate doesn't have an attribute %v, valid attributes: [oracle.db.pdb]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
 	return nil
 }
 
@@ -430,10 +458,20 @@ func (ms *OracledbCursorCacheSizeMetricConfig) Unmarshal(parser *confmap.Conf) e
 	return nil
 }
 
+// OracledbCursorCacheUtilizationMetricAttributeKey specifies the key of an attribute for the oracledb.cursor.cache.utilization metric.
+type OracledbCursorCacheUtilizationMetricAttributeKey string
+
+const (
+	OracledbCursorCacheUtilizationMetricAttributeKeyOracleDbPdb OracledbCursorCacheUtilizationMetricAttributeKey = "oracle.db.pdb"
+)
+
 // OracledbCursorCacheUtilizationMetricConfig provides config for the oracledb.cursor.cache.utilization metric.
 type OracledbCursorCacheUtilizationMetricConfig struct {
 	Enabled          bool `mapstructure:"enabled"`
 	enabledSetByUser bool
+
+	AggregationStrategy string                                             `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []OracledbCursorCacheUtilizationMetricAttributeKey `mapstructure:"attributes"`
 }
 
 func (ms *OracledbCursorCacheUtilizationMetricConfig) Unmarshal(parser *confmap.Conf) error {
@@ -447,6 +485,24 @@ func (ms *OracledbCursorCacheUtilizationMetricConfig) Unmarshal(parser *confmap.
 	}
 
 	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *OracledbCursorCacheUtilizationMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case OracledbCursorCacheUtilizationMetricAttributeKeyOracleDbPdb:
+		default:
+			return fmt.Errorf("metric oracledb.cursor.cache.utilization doesn't have an attribute %v, valid attributes: [oracle.db.pdb]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
 	return nil
 }
 
@@ -1483,6 +1539,7 @@ func (ms *OracledbLobOperationsMetricConfig) Validate() error {
 type OracledbLockTimeMetricAttributeKey string
 
 const (
+	OracledbLockTimeMetricAttributeKeyOracleDbPdb         OracledbLockTimeMetricAttributeKey = "oracle.db.pdb"
 	OracledbLockTimeMetricAttributeKeyOracledbSessionType OracledbLockTimeMetricAttributeKey = "oracledb.session.type"
 )
 
@@ -1512,9 +1569,9 @@ func (ms *OracledbLockTimeMetricConfig) Unmarshal(parser *confmap.Conf) error {
 func (ms *OracledbLockTimeMetricConfig) Validate() error {
 	for _, val := range ms.EnabledAttributes {
 		switch val {
-		case OracledbLockTimeMetricAttributeKeyOracledbSessionType:
+		case OracledbLockTimeMetricAttributeKeyOracleDbPdb, OracledbLockTimeMetricAttributeKeyOracledbSessionType:
 		default:
-			return fmt.Errorf("metric oracledb.lock.time doesn't have an attribute %v, valid attributes: [oracledb.session.type]", val)
+			return fmt.Errorf("metric oracledb.lock.time doesn't have an attribute %v, valid attributes: [oracle.db.pdb, oracledb.session.type]", val)
 		}
 	}
 
@@ -3130,6 +3187,7 @@ type OracledbSessionAverageMetricAttributeKey string
 
 const (
 	OracledbSessionAverageMetricAttributeKeySessionStatus OracledbSessionAverageMetricAttributeKey = "session_status"
+	OracledbSessionAverageMetricAttributeKeyOracleDbPdb   OracledbSessionAverageMetricAttributeKey = "oracle.db.pdb"
 )
 
 // OracledbSessionAverageMetricConfig provides config for the oracledb.session.average metric.
@@ -3158,9 +3216,9 @@ func (ms *OracledbSessionAverageMetricConfig) Unmarshal(parser *confmap.Conf) er
 func (ms *OracledbSessionAverageMetricConfig) Validate() error {
 	for _, val := range ms.EnabledAttributes {
 		switch val {
-		case OracledbSessionAverageMetricAttributeKeySessionStatus:
+		case OracledbSessionAverageMetricAttributeKeySessionStatus, OracledbSessionAverageMetricAttributeKeyOracleDbPdb:
 		default:
-			return fmt.Errorf("metric oracledb.session.average doesn't have an attribute %v, valid attributes: [session_status]", val)
+			return fmt.Errorf("metric oracledb.session.average doesn't have an attribute %v, valid attributes: [session_status, oracle.db.pdb]", val)
 		}
 	}
 
@@ -3173,10 +3231,20 @@ func (ms *OracledbSessionAverageMetricConfig) Validate() error {
 	return nil
 }
 
+// OracledbSessionStoredProcedureMemoryMetricAttributeKey specifies the key of an attribute for the oracledb.session.stored_procedure.memory metric.
+type OracledbSessionStoredProcedureMemoryMetricAttributeKey string
+
+const (
+	OracledbSessionStoredProcedureMemoryMetricAttributeKeyOracleDbPdb OracledbSessionStoredProcedureMemoryMetricAttributeKey = "oracle.db.pdb"
+)
+
 // OracledbSessionStoredProcedureMemoryMetricConfig provides config for the oracledb.session.stored_procedure.memory metric.
 type OracledbSessionStoredProcedureMemoryMetricConfig struct {
 	Enabled          bool `mapstructure:"enabled"`
 	enabledSetByUser bool
+
+	AggregationStrategy string                                                   `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []OracledbSessionStoredProcedureMemoryMetricAttributeKey `mapstructure:"attributes"`
 }
 
 func (ms *OracledbSessionStoredProcedureMemoryMetricConfig) Unmarshal(parser *confmap.Conf) error {
@@ -3193,11 +3261,30 @@ func (ms *OracledbSessionStoredProcedureMemoryMetricConfig) Unmarshal(parser *co
 	return nil
 }
 
+func (ms *OracledbSessionStoredProcedureMemoryMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case OracledbSessionStoredProcedureMemoryMetricAttributeKeyOracleDbPdb:
+		default:
+			return fmt.Errorf("metric oracledb.session.stored_procedure.memory doesn't have an attribute %v, valid attributes: [oracle.db.pdb]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
 // OracledbSessionWaitTimeMetricAttributeKey specifies the key of an attribute for the oracledb.session.wait.time metric.
 type OracledbSessionWaitTimeMetricAttributeKey string
 
 const (
 	OracledbSessionWaitTimeMetricAttributeKeyOracledbSessionWaitState OracledbSessionWaitTimeMetricAttributeKey = "oracledb.session.wait.state"
+	OracledbSessionWaitTimeMetricAttributeKeyOracleDbPdb              OracledbSessionWaitTimeMetricAttributeKey = "oracle.db.pdb"
 )
 
 // OracledbSessionWaitTimeMetricConfig provides config for the oracledb.session.wait.time metric.
@@ -3226,9 +3313,9 @@ func (ms *OracledbSessionWaitTimeMetricConfig) Unmarshal(parser *confmap.Conf) e
 func (ms *OracledbSessionWaitTimeMetricConfig) Validate() error {
 	for _, val := range ms.EnabledAttributes {
 		switch val {
-		case OracledbSessionWaitTimeMetricAttributeKeyOracledbSessionWaitState:
+		case OracledbSessionWaitTimeMetricAttributeKeyOracledbSessionWaitState, OracledbSessionWaitTimeMetricAttributeKeyOracleDbPdb:
 		default:
-			return fmt.Errorf("metric oracledb.session.wait.time doesn't have an attribute %v, valid attributes: [oracledb.session.wait.state]", val)
+			return fmt.Errorf("metric oracledb.session.wait.time doesn't have an attribute %v, valid attributes: [oracledb.session.wait.state, oracle.db.pdb]", val)
 		}
 	}
 
@@ -3246,6 +3333,7 @@ type OracledbSessionWaitsMetricAttributeKey string
 
 const (
 	OracledbSessionWaitsMetricAttributeKeyOracledbSessionWaitState OracledbSessionWaitsMetricAttributeKey = "oracledb.session.wait.state"
+	OracledbSessionWaitsMetricAttributeKeyOracleDbPdb              OracledbSessionWaitsMetricAttributeKey = "oracle.db.pdb"
 )
 
 // OracledbSessionWaitsMetricConfig provides config for the oracledb.session.waits metric.
@@ -3274,9 +3362,9 @@ func (ms *OracledbSessionWaitsMetricConfig) Unmarshal(parser *confmap.Conf) erro
 func (ms *OracledbSessionWaitsMetricConfig) Validate() error {
 	for _, val := range ms.EnabledAttributes {
 		switch val {
-		case OracledbSessionWaitsMetricAttributeKeyOracledbSessionWaitState:
+		case OracledbSessionWaitsMetricAttributeKeyOracledbSessionWaitState, OracledbSessionWaitsMetricAttributeKeyOracleDbPdb:
 		default:
-			return fmt.Errorf("metric oracledb.session.waits doesn't have an attribute %v, valid attributes: [oracledb.session.wait.state]", val)
+			return fmt.Errorf("metric oracledb.session.waits doesn't have an attribute %v, valid attributes: [oracledb.session.wait.state, oracle.db.pdb]", val)
 		}
 	}
 
@@ -3936,10 +4024,20 @@ func (ms *OracledbTablespaceSizeUsageMetricConfig) Validate() error {
 	return nil
 }
 
+// OracledbTransactionResponseTimeMetricAttributeKey specifies the key of an attribute for the oracledb.transaction.response.time metric.
+type OracledbTransactionResponseTimeMetricAttributeKey string
+
+const (
+	OracledbTransactionResponseTimeMetricAttributeKeyOracleDbPdb OracledbTransactionResponseTimeMetricAttributeKey = "oracle.db.pdb"
+)
+
 // OracledbTransactionResponseTimeMetricConfig provides config for the oracledb.transaction.response.time metric.
 type OracledbTransactionResponseTimeMetricConfig struct {
 	Enabled          bool `mapstructure:"enabled"`
 	enabledSetByUser bool
+
+	AggregationStrategy string                                              `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []OracledbTransactionResponseTimeMetricAttributeKey `mapstructure:"attributes"`
 }
 
 func (ms *OracledbTransactionResponseTimeMetricConfig) Unmarshal(parser *confmap.Conf) error {
@@ -3956,10 +4054,38 @@ func (ms *OracledbTransactionResponseTimeMetricConfig) Unmarshal(parser *confmap
 	return nil
 }
 
+func (ms *OracledbTransactionResponseTimeMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case OracledbTransactionResponseTimeMetricAttributeKeyOracleDbPdb:
+		default:
+			return fmt.Errorf("metric oracledb.transaction.response.time doesn't have an attribute %v, valid attributes: [oracle.db.pdb]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
+// OracledbTransactionRollbacksMetricAttributeKey specifies the key of an attribute for the oracledb.transaction.rollbacks metric.
+type OracledbTransactionRollbacksMetricAttributeKey string
+
+const (
+	OracledbTransactionRollbacksMetricAttributeKeyOracleDbPdb OracledbTransactionRollbacksMetricAttributeKey = "oracle.db.pdb"
+)
+
 // OracledbTransactionRollbacksMetricConfig provides config for the oracledb.transaction.rollbacks metric.
 type OracledbTransactionRollbacksMetricConfig struct {
 	Enabled          bool `mapstructure:"enabled"`
 	enabledSetByUser bool
+
+	AggregationStrategy string                                           `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []OracledbTransactionRollbacksMetricAttributeKey `mapstructure:"attributes"`
 }
 
 func (ms *OracledbTransactionRollbacksMetricConfig) Unmarshal(parser *confmap.Conf) error {
@@ -3973,6 +4099,24 @@ func (ms *OracledbTransactionRollbacksMetricConfig) Unmarshal(parser *confmap.Co
 	}
 
 	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *OracledbTransactionRollbacksMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case OracledbTransactionRollbacksMetricAttributeKeyOracleDbPdb:
+		default:
+			return fmt.Errorf("metric oracledb.transaction.rollbacks doesn't have an attribute %v, valid attributes: [oracle.db.pdb]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
 	return nil
 }
 
@@ -4269,7 +4413,9 @@ func DefaultMetricsConfig() MetricsConfig {
 			EnabledAttributes:   []OracledbConsistentGetsMetricAttributeKey{},
 		},
 		OracledbCPUUsageRate: OracledbCPUUsageRateMetricConfig{
-			Enabled: false,
+			Enabled:             false,
+			AggregationStrategy: AggregationStrategyAvg,
+			EnabledAttributes:   []OracledbCPUUsageRateMetricAttributeKey{},
 		},
 		OracledbCPUTime: OracledbCPUTimeMetricConfig{
 			Enabled:             true,
@@ -4283,7 +4429,9 @@ func DefaultMetricsConfig() MetricsConfig {
 			Enabled: false,
 		},
 		OracledbCursorCacheUtilization: OracledbCursorCacheUtilizationMetricConfig{
-			Enabled: false,
+			Enabled:             false,
+			AggregationStrategy: AggregationStrategyAvg,
+			EnabledAttributes:   []OracledbCursorCacheUtilizationMetricAttributeKey{},
 		},
 		OracledbCursorOpen: OracledbCursorOpenMetricConfig{
 			Enabled: false,
@@ -4590,7 +4738,9 @@ func DefaultMetricsConfig() MetricsConfig {
 			EnabledAttributes:   []OracledbSessionAverageMetricAttributeKey{OracledbSessionAverageMetricAttributeKeySessionStatus},
 		},
 		OracledbSessionStoredProcedureMemory: OracledbSessionStoredProcedureMemoryMetricConfig{
-			Enabled: false,
+			Enabled:             false,
+			AggregationStrategy: AggregationStrategyAvg,
+			EnabledAttributes:   []OracledbSessionStoredProcedureMemoryMetricAttributeKey{},
 		},
 		OracledbSessionWaitTime: OracledbSessionWaitTimeMetricConfig{
 			Enabled:             false,
@@ -4677,10 +4827,14 @@ func DefaultMetricsConfig() MetricsConfig {
 			EnabledAttributes:   []OracledbTablespaceSizeUsageMetricAttributeKey{OracledbTablespaceSizeUsageMetricAttributeKeyTablespaceName},
 		},
 		OracledbTransactionResponseTime: OracledbTransactionResponseTimeMetricConfig{
-			Enabled: false,
+			Enabled:             false,
+			AggregationStrategy: AggregationStrategyAvg,
+			EnabledAttributes:   []OracledbTransactionResponseTimeMetricAttributeKey{},
 		},
 		OracledbTransactionRollbacks: OracledbTransactionRollbacksMetricConfig{
-			Enabled: false,
+			Enabled:             false,
+			AggregationStrategy: AggregationStrategySum,
+			EnabledAttributes:   []OracledbTransactionRollbacksMetricAttributeKey{},
 		},
 		OracledbTransactionsLimit: OracledbTransactionsLimitMetricConfig{
 			Enabled: true,

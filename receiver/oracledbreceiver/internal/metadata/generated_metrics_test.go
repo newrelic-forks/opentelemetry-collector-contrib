@@ -71,7 +71,9 @@ func TestMetricsBuilder(t *testing.T) {
 			aggMap["oracledb.buffer_cache.utilization"] = mb.metricOracledbBufferCacheUtilization.config.AggregationStrategy
 			aggMap["oracledb.call.count"] = mb.metricOracledbCallCount.config.AggregationStrategy
 			aggMap["oracledb.consistent_gets"] = mb.metricOracledbConsistentGets.config.AggregationStrategy
+			aggMap["oracledb.cpu.usage.rate"] = mb.metricOracledbCPUUsageRate.config.AggregationStrategy
 			aggMap["oracledb.cpu_time"] = mb.metricOracledbCPUTime.config.AggregationStrategy
+			aggMap["oracledb.cursor.cache.utilization"] = mb.metricOracledbCursorCacheUtilization.config.AggregationStrategy
 			aggMap["oracledb.database.cpu.utilization"] = mb.metricOracledbDatabaseCPUUtilization.config.AggregationStrategy
 			aggMap["oracledb.database.wait.utilization"] = mb.metricOracledbDatabaseWaitUtilization.config.AggregationStrategy
 			aggMap["oracledb.db.time"] = mb.metricOracledbDbTime.config.AggregationStrategy
@@ -119,6 +121,7 @@ func TestMetricsBuilder(t *testing.T) {
 			aggMap["oracledb.redo_allocation.utilization"] = mb.metricOracledbRedoAllocationUtilization.config.AggregationStrategy
 			aggMap["oracledb.scan.count"] = mb.metricOracledbScanCount.config.AggregationStrategy
 			aggMap["oracledb.session.average"] = mb.metricOracledbSessionAverage.config.AggregationStrategy
+			aggMap["oracledb.session.stored_procedure.memory"] = mb.metricOracledbSessionStoredProcedureMemory.config.AggregationStrategy
 			aggMap["oracledb.session.wait.time"] = mb.metricOracledbSessionWaitTime.config.AggregationStrategy
 			aggMap["oracledb.session.waits"] = mb.metricOracledbSessionWaits.config.AggregationStrategy
 			aggMap["oracledb.sessions.usage"] = mb.metricOracledbSessionsUsage.config.AggregationStrategy
@@ -131,6 +134,8 @@ func TestMetricsBuilder(t *testing.T) {
 			aggMap["oracledb.sqlnet.io.transferred"] = mb.metricOracledbSqlnetIoTransferred.config.AggregationStrategy
 			aggMap["oracledb.tablespace_size.limit"] = mb.metricOracledbTablespaceSizeLimit.config.AggregationStrategy
 			aggMap["oracledb.tablespace_size.usage"] = mb.metricOracledbTablespaceSizeUsage.config.AggregationStrategy
+			aggMap["oracledb.transaction.response.time"] = mb.metricOracledbTransactionResponseTime.config.AggregationStrategy
+			aggMap["oracledb.transaction.rollbacks"] = mb.metricOracledbTransactionRollbacks.config.AggregationStrategy
 			aggMap["oracledb.user_commits"] = mb.metricOracledbUserCommits.config.AggregationStrategy
 			aggMap["oracledb.user_rollbacks"] = mb.metricOracledbUserRollbacks.config.AggregationStrategy
 
@@ -185,7 +190,10 @@ func TestMetricsBuilder(t *testing.T) {
 			}
 
 			allMetricsCount++
-			mb.RecordOracledbCPUUsageRateDataPoint(ts, 1)
+			mb.RecordOracledbCPUUsageRateDataPoint(ts, 1, "oracle.db.pdb-val")
+			if tt.name == "reaggregate_set" {
+				mb.RecordOracledbCPUUsageRateDataPoint(ts, 3, "oracle.db.pdb-val-2")
+			}
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordOracledbCPUTimeDataPoint(ts, 1, "oracle.db.pdb-val")
@@ -200,7 +208,10 @@ func TestMetricsBuilder(t *testing.T) {
 			mb.RecordOracledbCursorCacheSizeDataPoint(ts, "1")
 
 			allMetricsCount++
-			mb.RecordOracledbCursorCacheUtilizationDataPoint(ts, 1)
+			mb.RecordOracledbCursorCacheUtilizationDataPoint(ts, 1, "oracle.db.pdb-val")
+			if tt.name == "reaggregate_set" {
+				mb.RecordOracledbCursorCacheUtilizationDataPoint(ts, 3, "oracle.db.pdb-val-2")
+			}
 
 			allMetricsCount++
 			mb.RecordOracledbCursorOpenDataPoint(ts, "1")
@@ -338,9 +349,9 @@ func TestMetricsBuilder(t *testing.T) {
 			}
 
 			allMetricsCount++
-			mb.RecordOracledbLockTimeDataPoint(ts, 1, AttributeOracledbSessionTypeBackground)
+			mb.RecordOracledbLockTimeDataPoint(ts, 1, "oracle.db.pdb-val", AttributeOracledbSessionTypeBackground)
 			if tt.name == "reaggregate_set" {
-				mb.RecordOracledbLockTimeDataPoint(ts, 3, AttributeOracledbSessionTypeForeground)
+				mb.RecordOracledbLockTimeDataPoint(ts, 3, "oracle.db.pdb-val-2", AttributeOracledbSessionTypeForeground)
 			}
 			defaultMetricsCount++
 			allMetricsCount++
@@ -548,24 +559,27 @@ func TestMetricsBuilder(t *testing.T) {
 			mb.RecordOracledbScanTableRowsDataPoint(ts, "1")
 
 			allMetricsCount++
-			mb.RecordOracledbSessionAverageDataPoint(ts, 1, "session_status-val")
+			mb.RecordOracledbSessionAverageDataPoint(ts, 1, "session_status-val", "oracle.db.pdb-val")
 			if tt.name == "reaggregate_set" {
-				mb.RecordOracledbSessionAverageDataPoint(ts, 3, "session_status-val-2")
+				mb.RecordOracledbSessionAverageDataPoint(ts, 3, "session_status-val-2", "oracle.db.pdb-val-2")
 			}
 
 			allMetricsCount++
-			mb.RecordOracledbSessionStoredProcedureMemoryDataPoint(ts, "1")
-
-			allMetricsCount++
-			mb.RecordOracledbSessionWaitTimeDataPoint(ts, 1, AttributeOracledbSessionWaitStateNonIdle)
+			mb.RecordOracledbSessionStoredProcedureMemoryDataPoint(ts, "1", "oracle.db.pdb-val")
 			if tt.name == "reaggregate_set" {
-				mb.RecordOracledbSessionWaitTimeDataPoint(ts, 3, AttributeOracledbSessionWaitStateNonIdle)
+				mb.RecordOracledbSessionStoredProcedureMemoryDataPoint(ts, "3", "oracle.db.pdb-val-2")
 			}
 
 			allMetricsCount++
-			mb.RecordOracledbSessionWaitsDataPoint(ts, "1", AttributeOracledbSessionWaitStateNonIdle)
+			mb.RecordOracledbSessionWaitTimeDataPoint(ts, 1, AttributeOracledbSessionWaitStateNonIdle, "oracle.db.pdb-val")
 			if tt.name == "reaggregate_set" {
-				mb.RecordOracledbSessionWaitsDataPoint(ts, "3", AttributeOracledbSessionWaitStateNonIdle)
+				mb.RecordOracledbSessionWaitTimeDataPoint(ts, 3, AttributeOracledbSessionWaitStateNonIdle, "oracle.db.pdb-val-2")
+			}
+
+			allMetricsCount++
+			mb.RecordOracledbSessionWaitsDataPoint(ts, "1", AttributeOracledbSessionWaitStateNonIdle, "oracle.db.pdb-val")
+			if tt.name == "reaggregate_set" {
+				mb.RecordOracledbSessionWaitsDataPoint(ts, "3", AttributeOracledbSessionWaitStateNonIdle, "oracle.db.pdb-val-2")
 			}
 			defaultMetricsCount++
 			allMetricsCount++
@@ -653,10 +667,16 @@ func TestMetricsBuilder(t *testing.T) {
 			}
 
 			allMetricsCount++
-			mb.RecordOracledbTransactionResponseTimeDataPoint(ts, 1)
+			mb.RecordOracledbTransactionResponseTimeDataPoint(ts, 1, "oracle.db.pdb-val")
+			if tt.name == "reaggregate_set" {
+				mb.RecordOracledbTransactionResponseTimeDataPoint(ts, 3, "oracle.db.pdb-val-2")
+			}
 
 			allMetricsCount++
-			mb.RecordOracledbTransactionRollbacksDataPoint(ts, "1")
+			mb.RecordOracledbTransactionRollbacksDataPoint(ts, "1", "oracle.db.pdb-val")
+			if tt.name == "reaggregate_set" {
+				mb.RecordOracledbTransactionRollbacksDataPoint(ts, "3", "oracle.db.pdb-val-2")
+			}
 			defaultMetricsCount++
 			allMetricsCount++
 			mb.RecordOracledbTransactionsLimitDataPoint(ts, "1")
@@ -693,7 +713,9 @@ func TestMetricsBuilder(t *testing.T) {
 				assert.Empty(t, mb.metricOracledbBufferCacheUtilization.aggDataPoints)
 				assert.Empty(t, mb.metricOracledbCallCount.aggDataPoints)
 				assert.Empty(t, mb.metricOracledbConsistentGets.aggDataPoints)
+				assert.Empty(t, mb.metricOracledbCPUUsageRate.aggDataPoints)
 				assert.Empty(t, mb.metricOracledbCPUTime.aggDataPoints)
+				assert.Empty(t, mb.metricOracledbCursorCacheUtilization.aggDataPoints)
 				assert.Empty(t, mb.metricOracledbDatabaseCPUUtilization.aggDataPoints)
 				assert.Empty(t, mb.metricOracledbDatabaseWaitUtilization.aggDataPoints)
 				assert.Empty(t, mb.metricOracledbDbTime.aggDataPoints)
@@ -741,6 +763,7 @@ func TestMetricsBuilder(t *testing.T) {
 				assert.Empty(t, mb.metricOracledbRedoAllocationUtilization.aggDataPoints)
 				assert.Empty(t, mb.metricOracledbScanCount.aggDataPoints)
 				assert.Empty(t, mb.metricOracledbSessionAverage.aggDataPoints)
+				assert.Empty(t, mb.metricOracledbSessionStoredProcedureMemory.aggDataPoints)
 				assert.Empty(t, mb.metricOracledbSessionWaitTime.aggDataPoints)
 				assert.Empty(t, mb.metricOracledbSessionWaits.aggDataPoints)
 				assert.Empty(t, mb.metricOracledbSessionsUsage.aggDataPoints)
@@ -753,6 +776,8 @@ func TestMetricsBuilder(t *testing.T) {
 				assert.Empty(t, mb.metricOracledbSqlnetIoTransferred.aggDataPoints)
 				assert.Empty(t, mb.metricOracledbTablespaceSizeLimit.aggDataPoints)
 				assert.Empty(t, mb.metricOracledbTablespaceSizeUsage.aggDataPoints)
+				assert.Empty(t, mb.metricOracledbTransactionResponseTime.aggDataPoints)
+				assert.Empty(t, mb.metricOracledbTransactionRollbacks.aggDataPoints)
 				assert.Empty(t, mb.metricOracledbUserCommits.aggDataPoints)
 				assert.Empty(t, mb.metricOracledbUserRollbacks.aggDataPoints)
 			}
@@ -1033,17 +1058,42 @@ func TestMetricsBuilder(t *testing.T) {
 						assert.False(t, ok)
 					}
 				case "oracledb.cpu.usage.rate":
-					assert.False(t, validatedMetrics["oracledb.cpu.usage.rate"], "Found a duplicate in the metrics slice: oracledb.cpu.usage.rate")
-					validatedMetrics["oracledb.cpu.usage.rate"] = true
-					assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
-					assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
-					assert.Equal(t, "CPU consumption rate, in CPU-seconds used per second.", mi.Description())
-					assert.Equal(t, "1", mi.Unit())
-					dp := mi.Gauge().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
-					assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["oracledb.cpu.usage.rate"], "Found a duplicate in the metrics slice: oracledb.cpu.usage.rate")
+						validatedMetrics["oracledb.cpu.usage.rate"] = true
+						assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
+						assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
+						assert.Equal(t, "CPU consumption rate, in CPU-seconds used per second.", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						dp := mi.Gauge().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
+						assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
+					} else {
+						assert.False(t, validatedMetrics["oracledb.cpu.usage.rate"], "Found a duplicate in the metrics slice: oracledb.cpu.usage.rate")
+						validatedMetrics["oracledb.cpu.usage.rate"] = true
+						assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
+						assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
+						assert.Equal(t, "CPU consumption rate, in CPU-seconds used per second.", mi.Description())
+						assert.Equal(t, "1", mi.Unit())
+						dp := mi.Gauge().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
+						switch aggMap["oracledb.cpu.usage.rate"] {
+						case "sum":
+							assert.InDelta(t, float64(4), dp.DoubleValue(), 0.01)
+						case "avg":
+							assert.InDelta(t, float64(2), dp.DoubleValue(), 0.01)
+						case "min":
+							assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
+						case "max":
+							assert.InDelta(t, float64(3), dp.DoubleValue(), 0.01)
+						}
+						_, ok := dp.Attributes().Get("oracle.db.pdb")
+						assert.False(t, ok)
+					}
 				case "oracledb.cpu_time":
 					if tt.name != "reaggregate_set" {
 						assert.False(t, validatedMetrics["oracledb.cpu_time"], "Found a duplicate in the metrics slice: oracledb.cpu_time")
@@ -1112,17 +1162,42 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
 				case "oracledb.cursor.cache.utilization":
-					assert.False(t, validatedMetrics["oracledb.cursor.cache.utilization"], "Found a duplicate in the metrics slice: oracledb.cursor.cache.utilization")
-					validatedMetrics["oracledb.cursor.cache.utilization"] = true
-					assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
-					assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
-					assert.Equal(t, "Percentage of cursor executions that reused a cursor in the session cursor cache.", mi.Description())
-					assert.Equal(t, "%", mi.Unit())
-					dp := mi.Gauge().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
-					assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["oracledb.cursor.cache.utilization"], "Found a duplicate in the metrics slice: oracledb.cursor.cache.utilization")
+						validatedMetrics["oracledb.cursor.cache.utilization"] = true
+						assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
+						assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
+						assert.Equal(t, "Percentage of cursor executions that reused a cursor in the session cursor cache.", mi.Description())
+						assert.Equal(t, "%", mi.Unit())
+						dp := mi.Gauge().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
+						assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
+					} else {
+						assert.False(t, validatedMetrics["oracledb.cursor.cache.utilization"], "Found a duplicate in the metrics slice: oracledb.cursor.cache.utilization")
+						validatedMetrics["oracledb.cursor.cache.utilization"] = true
+						assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
+						assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
+						assert.Equal(t, "Percentage of cursor executions that reused a cursor in the session cursor cache.", mi.Description())
+						assert.Equal(t, "%", mi.Unit())
+						dp := mi.Gauge().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
+						switch aggMap["oracledb.cursor.cache.utilization"] {
+						case "sum":
+							assert.InDelta(t, float64(4), dp.DoubleValue(), 0.01)
+						case "avg":
+							assert.InDelta(t, float64(2), dp.DoubleValue(), 0.01)
+						case "min":
+							assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
+						case "max":
+							assert.InDelta(t, float64(3), dp.DoubleValue(), 0.01)
+						}
+						_, ok := dp.Attributes().Get("oracle.db.pdb")
+						assert.False(t, ok)
+					}
 				case "oracledb.cursor.open":
 					assert.False(t, validatedMetrics["oracledb.cursor.open"], "Found a duplicate in the metrics slice: oracledb.cursor.open")
 					validatedMetrics["oracledb.cursor.open"] = true
@@ -1973,7 +2048,9 @@ func TestMetricsBuilder(t *testing.T) {
 						case "max":
 							assert.InDelta(t, float64(3), dp.DoubleValue(), 0.01)
 						}
-						_, ok := dp.Attributes().Get("oracledb.session.type")
+						_, ok := dp.Attributes().Get("oracle.db.pdb")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("oracledb.session.type")
 						assert.False(t, ok)
 					}
 				case "oracledb.logical_reads":
@@ -3372,19 +3449,46 @@ func TestMetricsBuilder(t *testing.T) {
 						}
 						_, ok := dp.Attributes().Get("session_status")
 						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("oracle.db.pdb")
+						assert.False(t, ok)
 					}
 				case "oracledb.session.stored_procedure.memory":
-					assert.False(t, validatedMetrics["oracledb.session.stored_procedure.memory"], "Found a duplicate in the metrics slice: oracledb.session.stored_procedure.memory")
-					validatedMetrics["oracledb.session.stored_procedure.memory"] = true
-					assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
-					assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
-					assert.Equal(t, "Memory currently allocated for stored procedures in the session.", mi.Description())
-					assert.Equal(t, "By", mi.Unit())
-					dp := mi.Gauge().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["oracledb.session.stored_procedure.memory"], "Found a duplicate in the metrics slice: oracledb.session.stored_procedure.memory")
+						validatedMetrics["oracledb.session.stored_procedure.memory"] = true
+						assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
+						assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
+						assert.Equal(t, "Memory currently allocated for stored procedures in the session.", mi.Description())
+						assert.Equal(t, "By", mi.Unit())
+						dp := mi.Gauge().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						assert.Equal(t, int64(1), dp.IntValue())
+					} else {
+						assert.False(t, validatedMetrics["oracledb.session.stored_procedure.memory"], "Found a duplicate in the metrics slice: oracledb.session.stored_procedure.memory")
+						validatedMetrics["oracledb.session.stored_procedure.memory"] = true
+						assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
+						assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
+						assert.Equal(t, "Memory currently allocated for stored procedures in the session.", mi.Description())
+						assert.Equal(t, "By", mi.Unit())
+						dp := mi.Gauge().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						switch aggMap["oracledb.session.stored_procedure.memory"] {
+						case "sum":
+							assert.Equal(t, int64(4), dp.IntValue())
+						case "avg":
+							assert.Equal(t, int64(2), dp.IntValue())
+						case "min":
+							assert.Equal(t, int64(1), dp.IntValue())
+						case "max":
+							assert.Equal(t, int64(3), dp.IntValue())
+						}
+						_, ok := dp.Attributes().Get("oracle.db.pdb")
+						assert.False(t, ok)
+					}
 				case "oracledb.session.wait.time":
 					if tt.name != "reaggregate_set" {
 						assert.False(t, validatedMetrics["oracledb.session.wait.time"], "Found a duplicate in the metrics slice: oracledb.session.wait.time")
@@ -3427,6 +3531,8 @@ func TestMetricsBuilder(t *testing.T) {
 							assert.InDelta(t, float64(3), dp.DoubleValue(), 0.01)
 						}
 						_, ok := dp.Attributes().Get("oracledb.session.wait.state")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("oracle.db.pdb")
 						assert.False(t, ok)
 					}
 				case "oracledb.session.waits":
@@ -3471,6 +3577,8 @@ func TestMetricsBuilder(t *testing.T) {
 							assert.Equal(t, int64(3), dp.IntValue())
 						}
 						_, ok := dp.Attributes().Get("oracledb.session.wait.state")
+						assert.False(t, ok)
+						_, ok = dp.Attributes().Get("oracle.db.pdb")
 						assert.False(t, ok)
 					}
 				case "oracledb.sessions.limit":
@@ -3998,31 +4106,83 @@ func TestMetricsBuilder(t *testing.T) {
 						assert.False(t, ok)
 					}
 				case "oracledb.transaction.response.time":
-					assert.False(t, validatedMetrics["oracledb.transaction.response.time"], "Found a duplicate in the metrics slice: oracledb.transaction.response.time")
-					validatedMetrics["oracledb.transaction.response.time"] = true
-					assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
-					assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
-					assert.Equal(t, "Average response time per transaction.", mi.Description())
-					assert.Equal(t, "s", mi.Unit())
-					dp := mi.Gauge().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
-					assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["oracledb.transaction.response.time"], "Found a duplicate in the metrics slice: oracledb.transaction.response.time")
+						validatedMetrics["oracledb.transaction.response.time"] = true
+						assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
+						assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
+						assert.Equal(t, "Average response time per transaction.", mi.Description())
+						assert.Equal(t, "s", mi.Unit())
+						dp := mi.Gauge().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
+						assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
+					} else {
+						assert.False(t, validatedMetrics["oracledb.transaction.response.time"], "Found a duplicate in the metrics slice: oracledb.transaction.response.time")
+						validatedMetrics["oracledb.transaction.response.time"] = true
+						assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
+						assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
+						assert.Equal(t, "Average response time per transaction.", mi.Description())
+						assert.Equal(t, "s", mi.Unit())
+						dp := mi.Gauge().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
+						switch aggMap["oracledb.transaction.response.time"] {
+						case "sum":
+							assert.InDelta(t, float64(4), dp.DoubleValue(), 0.01)
+						case "avg":
+							assert.InDelta(t, float64(2), dp.DoubleValue(), 0.01)
+						case "min":
+							assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
+						case "max":
+							assert.InDelta(t, float64(3), dp.DoubleValue(), 0.01)
+						}
+						_, ok := dp.Attributes().Get("oracle.db.pdb")
+						assert.False(t, ok)
+					}
 				case "oracledb.transaction.rollbacks":
-					assert.False(t, validatedMetrics["oracledb.transaction.rollbacks"], "Found a duplicate in the metrics slice: oracledb.transaction.rollbacks")
-					validatedMetrics["oracledb.transaction.rollbacks"] = true
-					assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
-					assert.Equal(t, 1, mi.Sum().DataPoints().Len())
-					assert.Equal(t, "Total number of transactions rolled back.", mi.Description())
-					assert.Equal(t, "{rollback}", mi.Unit())
-					assert.True(t, mi.Sum().IsMonotonic())
-					assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
-					dp := mi.Sum().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
+					if tt.name != "reaggregate_set" {
+						assert.False(t, validatedMetrics["oracledb.transaction.rollbacks"], "Found a duplicate in the metrics slice: oracledb.transaction.rollbacks")
+						validatedMetrics["oracledb.transaction.rollbacks"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+						assert.Equal(t, "Total number of transactions rolled back.", mi.Description())
+						assert.Equal(t, "{rollback}", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						assert.Equal(t, int64(1), dp.IntValue())
+					} else {
+						assert.False(t, validatedMetrics["oracledb.transaction.rollbacks"], "Found a duplicate in the metrics slice: oracledb.transaction.rollbacks")
+						validatedMetrics["oracledb.transaction.rollbacks"] = true
+						assert.Equal(t, pmetric.MetricTypeSum, mi.Type())
+						assert.Equal(t, 1, mi.Sum().DataPoints().Len())
+						assert.Equal(t, "Total number of transactions rolled back.", mi.Description())
+						assert.Equal(t, "{rollback}", mi.Unit())
+						assert.True(t, mi.Sum().IsMonotonic())
+						assert.Equal(t, pmetric.AggregationTemporalityCumulative, mi.Sum().AggregationTemporality())
+						dp := mi.Sum().DataPoints().At(0)
+						assert.Equal(t, start, dp.StartTimestamp())
+						assert.Equal(t, ts, dp.Timestamp())
+						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+						switch aggMap["oracledb.transaction.rollbacks"] {
+						case "sum":
+							assert.Equal(t, int64(4), dp.IntValue())
+						case "avg":
+							assert.Equal(t, int64(2), dp.IntValue())
+						case "min":
+							assert.Equal(t, int64(1), dp.IntValue())
+						case "max":
+							assert.Equal(t, int64(3), dp.IntValue())
+						}
+						_, ok := dp.Attributes().Get("oracle.db.pdb")
+						assert.False(t, ok)
+					}
 				case "oracledb.transactions.limit":
 					assert.False(t, validatedMetrics["oracledb.transactions.limit"], "Found a duplicate in the metrics slice: oracledb.transactions.limit")
 					validatedMetrics["oracledb.transactions.limit"] = true

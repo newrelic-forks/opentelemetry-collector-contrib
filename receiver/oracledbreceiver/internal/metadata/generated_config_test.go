@@ -66,7 +66,9 @@ func TestMetricsBuilderConfig(t *testing.T) {
 						EnabledAttributes:   []OracledbConsistentGetsMetricAttributeKey{OracledbConsistentGetsMetricAttributeKeyOracleDbPdb},
 					},
 					OracledbCPUUsageRate: OracledbCPUUsageRateMetricConfig{
-						Enabled: true,
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategyAvg,
+						EnabledAttributes:   []OracledbCPUUsageRateMetricAttributeKey{OracledbCPUUsageRateMetricAttributeKeyOracleDbPdb},
 					},
 					OracledbCPUTime: OracledbCPUTimeMetricConfig{
 						Enabled:             true,
@@ -80,7 +82,9 @@ func TestMetricsBuilderConfig(t *testing.T) {
 						Enabled: true,
 					},
 					OracledbCursorCacheUtilization: OracledbCursorCacheUtilizationMetricConfig{
-						Enabled: true,
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategyAvg,
+						EnabledAttributes:   []OracledbCursorCacheUtilizationMetricAttributeKey{OracledbCursorCacheUtilizationMetricAttributeKeyOracleDbPdb},
 					},
 					OracledbCursorOpen: OracledbCursorOpenMetricConfig{
 						Enabled: true,
@@ -204,7 +208,7 @@ func TestMetricsBuilderConfig(t *testing.T) {
 					OracledbLockTime: OracledbLockTimeMetricConfig{
 						Enabled:             true,
 						AggregationStrategy: AggregationStrategySum,
-						EnabledAttributes:   []OracledbLockTimeMetricAttributeKey{OracledbLockTimeMetricAttributeKeyOracledbSessionType},
+						EnabledAttributes:   []OracledbLockTimeMetricAttributeKey{OracledbLockTimeMetricAttributeKeyOracleDbPdb, OracledbLockTimeMetricAttributeKeyOracledbSessionType},
 					},
 					OracledbLogicalReads: OracledbLogicalReadsMetricConfig{
 						Enabled:             true,
@@ -384,20 +388,22 @@ func TestMetricsBuilderConfig(t *testing.T) {
 					OracledbSessionAverage: OracledbSessionAverageMetricConfig{
 						Enabled:             true,
 						AggregationStrategy: AggregationStrategyAvg,
-						EnabledAttributes:   []OracledbSessionAverageMetricAttributeKey{OracledbSessionAverageMetricAttributeKeySessionStatus},
+						EnabledAttributes:   []OracledbSessionAverageMetricAttributeKey{OracledbSessionAverageMetricAttributeKeySessionStatus, OracledbSessionAverageMetricAttributeKeyOracleDbPdb},
 					},
 					OracledbSessionStoredProcedureMemory: OracledbSessionStoredProcedureMemoryMetricConfig{
-						Enabled: true,
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategyAvg,
+						EnabledAttributes:   []OracledbSessionStoredProcedureMemoryMetricAttributeKey{OracledbSessionStoredProcedureMemoryMetricAttributeKeyOracleDbPdb},
 					},
 					OracledbSessionWaitTime: OracledbSessionWaitTimeMetricConfig{
 						Enabled:             true,
 						AggregationStrategy: AggregationStrategySum,
-						EnabledAttributes:   []OracledbSessionWaitTimeMetricAttributeKey{OracledbSessionWaitTimeMetricAttributeKeyOracledbSessionWaitState},
+						EnabledAttributes:   []OracledbSessionWaitTimeMetricAttributeKey{OracledbSessionWaitTimeMetricAttributeKeyOracledbSessionWaitState, OracledbSessionWaitTimeMetricAttributeKeyOracleDbPdb},
 					},
 					OracledbSessionWaits: OracledbSessionWaitsMetricConfig{
 						Enabled:             true,
 						AggregationStrategy: AggregationStrategySum,
-						EnabledAttributes:   []OracledbSessionWaitsMetricAttributeKey{OracledbSessionWaitsMetricAttributeKeyOracledbSessionWaitState},
+						EnabledAttributes:   []OracledbSessionWaitsMetricAttributeKey{OracledbSessionWaitsMetricAttributeKeyOracledbSessionWaitState, OracledbSessionWaitsMetricAttributeKeyOracleDbPdb},
 					},
 					OracledbSessionsLimit: OracledbSessionsLimitMetricConfig{
 						Enabled: true,
@@ -474,10 +480,14 @@ func TestMetricsBuilderConfig(t *testing.T) {
 						EnabledAttributes:   []OracledbTablespaceSizeUsageMetricAttributeKey{OracledbTablespaceSizeUsageMetricAttributeKeyTablespaceName, OracledbTablespaceSizeUsageMetricAttributeKeyOracleDbPdb},
 					},
 					OracledbTransactionResponseTime: OracledbTransactionResponseTimeMetricConfig{
-						Enabled: true,
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategyAvg,
+						EnabledAttributes:   []OracledbTransactionResponseTimeMetricAttributeKey{OracledbTransactionResponseTimeMetricAttributeKeyOracleDbPdb},
 					},
 					OracledbTransactionRollbacks: OracledbTransactionRollbacksMetricConfig{
-						Enabled: true,
+						Enabled:             true,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []OracledbTransactionRollbacksMetricAttributeKey{OracledbTransactionRollbacksMetricAttributeKeyOracleDbPdb},
 					},
 					OracledbTransactionsLimit: OracledbTransactionsLimitMetricConfig{
 						Enabled: true,
@@ -552,7 +562,9 @@ func TestMetricsBuilderConfig(t *testing.T) {
 						EnabledAttributes:   []OracledbConsistentGetsMetricAttributeKey{OracledbConsistentGetsMetricAttributeKeyOracleDbPdb},
 					},
 					OracledbCPUUsageRate: OracledbCPUUsageRateMetricConfig{
-						Enabled: false,
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategyAvg,
+						EnabledAttributes:   []OracledbCPUUsageRateMetricAttributeKey{OracledbCPUUsageRateMetricAttributeKeyOracleDbPdb},
 					},
 					OracledbCPUTime: OracledbCPUTimeMetricConfig{
 						Enabled:             false,
@@ -566,7 +578,9 @@ func TestMetricsBuilderConfig(t *testing.T) {
 						Enabled: false,
 					},
 					OracledbCursorCacheUtilization: OracledbCursorCacheUtilizationMetricConfig{
-						Enabled: false,
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategyAvg,
+						EnabledAttributes:   []OracledbCursorCacheUtilizationMetricAttributeKey{OracledbCursorCacheUtilizationMetricAttributeKeyOracleDbPdb},
 					},
 					OracledbCursorOpen: OracledbCursorOpenMetricConfig{
 						Enabled: false,
@@ -690,7 +704,7 @@ func TestMetricsBuilderConfig(t *testing.T) {
 					OracledbLockTime: OracledbLockTimeMetricConfig{
 						Enabled:             false,
 						AggregationStrategy: AggregationStrategySum,
-						EnabledAttributes:   []OracledbLockTimeMetricAttributeKey{OracledbLockTimeMetricAttributeKeyOracledbSessionType},
+						EnabledAttributes:   []OracledbLockTimeMetricAttributeKey{OracledbLockTimeMetricAttributeKeyOracleDbPdb, OracledbLockTimeMetricAttributeKeyOracledbSessionType},
 					},
 					OracledbLogicalReads: OracledbLogicalReadsMetricConfig{
 						Enabled:             false,
@@ -870,20 +884,22 @@ func TestMetricsBuilderConfig(t *testing.T) {
 					OracledbSessionAverage: OracledbSessionAverageMetricConfig{
 						Enabled:             false,
 						AggregationStrategy: AggregationStrategyAvg,
-						EnabledAttributes:   []OracledbSessionAverageMetricAttributeKey{OracledbSessionAverageMetricAttributeKeySessionStatus},
+						EnabledAttributes:   []OracledbSessionAverageMetricAttributeKey{OracledbSessionAverageMetricAttributeKeySessionStatus, OracledbSessionAverageMetricAttributeKeyOracleDbPdb},
 					},
 					OracledbSessionStoredProcedureMemory: OracledbSessionStoredProcedureMemoryMetricConfig{
-						Enabled: false,
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategyAvg,
+						EnabledAttributes:   []OracledbSessionStoredProcedureMemoryMetricAttributeKey{OracledbSessionStoredProcedureMemoryMetricAttributeKeyOracleDbPdb},
 					},
 					OracledbSessionWaitTime: OracledbSessionWaitTimeMetricConfig{
 						Enabled:             false,
 						AggregationStrategy: AggregationStrategySum,
-						EnabledAttributes:   []OracledbSessionWaitTimeMetricAttributeKey{OracledbSessionWaitTimeMetricAttributeKeyOracledbSessionWaitState},
+						EnabledAttributes:   []OracledbSessionWaitTimeMetricAttributeKey{OracledbSessionWaitTimeMetricAttributeKeyOracledbSessionWaitState, OracledbSessionWaitTimeMetricAttributeKeyOracleDbPdb},
 					},
 					OracledbSessionWaits: OracledbSessionWaitsMetricConfig{
 						Enabled:             false,
 						AggregationStrategy: AggregationStrategySum,
-						EnabledAttributes:   []OracledbSessionWaitsMetricAttributeKey{OracledbSessionWaitsMetricAttributeKeyOracledbSessionWaitState},
+						EnabledAttributes:   []OracledbSessionWaitsMetricAttributeKey{OracledbSessionWaitsMetricAttributeKeyOracledbSessionWaitState, OracledbSessionWaitsMetricAttributeKeyOracleDbPdb},
 					},
 					OracledbSessionsLimit: OracledbSessionsLimitMetricConfig{
 						Enabled: false,
@@ -960,10 +976,14 @@ func TestMetricsBuilderConfig(t *testing.T) {
 						EnabledAttributes:   []OracledbTablespaceSizeUsageMetricAttributeKey{OracledbTablespaceSizeUsageMetricAttributeKeyTablespaceName, OracledbTablespaceSizeUsageMetricAttributeKeyOracleDbPdb},
 					},
 					OracledbTransactionResponseTime: OracledbTransactionResponseTimeMetricConfig{
-						Enabled: false,
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategyAvg,
+						EnabledAttributes:   []OracledbTransactionResponseTimeMetricAttributeKey{OracledbTransactionResponseTimeMetricAttributeKeyOracleDbPdb},
 					},
 					OracledbTransactionRollbacks: OracledbTransactionRollbacksMetricConfig{
-						Enabled: false,
+						Enabled:             false,
+						AggregationStrategy: AggregationStrategySum,
+						EnabledAttributes:   []OracledbTransactionRollbacksMetricAttributeKey{OracledbTransactionRollbacksMetricAttributeKeyOracleDbPdb},
 					},
 					OracledbTransactionsLimit: OracledbTransactionsLimitMetricConfig{
 						Enabled: false,
@@ -1052,6 +1072,18 @@ func TestOracledbConsistentGetsMetricsConfig_Validate(t *testing.T) {
 	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
 }
 
+func TestOracledbCPUUsageRateMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().OracledbCPUUsageRate
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []OracledbCPUUsageRateMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric oracledb.cpu.usage.rate doesn't have an attribute invalid, valid attributes: [oracle.db.pdb]")
+
+	cfg = DefaultMetricsConfig().OracledbCPUUsageRate
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
 func TestOracledbCPUTimeMetricsConfig_Validate(t *testing.T) {
 	cfg := DefaultMetricsConfig().OracledbCPUTime
 	require.NoError(t, cfg.Validate())
@@ -1060,6 +1092,18 @@ func TestOracledbCPUTimeMetricsConfig_Validate(t *testing.T) {
 	require.ErrorContains(t, cfg.Validate(), "metric oracledb.cpu_time doesn't have an attribute invalid, valid attributes: [oracle.db.pdb]")
 
 	cfg = DefaultMetricsConfig().OracledbCPUTime
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
+func TestOracledbCursorCacheUtilizationMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().OracledbCursorCacheUtilization
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []OracledbCursorCacheUtilizationMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric oracledb.cursor.cache.utilization doesn't have an attribute invalid, valid attributes: [oracle.db.pdb]")
+
+	cfg = DefaultMetricsConfig().OracledbCursorCacheUtilization
 	cfg.AggregationStrategy = "invalid"
 	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
 }
@@ -1261,7 +1305,7 @@ func TestOracledbLockTimeMetricsConfig_Validate(t *testing.T) {
 	require.NoError(t, cfg.Validate())
 
 	cfg.EnabledAttributes = []OracledbLockTimeMetricAttributeKey{"invalid"}
-	require.ErrorContains(t, cfg.Validate(), "metric oracledb.lock.time doesn't have an attribute invalid, valid attributes: [oracledb.session.type]")
+	require.ErrorContains(t, cfg.Validate(), "metric oracledb.lock.time doesn't have an attribute invalid, valid attributes: [oracle.db.pdb, oracledb.session.type]")
 
 	cfg = DefaultMetricsConfig().OracledbLockTime
 	cfg.AggregationStrategy = "invalid"
@@ -1621,9 +1665,21 @@ func TestOracledbSessionAverageMetricsConfig_Validate(t *testing.T) {
 	require.NoError(t, cfg.Validate())
 
 	cfg.EnabledAttributes = []OracledbSessionAverageMetricAttributeKey{"invalid"}
-	require.ErrorContains(t, cfg.Validate(), "metric oracledb.session.average doesn't have an attribute invalid, valid attributes: [session_status]")
+	require.ErrorContains(t, cfg.Validate(), "metric oracledb.session.average doesn't have an attribute invalid, valid attributes: [session_status, oracle.db.pdb]")
 
 	cfg = DefaultMetricsConfig().OracledbSessionAverage
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
+func TestOracledbSessionStoredProcedureMemoryMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().OracledbSessionStoredProcedureMemory
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []OracledbSessionStoredProcedureMemoryMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric oracledb.session.stored_procedure.memory doesn't have an attribute invalid, valid attributes: [oracle.db.pdb]")
+
+	cfg = DefaultMetricsConfig().OracledbSessionStoredProcedureMemory
 	cfg.AggregationStrategy = "invalid"
 	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
 }
@@ -1633,7 +1689,7 @@ func TestOracledbSessionWaitTimeMetricsConfig_Validate(t *testing.T) {
 	require.NoError(t, cfg.Validate())
 
 	cfg.EnabledAttributes = []OracledbSessionWaitTimeMetricAttributeKey{"invalid"}
-	require.ErrorContains(t, cfg.Validate(), "metric oracledb.session.wait.time doesn't have an attribute invalid, valid attributes: [oracledb.session.wait.state]")
+	require.ErrorContains(t, cfg.Validate(), "metric oracledb.session.wait.time doesn't have an attribute invalid, valid attributes: [oracledb.session.wait.state, oracle.db.pdb]")
 
 	cfg = DefaultMetricsConfig().OracledbSessionWaitTime
 	cfg.AggregationStrategy = "invalid"
@@ -1645,7 +1701,7 @@ func TestOracledbSessionWaitsMetricsConfig_Validate(t *testing.T) {
 	require.NoError(t, cfg.Validate())
 
 	cfg.EnabledAttributes = []OracledbSessionWaitsMetricAttributeKey{"invalid"}
-	require.ErrorContains(t, cfg.Validate(), "metric oracledb.session.waits doesn't have an attribute invalid, valid attributes: [oracledb.session.wait.state]")
+	require.ErrorContains(t, cfg.Validate(), "metric oracledb.session.waits doesn't have an attribute invalid, valid attributes: [oracledb.session.wait.state, oracle.db.pdb]")
 
 	cfg = DefaultMetricsConfig().OracledbSessionWaits
 	cfg.AggregationStrategy = "invalid"
@@ -1768,6 +1824,30 @@ func TestOracledbTablespaceSizeUsageMetricsConfig_Validate(t *testing.T) {
 	require.ErrorContains(t, cfg.Validate(), "metric oracledb.tablespace_size.usage doesn't have an attribute invalid, valid attributes: [tablespace_name, oracle.db.pdb]")
 
 	cfg = DefaultMetricsConfig().OracledbTablespaceSizeUsage
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
+func TestOracledbTransactionResponseTimeMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().OracledbTransactionResponseTime
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []OracledbTransactionResponseTimeMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric oracledb.transaction.response.time doesn't have an attribute invalid, valid attributes: [oracle.db.pdb]")
+
+	cfg = DefaultMetricsConfig().OracledbTransactionResponseTime
+	cfg.AggregationStrategy = "invalid"
+	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
+}
+
+func TestOracledbTransactionRollbacksMetricsConfig_Validate(t *testing.T) {
+	cfg := DefaultMetricsConfig().OracledbTransactionRollbacks
+	require.NoError(t, cfg.Validate())
+
+	cfg.EnabledAttributes = []OracledbTransactionRollbacksMetricAttributeKey{"invalid"}
+	require.ErrorContains(t, cfg.Validate(), "metric oracledb.transaction.rollbacks doesn't have an attribute invalid, valid attributes: [oracle.db.pdb]")
+
+	cfg = DefaultMetricsConfig().OracledbTransactionRollbacks
 	cfg.AggregationStrategy = "invalid"
 	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
 }

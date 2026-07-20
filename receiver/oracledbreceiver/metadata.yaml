@@ -563,6 +563,8 @@ metrics:
       input_type: string
     unit: "{gets}"
   oracledb.cpu.usage.rate:
+    attributes:
+      - oracle.db.pdb
     description: CPU consumption rate, in CPU-seconds used per second.
     enabled: false
     stability: development
@@ -599,6 +601,8 @@ metrics:
       input_type: string
     unit: "{cursor}"
   oracledb.cursor.cache.utilization:
+    attributes:
+      - oracle.db.pdb
     description: Percentage of cursor executions that reused a cursor in the session cursor cache.
     enabled: false
     stability: development
@@ -881,6 +885,7 @@ metrics:
     attributes: [disk.io.direction]
   oracledb.lock.time:
     attributes:
+      - oracle.db.pdb
       - oracledb.session.type
     description: Cumulative time spent on transaction lock activity.
     enabled: false
@@ -1315,8 +1320,10 @@ metrics:
     gauge:
       value_type: double
     unit: "{session}"
-    attributes: [session_status]
+    attributes: [session_status, oracle.db.pdb]
   oracledb.session.stored_procedure.memory:
+    attributes:
+      - oracle.db.pdb
     description: Memory currently allocated for stored procedures in the session.
     enabled: false
     stability: development
@@ -1327,6 +1334,7 @@ metrics:
   oracledb.session.wait.time:
     attributes:
       - oracledb.session.wait.state
+      - oracle.db.pdb
     description: Cumulative time sessions spent in waits.
     enabled: false
     stability: development
@@ -1338,6 +1346,7 @@ metrics:
   oracledb.session.waits:
     attributes:
       - oracledb.session.wait.state
+      - oracle.db.pdb
     description: Cumulative number of waits across sessions.
     enabled: false
     stability: development
@@ -1511,6 +1520,8 @@ metrics:
       value_type: int
     unit: By
   oracledb.transaction.response.time:
+    attributes:
+      - oracle.db.pdb
     description: Average response time per transaction.
     enabled: false
     stability: development
@@ -1518,6 +1529,8 @@ metrics:
       value_type: double
     unit: s
   oracledb.transaction.rollbacks:
+    attributes:
+      - oracle.db.pdb
     description: Total number of transactions rolled back.
     enabled: false
     stability: development

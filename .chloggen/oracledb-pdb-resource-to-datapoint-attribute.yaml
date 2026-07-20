@@ -16,19 +16,12 @@ issues: [48643]
 # These lines will be padded with 2 spaces and then inserted directly into the document.
 # Use pipe (|) for multiline entries.
 subtext: |
-  The `oracle.db.pdb` PDB identifier has moved from `resource_attributes` to `attributes` in
-  the receiver's metadata so a single CDB-root scrape can carry per-PDB rows on their own
-  data points instead of forcing one resource per PDB. Downstream pipelines that grouped,
-  routed, or filtered on `oracle.db.pdb` as a resource attribute (e.g. via
-  `resource/`/`groupbyattrs` processors, exporter routing rules, or backend dashboards
-  reading it from resource scope) will need to be updated to read it from data-point
-  attributes. Because the attribute is `opt_in`, it must also be explicitly enabled on
-  each metric that should carry it via `metrics.<name>.attributes: [oracle.db.pdb]`.
-  Per-PDB collection additionally requires SELECT on `V_$CON_SYSSTAT`, `V_$CON_SYSMETRIC`,
-  `V_$CONTAINERS`, `CDB_TABLESPACE_USAGE_METRICS`, and `CDB_TABLESPACES` (with
-  `CONTAINER=ALL` for common users). If those grants are not present, the receiver
-  detects it at startup and falls back to the single-container query set, so existing
-  CDB deployments upgrading without adding the new grants keep working unchanged.
+  `oracle.db.pdb` has moved from a resource attribute to an opt-in data point attribute.
+  Downstream pipelines that grouped, routed, or filtered on `oracle.db.pdb` at resource scope
+  must be updated to read it from data point attributes, and it must be explicitly enabled on
+  each metric that should carry it via `metrics.<name>.attributes: [oracle.db.pdb]`. Existing
+  CDB deployments that do not enable the attribute or add the grants needed for per-PDB
+  collection keep working unchanged; the receiver falls back to the single-container queries.
 
 # If your change doesn't affect end users or the exported elements of any package,
 # you should instead start your pull request title with [chore] or use the "Skip Changelog" label.

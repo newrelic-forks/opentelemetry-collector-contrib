@@ -206,6 +206,18 @@ var queryCDBResponses = map[string][]metricRow{
 		{"NAME": pgaMemory, "VALUE": "1999887", "PDB_NAME": "PDB1"},
 		{"NAME": dbBlockGets, "VALUE": "42", "PDB_NAME": "PDB1"},
 		{"NAME": consistentGets, "VALUE": "78944", "PDB_NAME": "PDB1"},
+		{"NAME": sessionNonIdleWaitCount, "VALUE": "98765", "PDB_NAME": "PDB1"},
+		{"NAME": sessionNonIdleWaitTime, "VALUE": "4500", "PDB_NAME": "PDB1"}, // cs -> 45 s
+		{"NAME": sessionStoredProcedureSpace, "VALUE": "262144", "PDB_NAME": "PDB1"},
+		{"NAME": transactionLockBackgroundTime, "VALUE": "350", "PDB_NAME": "PDB1"},  // cs -> 3.5 s
+		{"NAME": transactionLockForegroundTime, "VALUE": "1200", "PDB_NAME": "PDB1"}, // cs -> 12 s
+		{"NAME": transactionRollbacks, "VALUE": "4521", "PDB_NAME": "PDB1"},
+	},
+	sysmetricCDBSQL: {
+		{"METRIC_NAME": sysmetricAverageActiveSessions, "VALUE": "2.50", "PDB_NAME": "PDB1"},
+		{"METRIC_NAME": sysmetricCPUUsagePerSec, "VALUE": "150.00", "PDB_NAME": "PDB1"}, // cs/s -> 1.5 cores
+		{"METRIC_NAME": sysmetricCursorCacheHitRatio, "VALUE": "96.40", "PDB_NAME": "PDB1"},
+		{"METRIC_NAME": sysmetricResponseTimePerTxn, "VALUE": "12.34", "PDB_NAME": "PDB1"}, // cs -> 0.1234 s
 	},
 	sessionCountCDBSQL: {{"VALUE": "1", "STATUS": "ACTIVE", "TYPE": "USER", "PDB_NAME": "PDB1"}},
 	systemResourceLimitsSQL: {
@@ -424,6 +436,146 @@ func TestScraper_ScrapeCDBRoot(t *testing.T) {
 			assert.Equal(t, "PDB1", pdbAttr.Str())
 		}
 	}
+}
+
+// TestScraper_ScrapeCDBRoot_NewPdbMetrics checks the nine #49068 metrics carry oracle.db.pdb on a CDB-root scrape.
+func TestScraper_ScrapeCDBRoot_NewPdbMetrics(t *testing.T) {
+	const floatDelta = 0.001
+
+	cfg := metadata.NewDefaultMetricsBuilderConfig()
+	cfg.Metrics.OracledbSessionWaits.Enabled = true
+	cfg.Metrics.OracledbSessionWaitTime.Enabled = true
+	cfg.Metrics.OracledbSessionStoredProcedureMemory.Enabled = true
+	cfg.Metrics.OracledbLockTime.Enabled = true
+	cfg.Metrics.OracledbTransactionRollbacks.Enabled = true
+	cfg.Metrics.OracledbSessionAverage.Enabled = true
+	cfg.Metrics.OracledbCPUUsageRate.Enabled = true
+	cfg.Metrics.OracledbCursorCacheUtilization.Enabled = true
+	cfg.Metrics.OracledbTransactionResponseTime.Enabled = true
+
+	cfg.Metrics.OracledbSessionWaits.EnabledAttributes = append(
+		cfg.Metrics.OracledbSessionWaits.EnabledAttributes,
+		metadata.OracledbSessionWaitsMetricAttributeKeyOracleDbPdb)
+	cfg.Metrics.OracledbSessionWaitTime.EnabledAttributes = append(
+		cfg.Metrics.OracledbSessionWaitTime.EnabledAttributes,
+		metadata.OracledbSessionWaitTimeMetricAttributeKeyOracleDbPdb)
+	cfg.Metrics.OracledbSessionStoredProcedureMemory.EnabledAttributes = append(
+		cfg.Metrics.OracledbSessionStoredProcedureMemory.EnabledAttributes,
+		metadata.OracledbSessionStoredProcedureMemoryMetricAttributeKeyOracleDbPdb)
+	cfg.Metrics.OracledbLockTime.EnabledAttributes = append(
+		cfg.Metrics.OracledbLockTime.EnabledAttributes,
+		metadata.OracledbLockTimeMetricAttributeKeyOracleDbPdb)
+	cfg.Metrics.OracledbTransactionRollbacks.EnabledAttributes = append(
+		cfg.Metrics.OracledbTransactionRollbacks.EnabledAttributes,
+		metadata.OracledbTransactionRollbacksMetricAttributeKeyOracleDbPdb)
+	cfg.Metrics.OracledbSessionAverage.EnabledAttributes = append(
+		cfg.Metrics.OracledbSessionAverage.EnabledAttributes,
+		metadata.OracledbSessionAverageMetricAttributeKeyOracleDbPdb)
+	cfg.Metrics.OracledbCPUUsageRate.EnabledAttributes = append(
+		cfg.Metrics.OracledbCPUUsageRate.EnabledAttributes,
+		metadata.OracledbCPUUsageRateMetricAttributeKeyOracleDbPdb)
+	cfg.Metrics.OracledbCursorCacheUtilization.EnabledAttributes = append(
+		cfg.Metrics.OracledbCursorCacheUtilization.EnabledAttributes,
+		metadata.OracledbCursorCacheUtilizationMetricAttributeKeyOracleDbPdb)
+	cfg.Metrics.OracledbTransactionResponseTime.EnabledAttributes = append(
+		cfg.Metrics.OracledbTransactionResponseTime.EnabledAttributes,
+		metadata.OracledbTransactionResponseTimeMetricAttributeKeyOracleDbPdb)
+
+	scrpr := oracleScraper{
+		logger: zap.NewNop(),
+		mb:     metadata.NewMetricsBuilder(cfg, receivertest.NewNopSettings(metadata.Type)),
+		dbProviderFunc: func() (*sql.DB, error) {
+			return nil, nil
+		},
+		clientProviderFunc: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+			return &fakeDbClient{Responses: [][]metricRow{queryCDBResponses[s]}}
+		},
+		id:                   component.ID{},
+		metricsBuilderConfig: cfg,
+		instanceInfo:         oracleInstanceInfo{isCDB: true, connectedToPDB: false},
+	}
+
+	err := scrpr.start(t.Context(), componenttest.NewNopHost())
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, scrpr.shutdown(t.Context())) }()
+
+	require.True(t, scrpr.isCDBRoot)
+	require.True(t, scrpr.anySysmetricPdbAttrEnabled())
+
+	m, err := scrpr.scrape(t.Context())
+	require.NoError(t, err)
+
+	requirePdb := func(t *testing.T, name string, dp pmetric.NumberDataPoint) {
+		t.Helper()
+		pdbAttr, ok := dp.Attributes().Get("oracle.db.pdb")
+		assert.Truef(t, ok, "expected oracle.db.pdb attribute on %s", name)
+		assert.Equalf(t, "PDB1", pdbAttr.Str(), "unexpected oracle.db.pdb value on %s", name)
+	}
+
+	metrics := m.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
+	seen := 0
+	for i := 0; i < metrics.Len(); i++ {
+		me := metrics.At(i)
+		switch me.Name() {
+		case "oracledb.session.waits":
+			seen++
+			dp := me.Sum().DataPoints().At(0)
+			requirePdb(t, me.Name(), dp)
+			assert.Equal(t, int64(98765), dp.IntValue())
+		case "oracledb.session.wait.time":
+			seen++
+			dp := me.Sum().DataPoints().At(0)
+			requirePdb(t, me.Name(), dp)
+			assert.InDelta(t, 45.0, dp.DoubleValue(), floatDelta) // 4500 cs ÷ 100
+		case "oracledb.session.stored_procedure.memory":
+			seen++
+			dp := me.Gauge().DataPoints().At(0)
+			requirePdb(t, me.Name(), dp)
+			assert.Equal(t, int64(262144), dp.IntValue())
+		case "oracledb.lock.time":
+			seen++
+			dps := me.Sum().DataPoints()
+			for j := 0; j < dps.Len(); j++ {
+				dp := dps.At(j)
+				requirePdb(t, me.Name(), dp)
+				sessionType, _ := dp.Attributes().Get("oracledb.session.type")
+				switch sessionType.Str() {
+				case "background":
+					assert.InDelta(t, 3.5, dp.DoubleValue(), floatDelta)
+				case "foreground":
+					assert.InDelta(t, 12.0, dp.DoubleValue(), floatDelta)
+				default:
+					t.Errorf("unexpected oracledb.session.type %q", sessionType.Str())
+				}
+			}
+		case "oracledb.transaction.rollbacks":
+			seen++
+			dp := me.Sum().DataPoints().At(0)
+			requirePdb(t, me.Name(), dp)
+			assert.Equal(t, int64(4521), dp.IntValue())
+		case "oracledb.session.average":
+			seen++
+			dp := me.Gauge().DataPoints().At(0)
+			requirePdb(t, me.Name(), dp)
+			assert.InDelta(t, 2.50, dp.DoubleValue(), floatDelta)
+		case "oracledb.cpu.usage.rate":
+			seen++
+			dp := me.Gauge().DataPoints().At(0)
+			requirePdb(t, me.Name(), dp)
+			assert.InDelta(t, 1.50, dp.DoubleValue(), floatDelta) // 150 cs/s ÷ 100
+		case "oracledb.cursor.cache.utilization":
+			seen++
+			dp := me.Gauge().DataPoints().At(0)
+			requirePdb(t, me.Name(), dp)
+			assert.InDelta(t, 96.40, dp.DoubleValue(), floatDelta)
+		case "oracledb.transaction.response.time":
+			seen++
+			dp := me.Gauge().DataPoints().At(0)
+			requirePdb(t, me.Name(), dp)
+			assert.InDelta(t, 0.1234, dp.DoubleValue(), floatDelta) // 12.34 cs ÷ 100
+		}
+	}
+	assert.Equal(t, 9, seen, "expected all nine new per-PDB metrics to be emitted")
 }
 
 func TestScraper_ScrapeOperationalMetrics(t *testing.T) {
@@ -1618,6 +1770,10 @@ func TestScraper_ScrapeSysMetrics_CDBRoot_PdbAttrDisabled(t *testing.T) {
 	cfg.Metrics.OracledbBufferCacheUtilization.Enabled = true
 	cfg.Metrics.OracledbHostCPUUtilization.Enabled = true
 	cfg.Metrics.OracledbDatabaseCPUUtilization.Enabled = true
+	cfg.Metrics.OracledbSessionAverage.Enabled = true
+	cfg.Metrics.OracledbCPUUsageRate.Enabled = true
+	cfg.Metrics.OracledbCursorCacheUtilization.Enabled = true
+	cfg.Metrics.OracledbTransactionResponseTime.Enabled = true
 
 	scrpr := oracleScraper{
 		logger: zap.NewNop(),
@@ -1663,6 +1819,10 @@ func TestScraper_ScrapeSysMetrics_CDBRoot_PdbAttrDisabled(t *testing.T) {
 	assert.InDelta(t, 98.75, metricMap["oracledb.buffer_cache.utilization"], floatDelta)
 	assert.InDelta(t, 12.34, metricMap["oracledb.host.cpu.utilization"], floatDelta)
 	assert.InDelta(t, 55.66, metricMap["oracledb.database.cpu.utilization"], floatDelta)
+	assert.InDelta(t, 2.50, metricMap["oracledb.session.average"], floatDelta)
+	assert.InDelta(t, 1.50, metricMap["oracledb.cpu.usage.rate"], floatDelta) // 150 cs/s ÷ 100
+	assert.InDelta(t, 96.40, metricMap["oracledb.cursor.cache.utilization"], floatDelta)
+	assert.InDelta(t, 0.1234, metricMap["oracledb.transaction.response.time"], floatDelta) // 12.34 cs ÷ 100
 }
 
 // On a CDB root, if the container-grants probe fails, isCDBRoot stays false
