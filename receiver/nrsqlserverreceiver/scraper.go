@@ -149,6 +149,8 @@ func (s *sqlServerScraperHelper) ScrapeMetrics(ctx context.Context) (pmetric.Met
 		err = s.recordLockMetrics(ctx)
 	case getSQLServerThreadPoolQuery(s.config.InstanceName):
 		err = s.recordThreadPoolMetrics(ctx)
+	case getSQLServerWorkerThreadsQuery(s.config.InstanceName):
+		err = s.recordWorkerThreadMetrics(ctx)
 	case getSQLServerTempDBQuery(s.config.InstanceName):
 		err = s.recordTempDBMetrics(ctx)
 	case getSQLServerTempDBFileQuery(s.config.InstanceName):
@@ -480,6 +482,17 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 	const skippedGhostedRecordsPerSec = "Skipped Ghosted Records/sec"
 	const tableLockEscalationsPerSec = "Table Lock Escalations/sec"
 	const worktablesFromCacheRatio = "Worktables From Cache Ratio"
+	const activeCursors = "Active cursors"
+	const cachedCursorCounts = "Cached Cursor Counts"
+	const cursorMemoryUsage = "Cursor memory usage"
+	const cursorRequestsPerSec = "Cursor Requests/sec"
+	const numberOfActiveCursorPlans = "Number of active cursor plans"
+	const clrExecution = "CLR Execution"
+	const tasksRunning = "Tasks Running"
+	const taskLimitReached = "Task Limit Reached"
+	const tasksStartedPerSec = "Tasks Started/sec"
+	const tasksAbortedPerSec = "Tasks Aborted/sec"
+	const storedProceduresInvokedPerSec = "Stored Procedures Invoked/sec"
 	// Constants are the columns for metrics from query
 	const activeTempTables = "Active Temp Tables"
 	const activeTransactions = "Active Transactions"
@@ -505,6 +518,7 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 	const guidedPlanExecutionsPerSec = "Guided plan executions/sec"
 	const indexSearchesPerSec = "Index Searches/sec"
 	const lockTimeoutsPerSec = "Lock Timeouts/sec"
+	const lockTimeoutsNonzeroPerSec = "Lock Timeouts (timeout > 0)/sec"
 	const lockWaitCount = "Lock Wait Count"
 	const lockWaits = "Lock Waits/sec"
 	const loginsPerSec = "Logins/sec"
@@ -752,7 +766,103 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, lockTimeoutsPerSec)
 				errs = append(errs, err)
 			} else {
-				s.mb.RecordSqlserverLockTimeoutRateDataPoint(now, val.(float64))
+				s.mb.RecordSqlserverLockTimeoutRateDataPoint(now, val.(float64), metadata.AttributeSqlserverLockTimeoutTypeAll)
+			}
+		case lockTimeoutsNonzeroPerSec:
+			val, err := retrieveFloat(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, lockTimeoutsNonzeroPerSec)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverLockTimeoutRateDataPoint(now, val.(float64), metadata.AttributeSqlserverLockTimeoutTypeNonzero)
+			}
+		case activeCursors:
+			val, err := retrieveInt(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, activeCursors)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverCursorCountDataPoint(now, val.(int64), metadata.AttributeCursorStateActive)
+			}
+		case cachedCursorCounts:
+			val, err := retrieveInt(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, cachedCursorCounts)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverCursorCountDataPoint(now, val.(int64), metadata.AttributeCursorStateCached)
+			}
+		case numberOfActiveCursorPlans:
+			val, err := retrieveInt(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, numberOfActiveCursorPlans)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverCursorPlanCountDataPoint(now, val.(int64))
+			}
+		case cursorMemoryUsage:
+			val, err := retrieveInt(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, cursorMemoryUsage)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverCursorMemoryUsageDataPoint(now, val.(int64)*1024)
+			}
+		case cursorRequestsPerSec:
+			val, err := retrieveFloat(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, cursorRequestsPerSec)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverCursorRequestRateDataPoint(now, val.(float64))
+			}
+		case clrExecution:
+			val, err := retrieveInt(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, clrExecution)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverClrExecutionTimeDataPoint(now, float64(val.(int64))/1_000_000.0)
+			}
+		case tasksRunning:
+			val, err := retrieveInt(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, tasksRunning)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverTaskCountDataPoint(now, val.(int64), metadata.AttributeTaskStateRunning)
+			}
+		case taskLimitReached:
+			val, err := retrieveInt(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, taskLimitReached)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverTaskCountDataPoint(now, val.(int64), metadata.AttributeTaskStateLimitReached)
+			}
+		case tasksStartedPerSec:
+			val, err := retrieveFloat(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, tasksStartedPerSec)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverTaskRateDataPoint(now, val.(float64), metadata.AttributeTaskResultStarted)
+			}
+		case tasksAbortedPerSec:
+			val, err := retrieveFloat(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, tasksAbortedPerSec)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverTaskRateDataPoint(now, val.(float64), metadata.AttributeTaskResultAborted)
+			}
+		case storedProceduresInvokedPerSec:
+			val, err := retrieveFloat(row, valueKey)
+			if err != nil {
+				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, storedProceduresInvokedPerSec)
+				errs = append(errs, err)
+			} else {
+				s.mb.RecordSqlserverStoredProcedureInvocationRateDataPoint(now, val.(float64))
 			}
 		case lockWaitCount:
 			val, err := retrieveInt(row, valueKey)
@@ -1721,6 +1831,67 @@ func (s *sqlServerScraperHelper) recordLockMetrics(ctx context.Context) error {
 		for _, c := range lockResourceCols {
 			errs = append(errs, s.mb.RecordSqlserverLockByResourceCountDataPoint(now, row[c.col], row[databaseName], c.value))
 		}
+		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
+	}
+
+	return errors.Join(errs...)
+}
+
+func (s *sqlServerScraperHelper) recordWorkerThreadMetrics(ctx context.Context) error {
+	const activeThreads = "active_threads"
+	const availableThreads = "available_threads"
+	const requestsWaitingForThreads = "requests_waiting_for_threads"
+	const totalThreads = "total_threads"
+	const waitingForCPUThreads = "waiting_for_cpu_threads"
+
+	rows, err := s.client.QueryRows(ctx)
+	if err != nil {
+		if !errors.Is(err, sqlquery.ErrNullValueWarning) {
+			return fmt.Errorf("sqlServerScraperHelper: %w", err)
+		}
+		s.logger.Warn("problems encountered getting metric rows", zap.Error(err))
+	}
+
+	var errs []error
+	now := pcommon.NewTimestampFromTime(time.Now())
+	for i, row := range rows {
+		rb := s.setupResourceBuilder(s.mb.NewResourceBuilder(), row)
+
+		val, err := retrieveInt(row, requestsWaitingForThreads)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse %s for row %d: %w", requestsWaitingForThreads, i, err))
+		} else {
+			s.mb.RecordSqlserverWorkerRequestCountDataPoint(now, val.(int64), metadata.AttributeRequestStateWaiting)
+		}
+
+		val, err = retrieveInt(row, activeThreads)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse %s for row %d: %w", activeThreads, i, err))
+		} else {
+			s.mb.RecordSqlserverWorkerThreadCountDataPoint(now, val.(int64), metadata.AttributeWorkerStateActive)
+		}
+
+		val, err = retrieveInt(row, availableThreads)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse %s for row %d: %w", availableThreads, i, err))
+		} else {
+			s.mb.RecordSqlserverWorkerThreadCountDataPoint(now, val.(int64), metadata.AttributeWorkerStateAvailable)
+		}
+
+		val, err = retrieveInt(row, totalThreads)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse %s for row %d: %w", totalThreads, i, err))
+		} else {
+			s.mb.RecordSqlserverWorkerThreadCountDataPoint(now, val.(int64), metadata.AttributeWorkerStateMaximum)
+		}
+
+		val, err = retrieveInt(row, waitingForCPUThreads)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse %s for row %d: %w", waitingForCPUThreads, i, err))
+		} else {
+			s.mb.RecordSqlserverWorkerThreadCountDataPoint(now, val.(int64), metadata.AttributeWorkerStateWaitingForCPU)
+		}
+
 		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
 	}
 

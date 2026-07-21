@@ -264,6 +264,16 @@ This metric is only available when the receiver is configured to directly connec
 | ---- | ----------- | ---------- | --------- |
 | 1 | Gauge | Double | Development |
 
+### sqlserver.clr.execution.time
+
+Total time spent executing in the CLR. Only non-zero when CLR integration is enabled and CLR code has been executed.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
+| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
+| s | Sum | Double | Cumulative | true | Development |
+
 ### sqlserver.computer.uptime
 
 Computer uptime.
@@ -289,6 +299,52 @@ Number of CPUs.
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
 | {CPUs} | Gauge | Int | Development |
+
+### sqlserver.cursor.count
+
+Number of cursors by state.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {cursor} | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| cursor.state | The state of the cursor. | Str: ``active``, ``cached`` | Recommended | - |
+
+### sqlserver.cursor.memory.usage
+
+Memory used by cursors.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| By | Gauge | Int | Development |
+
+### sqlserver.cursor.plan.count
+
+Number of active cursor plans.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {plan} | Gauge | Int | Development |
+
+### sqlserver.cursor.request.rate
+
+Rate of cursor requests per second.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {request}/s | Gauge | Double | Development |
 
 ### sqlserver.database.backup_or_restore.rate
 
@@ -1062,6 +1118,12 @@ Total number of lock timeouts.
 | ---- | ----------- | ---------- | --------- |
 | {timeouts}/s | Gauge | Double | Development |
 
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| sqlserver.lock.timeout.type | The type of lock timeout being reported. `all` includes immediate (zero-wait) timeouts; `nonzero` excludes them. | Str: ``all``, ``nonzero`` | Required | - |
+
 ### sqlserver.lock.wait.count
 
 Cumulative count of lock waits that occurred.
@@ -1472,6 +1534,16 @@ This metric is only available when the receiver is configured to directly connec
 | ---- | ----------- | ------ | ----------------- | ------------------- |
 | role | The name of the database or server role. | Any Str | Recommended | - |
 
+### sqlserver.stored_procedure.invocation.rate
+
+Rate of Service Broker activated stored procedure invocations per second.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {invocation}/s | Gauge | Double | Development |
+
 ### sqlserver.table.count
 
 The number of tables.
@@ -1486,6 +1558,38 @@ The number of tables.
 | ---- | ----------- | ------ | ----------------- | ------------------- |
 | table.state | The state of the table. | Str: ``active``, ``inactive`` | Recommended | - |
 | table.status | The status of the table. | Str: ``temporary``, ``permanent`` | Recommended | - |
+
+### sqlserver.task.count
+
+Number of Service Broker activation tasks by state.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {task} | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| task.state | SQL Server task state for thread-pool diagnostics. | Str: ``current``, ``queued``, ``waiting_for_threadpool``, ``running``, ``limit_reached`` | Recommended | - |
+
+### sqlserver.task.rate
+
+Rate of Service Broker activation tasks by type per second.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {task}/s | Gauge | Double | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| task.result | The result of the task activation. | Str: ``started``, ``aborted`` | Recommended | - |
 
 ### sqlserver.tempdb.allocation.wait_time.total
 
@@ -1570,7 +1674,7 @@ This metric is only available when the receiver is configured to directly connec
 
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
-| task.state | SQL Server task state for thread-pool diagnostics. | Str: ``current``, ``queued``, ``waiting_for_threadpool`` | Recommended | - |
+| task.state | SQL Server task state for thread-pool diagnostics. | Str: ``current``, ``queued``, ``waiting_for_threadpool``, ``running``, ``limit_reached`` | Recommended | - |
 
 ### sqlserver.thread_pool.workers.count
 
@@ -1586,7 +1690,7 @@ This metric is only available when the receiver is configured to directly connec
 
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
-| worker.state | SQL Server worker state. | Str: ``running``, ``suspended_or_sleeping`` | Recommended | - |
+| worker.state | SQL Server worker state. | Str: ``running``, ``suspended_or_sleeping``, ``maximum``, ``active``, ``available``, ``waiting_for_cpu`` | Recommended | - |
 
 ### sqlserver.thread_pool.workers.max
 
@@ -1653,6 +1757,38 @@ This metric is only available when the receiver is configured to directly connec
 | Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
 | ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
 | By | Sum | Double | Cumulative | true | Development |
+
+### sqlserver.worker.request.count
+
+Number of worker requests by state.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {request} | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| request.state | The state of the worker request. | Str: ``waiting`` | Recommended | - |
+
+### sqlserver.worker.thread.count
+
+Number of worker threads by state.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {thread} | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| worker.state | SQL Server worker state. | Str: ``running``, ``suspended_or_sleeping``, ``maximum``, ``active``, ``available``, ``waiting_for_cpu`` | Recommended | - |
 
 ### sqlserver.worktable.cache.hit_ratio
 
