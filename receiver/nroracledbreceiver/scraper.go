@@ -903,7 +903,7 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 					scrapeErrors = append(scrapeErrors, err)
 				}
 			case sessionNonIdleWaitCount:
-				if err := s.mb.RecordOracledbSessionWaitsDataPoint(now, row["VALUE"], metadata.AttributeOracledbSessionWaitStateNonIdle); err != nil {
+				if err := s.mb.RecordOracledbSessionWaitsDataPoint(now, row["VALUE"], metadata.AttributeOracledbSessionWaitStateNonIdle, pdbName); err != nil {
 					scrapeErrors = append(scrapeErrors, err)
 				}
 			case sessionNonIdleWaitTime:
@@ -911,10 +911,10 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, fmt.Errorf("%s value: %q, %w", sessionNonIdleWaitTime, row["VALUE"], err))
 				} else {
-					s.mb.RecordOracledbSessionWaitTimeDataPoint(now, value/100, metadata.AttributeOracledbSessionWaitStateNonIdle)
+					s.mb.RecordOracledbSessionWaitTimeDataPoint(now, value/100, metadata.AttributeOracledbSessionWaitStateNonIdle, pdbName)
 				}
 			case sessionStoredProcedureSpace:
-				if err := s.mb.RecordOracledbSessionStoredProcedureMemoryDataPoint(now, row["VALUE"]); err != nil {
+				if err := s.mb.RecordOracledbSessionStoredProcedureMemoryDataPoint(now, row["VALUE"], pdbName); err != nil {
 					scrapeErrors = append(scrapeErrors, err)
 				}
 			// Transactions, Locks & Recovery
@@ -942,17 +942,17 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, fmt.Errorf("%s value: %q, %w", transactionLockBackgroundTime, row["VALUE"], err))
 				} else {
-					s.mb.RecordOracledbLockTimeDataPoint(now, value/100, metadata.AttributeOracledbSessionTypeBackground)
+					s.mb.RecordOracledbLockTimeDataPoint(now, value/100, pdbName, metadata.AttributeOracledbSessionTypeBackground)
 				}
 			case transactionLockForegroundTime:
 				value, err := strconv.ParseFloat(row["VALUE"], 64)
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, fmt.Errorf("%s value: %q, %w", transactionLockForegroundTime, row["VALUE"], err))
 				} else {
-					s.mb.RecordOracledbLockTimeDataPoint(now, value/100, metadata.AttributeOracledbSessionTypeForeground)
+					s.mb.RecordOracledbLockTimeDataPoint(now, value/100, pdbName, metadata.AttributeOracledbSessionTypeForeground)
 				}
 			case transactionRollbacks:
-				if err := s.mb.RecordOracledbTransactionRollbacksDataPoint(now, row["VALUE"]); err != nil {
+				if err := s.mb.RecordOracledbTransactionRollbacksDataPoint(now, row["VALUE"], pdbName); err != nil {
 					scrapeErrors = append(scrapeErrors, err)
 				}
 			}
@@ -1280,7 +1280,14 @@ func (s *oracleScraper) collectSysMetrics(ctx context.Context, scrapeErrors *[]e
 		s.metricsBuilderConfig.Metrics.OracledbSortRatio.Enabled ||
 		s.metricsBuilderConfig.Metrics.OracledbRedoAllocationUtilization.Enabled ||
 		s.metricsBuilderConfig.Metrics.OracledbParseRate.Enabled ||
-		s.metricsBuilderConfig.Metrics.OracledbExecutionUtilization.Enabled
+		s.metricsBuilderConfig.Metrics.OracledbExecutionUtilization.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbCPUUsageRate.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbCursorCacheUtilization.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbHostCPUUsageRate.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbIoSingleBlockReadLatency.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbPgaCacheUtilization.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbSessionAverage.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbTransactionResponseTime.Enabled
 	if !anySysmetricEnabled {
 		return
 	}
@@ -1362,7 +1369,11 @@ func (s *oracleScraper) anySysmetricPdbAttrEnabled() bool {
 		hasPdbAttr(m.OracledbSortRatio.EnabledAttributes) ||
 		hasPdbAttr(m.OracledbRedoAllocationUtilization.EnabledAttributes) ||
 		hasPdbAttr(m.OracledbParseRate.EnabledAttributes) ||
-		hasPdbAttr(m.OracledbExecutionUtilization.EnabledAttributes)
+		hasPdbAttr(m.OracledbExecutionUtilization.EnabledAttributes) ||
+		hasPdbAttr(m.OracledbSessionAverage.EnabledAttributes) ||
+		hasPdbAttr(m.OracledbCPUUsageRate.EnabledAttributes) ||
+		hasPdbAttr(m.OracledbCursorCacheUtilization.EnabledAttributes) ||
+		hasPdbAttr(m.OracledbTransactionResponseTime.EnabledAttributes)
 }
 
 // hasPdbAttr reports whether the generated EnabledAttributes slice contains
@@ -1439,16 +1450,16 @@ func (s *oracleScraper) recordSysmetric(now pcommon.Timestamp, metricName string
 		}
 	case sysmetricAverageActiveSessions:
 		if s.metricsBuilderConfig.Metrics.OracledbSessionAverage.Enabled {
-			s.mb.RecordOracledbSessionAverageDataPoint(now, val, "active")
+			s.mb.RecordOracledbSessionAverageDataPoint(now, val, "active", pdbName)
 		}
 	case sysmetricCPUUsagePerSec:
 		if s.metricsBuilderConfig.Metrics.OracledbCPUUsageRate.Enabled {
 			// Oracle reports CPU Usage Per Sec in centiseconds of CPU per second; convert to CPU-seconds per second.
-			s.mb.RecordOracledbCPUUsageRateDataPoint(now, val/100)
+			s.mb.RecordOracledbCPUUsageRateDataPoint(now, val/100, pdbName)
 		}
 	case sysmetricCursorCacheHitRatio:
 		if s.metricsBuilderConfig.Metrics.OracledbCursorCacheUtilization.Enabled {
-			s.mb.RecordOracledbCursorCacheUtilizationDataPoint(now, val)
+			s.mb.RecordOracledbCursorCacheUtilizationDataPoint(now, val, pdbName)
 		}
 	case sysmetricHostCPUUsagePerSec:
 		if s.metricsBuilderConfig.Metrics.OracledbHostCPUUsageRate.Enabled {
@@ -1462,7 +1473,7 @@ func (s *oracleScraper) recordSysmetric(now pcommon.Timestamp, metricName string
 	case sysmetricResponseTimePerTxn:
 		if s.metricsBuilderConfig.Metrics.OracledbTransactionResponseTime.Enabled {
 			// Oracle reports Response Time Per Txn in centiseconds; convert to seconds.
-			s.mb.RecordOracledbTransactionResponseTimeDataPoint(now, val/100)
+			s.mb.RecordOracledbTransactionResponseTimeDataPoint(now, val/100, pdbName)
 		}
 	case sysmetricSingleBlockReadLatency:
 		if s.metricsBuilderConfig.Metrics.OracledbIoSingleBlockReadLatency.Enabled {
@@ -1953,9 +1964,6 @@ func (s *oracleScraper) setupResourceBuilder(rb *metadata.ResourceBuilder) *meta
 	}
 	if s.instanceInfo.hostingType != "" {
 		rb.SetOracleDbHostingType(s.instanceInfo.hostingType)
-	}
-	if s.instanceInfo.connectedToPDB && s.instanceInfo.pdbName != "" {
-		rb.SetOracleDbPdb(s.instanceInfo.pdbName)
 	}
 	return rb
 }

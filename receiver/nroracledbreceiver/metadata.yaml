@@ -28,10 +28,6 @@ resource_attributes:
     description: The open mode of the Oracle database (e.g. "READ WRITE", "READ ONLY", "MOUNTED").
     enabled: true
     type: string
-  oracle.db.pdb:
-    description: The pluggable database (PDB) name associated with the connection.
-    enabled: true
-    type: string
   oracle.db.role:
     description: The database role of the Oracle instance (e.g. "PRIMARY", "PHYSICAL STANDBY").
     enabled: true
@@ -104,7 +100,7 @@ attributes:
     description: TCP port used by the peer client.
     type: int
   oracle.db.pdb:
-    description: The name of the pluggable database (PDB) in a multitenant CDB. Empty for non-CDB instances or when connected directly to a PDB.
+    description: The name of the pluggable database (PDB) the data point belongs to. Emit one data point per PDB on CDB-root connections and one per direct-PDB connection; empty otherwise. When disabled, per-PDB collection is skipped and each metric emits a single instance-wide data point.
     type: string
     requirement_level: opt_in
   oracle.db.service:
@@ -569,6 +565,8 @@ metrics:
       input_type: string
     unit: "{gets}"
   oracledb.cpu.usage.rate:
+    attributes:
+      - oracle.db.pdb
     description: CPU consumption rate, in CPU-seconds used per second.
     enabled: false
     stability: development
@@ -605,6 +603,8 @@ metrics:
       input_type: string
     unit: "{cursor}"
   oracledb.cursor.cache.utilization:
+    attributes:
+      - oracle.db.pdb
     description: Percentage of cursor executions that reused a cursor in the session cursor cache.
     enabled: false
     stability: development
@@ -887,6 +887,7 @@ metrics:
     attributes: [disk.io.direction]
   oracledb.lock.time:
     attributes:
+      - oracle.db.pdb
       - oracledb.session.type
     description: Cumulative time spent on transaction lock activity.
     enabled: false
@@ -1320,8 +1321,10 @@ metrics:
     gauge:
       value_type: double
     unit: "{session}"
-    attributes: [session_status]
+    attributes: [session_status, oracle.db.pdb]
   oracledb.session.stored_procedure.memory:
+    attributes:
+      - oracle.db.pdb
     description: Memory currently allocated for stored procedures in the session.
     enabled: false
     stability: development
@@ -1332,6 +1335,7 @@ metrics:
   oracledb.session.wait.time:
     attributes:
       - oracledb.session.wait.state
+      - oracle.db.pdb
     description: Cumulative time sessions spent in waits.
     enabled: false
     stability: development
@@ -1343,6 +1347,7 @@ metrics:
   oracledb.session.waits:
     attributes:
       - oracledb.session.wait.state
+      - oracle.db.pdb
     description: Cumulative number of waits across sessions.
     enabled: false
     stability: development
@@ -1518,6 +1523,8 @@ metrics:
       value_type: int
     unit: By
   oracledb.transaction.response.time:
+    attributes:
+      - oracle.db.pdb
     description: Average response time per transaction.
     enabled: false
     stability: development
@@ -1525,6 +1532,8 @@ metrics:
       value_type: double
     unit: s
   oracledb.transaction.rollbacks:
+    attributes:
+      - oracle.db.pdb
     description: Total number of transactions rolled back.
     enabled: false
     stability: development
