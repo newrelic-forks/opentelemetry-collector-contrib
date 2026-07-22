@@ -138,6 +138,8 @@ internal/k8sleaderelectortest internal/k8sleaderelectortest
 internal/kafka internal/kafka
 internal/kubelet internal/kubelet
 internal/metadataproviders internal/metadataproviders
+internal/nrcommon internal/nrcommon
+internal/nrsqlquery internal/nrsqlquery
 internal/otelarrow internal/otelarrow
 internal/pdatautil internal/pdatautil
 internal/rabbitmq internal/rabbitmq
@@ -305,6 +307,9 @@ receiver/mysqlreceiver receiver/mysql
 receiver/namedpipereceiver receiver/namedpipe
 receiver/netflowreceiver receiver/netflow
 receiver/nginxreceiver receiver/nginx
+receiver/nroracledbreceiver receiver/nroracledb
+receiver/nrpostgresqlreceiver receiver/nrpostgresql
+receiver/nrsqlserverreceiver receiver/nrsqlserver
 receiver/nsxtreceiver receiver/nsxt
 receiver/ntpreceiver receiver/ntp
 receiver/oracledbreceiver receiver/oracledb

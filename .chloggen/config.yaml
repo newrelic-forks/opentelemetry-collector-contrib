@@ -142,6 +142,8 @@ components:
     - internal/kafka
     - internal/kubelet
     - internal/metadataproviders
+    - internal/nrcommon
+    - internal/nrsqlquery
     - internal/pdatautil
     - internal/rabbitmq
     - internal/sharedcomponent
@@ -301,6 +303,8 @@ components:
     - receiver/named_pipe
     - receiver/netflow
     - receiver/nginx
+    - receiver/nroracledb
+    - receiver/nrsqlserver
     - receiver/nsxt
     - receiver/ntp
     - receiver/oracledb

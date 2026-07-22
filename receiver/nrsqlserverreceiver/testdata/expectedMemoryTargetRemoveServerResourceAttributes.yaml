@@ -1,0 +1,31 @@
+resourceMetrics:
+  - resource:
+      attributes:
+        - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: service.instance.id
+          value:
+            stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
+        - key: sqlserver.instance.name
+          value:
+            stringValue: SERVER1
+    scopeMetrics:
+      - metrics:
+          - description: Maximum amount of memory SQL Server is willing to use (target server memory).
+            gauge:
+              dataPoints:
+                - asInt: "17179869184"
+                  startTimeUnixNano: "1000000"
+                  timeUnixNano: "2000000"
+            name: sqlserver.memory.target
+            unit: By
+        scope:
+          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
+          version: latest

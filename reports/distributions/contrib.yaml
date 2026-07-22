@@ -197,6 +197,8 @@ components:
         - named_pipe
         - netflow
         - nginx
+        - nroracledb
+        - nrsqlserver
         - nsxt
         - ntp
         - oracledb
