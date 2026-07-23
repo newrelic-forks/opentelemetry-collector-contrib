@@ -307,6 +307,7 @@ receiver/mysqlreceiver receiver/mysql
 receiver/namedpipereceiver receiver/namedpipe
 receiver/netflowreceiver receiver/netflow
 receiver/nginxreceiver receiver/nginx
+receiver/nrmysqlreceiver receiver/nrmysql
 receiver/nroracledbreceiver receiver/nroracledb
 receiver/nrpostgresqlreceiver receiver/nrpostgresql
 receiver/nrsqlserverreceiver receiver/nrsqlserver
