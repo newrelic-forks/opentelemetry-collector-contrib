@@ -326,7 +326,7 @@ receiver/mysqlreceiver/                                          @open-telemetry
 receiver/namedpipereceiver/                                      @open-telemetry/collector-contrib-approvers @sinkingpoint
 receiver/netflowreceiver/                                        @open-telemetry/collector-contrib-approvers @evan-bradley @dlopes7
 receiver/nginxreceiver/                                          @open-telemetry/collector-contrib-approvers @colelaven @ishleenk17
-receiver/nrmysqlreceiver/                                        @open-telemetry/collector-contrib-approvers @antonblock @ishleenk17 @newrelic/dbi
+receiver/nrmysqlreceiver/                                        @open-telemetry/collector-contrib-approvers @newrelic/dbi
 receiver/nroracledbreceiver/                                     @open-telemetry/collector-contrib-approvers @dmitryax @crobert-1 @atoulme @newrelic/dbi
 receiver/nrpostgresqlreceiver/                                   @open-telemetry/collector-contrib-approvers @antonblock @crobert-1 @newrelic/dbi
 receiver/nrsqlserverreceiver/                                    @open-telemetry/collector-contrib-approvers @sincejune @crobert-1 @newrelic/dbi
