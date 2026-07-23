@@ -2033,7 +2033,7 @@ func (ms *MysqlUptimeMetricConfig) Unmarshal(parser *confmap.Conf) error {
 	return nil
 }
 
-// MetricsConfig provides config for mysql metrics.
+// MetricsConfig provides config for nrmysql metrics.
 type MetricsConfig struct {
 	MysqlBufferPoolDataPages     MysqlBufferPoolDataPagesMetricConfig     `mapstructure:"mysql.buffer_pool.data_pages"`
 	MysqlBufferPoolLimit         MysqlBufferPoolLimitMetricConfig         `mapstructure:"mysql.buffer_pool.limit"`
@@ -2327,7 +2327,7 @@ func (ec *EventConfig) Unmarshal(parser *confmap.Conf) error {
 	return nil
 }
 
-// EventsConfig provides config for mysql events.
+// EventsConfig provides config for nrmysql events.
 type EventsConfig struct {
 	DbServerQuerySample EventConfig `mapstructure:"db.server.query_sample"`
 	DbServerTopQuery    EventConfig `mapstructure:"db.server.top_query"`
@@ -2554,7 +2554,7 @@ func (rac *ServiceNamespaceResourceAttributeConfig) Unmarshal(parser *confmap.Co
 	return nil
 }
 
-// ResourceAttributesConfig provides config for mysql resource attributes.
+// ResourceAttributesConfig provides config for nrmysql resource attributes.
 type ResourceAttributesConfig struct {
 	DbSystemName          DbSystemNameResourceAttributeConfig          `mapstructure:"db.system.name"`
 	DbSystemVersion       DbSystemVersionResourceAttributeConfig       `mapstructure:"db.system.version"`
@@ -2611,7 +2611,7 @@ func (rac *ResourceAttributesConfig) applyOverrideValues(res pcommon.Resource) {
 	}
 }
 
-// MetricsBuilderConfig is a configuration for mysql metrics builder.
+// MetricsBuilderConfig is a configuration for nrmysql metrics builder.
 type MetricsBuilderConfig struct {
 	Metrics            MetricsConfig            `mapstructure:"metrics"`
 	ResourceAttributes ResourceAttributesConfig `mapstructure:"resource_attributes"`
@@ -2629,7 +2629,7 @@ func DefaultMetricsBuilderConfig() MetricsBuilderConfig {
 	return NewDefaultMetricsBuilderConfig()
 }
 
-// LogsBuilderConfig is a configuration for mysql logs builder.
+// LogsBuilderConfig is a configuration for nrmysql logs builder.
 type LogsBuilderConfig struct {
 	Events             EventsConfig             `mapstructure:"events"`
 	ResourceAttributes ResourceAttributesConfig `mapstructure:"resource_attributes"`

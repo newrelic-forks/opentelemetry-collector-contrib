@@ -63,7 +63,7 @@ func TestIntegrationScrapeMetrics(t *testing.T) {
 
 	factory := NewFactory()
 	cfg := factory.CreateDefaultConfig().(*Config)
-	cfg.ControllerConfig.CollectionInterval = time.Second
+	cfg.CollectionInterval = time.Second
 	cfg.Endpoint = net.JoinHostPort(host, mappedPort.Port())
 	cfg.Username = "otel"
 	cfg.Password = "otel"
