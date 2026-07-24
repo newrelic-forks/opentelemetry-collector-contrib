@@ -502,6 +502,7 @@ metrics:
     gauge:
       value_type: double
     unit: "{change}/s"
+    attributes: [oracle.db.pdb]
   oracledb.buffer_cache.block.gets:
     description: Number of current-mode block gets satisfied from the buffer cache. Distinct from oracledb.db_block_gets, which counts all current-mode block gets requested regardless of where they are satisfied.
     enabled: false
@@ -635,6 +636,7 @@ metrics:
     gauge:
       value_type: double
     unit: "{cursor}/s"
+    attributes: [oracle.db.pdb]
   oracledb.data_dictionary.hit_ratio:
     description: Data dictionary cache hit ratio from v$rowcache.
     enabled: false
@@ -729,6 +731,7 @@ metrics:
     gauge:
       value_type: double
     unit: "{deadlock}/s"
+    attributes: [oracle.db.pdb]
   oracledb.enqueue.operations:
     description: Total count of enqueue (lock) operations.
     enabled: false
@@ -747,6 +750,7 @@ metrics:
     gauge:
       value_type: double
     unit: "{timeout}/s"
+    attributes: [oracle.db.pdb]
   oracledb.enqueue_deadlocks:
     attributes:
       - oracle.db.pdb
@@ -832,6 +836,7 @@ metrics:
     gauge:
       value_type: double
     unit: "{execution}/s"
+    attributes: [oracle.db.pdb]
   oracledb.gc.current_block.time:
     attributes:
       - network.io.direction
@@ -862,6 +867,7 @@ metrics:
     gauge:
       value_type: double
     unit: "{parse}/s"
+    attributes: [oracle.db.pdb]
   oracledb.host.cpu.usage.rate:
     description: Host CPU consumption rate across all cores, in CPU-seconds used per second.
     enabled: false
@@ -974,6 +980,7 @@ metrics:
     gauge:
       value_type: double
     unit: "{read}/s"
+    attributes: [oracle.db.pdb]
   oracledb.logons:
     attributes:
       - oracle.db.pdb
@@ -993,6 +1000,7 @@ metrics:
     gauge:
       value_type: double
     unit: "{logon}/s"
+    attributes: [oracle.db.pdb]
   oracledb.os.swaps:
     description: Number of OS swap operations.
     enabled: false
@@ -1172,7 +1180,7 @@ metrics:
     gauge:
       value_type: double
     unit: "{request}/s"
-    attributes: [disk.io.direction]
+    attributes: [disk.io.direction, oracle.db.pdb]
   oracledb.physical_io.transferred:
     description: Total physical I/O bytes transferred between Oracle and storage. Sums across all data files. Sourced from v$sysstat names physical read/write bytes (disk.io.type=buffered) and physical read/write total bytes (disk.io.type=total).
     enabled: false
@@ -1191,7 +1199,7 @@ metrics:
     gauge:
       value_type: double
     unit: By/s
-    attributes: [disk.io.direction]
+    attributes: [disk.io.direction, oracle.db.pdb]
   oracledb.physical_operations.rate:
     description: Rate of physical read and write operations performed by the database.
     enabled: false
@@ -1199,7 +1207,7 @@ metrics:
     gauge:
       value_type: double
     unit: "{operation}/s"
-    attributes: [disk.io.direction]
+    attributes: [disk.io.direction, oracle.db.pdb]
   oracledb.physical_read_io_requests:
     attributes:
       - oracle.db.pdb
@@ -1378,6 +1386,7 @@ metrics:
     gauge:
       value_type: double
     unit: By/s
+    attributes: [oracle.db.pdb]
   oracledb.redo.time:
     description: Time spent in each phase of the redo pipeline.
     enabled: false
@@ -1660,7 +1669,7 @@ metrics:
     gauge:
       value_type: double
     unit: "{transaction}/s"
-    attributes: [oracledb.transaction.type]
+    attributes: [oracledb.transaction.type, oracle.db.pdb]
   oracledb.transactions.usage:
     description: Current count of active transactions.
     enabled: true

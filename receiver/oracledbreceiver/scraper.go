@@ -1424,7 +1424,20 @@ func (s *oracleScraper) anySysmetricPdbAttrEnabled() bool {
 		hasPdbAttr(m.OracledbSessionAverage.EnabledAttributes) ||
 		hasPdbAttr(m.OracledbCPUUsageRate.EnabledAttributes) ||
 		hasPdbAttr(m.OracledbCursorCacheUtilization.EnabledAttributes) ||
-		hasPdbAttr(m.OracledbTransactionResponseTime.EnabledAttributes)
+		hasPdbAttr(m.OracledbTransactionResponseTime.EnabledAttributes) ||
+		hasPdbAttr(m.OracledbBufferCacheBlockChangesRate.EnabledAttributes) ||
+		hasPdbAttr(m.OracledbLogicalReadsRate.EnabledAttributes) ||
+		hasPdbAttr(m.OracledbPhysicalIoTransferredRate.EnabledAttributes) ||
+		hasPdbAttr(m.OracledbPhysicalIoRequestsRate.EnabledAttributes) ||
+		hasPdbAttr(m.OracledbPhysicalOperationsRate.EnabledAttributes) ||
+		hasPdbAttr(m.OracledbRedoSizeRate.EnabledAttributes) ||
+		hasPdbAttr(m.OracledbEnqueueDeadlocksRate.EnabledAttributes) ||
+		hasPdbAttr(m.OracledbEnqueueTimeoutsRate.EnabledAttributes) ||
+		hasPdbAttr(m.OracledbExecutionsRate.EnabledAttributes) ||
+		hasPdbAttr(m.OracledbHardParsesRate.EnabledAttributes) ||
+		hasPdbAttr(m.OracledbLogonsRate.EnabledAttributes) ||
+		hasPdbAttr(m.OracledbCursorOpenRate.EnabledAttributes) ||
+		hasPdbAttr(m.OracledbTransactionsRate.EnabledAttributes)
 }
 
 // hasPdbAttr reports whether the generated EnabledAttributes slice contains
@@ -1530,7 +1543,7 @@ func (s *oracleScraper) recordSysmetric(now pcommon.Timestamp, metricName string
 	// V$SYSMETRIC I/O rates
 	case sysmetricDBBlockChangesPerSec:
 		if s.metricsBuilderConfig.Metrics.OracledbBufferCacheBlockChangesRate.Enabled {
-			s.mb.RecordOracledbBufferCacheBlockChangesRateDataPoint(now, val)
+			s.mb.RecordOracledbBufferCacheBlockChangesRateDataPoint(now, val, pdbName)
 		}
 	case sysmetricIOMegabytesPerSecond:
 		if s.metricsBuilderConfig.Metrics.OracledbIoThroughputRate.Enabled {
@@ -1543,68 +1556,68 @@ func (s *oracleScraper) recordSysmetric(now pcommon.Timestamp, metricName string
 		}
 	case sysmetricLogicalReadsPerSec:
 		if s.metricsBuilderConfig.Metrics.OracledbLogicalReadsRate.Enabled {
-			s.mb.RecordOracledbLogicalReadsRateDataPoint(now, val)
+			s.mb.RecordOracledbLogicalReadsRateDataPoint(now, val, pdbName)
 		}
 	case sysmetricPhysicalReadTotalBytesPerSec:
 		if s.metricsBuilderConfig.Metrics.OracledbPhysicalIoTransferredRate.Enabled {
-			s.mb.RecordOracledbPhysicalIoTransferredRateDataPoint(now, val, metadata.AttributeDiskIoDirectionRead)
+			s.mb.RecordOracledbPhysicalIoTransferredRateDataPoint(now, val, metadata.AttributeDiskIoDirectionRead, pdbName)
 		}
 	case sysmetricPhysicalReadTotalIORequestsPerSec:
 		if s.metricsBuilderConfig.Metrics.OracledbPhysicalIoRequestsRate.Enabled {
-			s.mb.RecordOracledbPhysicalIoRequestsRateDataPoint(now, val, metadata.AttributeDiskIoDirectionRead)
+			s.mb.RecordOracledbPhysicalIoRequestsRateDataPoint(now, val, metadata.AttributeDiskIoDirectionRead, pdbName)
 		}
 	case sysmetricPhysicalReadsPerSec:
 		if s.metricsBuilderConfig.Metrics.OracledbPhysicalOperationsRate.Enabled {
-			s.mb.RecordOracledbPhysicalOperationsRateDataPoint(now, val, metadata.AttributeDiskIoDirectionRead)
+			s.mb.RecordOracledbPhysicalOperationsRateDataPoint(now, val, metadata.AttributeDiskIoDirectionRead, pdbName)
 		}
 	case sysmetricPhysicalWriteTotalBytesPerSec:
 		if s.metricsBuilderConfig.Metrics.OracledbPhysicalIoTransferredRate.Enabled {
-			s.mb.RecordOracledbPhysicalIoTransferredRateDataPoint(now, val, metadata.AttributeDiskIoDirectionWrite)
+			s.mb.RecordOracledbPhysicalIoTransferredRateDataPoint(now, val, metadata.AttributeDiskIoDirectionWrite, pdbName)
 		}
 	case sysmetricPhysicalWriteTotalIORequestsPerSec:
 		if s.metricsBuilderConfig.Metrics.OracledbPhysicalIoRequestsRate.Enabled {
-			s.mb.RecordOracledbPhysicalIoRequestsRateDataPoint(now, val, metadata.AttributeDiskIoDirectionWrite)
+			s.mb.RecordOracledbPhysicalIoRequestsRateDataPoint(now, val, metadata.AttributeDiskIoDirectionWrite, pdbName)
 		}
 	case sysmetricPhysicalWritesPerSec:
 		if s.metricsBuilderConfig.Metrics.OracledbPhysicalOperationsRate.Enabled {
-			s.mb.RecordOracledbPhysicalOperationsRateDataPoint(now, val, metadata.AttributeDiskIoDirectionWrite)
+			s.mb.RecordOracledbPhysicalOperationsRateDataPoint(now, val, metadata.AttributeDiskIoDirectionWrite, pdbName)
 		}
 	case sysmetricRedoGeneratedPerSec:
 		if s.metricsBuilderConfig.Metrics.OracledbRedoSizeRate.Enabled {
-			s.mb.RecordOracledbRedoSizeRateDataPoint(now, val)
+			s.mb.RecordOracledbRedoSizeRateDataPoint(now, val, pdbName)
 		}
 	// V$SYSMETRIC workload rates
 	case sysmetricEnqueueDeadlocksPerSec:
 		if s.metricsBuilderConfig.Metrics.OracledbEnqueueDeadlocksRate.Enabled {
-			s.mb.RecordOracledbEnqueueDeadlocksRateDataPoint(now, val)
+			s.mb.RecordOracledbEnqueueDeadlocksRateDataPoint(now, val, pdbName)
 		}
 	case sysmetricEnqueueTimeoutsPerSec:
 		if s.metricsBuilderConfig.Metrics.OracledbEnqueueTimeoutsRate.Enabled {
-			s.mb.RecordOracledbEnqueueTimeoutsRateDataPoint(now, val)
+			s.mb.RecordOracledbEnqueueTimeoutsRateDataPoint(now, val, pdbName)
 		}
 	case sysmetricExecutionsPerSec:
 		if s.metricsBuilderConfig.Metrics.OracledbExecutionsRate.Enabled {
-			s.mb.RecordOracledbExecutionsRateDataPoint(now, val)
+			s.mb.RecordOracledbExecutionsRateDataPoint(now, val, pdbName)
 		}
 	case sysmetricHardParseCountPerSec:
 		if s.metricsBuilderConfig.Metrics.OracledbHardParsesRate.Enabled {
-			s.mb.RecordOracledbHardParsesRateDataPoint(now, val)
+			s.mb.RecordOracledbHardParsesRateDataPoint(now, val, pdbName)
 		}
 	case sysmetricLogonsPerSec:
 		if s.metricsBuilderConfig.Metrics.OracledbLogonsRate.Enabled {
-			s.mb.RecordOracledbLogonsRateDataPoint(now, val)
+			s.mb.RecordOracledbLogonsRateDataPoint(now, val, pdbName)
 		}
 	case sysmetricOpenCursorsPerSec:
 		if s.metricsBuilderConfig.Metrics.OracledbCursorOpenRate.Enabled {
-			s.mb.RecordOracledbCursorOpenRateDataPoint(now, val)
+			s.mb.RecordOracledbCursorOpenRateDataPoint(now, val, pdbName)
 		}
 	case sysmetricUserCommitsPerSec:
 		if s.metricsBuilderConfig.Metrics.OracledbTransactionsRate.Enabled {
-			s.mb.RecordOracledbTransactionsRateDataPoint(now, val, metadata.AttributeOracledbTransactionTypeCommit)
+			s.mb.RecordOracledbTransactionsRateDataPoint(now, val, metadata.AttributeOracledbTransactionTypeCommit, pdbName)
 		}
 	case sysmetricUserRollbacksPerSec:
 		if s.metricsBuilderConfig.Metrics.OracledbTransactionsRate.Enabled {
-			s.mb.RecordOracledbTransactionsRateDataPoint(now, val, metadata.AttributeOracledbTransactionTypeRollback)
+			s.mb.RecordOracledbTransactionsRateDataPoint(now, val, metadata.AttributeOracledbTransactionTypeRollback, pdbName)
 		}
 	}
 }
