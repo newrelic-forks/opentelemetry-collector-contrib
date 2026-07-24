@@ -98,6 +98,26 @@ func (ms *OracledbBufferCacheBlockChangesMetricConfig) Unmarshal(parser *confmap
 	return nil
 }
 
+// OracledbBufferCacheBlockChangesRateMetricConfig provides config for the oracledb.buffer_cache.block.changes.rate metric.
+type OracledbBufferCacheBlockChangesRateMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+}
+
+func (ms *OracledbBufferCacheBlockChangesRateMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
 // OracledbBufferCacheBlockGetsMetricConfig provides config for the oracledb.buffer_cache.block.gets metric.
 type OracledbBufferCacheBlockGetsMetricConfig struct {
 	Enabled          bool `mapstructure:"enabled"`
@@ -526,6 +546,26 @@ func (ms *OracledbCursorOpenMetricConfig) Unmarshal(parser *confmap.Conf) error 
 	return nil
 }
 
+// OracledbCursorOpenRateMetricConfig provides config for the oracledb.cursor.open.rate metric.
+type OracledbCursorOpenRateMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+}
+
+func (ms *OracledbCursorOpenRateMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
 // OracledbDataDictionaryHitRatioMetricConfig provides config for the oracledb.data_dictionary.hit_ratio metric.
 type OracledbDataDictionaryHitRatioMetricConfig struct {
 	Enabled          bool `mapstructure:"enabled"`
@@ -874,6 +914,26 @@ func (ms *OracledbDmlStatementsParallelizedMetricConfig) Validate() error {
 	return nil
 }
 
+// OracledbEnqueueDeadlocksRateMetricConfig provides config for the oracledb.enqueue.deadlocks.rate metric.
+type OracledbEnqueueDeadlocksRateMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+}
+
+func (ms *OracledbEnqueueDeadlocksRateMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
 // OracledbEnqueueOperationsMetricAttributeKey specifies the key of an attribute for the oracledb.enqueue.operations metric.
 type OracledbEnqueueOperationsMetricAttributeKey string
 
@@ -919,6 +979,26 @@ func (ms *OracledbEnqueueOperationsMetricConfig) Validate() error {
 		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
 	}
 
+	return nil
+}
+
+// OracledbEnqueueTimeoutsRateMetricConfig provides config for the oracledb.enqueue.timeouts.rate metric.
+type OracledbEnqueueTimeoutsRateMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+}
+
+func (ms *OracledbEnqueueTimeoutsRateMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
 	return nil
 }
 
@@ -1195,6 +1275,26 @@ func (ms *OracledbExecutionsMetricConfig) Validate() error {
 	return nil
 }
 
+// OracledbExecutionsRateMetricConfig provides config for the oracledb.executions.rate metric.
+type OracledbExecutionsRateMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+}
+
+func (ms *OracledbExecutionsRateMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
 // OracledbGcCurrentBlockTimeMetricAttributeKey specifies the key of an attribute for the oracledb.gc.current_block.time metric.
 type OracledbGcCurrentBlockTimeMetricAttributeKey string
 
@@ -1291,6 +1391,26 @@ func (ms *OracledbHardParsesMetricConfig) Validate() error {
 	return nil
 }
 
+// OracledbHardParsesRateMetricConfig provides config for the oracledb.hard_parses.rate metric.
+type OracledbHardParsesRateMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+}
+
+func (ms *OracledbHardParsesRateMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
 // OracledbHostCPUUsageRateMetricConfig provides config for the oracledb.host.cpu.usage.rate metric.
 type OracledbHostCPUUsageRateMetricConfig struct {
 	Enabled          bool `mapstructure:"enabled"`
@@ -1359,6 +1479,26 @@ func (ms *OracledbHostCPUUtilizationMetricConfig) Validate() error {
 	return nil
 }
 
+// OracledbIoRequestsRateMetricConfig provides config for the oracledb.io.requests.rate metric.
+type OracledbIoRequestsRateMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+}
+
+func (ms *OracledbIoRequestsRateMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
 // OracledbIoSingleBlockReadLatencyMetricConfig provides config for the oracledb.io.single_block.read.latency metric.
 type OracledbIoSingleBlockReadLatencyMetricConfig struct {
 	Enabled          bool `mapstructure:"enabled"`
@@ -1366,6 +1506,26 @@ type OracledbIoSingleBlockReadLatencyMetricConfig struct {
 }
 
 func (ms *OracledbIoSingleBlockReadLatencyMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+// OracledbIoThroughputRateMetricConfig provides config for the oracledb.io.throughput.rate metric.
+type OracledbIoThroughputRateMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+}
+
+func (ms *OracledbIoThroughputRateMetricConfig) Unmarshal(parser *confmap.Conf) error {
 	if parser == nil {
 		return nil
 	}
@@ -1632,6 +1792,26 @@ func (ms *OracledbLogicalReadsMetricConfig) Validate() error {
 	return nil
 }
 
+// OracledbLogicalReadsRateMetricConfig provides config for the oracledb.logical_reads.rate metric.
+type OracledbLogicalReadsRateMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+}
+
+func (ms *OracledbLogicalReadsRateMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
 // OracledbLogonsMetricAttributeKey specifies the key of an attribute for the oracledb.logons metric.
 type OracledbLogonsMetricAttributeKey string
 
@@ -1677,6 +1857,26 @@ func (ms *OracledbLogonsMetricConfig) Validate() error {
 		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
 	}
 
+	return nil
+}
+
+// OracledbLogonsRateMetricConfig provides config for the oracledb.logons.rate metric.
+type OracledbLogonsRateMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+}
+
+func (ms *OracledbLogonsRateMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
 	return nil
 }
 
@@ -2339,6 +2539,54 @@ func (ms *OracledbPhysicalIoRequestsMetricConfig) Validate() error {
 	return nil
 }
 
+// OracledbPhysicalIoRequestsRateMetricAttributeKey specifies the key of an attribute for the oracledb.physical_io.requests.rate metric.
+type OracledbPhysicalIoRequestsRateMetricAttributeKey string
+
+const (
+	OracledbPhysicalIoRequestsRateMetricAttributeKeyDiskIoDirection OracledbPhysicalIoRequestsRateMetricAttributeKey = "disk.io.direction"
+)
+
+// OracledbPhysicalIoRequestsRateMetricConfig provides config for the oracledb.physical_io.requests.rate metric.
+type OracledbPhysicalIoRequestsRateMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                                             `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []OracledbPhysicalIoRequestsRateMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *OracledbPhysicalIoRequestsRateMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *OracledbPhysicalIoRequestsRateMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case OracledbPhysicalIoRequestsRateMetricAttributeKeyDiskIoDirection:
+		default:
+			return fmt.Errorf("metric oracledb.physical_io.requests.rate doesn't have an attribute %v, valid attributes: [disk.io.direction]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
 // OracledbPhysicalIoTransferredMetricAttributeKey specifies the key of an attribute for the oracledb.physical_io.transferred metric.
 type OracledbPhysicalIoTransferredMetricAttributeKey string
 
@@ -2377,6 +2625,102 @@ func (ms *OracledbPhysicalIoTransferredMetricConfig) Validate() error {
 		case OracledbPhysicalIoTransferredMetricAttributeKeyDiskIoDirection, OracledbPhysicalIoTransferredMetricAttributeKeyDiskIoType, OracledbPhysicalIoTransferredMetricAttributeKeyOracleDbPdb:
 		default:
 			return fmt.Errorf("metric oracledb.physical_io.transferred doesn't have an attribute %v, valid attributes: [disk.io.direction, disk.io.type, oracle.db.pdb]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
+// OracledbPhysicalIoTransferredRateMetricAttributeKey specifies the key of an attribute for the oracledb.physical_io.transferred.rate metric.
+type OracledbPhysicalIoTransferredRateMetricAttributeKey string
+
+const (
+	OracledbPhysicalIoTransferredRateMetricAttributeKeyDiskIoDirection OracledbPhysicalIoTransferredRateMetricAttributeKey = "disk.io.direction"
+)
+
+// OracledbPhysicalIoTransferredRateMetricConfig provides config for the oracledb.physical_io.transferred.rate metric.
+type OracledbPhysicalIoTransferredRateMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                                                `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []OracledbPhysicalIoTransferredRateMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *OracledbPhysicalIoTransferredRateMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *OracledbPhysicalIoTransferredRateMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case OracledbPhysicalIoTransferredRateMetricAttributeKeyDiskIoDirection:
+		default:
+			return fmt.Errorf("metric oracledb.physical_io.transferred.rate doesn't have an attribute %v, valid attributes: [disk.io.direction]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
+// OracledbPhysicalOperationsRateMetricAttributeKey specifies the key of an attribute for the oracledb.physical_operations.rate metric.
+type OracledbPhysicalOperationsRateMetricAttributeKey string
+
+const (
+	OracledbPhysicalOperationsRateMetricAttributeKeyDiskIoDirection OracledbPhysicalOperationsRateMetricAttributeKey = "disk.io.direction"
+)
+
+// OracledbPhysicalOperationsRateMetricConfig provides config for the oracledb.physical_operations.rate metric.
+type OracledbPhysicalOperationsRateMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                                             `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []OracledbPhysicalOperationsRateMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *OracledbPhysicalOperationsRateMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *OracledbPhysicalOperationsRateMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case OracledbPhysicalOperationsRateMetricAttributeKeyDiskIoDirection:
+		default:
+			return fmt.Errorf("metric oracledb.physical_operations.rate doesn't have an attribute %v, valid attributes: [disk.io.direction]", val)
 		}
 	}
 
@@ -3004,6 +3348,26 @@ type OracledbRedoSizeMetricConfig struct {
 }
 
 func (ms *OracledbRedoSizeMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+// OracledbRedoSizeRateMetricConfig provides config for the oracledb.redo.size.rate metric.
+type OracledbRedoSizeRateMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+}
+
+func (ms *OracledbRedoSizeRateMetricConfig) Unmarshal(parser *confmap.Conf) error {
 	if parser == nil {
 		return nil
 	}
@@ -4140,6 +4504,54 @@ func (ms *OracledbTransactionsLimitMetricConfig) Unmarshal(parser *confmap.Conf)
 	return nil
 }
 
+// OracledbTransactionsRateMetricAttributeKey specifies the key of an attribute for the oracledb.transactions.rate metric.
+type OracledbTransactionsRateMetricAttributeKey string
+
+const (
+	OracledbTransactionsRateMetricAttributeKeyOracledbTransactionType OracledbTransactionsRateMetricAttributeKey = "oracledb.transaction.type"
+)
+
+// OracledbTransactionsRateMetricConfig provides config for the oracledb.transactions.rate metric.
+type OracledbTransactionsRateMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                                       `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []OracledbTransactionsRateMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *OracledbTransactionsRateMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *OracledbTransactionsRateMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case OracledbTransactionsRateMetricAttributeKeyOracledbTransactionType:
+		default:
+			return fmt.Errorf("metric oracledb.transactions.rate doesn't have an attribute %v, valid attributes: [oracledb.transaction.type]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
 // OracledbTransactionsUsageMetricConfig provides config for the oracledb.transactions.usage metric.
 type OracledbTransactionsUsageMetricConfig struct {
 	Enabled          bool `mapstructure:"enabled"`
@@ -4261,6 +4673,7 @@ type MetricsConfig struct {
 	OracledbBufferInspected                       OracledbBufferInspectedMetricConfig                       `mapstructure:"oracledb.buffer.inspected"`
 	OracledbBufferRequests                        OracledbBufferRequestsMetricConfig                        `mapstructure:"oracledb.buffer.requests"`
 	OracledbBufferCacheBlockChanges               OracledbBufferCacheBlockChangesMetricConfig               `mapstructure:"oracledb.buffer_cache.block.changes"`
+	OracledbBufferCacheBlockChangesRate           OracledbBufferCacheBlockChangesRateMetricConfig           `mapstructure:"oracledb.buffer_cache.block.changes.rate"`
 	OracledbBufferCacheBlockGets                  OracledbBufferCacheBlockGetsMetricConfig                  `mapstructure:"oracledb.buffer_cache.block.gets"`
 	OracledbBufferCacheUtilization                OracledbBufferCacheUtilizationMetricConfig                `mapstructure:"oracledb.buffer_cache.utilization"`
 	OracledbCallCount                             OracledbCallCountMetricConfig                             `mapstructure:"oracledb.call.count"`
@@ -4274,6 +4687,7 @@ type MetricsConfig struct {
 	OracledbCursorCacheSize                       OracledbCursorCacheSizeMetricConfig                       `mapstructure:"oracledb.cursor.cache.size"`
 	OracledbCursorCacheUtilization                OracledbCursorCacheUtilizationMetricConfig                `mapstructure:"oracledb.cursor.cache.utilization"`
 	OracledbCursorOpen                            OracledbCursorOpenMetricConfig                            `mapstructure:"oracledb.cursor.open"`
+	OracledbCursorOpenRate                        OracledbCursorOpenRateMetricConfig                        `mapstructure:"oracledb.cursor.open.rate"`
 	OracledbDataDictionaryHitRatio                OracledbDataDictionaryHitRatioMetricConfig                `mapstructure:"oracledb.data_dictionary.hit_ratio"`
 	OracledbDatabaseCPUUtilization                OracledbDatabaseCPUUtilizationMetricConfig                `mapstructure:"oracledb.database.cpu.utilization"`
 	OracledbDatabaseWaitUtilization               OracledbDatabaseWaitUtilizationMetricConfig               `mapstructure:"oracledb.database.wait.utilization"`
@@ -4283,7 +4697,9 @@ type MetricsConfig struct {
 	OracledbDmlLocksLimit                         OracledbDmlLocksLimitMetricConfig                         `mapstructure:"oracledb.dml_locks.limit"`
 	OracledbDmlLocksUsage                         OracledbDmlLocksUsageMetricConfig                         `mapstructure:"oracledb.dml_locks.usage"`
 	OracledbDmlStatementsParallelized             OracledbDmlStatementsParallelizedMetricConfig             `mapstructure:"oracledb.dml_statements_parallelized"`
+	OracledbEnqueueDeadlocksRate                  OracledbEnqueueDeadlocksRateMetricConfig                  `mapstructure:"oracledb.enqueue.deadlocks.rate"`
 	OracledbEnqueueOperations                     OracledbEnqueueOperationsMetricConfig                     `mapstructure:"oracledb.enqueue.operations"`
+	OracledbEnqueueTimeoutsRate                   OracledbEnqueueTimeoutsRateMetricConfig                   `mapstructure:"oracledb.enqueue.timeouts.rate"`
 	OracledbEnqueueDeadlocks                      OracledbEnqueueDeadlocksMetricConfig                      `mapstructure:"oracledb.enqueue_deadlocks"`
 	OracledbEnqueueLocksLimit                     OracledbEnqueueLocksLimitMetricConfig                     `mapstructure:"oracledb.enqueue_locks.limit"`
 	OracledbEnqueueLocksUsage                     OracledbEnqueueLocksUsageMetricConfig                     `mapstructure:"oracledb.enqueue_locks.usage"`
@@ -4292,11 +4708,15 @@ type MetricsConfig struct {
 	OracledbExchangeDeadlocks                     OracledbExchangeDeadlocksMetricConfig                     `mapstructure:"oracledb.exchange_deadlocks"`
 	OracledbExecutionUtilization                  OracledbExecutionUtilizationMetricConfig                  `mapstructure:"oracledb.execution.utilization"`
 	OracledbExecutions                            OracledbExecutionsMetricConfig                            `mapstructure:"oracledb.executions"`
+	OracledbExecutionsRate                        OracledbExecutionsRateMetricConfig                        `mapstructure:"oracledb.executions.rate"`
 	OracledbGcCurrentBlockTime                    OracledbGcCurrentBlockTimeMetricConfig                    `mapstructure:"oracledb.gc.current_block.time"`
 	OracledbHardParses                            OracledbHardParsesMetricConfig                            `mapstructure:"oracledb.hard_parses"`
+	OracledbHardParsesRate                        OracledbHardParsesRateMetricConfig                        `mapstructure:"oracledb.hard_parses.rate"`
 	OracledbHostCPUUsageRate                      OracledbHostCPUUsageRateMetricConfig                      `mapstructure:"oracledb.host.cpu.usage.rate"`
 	OracledbHostCPUUtilization                    OracledbHostCPUUtilizationMetricConfig                    `mapstructure:"oracledb.host.cpu.utilization"`
+	OracledbIoRequestsRate                        OracledbIoRequestsRateMetricConfig                        `mapstructure:"oracledb.io.requests.rate"`
 	OracledbIoSingleBlockReadLatency              OracledbIoSingleBlockReadLatencyMetricConfig              `mapstructure:"oracledb.io.single_block.read.latency"`
+	OracledbIoThroughputRate                      OracledbIoThroughputRateMetricConfig                      `mapstructure:"oracledb.io.throughput.rate"`
 	OracledbJvmMemoryCommitted                    OracledbJvmMemoryCommittedMetricConfig                    `mapstructure:"oracledb.jvm.memory.committed"`
 	OracledbJvmMemoryLive                         OracledbJvmMemoryLiveMetricConfig                         `mapstructure:"oracledb.jvm.memory.live"`
 	OracledbJvmMemoryUsed                         OracledbJvmMemoryUsedMetricConfig                         `mapstructure:"oracledb.jvm.memory.used"`
@@ -4304,7 +4724,9 @@ type MetricsConfig struct {
 	OracledbLobOperations                         OracledbLobOperationsMetricConfig                         `mapstructure:"oracledb.lob.operations"`
 	OracledbLockTime                              OracledbLockTimeMetricConfig                              `mapstructure:"oracledb.lock.time"`
 	OracledbLogicalReads                          OracledbLogicalReadsMetricConfig                          `mapstructure:"oracledb.logical_reads"`
+	OracledbLogicalReadsRate                      OracledbLogicalReadsRateMetricConfig                      `mapstructure:"oracledb.logical_reads.rate"`
 	OracledbLogons                                OracledbLogonsMetricConfig                                `mapstructure:"oracledb.logons"`
+	OracledbLogonsRate                            OracledbLogonsRateMetricConfig                            `mapstructure:"oracledb.logons.rate"`
 	OracledbOsSwaps                               OracledbOsSwapsMetricConfig                               `mapstructure:"oracledb.os.swaps"`
 	OracledbParallelOperationsDowngraded1To25Pct  OracledbParallelOperationsDowngraded1To25PctMetricConfig  `mapstructure:"oracledb.parallel_operations_downgraded_1_to_25_pct"`
 	OracledbParallelOperationsDowngraded25To50Pct OracledbParallelOperationsDowngraded25To50PctMetricConfig `mapstructure:"oracledb.parallel_operations_downgraded_25_to_50_pct"`
@@ -4321,7 +4743,10 @@ type MetricsConfig struct {
 	OracledbPgaMemory                             OracledbPgaMemoryMetricConfig                             `mapstructure:"oracledb.pga_memory"`
 	OracledbPhysicalIoCacheWrites                 OracledbPhysicalIoCacheWritesMetricConfig                 `mapstructure:"oracledb.physical_io.cache_writes"`
 	OracledbPhysicalIoRequests                    OracledbPhysicalIoRequestsMetricConfig                    `mapstructure:"oracledb.physical_io.requests"`
+	OracledbPhysicalIoRequestsRate                OracledbPhysicalIoRequestsRateMetricConfig                `mapstructure:"oracledb.physical_io.requests.rate"`
 	OracledbPhysicalIoTransferred                 OracledbPhysicalIoTransferredMetricConfig                 `mapstructure:"oracledb.physical_io.transferred"`
+	OracledbPhysicalIoTransferredRate             OracledbPhysicalIoTransferredRateMetricConfig             `mapstructure:"oracledb.physical_io.transferred.rate"`
+	OracledbPhysicalOperationsRate                OracledbPhysicalOperationsRateMetricConfig                `mapstructure:"oracledb.physical_operations.rate"`
 	OracledbPhysicalReadIoRequests                OracledbPhysicalReadIoRequestsMetricConfig                `mapstructure:"oracledb.physical_read_io_requests"`
 	OracledbPhysicalReads                         OracledbPhysicalReadsMetricConfig                         `mapstructure:"oracledb.physical_reads"`
 	OracledbPhysicalReadsDirect                   OracledbPhysicalReadsDirectMetricConfig                   `mapstructure:"oracledb.physical_reads_direct"`
@@ -4338,6 +4763,7 @@ type MetricsConfig struct {
 	OracledbRedoRequests                          OracledbRedoRequestsMetricConfig                          `mapstructure:"oracledb.redo.requests"`
 	OracledbRedoRetries                           OracledbRedoRetriesMetricConfig                           `mapstructure:"oracledb.redo.retries"`
 	OracledbRedoSize                              OracledbRedoSizeMetricConfig                              `mapstructure:"oracledb.redo.size"`
+	OracledbRedoSizeRate                          OracledbRedoSizeRateMetricConfig                          `mapstructure:"oracledb.redo.size.rate"`
 	OracledbRedoTime                              OracledbRedoTimeMetricConfig                              `mapstructure:"oracledb.redo.time"`
 	OracledbRedoAllocationUtilization             OracledbRedoAllocationUtilizationMetricConfig             `mapstructure:"oracledb.redo_allocation.utilization"`
 	OracledbScanCount                             OracledbScanCountMetricConfig                             `mapstructure:"oracledb.scan.count"`
@@ -4367,6 +4793,7 @@ type MetricsConfig struct {
 	OracledbTransactionResponseTime               OracledbTransactionResponseTimeMetricConfig               `mapstructure:"oracledb.transaction.response.time"`
 	OracledbTransactionRollbacks                  OracledbTransactionRollbacksMetricConfig                  `mapstructure:"oracledb.transaction.rollbacks"`
 	OracledbTransactionsLimit                     OracledbTransactionsLimitMetricConfig                     `mapstructure:"oracledb.transactions.limit"`
+	OracledbTransactionsRate                      OracledbTransactionsRateMetricConfig                      `mapstructure:"oracledb.transactions.rate"`
 	OracledbTransactionsUsage                     OracledbTransactionsUsageMetricConfig                     `mapstructure:"oracledb.transactions.usage"`
 	OracledbUserCommits                           OracledbUserCommitsMetricConfig                           `mapstructure:"oracledb.user_commits"`
 	OracledbUserRollbacks                         OracledbUserRollbacksMetricConfig                         `mapstructure:"oracledb.user_rollbacks"`
@@ -4383,6 +4810,9 @@ func DefaultMetricsConfig() MetricsConfig {
 			Enabled: false,
 		},
 		OracledbBufferCacheBlockChanges: OracledbBufferCacheBlockChangesMetricConfig{
+			Enabled: false,
+		},
+		OracledbBufferCacheBlockChangesRate: OracledbBufferCacheBlockChangesRateMetricConfig{
 			Enabled: false,
 		},
 		OracledbBufferCacheBlockGets: OracledbBufferCacheBlockGetsMetricConfig{
@@ -4436,6 +4866,9 @@ func DefaultMetricsConfig() MetricsConfig {
 		OracledbCursorOpen: OracledbCursorOpenMetricConfig{
 			Enabled: false,
 		},
+		OracledbCursorOpenRate: OracledbCursorOpenRateMetricConfig{
+			Enabled: false,
+		},
 		OracledbDataDictionaryHitRatio: OracledbDataDictionaryHitRatioMetricConfig{
 			Enabled: false,
 		},
@@ -4475,10 +4908,16 @@ func DefaultMetricsConfig() MetricsConfig {
 			AggregationStrategy: AggregationStrategySum,
 			EnabledAttributes:   []OracledbDmlStatementsParallelizedMetricAttributeKey{},
 		},
+		OracledbEnqueueDeadlocksRate: OracledbEnqueueDeadlocksRateMetricConfig{
+			Enabled: false,
+		},
 		OracledbEnqueueOperations: OracledbEnqueueOperationsMetricConfig{
 			Enabled:             false,
 			AggregationStrategy: AggregationStrategySum,
 			EnabledAttributes:   []OracledbEnqueueOperationsMetricAttributeKey{OracledbEnqueueOperationsMetricAttributeKeyOracledbEnqueueType},
+		},
+		OracledbEnqueueTimeoutsRate: OracledbEnqueueTimeoutsRateMetricConfig{
+			Enabled: false,
 		},
 		OracledbEnqueueDeadlocks: OracledbEnqueueDeadlocksMetricConfig{
 			Enabled:             true,
@@ -4512,6 +4951,9 @@ func DefaultMetricsConfig() MetricsConfig {
 			AggregationStrategy: AggregationStrategySum,
 			EnabledAttributes:   []OracledbExecutionsMetricAttributeKey{},
 		},
+		OracledbExecutionsRate: OracledbExecutionsRateMetricConfig{
+			Enabled: false,
+		},
 		OracledbGcCurrentBlockTime: OracledbGcCurrentBlockTimeMetricConfig{
 			Enabled:             false,
 			AggregationStrategy: AggregationStrategySum,
@@ -4522,6 +4964,9 @@ func DefaultMetricsConfig() MetricsConfig {
 			AggregationStrategy: AggregationStrategySum,
 			EnabledAttributes:   []OracledbHardParsesMetricAttributeKey{},
 		},
+		OracledbHardParsesRate: OracledbHardParsesRateMetricConfig{
+			Enabled: false,
+		},
 		OracledbHostCPUUsageRate: OracledbHostCPUUsageRateMetricConfig{
 			Enabled: false,
 		},
@@ -4530,7 +4975,13 @@ func DefaultMetricsConfig() MetricsConfig {
 			AggregationStrategy: AggregationStrategyAvg,
 			EnabledAttributes:   []OracledbHostCPUUtilizationMetricAttributeKey{},
 		},
+		OracledbIoRequestsRate: OracledbIoRequestsRateMetricConfig{
+			Enabled: false,
+		},
 		OracledbIoSingleBlockReadLatency: OracledbIoSingleBlockReadLatencyMetricConfig{
+			Enabled: false,
+		},
+		OracledbIoThroughputRate: OracledbIoThroughputRateMetricConfig{
 			Enabled: false,
 		},
 		OracledbJvmMemoryCommitted: OracledbJvmMemoryCommittedMetricConfig{
@@ -4562,10 +5013,16 @@ func DefaultMetricsConfig() MetricsConfig {
 			AggregationStrategy: AggregationStrategySum,
 			EnabledAttributes:   []OracledbLogicalReadsMetricAttributeKey{},
 		},
+		OracledbLogicalReadsRate: OracledbLogicalReadsRateMetricConfig{
+			Enabled: false,
+		},
 		OracledbLogons: OracledbLogonsMetricConfig{
 			Enabled:             false,
 			AggregationStrategy: AggregationStrategySum,
 			EnabledAttributes:   []OracledbLogonsMetricAttributeKey{},
+		},
+		OracledbLogonsRate: OracledbLogonsRateMetricConfig{
+			Enabled: false,
 		},
 		OracledbOsSwaps: OracledbOsSwapsMetricConfig{
 			Enabled: false,
@@ -4639,10 +5096,25 @@ func DefaultMetricsConfig() MetricsConfig {
 			AggregationStrategy: AggregationStrategySum,
 			EnabledAttributes:   []OracledbPhysicalIoRequestsMetricAttributeKey{OracledbPhysicalIoRequestsMetricAttributeKeyDiskIoDirection, OracledbPhysicalIoRequestsMetricAttributeKeyDiskIoBlockSize},
 		},
+		OracledbPhysicalIoRequestsRate: OracledbPhysicalIoRequestsRateMetricConfig{
+			Enabled:             false,
+			AggregationStrategy: AggregationStrategyAvg,
+			EnabledAttributes:   []OracledbPhysicalIoRequestsRateMetricAttributeKey{OracledbPhysicalIoRequestsRateMetricAttributeKeyDiskIoDirection},
+		},
 		OracledbPhysicalIoTransferred: OracledbPhysicalIoTransferredMetricConfig{
 			Enabled:             false,
 			AggregationStrategy: AggregationStrategySum,
 			EnabledAttributes:   []OracledbPhysicalIoTransferredMetricAttributeKey{OracledbPhysicalIoTransferredMetricAttributeKeyDiskIoDirection, OracledbPhysicalIoTransferredMetricAttributeKeyDiskIoType},
+		},
+		OracledbPhysicalIoTransferredRate: OracledbPhysicalIoTransferredRateMetricConfig{
+			Enabled:             false,
+			AggregationStrategy: AggregationStrategyAvg,
+			EnabledAttributes:   []OracledbPhysicalIoTransferredRateMetricAttributeKey{OracledbPhysicalIoTransferredRateMetricAttributeKeyDiskIoDirection},
+		},
+		OracledbPhysicalOperationsRate: OracledbPhysicalOperationsRateMetricConfig{
+			Enabled:             false,
+			AggregationStrategy: AggregationStrategyAvg,
+			EnabledAttributes:   []OracledbPhysicalOperationsRateMetricAttributeKey{OracledbPhysicalOperationsRateMetricAttributeKeyDiskIoDirection},
 		},
 		OracledbPhysicalReadIoRequests: OracledbPhysicalReadIoRequestsMetricConfig{
 			Enabled:             false,
@@ -4712,6 +5184,9 @@ func DefaultMetricsConfig() MetricsConfig {
 			EnabledAttributes:   []OracledbRedoRetriesMetricAttributeKey{OracledbRedoRetriesMetricAttributeKeyOracledbRedoRetryType},
 		},
 		OracledbRedoSize: OracledbRedoSizeMetricConfig{
+			Enabled: false,
+		},
+		OracledbRedoSizeRate: OracledbRedoSizeRateMetricConfig{
 			Enabled: false,
 		},
 		OracledbRedoTime: OracledbRedoTimeMetricConfig{
@@ -4838,6 +5313,11 @@ func DefaultMetricsConfig() MetricsConfig {
 		},
 		OracledbTransactionsLimit: OracledbTransactionsLimitMetricConfig{
 			Enabled: true,
+		},
+		OracledbTransactionsRate: OracledbTransactionsRateMetricConfig{
+			Enabled:             false,
+			AggregationStrategy: AggregationStrategyAvg,
+			EnabledAttributes:   []OracledbTransactionsRateMetricAttributeKey{OracledbTransactionsRateMetricAttributeKeyOracledbTransactionType},
 		},
 		OracledbTransactionsUsage: OracledbTransactionsUsageMetricConfig{
 			Enabled: true,
