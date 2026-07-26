@@ -10,7 +10,7 @@ component: receiver/oracledb
 note: Speed up query-sample collection by splitting it into two queries so the SQL text/plan lookup no longer joins V$SESSION against the entire cursor cache.
 
 # Mandatory: One or more tracking issues related to the change. You can use the PR number here if no issue exists.
-issues: [0]
+issues: [49874]
 
 # (Optional) One or more lines of additional information to render under the primary note.
 # These lines will be padded with 2 spaces and then inserted directly into the document.
@@ -22,7 +22,10 @@ subtext: |
   CHILD_ADDRESS / PLAN_HASH_VALUE from V$SQL for only those sql_ids via
   WHERE SQL_ID IN (...), and joins the results in the collector. Sessions whose
   cursor has aged out of the shared pool are skipped, preserving the previous
-  inner-join semantics.
+  inner-join semantics. Note: the two queries are issued at slightly different SCNs;
+  for actively-executing cursors this is immaterial (they are pinned in the shared
+  pool), but cursors that age out between Pass-1 and Pass-2 will not appear in the
+  output, which matches the previous inner-join semantics.
 
 # If your change doesn't affect end users or the exported elements of any package,
 # you should instead start your pull request title with [chore] or use the "Skip Changelog" label.
