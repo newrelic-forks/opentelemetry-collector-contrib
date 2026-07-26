@@ -264,6 +264,8 @@ var (
 	oracleQueryPlanDataSQL string
 	//go:embed templates/oracleSessionEventSql.tmpl
 	sessionEventQuery string
+		//go:embed templates/oracleQuerySampleStatsSql.tmpl
+	samplesStatsQuery string
 )
 
 // sgaComponentNames maps V$SGAINFO.NAME values to the snake_case enum keys
@@ -1763,6 +1765,10 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 		scrapeErrors = append(scrapeErrors, fmt.Errorf("error executing %s: %w", samplesQuery, err))
 	}
 
+	if err := s.enrichSamplesWithSQLStats(ctx, rows); err != nil {
+		scrapeErrors = append(scrapeErrors, err)
+	}
+
 	rb := s.setupResourceBuilder(s.lb.NewResourceBuilder())
 
 	for _, row := range rows {
@@ -1836,6 +1842,56 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 	s.lb.Emit(metadata.WithLogsResource(rb.Emit())).ResourceLogs().MoveAndAppendTo(logs.ResourceLogs())
 
 	return errors.Join(scrapeErrors...)
+}
+
+func (s *oracleScraper) enrichSamplesWithSQLStats(ctx context.Context, rows []metricRow) error {
+	const lookupSQLID = "LOOKUP_SQL_ID"
+	const lookupChildNumber = "LOOKUP_CHILD_NUMBER"
+
+	if len(rows) == 0 {
+		return nil
+	}
+
+	seen := make(map[string]struct{})
+	var ids []any
+	var placeholders []string
+	for _, row := range rows {
+		id := row[lookupSQLID]
+		if id == "" {
+			continue
+		}
+		if _, dup := seen[id]; dup {
+			continue
+		}
+		seen[id] = struct{}{}
+		placeholders = append(placeholders, fmt.Sprintf(":%d", len(ids)+1))
+		ids = append(ids, id)
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+
+	sqlQuery := fmt.Sprintf(samplesStatsQuery, strings.Join(placeholders, ", "))
+	statsRows, err := s.clientProviderFunc(s.db, sqlQuery, s.logger).metricRows(ctx, ids...)
+	if err != nil {
+		return fmt.Errorf("failed to fetch V$SQL stats for query samples: %w", err)
+	}
+
+	stats := make(map[string]metricRow, len(statsRows))
+	for _, sr := range statsRows {
+		stats[sr[sqlIDAttr]+":"+sr[childNumberAttr]] = sr
+	}
+
+	for _, row := range rows {
+		st, ok := stats[row[lookupSQLID]+":"+row[lookupChildNumber]]
+		if !ok {
+			continue
+		}
+		row[sqlTextAttr] = st[sqlTextAttr]
+		row[childAddressAttr] = st[childAddressAttr]
+		row[planHashValueAttr] = st[planHashValueAttr]
+	}
+	return nil
 }
 
 func (s *oracleScraper) collectSessionWaitEvents(ctx context.Context, logs plog.Logs) error {
