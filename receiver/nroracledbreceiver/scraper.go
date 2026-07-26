@@ -264,7 +264,7 @@ var (
 	oracleQueryPlanDataSQL string
 	//go:embed templates/oracleSessionEventSql.tmpl
 	sessionEventQuery string
-		//go:embed templates/oracleQuerySampleStatsSql.tmpl
+	//go:embed templates/oracleQuerySampleStatsSql.tmpl
 	samplesStatsQuery string
 )
 
@@ -1872,6 +1872,7 @@ func (s *oracleScraper) enrichSamplesWithSQLStats(ctx context.Context, rows []me
 	}
 
 	sqlQuery := fmt.Sprintf(samplesStatsQuery, strings.Join(placeholders, ", "))
+	s.logger.Info("enrichSamplesWithSQLStats query", zap.String("sql", sqlQuery))
 	statsRows, err := s.clientProviderFunc(s.db, sqlQuery, s.logger).metricRows(ctx, ids...)
 	if err != nil {
 		return fmt.Errorf("failed to fetch V$SQL stats for query samples: %w", err)
