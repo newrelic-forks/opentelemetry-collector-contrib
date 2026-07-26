@@ -25,6 +25,9 @@ all_set:
     oracledb.consistent_gets:
       enabled: true
       attributes: ["oracle.db.pdb"]
+    oracledb.cpu.usage.rate:
+      enabled: true
+      attributes: ["oracle.db.pdb"]
     oracledb.cpu_time:
       enabled: true
       attributes: ["oracle.db.pdb"]
@@ -32,6 +35,9 @@ all_set:
       enabled: true
     oracledb.cursor.cache.size:
       enabled: true
+    oracledb.cursor.cache.utilization:
+      enabled: true
+      attributes: ["oracle.db.pdb"]
     oracledb.cursor.open:
       enabled: true
     oracledb.data_dictionary.hit_ratio:
@@ -81,24 +87,42 @@ all_set:
     oracledb.executions:
       enabled: true
       attributes: ["oracle.db.pdb"]
+    oracledb.gc.current_block.time:
+      enabled: true
+      attributes: ["network.io.direction"]
     oracledb.hard_parses:
       enabled: true
       attributes: ["oracle.db.pdb"]
+    oracledb.host.cpu.usage.rate:
+      enabled: true
     oracledb.host.cpu.utilization:
       enabled: true
       attributes: ["oracle.db.pdb"]
+    oracledb.io.single_block.read.latency:
+      enabled: true
+    oracledb.jvm.memory.committed:
+      enabled: true
+    oracledb.jvm.memory.live:
+      enabled: true
+    oracledb.jvm.memory.used:
+      enabled: true
     oracledb.library_cache.utilization:
       enabled: true
       attributes: ["oracle.db.pdb"]
     oracledb.lob.operations:
       enabled: true
       attributes: ["disk.io.direction"]
+    oracledb.lock.time:
+      enabled: true
+      attributes: ["oracle.db.pdb","oracledb.session.type"]
     oracledb.logical_reads:
       enabled: true
       attributes: ["oracle.db.pdb"]
     oracledb.logons:
       enabled: true
       attributes: ["oracle.db.pdb"]
+    oracledb.os.swaps:
+      enabled: true
     oracledb.parallel_operations_downgraded_1_to_25_pct:
       enabled: true
       attributes: ["oracle.db.pdb"]
@@ -130,6 +154,8 @@ all_set:
     oracledb.parse_calls:
       enabled: true
       attributes: ["oracle.db.pdb"]
+    oracledb.pga.cache.utilization:
+      enabled: true
     oracledb.pga_memory:
       enabled: true
       attributes: ["oracle.db.pdb"]
@@ -167,6 +193,8 @@ all_set:
     oracledb.queries_parallelized:
       enabled: true
       attributes: ["oracle.db.pdb"]
+    oracledb.recovery.blocks:
+      enabled: true
     oracledb.recycle_bin.limit:
       enabled: true
     oracledb.redo.blocks:
@@ -194,6 +222,18 @@ all_set:
       attributes: ["oracledb.scan.type","oracledb.scan.mode"]
     oracledb.scan.table.rows:
       enabled: true
+    oracledb.session.average:
+      enabled: true
+      attributes: ["session_status","oracle.db.pdb"]
+    oracledb.session.stored_procedure.memory:
+      enabled: true
+      attributes: ["oracle.db.pdb"]
+    oracledb.session.wait.time:
+      enabled: true
+      attributes: ["oracledb.session.wait.state","oracle.db.pdb"]
+    oracledb.session.waits:
+      enabled: true
+      attributes: ["oracledb.session.wait.state","oracle.db.pdb"]
     oracledb.sessions.limit:
       enabled: true
     oracledb.sessions.usage:
@@ -207,6 +247,9 @@ all_set:
     oracledb.shared_pool.utilization:
       enabled: true
       attributes: ["oracle.db.pdb"]
+    oracledb.smon.posts:
+      enabled: true
+      attributes: ["oracledb.smon.type"]
     oracledb.sort.operations:
       enabled: true
       attributes: ["oracledb.sort.type"]
@@ -237,6 +280,12 @@ all_set:
     oracledb.tablespace_size.usage:
       enabled: true
       attributes: ["tablespace_name","oracle.db.pdb"]
+    oracledb.transaction.response.time:
+      enabled: true
+      attributes: ["oracle.db.pdb"]
+    oracledb.transaction.rollbacks:
+      enabled: true
+      attributes: ["oracle.db.pdb"]
     oracledb.transactions.limit:
       enabled: true
     oracledb.transactions.usage:
@@ -260,8 +309,6 @@ all_set:
     oracle.db.hosting_type:
       enabled: true
     oracle.db.open_mode:
-      enabled: true
-    oracle.db.pdb:
       enabled: true
     oracle.db.role:
       enabled: true
@@ -297,6 +344,9 @@ reaggregate_set:
     oracledb.consistent_gets:
       enabled: true
       attributes: []
+    oracledb.cpu.usage.rate:
+      enabled: true
+      attributes: []
     oracledb.cpu_time:
       enabled: true
       attributes: []
@@ -304,6 +354,9 @@ reaggregate_set:
       enabled: true
     oracledb.cursor.cache.size:
       enabled: true
+    oracledb.cursor.cache.utilization:
+      enabled: true
+      attributes: []
     oracledb.cursor.open:
       enabled: true
     oracledb.data_dictionary.hit_ratio:
@@ -353,16 +406,32 @@ reaggregate_set:
     oracledb.executions:
       enabled: true
       attributes: []
+    oracledb.gc.current_block.time:
+      enabled: true
+      attributes: []
     oracledb.hard_parses:
       enabled: true
       attributes: []
+    oracledb.host.cpu.usage.rate:
+      enabled: true
     oracledb.host.cpu.utilization:
       enabled: true
       attributes: []
+    oracledb.io.single_block.read.latency:
+      enabled: true
+    oracledb.jvm.memory.committed:
+      enabled: true
+    oracledb.jvm.memory.live:
+      enabled: true
+    oracledb.jvm.memory.used:
+      enabled: true
     oracledb.library_cache.utilization:
       enabled: true
       attributes: []
     oracledb.lob.operations:
+      enabled: true
+      attributes: []
+    oracledb.lock.time:
       enabled: true
       attributes: []
     oracledb.logical_reads:
@@ -371,6 +440,8 @@ reaggregate_set:
     oracledb.logons:
       enabled: true
       attributes: []
+    oracledb.os.swaps:
+      enabled: true
     oracledb.parallel_operations_downgraded_1_to_25_pct:
       enabled: true
       attributes: []
@@ -402,6 +473,8 @@ reaggregate_set:
     oracledb.parse_calls:
       enabled: true
       attributes: []
+    oracledb.pga.cache.utilization:
+      enabled: true
     oracledb.pga_memory:
       enabled: true
       attributes: []
@@ -439,6 +512,8 @@ reaggregate_set:
     oracledb.queries_parallelized:
       enabled: true
       attributes: []
+    oracledb.recovery.blocks:
+      enabled: true
     oracledb.recycle_bin.limit:
       enabled: true
     oracledb.redo.blocks:
@@ -466,6 +541,18 @@ reaggregate_set:
       attributes: []
     oracledb.scan.table.rows:
       enabled: true
+    oracledb.session.average:
+      enabled: true
+      attributes: []
+    oracledb.session.stored_procedure.memory:
+      enabled: true
+      attributes: []
+    oracledb.session.wait.time:
+      enabled: true
+      attributes: []
+    oracledb.session.waits:
+      enabled: true
+      attributes: []
     oracledb.sessions.limit:
       enabled: true
     oracledb.sessions.usage:
@@ -477,6 +564,9 @@ reaggregate_set:
       enabled: true
       attributes: []
     oracledb.shared_pool.utilization:
+      enabled: true
+      attributes: []
+    oracledb.smon.posts:
       enabled: true
       attributes: []
     oracledb.sort.operations:
@@ -509,6 +599,12 @@ reaggregate_set:
     oracledb.tablespace_size.usage:
       enabled: true
       attributes: []
+    oracledb.transaction.response.time:
+      enabled: true
+      attributes: []
+    oracledb.transaction.rollbacks:
+      enabled: true
+      attributes: []
     oracledb.transactions.limit:
       enabled: true
     oracledb.transactions.usage:
@@ -532,8 +628,6 @@ reaggregate_set:
     oracle.db.hosting_type:
       enabled: true
     oracle.db.open_mode:
-      enabled: true
-    oracle.db.pdb:
       enabled: true
     oracle.db.role:
       enabled: true
@@ -569,6 +663,9 @@ none_set:
     oracledb.consistent_gets:
       enabled: false
       attributes: ["oracle.db.pdb"]
+    oracledb.cpu.usage.rate:
+      enabled: false
+      attributes: ["oracle.db.pdb"]
     oracledb.cpu_time:
       enabled: false
       attributes: ["oracle.db.pdb"]
@@ -576,6 +673,9 @@ none_set:
       enabled: false
     oracledb.cursor.cache.size:
       enabled: false
+    oracledb.cursor.cache.utilization:
+      enabled: false
+      attributes: ["oracle.db.pdb"]
     oracledb.cursor.open:
       enabled: false
     oracledb.data_dictionary.hit_ratio:
@@ -625,24 +725,42 @@ none_set:
     oracledb.executions:
       enabled: false
       attributes: ["oracle.db.pdb"]
+    oracledb.gc.current_block.time:
+      enabled: false
+      attributes: ["network.io.direction"]
     oracledb.hard_parses:
       enabled: false
       attributes: ["oracle.db.pdb"]
+    oracledb.host.cpu.usage.rate:
+      enabled: false
     oracledb.host.cpu.utilization:
       enabled: false
       attributes: ["oracle.db.pdb"]
+    oracledb.io.single_block.read.latency:
+      enabled: false
+    oracledb.jvm.memory.committed:
+      enabled: false
+    oracledb.jvm.memory.live:
+      enabled: false
+    oracledb.jvm.memory.used:
+      enabled: false
     oracledb.library_cache.utilization:
       enabled: false
       attributes: ["oracle.db.pdb"]
     oracledb.lob.operations:
       enabled: false
       attributes: ["disk.io.direction"]
+    oracledb.lock.time:
+      enabled: false
+      attributes: ["oracle.db.pdb","oracledb.session.type"]
     oracledb.logical_reads:
       enabled: false
       attributes: ["oracle.db.pdb"]
     oracledb.logons:
       enabled: false
       attributes: ["oracle.db.pdb"]
+    oracledb.os.swaps:
+      enabled: false
     oracledb.parallel_operations_downgraded_1_to_25_pct:
       enabled: false
       attributes: ["oracle.db.pdb"]
@@ -674,6 +792,8 @@ none_set:
     oracledb.parse_calls:
       enabled: false
       attributes: ["oracle.db.pdb"]
+    oracledb.pga.cache.utilization:
+      enabled: false
     oracledb.pga_memory:
       enabled: false
       attributes: ["oracle.db.pdb"]
@@ -711,6 +831,8 @@ none_set:
     oracledb.queries_parallelized:
       enabled: false
       attributes: ["oracle.db.pdb"]
+    oracledb.recovery.blocks:
+      enabled: false
     oracledb.recycle_bin.limit:
       enabled: false
     oracledb.redo.blocks:
@@ -738,6 +860,18 @@ none_set:
       attributes: ["oracledb.scan.type","oracledb.scan.mode"]
     oracledb.scan.table.rows:
       enabled: false
+    oracledb.session.average:
+      enabled: false
+      attributes: ["session_status","oracle.db.pdb"]
+    oracledb.session.stored_procedure.memory:
+      enabled: false
+      attributes: ["oracle.db.pdb"]
+    oracledb.session.wait.time:
+      enabled: false
+      attributes: ["oracledb.session.wait.state","oracle.db.pdb"]
+    oracledb.session.waits:
+      enabled: false
+      attributes: ["oracledb.session.wait.state","oracle.db.pdb"]
     oracledb.sessions.limit:
       enabled: false
     oracledb.sessions.usage:
@@ -751,6 +885,9 @@ none_set:
     oracledb.shared_pool.utilization:
       enabled: false
       attributes: ["oracle.db.pdb"]
+    oracledb.smon.posts:
+      enabled: false
+      attributes: ["oracledb.smon.type"]
     oracledb.sort.operations:
       enabled: false
       attributes: ["oracledb.sort.type"]
@@ -781,6 +918,12 @@ none_set:
     oracledb.tablespace_size.usage:
       enabled: false
       attributes: ["tablespace_name","oracle.db.pdb"]
+    oracledb.transaction.response.time:
+      enabled: false
+      attributes: ["oracle.db.pdb"]
+    oracledb.transaction.rollbacks:
+      enabled: false
+      attributes: ["oracle.db.pdb"]
     oracledb.transactions.limit:
       enabled: false
     oracledb.transactions.usage:
@@ -805,8 +948,6 @@ none_set:
       enabled: false
     oracle.db.open_mode:
       enabled: false
-    oracle.db.pdb:
-      enabled: false
     oracle.db.role:
       enabled: false
     oracle.db.version:
@@ -830,12 +971,6 @@ filter_set_include:
       events_include:
         - regexp: ".*"
     oracle.db.open_mode:
-      enabled: true
-      metrics_include:
-        - regexp: ".*"
-      events_include:
-        - regexp: ".*"
-    oracle.db.pdb:
       enabled: true
       metrics_include:
         - regexp: ".*"
@@ -885,12 +1020,6 @@ filter_set_exclude:
         - strict: "oracle.db.open_mode-val"
       events_exclude:
         - strict: "oracle.db.open_mode-val"
-    oracle.db.pdb:
-      enabled: true
-      metrics_exclude:
-        - strict: "oracle.db.pdb-val"
-      events_exclude:
-        - strict: "oracle.db.pdb-val"
     oracle.db.role:
       enabled: true
       metrics_exclude:

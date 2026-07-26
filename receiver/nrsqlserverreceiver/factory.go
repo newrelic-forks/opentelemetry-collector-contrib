@@ -130,6 +130,10 @@ func setupQueries(cfg *Config) []string {
 		queries = append(queries, getSQLServerThreadPoolQuery(cfg.InstanceName))
 	}
 
+	if isWorkerThreadsQueryEnabled(&cfg.Metrics) {
+		queries = append(queries, getSQLServerWorkerThreadsQuery(cfg.InstanceName))
+	}
+
 	if isTempDBQueryEnabled(&cfg.Metrics) {
 		queries = append(queries, getSQLServerTempDBQuery(cfg.InstanceName))
 	}
@@ -238,6 +242,14 @@ func isThreadPoolQueryEnabled(metrics *metadata.MetricsConfig) bool {
 		metrics.SqlserverThreadPoolWorkersMax.Enabled ||
 		metrics.SqlserverThreadPoolWorkersUtilization.Enabled ||
 		metrics.SqlserverThreadPoolTasksCount.Enabled
+}
+
+func isWorkerThreadsQueryEnabled(metrics *metadata.MetricsConfig) bool {
+	if metrics == nil {
+		return false
+	}
+	return metrics.SqlserverWorkerRequestCount.Enabled ||
+		metrics.SqlserverWorkerThreadCount.Enabled
 }
 
 func isTempDBQueryEnabled(metrics *metadata.MetricsConfig) bool {
@@ -426,7 +438,15 @@ func isPerfCounterQueryEnabled(metrics *metadata.MetricsConfig) bool {
 		return false
 	}
 
-	return metrics.SqlserverBatchCompilationUtilization.Enabled ||
+	return metrics.SqlserverClrExecutionTime.Enabled ||
+		metrics.SqlserverCursorCount.Enabled ||
+		metrics.SqlserverCursorMemoryUsage.Enabled ||
+		metrics.SqlserverCursorPlanCount.Enabled ||
+		metrics.SqlserverCursorRequestRate.Enabled ||
+		metrics.SqlserverStoredProcedureInvocationRate.Enabled ||
+		metrics.SqlserverTaskCount.Enabled ||
+		metrics.SqlserverTaskRate.Enabled ||
+		metrics.SqlserverBatchCompilationUtilization.Enabled ||
 		metrics.SqlserverBatchPageSplitUtilization.Enabled ||
 		metrics.SqlserverBatchRequestRate.Enabled ||
 		metrics.SqlserverBatchSQLCompilationRate.Enabled ||
