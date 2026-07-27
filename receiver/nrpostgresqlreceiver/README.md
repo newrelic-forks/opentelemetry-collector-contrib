@@ -131,6 +131,61 @@ separately. This could lead some resources usage and limit this will reduce the 
 This defines the cache's size for query plan.
 - `query_plan_cache_ttl`: (optional, default=1h). How long before the query plan cache got expired. Example values: `1m`, `1h`. 
 - `collection_interval`: (optional, default=60s). This receiver can collect top_query metrics on an interval. If not provided then the global collection_interval takes effect. This value must be a string readable by Golang's [time.ParseDuration](https://pkg.go.dev/time#ParseDuration). Valid time units are `ns`, `us` (or `µs`), `ms`, `s`, `m`, `h`.
+
+### Collecting EXPLAIN plans for locking and write queries (`explain_function_name`)
+
+By default, `EXPLAIN` runs directly as the monitoring user. PostgreSQL checks table
+privileges at *plan* time, so `EXPLAIN` on a query with a row-locking clause (`FOR
+UPDATE`/`FOR SHARE`) or a write statement (`UPDATE`/`INSERT`/`DELETE`/`MERGE`) fails
+with `permission denied` unless the monitoring user has write access — which this
+receiver's monitoring user should never be granted.
+
+To collect plans for these query types without granting write access, provision a
+`SECURITY DEFINER` helper function once per database:
+
+```sql
+CREATE OR REPLACE FUNCTION otel.explain_statement(l_query text)
+RETURNS json
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_plan json;
+BEGIN
+    SET TRANSACTION READ ONLY;
+    EXECUTE 'EXPLAIN (FORMAT JSON) ' || l_query INTO v_plan;
+    RETURN v_plan;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION otel.explain_statement(text) TO <monitoring_user>;
+```
+
+The function's owner needs write privilege on the target tables to pass PostgreSQL's
+plan-time check — either a superuser, or a dedicated non-superuser role scoped to
+exactly those tables. `SET TRANSACTION READ ONLY` guarantees no write is ever
+possible, regardless of the owner's privileges. **The monitoring user itself must
+never be granted `CREATE` on any database or schema it connects through** — the
+function intentionally does not pin `search_path` (so unqualified table names in
+captured queries resolve correctly), which is only safe if the monitoring role
+cannot create objects to redirect that resolution into.
+
+Configuration:
+
+```yaml
+receivers:
+  nrpostgresql:
+    top_query_collection:
+      explain_function_name: otel.explain_statement  # default; empty string disables this feature
+      explain_function_cache_ttl: 5m                  # default
+```
+
+If the function is not present (or fails), the receiver logs once and falls back to
+running `EXPLAIN` directly, exactly as it does when this feature is not configured —
+no error, no missing metrics, just no plan for the affected queries until the
+function is provisioned (or, if it existed and was dropped, until the next probe
+after `explain_function_cache_ttl` elapses).
+
 ### Example Configuration
 
 ```yaml
