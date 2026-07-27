@@ -198,6 +198,7 @@ components:
         - netflow
         - nginx
         - nroracledb
+        - nrpostgresql
         - nrsqlserver
         - nsxt
         - ntp

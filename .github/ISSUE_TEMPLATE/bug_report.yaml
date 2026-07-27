@@ -327,6 +327,7 @@ body:
       - receiver/netflow
       - receiver/nginx
       - receiver/nroracledb
+      - receiver/nrpostgresql
       - receiver/nrsqlserver
       - receiver/nsxt
       - receiver/ntp
