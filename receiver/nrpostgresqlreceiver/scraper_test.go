@@ -21,6 +21,8 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
+	"github.com/lib/pq"
+	"github.com/lib/pq/pqerror"
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon/testutil"
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrpostgresqlreceiver/internal/metadata"
 	"github.com/stretchr/testify/mock"
@@ -1082,6 +1084,11 @@ func TestScrapeTopQueries(t *testing.T) {
 	cfg := createDefaultConfig().(*Config)
 	cfg.Databases = []string{}
 	cfg.Events.DbServerTopQuery.Enabled = true
+	// This test's mockSimpleClientFactory/sqlmock setup only expects the
+	// inline EXPLAIN sequence. Explicitly disable the function path so this
+	// test keeps exercising the same inline code path it always has,
+	// regardless of the default ExplainFunctionName.
+	cfg.ExplainFunctionName = ""
 	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	assert.NoError(t, err)
 
@@ -1342,11 +1349,310 @@ func TestExplainQuery(t *testing.T) {
 				sqlmock.NewRows([]string{"QUERY PLAN"}).AddRow(tc.mockPlanResult),
 			)
 
-			plan, err := client.explainQuery(tc.query, tc.queryID, logger)
+			plan, err := client.explainQuery(tc.query, tc.queryID, "", logger)
 			require.NoError(t, err)
 			assert.Equal(t, tc.mockPlanResult, plan)
 		})
 	}
+}
+
+func TestExplainQueryViaFunction(t *testing.T) {
+	t.Run("parameterized query calls the function with raw text as bound arg", func(t *testing.T) {
+		db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+		require.NoError(t, err)
+		defer db.Close()
+
+		logger, err := zap.NewProduction()
+		require.NoError(t, err)
+
+		client := &postgreSQLClient{client: db, closeFn: func() error { return nil }}
+
+		query := "SELECT * FROM orders WHERE id = $1 FOR UPDATE"
+		mockPlan := `[{"Plan":{"Node Type":"LockRows"}}]`
+		mock.ExpectQuery(`SELECT "otel"."explain_statement"($1)`).
+			WithArgs(query).
+			WillReturnRows(sqlmock.NewRows([]string{"explain_statement"}).AddRow(mockPlan))
+
+		plan, err := client.explainQuery(query, "12345", `"otel"."explain_statement"`, logger)
+		require.NoError(t, err)
+		assert.Equal(t, mockPlan, plan)
+	})
+
+	t.Run("non-parameterized query calls the function the same way, no PREPARE", func(t *testing.T) {
+		db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+		require.NoError(t, err)
+		defer db.Close()
+
+		logger, err := zap.NewProduction()
+		require.NoError(t, err)
+
+		client := &postgreSQLClient{client: db, closeFn: func() error { return nil }}
+
+		query := "SELECT * FROM orders WHERE id = 5 FOR UPDATE"
+		mockPlan := `[{"Plan":{"Node Type":"LockRows"}}]`
+		mock.ExpectQuery(`SELECT "otel"."explain_statement"($1)`).
+			WithArgs(query).
+			WillReturnRows(sqlmock.NewRows([]string{"explain_statement"}).AddRow(mockPlan))
+
+		plan, err := client.explainQuery(query, "12346", `"otel"."explain_statement"`, logger)
+		require.NoError(t, err)
+		assert.Equal(t, mockPlan, plan)
+	})
+
+	t.Run("function call error (undefined_function) is returned, not swallowed", func(t *testing.T) {
+		db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+		require.NoError(t, err)
+		defer db.Close()
+
+		logger, err := zap.NewProduction()
+		require.NoError(t, err)
+
+		client := &postgreSQLClient{client: db, closeFn: func() error { return nil }}
+
+		query := "SELECT * FROM orders WHERE id = $1 FOR UPDATE"
+		mock.ExpectQuery(`SELECT "otel"."explain_statement"($1)`).
+			WithArgs(query).
+			WillReturnError(&pq.Error{Code: pqerror.UndefinedFunction, Message: "function does not exist"})
+
+		plan, err := client.explainQuery(query, "12347", `"otel"."explain_statement"`, logger)
+		require.Error(t, err)
+		assert.Empty(t, plan)
+	})
+
+	t.Run("function call error (non-42883, e.g. permission denied) is returned, not swallowed", func(t *testing.T) {
+		db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+		require.NoError(t, err)
+		defer db.Close()
+
+		logger, err := zap.NewProduction()
+		require.NoError(t, err)
+
+		client := &postgreSQLClient{client: db, closeFn: func() error { return nil }}
+
+		query := "SELECT * FROM orders WHERE id = $1 FOR UPDATE"
+		mock.ExpectQuery(`SELECT "otel"."explain_statement"($1)`).
+			WithArgs(query).
+			WillReturnError(&pq.Error{Code: pqerror.Code("42501"), Message: "permission denied for table orders"})
+
+		plan, err := client.explainQuery(query, "12349", `"otel"."explain_statement"`, logger)
+		require.Error(t, err)
+		assert.Empty(t, plan)
+		var pqErr *pq.Error
+		require.ErrorAs(t, err, &pqErr)
+		assert.NotEqual(t, pqerror.UndefinedFunction, pqErr.Code, "this case is specifically the non-42883 branch — must not be confused with the undefined_function case above")
+	})
+
+	t.Run("whitelist rejection skips the function path too", func(t *testing.T) {
+		db, _, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+		require.NoError(t, err)
+		defer db.Close()
+
+		logger, err := zap.NewProduction()
+		require.NoError(t, err)
+
+		client := &postgreSQLClient{client: db, closeFn: func() error { return nil }}
+
+		plan, err := client.explainQuery("GRANT SELECT ON users TO demo", "12348", `"otel"."explain_statement"`, logger)
+		require.NoError(t, err)
+		assert.Empty(t, plan)
+		// No mock.ExpectQuery was set up at all — if explainQuery touched the DB,
+		// sqlmock would fail this test with "call to Query ... was not expected".
+	})
+
+	t.Run("explainFunction empty string forces inline path even for a FOR UPDATE query", func(t *testing.T) {
+		db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+		require.NoError(t, err)
+		defer db.Close()
+
+		logger, err := zap.NewProduction()
+		require.NoError(t, err)
+
+		client := &postgreSQLClient{client: db, closeFn: func() error { return nil }}
+
+		query := "SELECT * FROM orders WHERE id = $1 FOR UPDATE"
+		// Expect the INLINE sequence (PREPARE/EXPLAIN EXECUTE/DEALLOCATE), not a
+		// call to the function — this proves explainFunction=="" always wins,
+		// regardless of whether a function is configured/available elsewhere.
+		expectedSQL := "/* otel-collector-ignore */ SET plan_cache_mode = force_generic_plan;PREPARE otel_12350 AS SELECT * FROM orders WHERE id = $1 FOR UPDATE;EXPLAIN(FORMAT JSON) EXECUTE otel_12350(null);"
+		mock.ExpectQuery(expectedSQL).WillReturnRows(
+			sqlmock.NewRows([]string{"QUERY PLAN"}).AddRow(`[{"Plan":{"Node Type":"LockRows"}}]`),
+		)
+
+		plan, err := client.explainQuery(query, "12350", "", logger)
+		require.NoError(t, err)
+		assert.Equal(t, `[{"Plan":{"Node Type":"LockRows"}}]`, plan)
+	})
+}
+
+func TestScraperExplainFunctionProbeCache(t *testing.T) {
+	newScraperWithMockClient := func(t *testing.T, mockClient *mockClient) *postgreSQLScraper {
+		cfg := createDefaultConfig().(*Config)
+		cfg.ExplainFunctionName = "otel.explain_statement"
+		factory := &mockClientFactory{}
+		factory.On("getClient", mock.Anything).Return(mockClient, nil)
+
+		settings := receivertest.NewNopSettings(metadata.Type)
+		logger, err := zap.NewProduction()
+		require.NoError(t, err)
+		settings.TelemetrySettings = component.TelemetrySettings{Logger: logger}
+
+		scraper, err := newPostgreSQLScraper(settings, cfg, factory, newCache(1),
+			newTTLCache[string](1, time.Second),
+			newTTLCache[explainSetupState](1, time.Second))
+		require.NoError(t, err)
+		return scraper
+	}
+
+	t.Run("probes once, caches available true on success", func(t *testing.T) {
+		mc := &mockClient{}
+		mc.On("probeExplainFunction", mock.Anything, `"otel"."explain_statement"`).Return(nil).Once()
+
+		scraper := newScraperWithMockClient(t, mc)
+
+		state, ok := scraper.explainFunctionCache.Get("testdb")
+		assert.False(t, ok, "cache should start empty")
+
+		err := scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
+		require.NoError(t, err)
+
+		state, ok = scraper.explainFunctionCache.Get("testdb")
+		require.True(t, ok)
+		assert.True(t, state.available)
+		assert.NoError(t, state.err)
+
+		// Second call within the TTL window must not probe again.
+		err = scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
+		require.NoError(t, err)
+		mc.AssertNumberOfCalls(t, "probeExplainFunction", 1)
+	})
+
+	t.Run("probe failure with undefined_function (not provisioned) caches unavailable", func(t *testing.T) {
+		mc := &mockClient{}
+		mc.On("probeExplainFunction", mock.Anything, `"otel"."explain_statement"`).
+			Return(&pq.Error{Code: pqerror.UndefinedFunction, Message: "does not exist"}).Once()
+
+		scraper := newScraperWithMockClient(t, mc)
+		err := scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
+		require.NoError(t, err) // probing failure is not a scrape error, it's a cached state
+
+		state, ok := scraper.explainFunctionCache.Get("testdb")
+		require.True(t, ok)
+		assert.False(t, state.available)
+		require.Error(t, state.err)
+		var pqErr *pq.Error
+		require.ErrorAs(t, state.err, &pqErr)
+		assert.Equal(t, pqerror.UndefinedFunction, pqErr.Code)
+	})
+
+	t.Run("probe failure with a non-42883 error (present but broken) also caches unavailable", func(t *testing.T) {
+		mc := &mockClient{}
+		mc.On("probeExplainFunction", mock.Anything, `"otel"."explain_statement"`).
+			Return(&pq.Error{Code: pqerror.Code("42501"), Message: "permission denied for table orders"}).Once()
+
+		scraper := newScraperWithMockClient(t, mc)
+		err := scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
+		require.NoError(t, err)
+
+		state, ok := scraper.explainFunctionCache.Get("testdb")
+		require.True(t, ok)
+		assert.False(t, state.available, "same fallback outcome as the undefined_function case")
+		require.Error(t, state.err)
+		var pqErr *pq.Error
+		require.ErrorAs(t, state.err, &pqErr)
+		assert.NotEqual(t, pqerror.UndefinedFunction, pqErr.Code, "this is the distinct non-42883 branch — probeExplainFunctionIfNeeded logs it at Error, not Warn, per the code path taken (not independently asserted here: this test suite has no log-observing infra today, and the design's Testing section says not to add new test infra for this feature — the branch itself, and its effect on the cached state, is what this test verifies)")
+	})
+
+	t.Run("real explainQuery failure with undefined_function does not evict the cache", func(t *testing.T) {
+		mc := &mockClient{}
+		mc.On("probeExplainFunction", mock.Anything, `"otel"."explain_statement"`).Return(nil).Once()
+
+		scraper := newScraperWithMockClient(t, mc)
+		err := scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
+		require.NoError(t, err)
+
+		state, ok := scraper.explainFunctionCache.Get("testdb")
+		require.True(t, ok)
+		assert.True(t, state.available, "cache must still say available after only a probe")
+
+		// Simulate a real explainQuery call failing with undefined_function —
+		// this must NOT evict/change the cache entry (Datadog-aligned: only the
+		// dedicated probe writes to this cache).
+		err = scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
+		require.NoError(t, err)
+		mc.AssertNumberOfCalls(t, "probeExplainFunction", 1)
+
+		state, ok = scraper.explainFunctionCache.Get("testdb")
+		require.True(t, ok)
+		assert.True(t, state.available, "cache entry must remain unchanged regardless of real-call outcomes")
+	})
+
+	t.Run("two different databases are cached independently", func(t *testing.T) {
+		// Cache size must be >= 2 here (unlike newScraperWithMockClient's size-1
+		// cache used by the other subtests) so that adding "db_b" does not evict
+		// "db_a" via LRU eviction before both are asserted on below.
+		cfg := createDefaultConfig().(*Config)
+		cfg.ExplainFunctionName = "otel.explain_statement"
+		mc := &mockClient{}
+		mc.On("probeExplainFunction", mock.Anything, `"otel"."explain_statement"`).Return(nil).Once()
+		mc.On("probeExplainFunction", mock.Anything, `"otel"."explain_statement"`).
+			Return(&pq.Error{Code: pqerror.UndefinedFunction, Message: "does not exist"}).Once()
+
+		factory := &mockClientFactory{}
+		factory.On("getClient", mock.Anything).Return(mc, nil)
+
+		settings := receivertest.NewNopSettings(metadata.Type)
+		logger, err := zap.NewProduction()
+		require.NoError(t, err)
+		settings.TelemetrySettings = component.TelemetrySettings{Logger: logger}
+
+		scraper, err := newPostgreSQLScraper(settings, cfg, factory, newCache(1),
+			newTTLCache[string](1, time.Second),
+			newTTLCache[explainSetupState](2, time.Second))
+		require.NoError(t, err)
+
+		err = scraper.probeExplainFunctionIfNeeded(t.Context(), "db_a", mc)
+		require.NoError(t, err)
+		err = scraper.probeExplainFunctionIfNeeded(t.Context(), "db_b", mc)
+		require.NoError(t, err)
+
+		stateA, ok := scraper.explainFunctionCache.Get("db_a")
+		require.True(t, ok)
+		assert.True(t, stateA.available)
+
+		stateB, ok := scraper.explainFunctionCache.Get("db_b")
+		require.True(t, ok)
+		assert.False(t, stateB.available)
+	})
+
+	t.Run("cache entry expires via TTL and re-probes", func(t *testing.T) {
+		cfg := createDefaultConfig().(*Config)
+		cfg.ExplainFunctionName = "otel.explain_statement"
+		mc := &mockClient{}
+		mc.On("probeExplainFunction", mock.Anything, `"otel"."explain_statement"`).Return(nil).Twice()
+
+		factory := &mockClientFactory{}
+		factory.On("getClient", mock.Anything).Return(mc, nil)
+
+		settings := receivertest.NewNopSettings(metadata.Type)
+		logger, err := zap.NewProduction()
+		require.NoError(t, err)
+		settings.TelemetrySettings = component.TelemetrySettings{Logger: logger}
+
+		scraper, err := newPostgreSQLScraper(settings, cfg, factory, newCache(1),
+			newTTLCache[string](1, time.Second),
+			newTTLCache[explainSetupState](1, 50*time.Millisecond)) // short TTL for the test
+		require.NoError(t, err)
+
+		err = scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
+		require.NoError(t, err)
+		mc.AssertNumberOfCalls(t, "probeExplainFunction", 1)
+
+		time.Sleep(100 * time.Millisecond) // past the 50ms TTL
+
+		err = scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
+		require.NoError(t, err)
+		mc.AssertNumberOfCalls(t, "probeExplainFunction", 2)
+	})
 }
 
 type (
@@ -1358,13 +1664,14 @@ type (
 )
 
 // explainQuery implements client.
-func (*mockClient) explainQuery(string, string, *zap.Logger) (string, error) {
+func (*mockClient) explainQuery(string, string, string, *zap.Logger) (string, error) {
 	panic("unimplemented")
 }
 
 // probeExplainFunction implements client.
-func (*mockClient) probeExplainFunction(context.Context, string) error {
-	panic("unimplemented")
+func (m *mockClient) probeExplainFunction(ctx context.Context, quotedFunctionName string) error {
+	args := m.Called(ctx, quotedFunctionName)
+	return args.Error(0)
 }
 
 // getTopQuery implements client.

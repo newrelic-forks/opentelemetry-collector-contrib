@@ -21,6 +21,8 @@ import (
 	"github.com/google/uuid"
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/hashicorp/golang-lru/v2/expirable"
+	"github.com/lib/pq"
+	"github.com/lib/pq/pqerror"
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon/priorityqueue"
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrpostgresqlreceiver/internal/metadata"
 	"go.opentelemetry.io/collector/config/confignet"
@@ -387,6 +389,54 @@ func (p *postgreSQLScraper) collectQuerySamples(ctx context.Context, dbClient cl
 	}
 }
 
+// probeExplainFunctionIfNeeded returns the cached availability of the
+// configured EXPLAIN helper function for database, probing it with a real,
+// trivial call if there is no cache entry (first use, or the TTL expired).
+// Real explainQuery call failures never write to this cache — only this
+// probe does — matching Datadog's own explain-availability caching, which
+// keeps a dedicated per-database cache separate from per-query error caching.
+func (p *postgreSQLScraper) probeExplainFunctionIfNeeded(ctx context.Context, database string, dbClient client) error {
+	if p.config.ExplainFunctionName == "" {
+		return nil
+	}
+
+	if _, ok := p.explainFunctionCache.Get(database); ok {
+		return nil
+	}
+
+	quoted := quoteExplainFunctionName(p.config.ExplainFunctionName)
+	err := dbClient.probeExplainFunction(ctx, quoted)
+	if err == nil {
+		p.explainFunctionCache.Add(database, explainSetupState{available: true})
+		return nil
+	}
+
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) && pqErr.Code == pqerror.UndefinedFunction {
+		p.logger.Warn("EXPLAIN helper function not found, falling back to inline EXPLAIN",
+			zap.String("database", database),
+			zap.String("explain_function_name", p.config.ExplainFunctionName),
+			zap.Error(err))
+		p.explainFunctionCache.Add(database, explainSetupState{available: false, err: err})
+		return nil
+	}
+
+	if errors.As(err, &pqErr) {
+		p.logger.Error("EXPLAIN helper function exists but failed, falling back to inline EXPLAIN",
+			zap.String("database", database),
+			zap.String("explain_function_name", p.config.ExplainFunctionName),
+			zap.Error(err))
+		p.explainFunctionCache.Add(database, explainSetupState{available: false, err: err})
+		return nil
+	}
+
+	// Connection-level or other non-pq error: don't cache, retry probe next call.
+	p.logger.Warn("failed to probe EXPLAIN helper function, will retry",
+		zap.String("database", database),
+		zap.Error(err))
+	return nil
+}
+
 func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory postgreSQLClientFactory, limit, topNQuery, maxExplainEachInterval int64, mux *errsMux, logger *zap.Logger, collectionTime time.Time) {
 	timestamp := pcommon.NewTimestampFromTime(collectionTime)
 
@@ -488,7 +538,13 @@ func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory p
 			database := item.Value[string(semconv.DBNamespaceKey)].(string)
 			dbClient, err := clientFactory.getClient(database)
 			if err == nil {
-				plan, err = dbClient.explainQuery(rawQuery, queryID, logger)
+				explainFunction := ""
+				if probeErr := p.probeExplainFunctionIfNeeded(ctx, database, dbClient); probeErr == nil {
+					if state, cached := p.explainFunctionCache.Get(database); cached && state.available {
+						explainFunction = quoteExplainFunctionName(p.config.ExplainFunctionName)
+					}
+				}
+				plan, err = dbClient.explainQuery(rawQuery, queryID, explainFunction, logger)
 				if err != nil {
 					logger.Error("failed to explain query", zap.String("query", rawQuery), zap.Error(err))
 				}

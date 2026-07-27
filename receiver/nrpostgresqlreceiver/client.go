@@ -70,7 +70,7 @@ type client interface {
 	getVersion(ctx context.Context) (string, error)
 	getQuerySamples(ctx context.Context, limit int64, newestQueryTimestamp float64, logger *zap.Logger) ([]map[string]any, float64, error)
 	getTopQuery(ctx context.Context, limit int64, logger *zap.Logger) ([]map[string]any, error)
-	explainQuery(query, queryID string, logger *zap.Logger) (string, error)
+	explainQuery(query, queryID, explainFunction string, logger *zap.Logger) (string, error)
 	probeExplainFunction(ctx context.Context, quotedFunctionName string) error
 }
 
@@ -156,13 +156,59 @@ func (c *postgreSQLClient) probeExplainFunction(ctx context.Context, quotedFunct
 }
 
 // explainQuery implements client.
-func (c *postgreSQLClient) explainQuery(query, queryID string, logger *zap.Logger) (string, error) {
+func (c *postgreSQLClient) explainQuery(query, queryID, explainFunction string, logger *zap.Logger) (string, error) {
 	// Check if the query is explainable before attempting EXPLAIN
 	if !isExplainableQuery(query) {
 		logger.Debug("skipping EXPLAIN for non-explainable query", zap.String("queryID", queryID))
 		return "", nil
 	}
 
+	if explainFunction != "" {
+		return c.explainQueryViaFunction(query, queryID, explainFunction, logger)
+	}
+
+	return c.explainQueryInline(query, queryID, logger)
+}
+
+// explainQueryViaFunction calls a DBA-provisioned SECURITY DEFINER helper
+// function to EXPLAIN a query the monitoring user cannot EXPLAIN directly
+// (row-locking or write statements fail the plan-time privilege check for a
+// read-only role). explainFunction must already be validated and quoted
+// (see quoteExplainFunctionName) — this function does no further escaping.
+func (c *postgreSQLClient) explainQueryViaFunction(query, queryID, explainFunction string, logger *zap.Logger) (string, error) {
+	sql := fmt.Sprintf("SELECT %s($1)", explainFunction)
+	wrappedDb := sqlquery.NewDbClient(sqlquery.DbWrapper{Db: c.client}, sql, logger, sqlquery.TelemetryConfig{})
+
+	result, err := wrappedDb.QueryRows(context.Background(), query)
+	if err != nil {
+		logger.Error("failed to explain statement via function", zap.Error(err), zap.String("queryID", queryID))
+		return "", err
+	}
+
+	if len(result) == 0 {
+		return "", nil
+	}
+
+	var rawPlan string
+	for _, v := range result[0] {
+		rawPlan = v
+		break
+	}
+
+	plan, err := obfuscateSQLExecPlan(rawPlan)
+	if err != nil {
+		logger.Error("failed to obfuscate explain plan", zap.Error(err), zap.String("queryID", queryID))
+		return "", err
+	}
+
+	return plan, nil
+}
+
+// explainQueryInline runs EXPLAIN directly as the monitoring user via
+// PREPARE/EXPLAIN EXECUTE/DEALLOCATE. This fails with permission denied for
+// row-locking or write statements unless the monitoring user has write
+// access — see explainQueryViaFunction for the alternative.
+func (c *postgreSQLClient) explainQueryInline(query, queryID string, logger *zap.Logger) (string, error) {
 	normalizedQueryID := strings.ReplaceAll(queryID, "-", "_")
 
 	// PostgreSQL's pg_stat_statements returns queries with $1, $2 placeholders
