@@ -1,14 +1,25 @@
 ---
 name: sync-and-port-nr-receivers
-description: "Use when syncing the newrelic-forks contrib repo with upstream and porting new upstream receiver changes into the nr-prefixed forks (nroracledbreceiver, nrsqlserverreceiver). Covers the full recurring release workflow: merge origin/main, align collector deps, compute the base→fork parity delta, port additively (handling attribute collisions and shared-metric drift), regenerate, and run all gates."
+description: "Use when syncing the newrelic-forks contrib repo with upstream and porting new upstream receiver changes into the nr-prefixed forks (nroracledbreceiver, nrsqlserverreceiver, nrpostgresqlreceiver, and — once it exists — nrmysqlreceiver). Covers the full recurring release workflow: merge origin/main, align collector deps, compute the base→fork parity delta, port additively (handling attribute collisions and shared-metric drift), regenerate, and run all gates."
 ---
 
 # Sync & Port NR-Prefixed Receivers
 
-Keeps the `nr`-prefixed forks (`receiver/nroracledbreceiver`, `receiver/nrsqlserverreceiver`) in
-sync with their upstream base receivers (`receiver/oracledbreceiver`, `receiver/sqlserverreceiver`)
-after each upstream release. Runs on the `pre-release` branch of
-`github.com/newrelic-forks/opentelemetry-collector-contrib`.
+Keeps the `nr`-prefixed forks (`receiver/nroracledbreceiver`, `receiver/nrsqlserverreceiver`,
+`receiver/nrpostgresqlreceiver`, and — once it exists — `receiver/nrmysqlreceiver`) in sync with
+their upstream base receivers (`receiver/oracledbreceiver`, `receiver/sqlserverreceiver`,
+`receiver/postgresqlreceiver`, `receiver/mysqlreceiver`) after each upstream release. Runs on the
+`pre-release` branch of `github.com/newrelic-forks/opentelemetry-collector-contrib`.
+
+Fork↔base pairs (add new pairs here as new `nr`-prefixed forks are created — do not hardcode the
+pair count elsewhere in this skill):
+
+| Fork | Base | Metric/attribute prefix | Notes |
+|---|---|---|---|
+| `receiver/nroracledbreceiver` | `receiver/oracledbreceiver` | `oracledb` | has `templates/*.tmpl` SQL templates |
+| `receiver/nrsqlserverreceiver` | `receiver/sqlserverreceiver` | `sqlserver` | has `concurrent_scraper.go`; `TestSetupQueries` metric-count guard |
+| `receiver/nrpostgresqlreceiver` | `receiver/postgresqlreceiver` | `postgresql` | no `templates/`; queries mostly inline in `client.go`/`scraper.go` |
+| `receiver/nrmysqlreceiver` (not yet created) | `receiver/mysqlreceiver` | `mysql` | placeholder — when the fork is created, add its query-source layout here and treat it identically to the pairs above |
 
 The parity target is the **computed diff between each fork and its base**, never a specific PR
 number. A PR is just the concrete instance of "what's currently missing." Always recompute.
@@ -40,15 +51,17 @@ number. A PR is just the concrete instance of "what's currently missing." Always
 4. `git merge --no-edit origin/main`. Confirm 0 unmerged files.
 5. **Align collector deps** (REQUIRED — else `go test` fails with `go: updates to go.mod needed` and
    CI's `check-collector-module-version` fails, as in PR #205). The merge bumps the BASE receivers'
-   `go.opentelemetry.io/collector/*` deps to a new pseudo-version; the 4 nr/internal modules must
+   `go.opentelemetry.io/collector/*` deps to a new pseudo-version; every nr/internal module must
    follow: `internal/nrcommon`, `internal/nrsqlquery`, `receiver/nroracledbreceiver`,
-   `receiver/nrsqlserverreceiver`.
+   `receiver/nrsqlserverreceiver`, `receiver/nrpostgresqlreceiver` (and `receiver/nrmysqlreceiver`
+   once it exists — the module count here is NOT fixed at 4; re-derive it by listing the actual
+   `nr`-prefixed receiver dirs plus the shared `internal/nr*` modules each time).
    - Find the new pseudo-version from a base receiver: `grep 'collector/pdata ' receiver/sqlserverreceiver/go.mod`.
    - For each nr module, `go mod edit -C <mod> -require=<path>@<newver>` for every `collector/*` require
      still on the old pseudo-version (`v1.62.1-<new>` for v1.* modules, `v0.156.1-<new>` for v0.* — match
      the base's major line), then `go mod tidy -C <mod>`. Tidy internal modules FIRST, then the receivers
      (receivers depend on them via `replace`).
-   - Verify: `grep -c '<OLD-pseudo-date>' <mod>/go.mod` == 0 for all 4.
+   - Verify: `grep -c '<OLD-pseudo-date>' <mod>/go.mod` == 0 for every nr/internal module.
 6. **Gate:** `go build -C <mod> ./...` and `go test -C <mod> ./...` green for both shipping receivers.
    Do not start porting until sync is green.
 
@@ -172,9 +185,10 @@ base's dispatch shape, so copy logic VERBATIM (including value scaling and `meta
 ## Phase 3 — Post-port parity verification (MANDATORY)
 
 After porting, prove that EVERY metric and attribute present in the base receiver on `origin/main` now
-exists in the fork. This is the final acceptance gate — run it for BOTH pairs
-(`nroracledb`↔`oracledb`, `nrsqlserver`↔`sqlserver`), against the WORKING TREE (your uncommitted port),
-not committed refs. Both commands below must print nothing.
+exists in the fork. This is the final acceptance gate — run it for EVERY pair in the fork↔base table
+above that exists in the repo today (`nroracledb`↔`oracledb`, `nrsqlserver`↔`sqlserver`,
+`nrpostgresql`↔`postgresql`, and `nrmysql`↔`mysql` once that fork exists), against the WORKING TREE
+(your uncommitted port), not committed refs. Both commands below must print nothing, per pair.
 
 ```
 # 1. Every base metric is in the fork (metrics: section only). Empty output = complete.
@@ -218,14 +232,15 @@ done
   `nroracledb` has NO such guard (don't go looking for one). When metrics were added to nrsqlserver and
   this literal isn't updated, the failure message literally tells you to update it.
 - If either diff prints a `<` line, the port is INCOMPLETE — go back and port the listed item. Do not
-  declare done until both diffs are empty for both receiver pairs.
+  declare done until both diffs are empty for every fork↔base pair.
 
 ## Output
 
-Report: sync result (behind/ahead, conflict-free, dep-alignment), the parity delta per receiver
+Report: sync result (behind/ahead, conflict-free, dep-alignment), the parity delta per receiver pair
 (to-port list + known-divergence list), files changed, gate results, and a per-phase commit message.
-Flag that published fork tags now predate the port (a follow-up patch tag may be warranted) — do not
-auto-tag.
+Cover every pair from the fork↔base table (skip any whose fork doesn't exist yet, e.g. `nrmysql`
+pre-creation). Flag that published fork tags now predate the port (a follow-up patch tag may be
+warranted) — do not auto-tag.
 
 ## Worked example (2026-07 sync)
 
