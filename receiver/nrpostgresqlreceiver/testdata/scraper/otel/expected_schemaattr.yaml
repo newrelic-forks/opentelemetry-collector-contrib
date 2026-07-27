@@ -3,7 +3,7 @@ resourceMetrics:
       attributes:
         - key: service.instance.id
           value:
-            stringValue: SAMBALAM-M-P4X5:5432
+            stringValue: FQ1FY1H6L4:5432
     scopeMetrics:
       - metrics:
           - description: Number of buffers allocated.
@@ -216,7 +216,7 @@ resourceMetrics:
             stringValue: otel
         - key: service.instance.id
           value:
-            stringValue: SAMBALAM-M-P4X5:5432
+            stringValue: FQ1FY1H6L4:5432
     scopeMetrics:
       - metrics:
           - description: The number of backends.
@@ -416,6 +416,128 @@ resourceMetrics:
         - key: postgresql.database.name
           value:
             stringValue: otel
+        - key: service.instance.id
+          value:
+            stringValue: FQ1FY1H6L4:5432
+    scopeMetrics:
+      - metrics:
+          - description: The cumulative execution time of statements that insert vectors into pgvector tables.
+            name: postgresql.vector.insert.duration
+            sum:
+              aggregationTemporality: 2
+              dataPoints:
+                - asDouble: 2.5
+                  attributes:
+                    - key: db.namespace
+                      value:
+                        stringValue: otel
+                  startTimeUnixNano: "1000000"
+                  timeUnixNano: "2000000"
+              isMonotonic: true
+            unit: s
+          - description: The number of vectors inserted into pgvector tables.
+            name: postgresql.vector.insert.rows
+            sum:
+              aggregationTemporality: 2
+              dataPoints:
+                - asInt: "70"
+                  attributes:
+                    - key: db.namespace
+                      value:
+                        stringValue: otel
+                  startTimeUnixNano: "1000000"
+                  timeUnixNano: "2000000"
+              isMonotonic: true
+            unit: '{vectors}'
+          - description: The number of vector similarity search operations executed, grouped by the distance function used.
+            name: postgresql.vector.search.calls
+            sum:
+              aggregationTemporality: 2
+              dataPoints:
+                - asInt: "60"
+                  attributes:
+                    - key: db.namespace
+                      value:
+                        stringValue: otel
+                    - key: postgresql.distance.function.name
+                      value:
+                        stringValue: cosine
+                  startTimeUnixNano: "1000000"
+                  timeUnixNano: "2000000"
+                - asInt: "61"
+                  attributes:
+                    - key: db.namespace
+                      value:
+                        stringValue: otel
+                    - key: postgresql.distance.function.name
+                      value:
+                        stringValue: l2
+                  startTimeUnixNano: "1000000"
+                  timeUnixNano: "2000000"
+              isMonotonic: true
+            unit: '{search}'
+          - description: The cumulative execution time of vector similarity searches, grouped by the distance function used.
+            name: postgresql.vector.search.duration
+            sum:
+              aggregationTemporality: 2
+              dataPoints:
+                - asDouble: 0.5
+                  attributes:
+                    - key: db.namespace
+                      value:
+                        stringValue: otel
+                    - key: postgresql.distance.function.name
+                      value:
+                        stringValue: cosine
+                  startTimeUnixNano: "1000000"
+                  timeUnixNano: "2000000"
+                - asDouble: 1.5
+                  attributes:
+                    - key: db.namespace
+                      value:
+                        stringValue: otel
+                    - key: postgresql.distance.function.name
+                      value:
+                        stringValue: l2
+                  startTimeUnixNano: "1000000"
+                  timeUnixNano: "2000000"
+              isMonotonic: true
+            unit: s
+          - description: The cumulative number of rows returned by vector similarity searches, grouped by the distance function used.
+            name: postgresql.vector.search.rows_returned
+            sum:
+              aggregationTemporality: 2
+              dataPoints:
+                - asInt: "600"
+                  attributes:
+                    - key: db.namespace
+                      value:
+                        stringValue: otel
+                    - key: postgresql.distance.function.name
+                      value:
+                        stringValue: cosine
+                  startTimeUnixNano: "1000000"
+                  timeUnixNano: "2000000"
+                - asInt: "610"
+                  attributes:
+                    - key: db.namespace
+                      value:
+                        stringValue: otel
+                    - key: postgresql.distance.function.name
+                      value:
+                        stringValue: l2
+                  startTimeUnixNano: "1000000"
+                  timeUnixNano: "2000000"
+              isMonotonic: true
+            unit: '{rows}'
+        scope:
+          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrpostgresqlreceiver
+          version: latest
+  - resource:
+      attributes:
+        - key: postgresql.database.name
+          value:
+            stringValue: otel
         - key: postgresql.schema.name
           value:
             stringValue: public
@@ -424,7 +546,7 @@ resourceMetrics:
             stringValue: table1
         - key: service.instance.id
           value:
-            stringValue: SAMBALAM-M-P4X5:5432
+            stringValue: FQ1FY1H6L4:5432
     scopeMetrics:
       - metrics:
           - description: The number of blocks read.
@@ -590,7 +712,7 @@ resourceMetrics:
             stringValue: table2
         - key: service.instance.id
           value:
-            stringValue: SAMBALAM-M-P4X5:5432
+            stringValue: FQ1FY1H6L4:5432
     scopeMetrics:
       - metrics:
           - description: The number of blocks read.
@@ -759,7 +881,7 @@ resourceMetrics:
             stringValue: table1
         - key: service.instance.id
           value:
-            stringValue: SAMBALAM-M-P4X5:5432
+            stringValue: FQ1FY1H6L4:5432
     scopeMetrics:
       - metrics:
           - description: The number of index scans on a table.
@@ -799,7 +921,7 @@ resourceMetrics:
             stringValue: table2
         - key: service.instance.id
           value:
-            stringValue: SAMBALAM-M-P4X5:5432
+            stringValue: FQ1FY1H6L4:5432
     scopeMetrics:
       - metrics:
           - description: The number of index scans on a table.

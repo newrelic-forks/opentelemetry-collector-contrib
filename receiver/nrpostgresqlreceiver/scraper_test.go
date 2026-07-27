@@ -198,6 +198,11 @@ func TestScraper(t *testing.T) {
 		cfg.Metrics.PostgresqlSequentialScans.Enabled = true
 		cfg.Metrics.PostgresqlDatabaseLocks.Enabled = true
 		cfg.Metrics.PostgresqlQueryConflicts.Enabled = true
+		cfg.Metrics.PostgresqlVectorSearchCalls.Enabled = true
+		cfg.Metrics.PostgresqlVectorSearchDuration.Enabled = true
+		cfg.Metrics.PostgresqlVectorSearchRowsReturned.Enabled = true
+		cfg.Metrics.PostgresqlVectorInsertRows.Enabled = true
+		cfg.Metrics.PostgresqlVectorInsertDuration.Enabled = true
 
 		scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, factory, newCache(1), newTTLCache[string](1, time.Second))
 		require.NoError(t, err)
@@ -255,6 +260,16 @@ func TestScraperNoDatabaseSingle(t *testing.T) {
 		cfg.Metrics.PostgresqlDatabaseLocks.Enabled = true
 		require.False(t, cfg.Metrics.PostgresqlQueryConflicts.Enabled)
 		cfg.Metrics.PostgresqlQueryConflicts.Enabled = true
+		require.False(t, cfg.Metrics.PostgresqlVectorSearchCalls.Enabled)
+		cfg.Metrics.PostgresqlVectorSearchCalls.Enabled = true
+		require.False(t, cfg.Metrics.PostgresqlVectorSearchDuration.Enabled)
+		cfg.Metrics.PostgresqlVectorSearchDuration.Enabled = true
+		require.False(t, cfg.Metrics.PostgresqlVectorSearchRowsReturned.Enabled)
+		cfg.Metrics.PostgresqlVectorSearchRowsReturned.Enabled = true
+		require.False(t, cfg.Metrics.PostgresqlVectorInsertRows.Enabled)
+		cfg.Metrics.PostgresqlVectorInsertRows.Enabled = true
+		require.False(t, cfg.Metrics.PostgresqlVectorInsertDuration.Enabled)
+		cfg.Metrics.PostgresqlVectorInsertDuration.Enabled = true
 
 		scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, factory, newCache(1), newTTLCache[string](1, time.Second))
 		require.NoError(t, err)
@@ -282,6 +297,11 @@ func TestScraperNoDatabaseSingle(t *testing.T) {
 		cfg.Metrics.PostgresqlSequentialScans.Enabled = false
 		cfg.Metrics.PostgresqlDatabaseLocks.Enabled = false
 		cfg.Metrics.PostgresqlQueryConflicts.Enabled = false
+		cfg.Metrics.PostgresqlVectorSearchCalls.Enabled = false
+		cfg.Metrics.PostgresqlVectorSearchDuration.Enabled = false
+		cfg.Metrics.PostgresqlVectorSearchRowsReturned.Enabled = false
+		cfg.Metrics.PostgresqlVectorInsertRows.Enabled = false
+		cfg.Metrics.PostgresqlVectorInsertDuration.Enabled = false
 
 		scraper, err = newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, factory, newCache(1), newTTLCache[string](1, time.Second))
 		require.NoError(t, err)
@@ -514,6 +534,16 @@ func TestScraperWithResourceAttributeFeatureGateSingle(t *testing.T) {
 		cfg.Metrics.PostgresqlDatabaseLocks.Enabled = true
 		require.False(t, cfg.Metrics.PostgresqlQueryConflicts.Enabled)
 		cfg.Metrics.PostgresqlQueryConflicts.Enabled = true
+		require.False(t, cfg.Metrics.PostgresqlVectorSearchCalls.Enabled)
+		cfg.Metrics.PostgresqlVectorSearchCalls.Enabled = true
+		require.False(t, cfg.Metrics.PostgresqlVectorSearchDuration.Enabled)
+		cfg.Metrics.PostgresqlVectorSearchDuration.Enabled = true
+		require.False(t, cfg.Metrics.PostgresqlVectorSearchRowsReturned.Enabled)
+		cfg.Metrics.PostgresqlVectorSearchRowsReturned.Enabled = true
+		require.False(t, cfg.Metrics.PostgresqlVectorInsertRows.Enabled)
+		cfg.Metrics.PostgresqlVectorInsertRows.Enabled = true
+		require.False(t, cfg.Metrics.PostgresqlVectorInsertDuration.Enabled)
+		cfg.Metrics.PostgresqlVectorInsertDuration.Enabled = true
 		scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, &factory, newCache(1), newTTLCache[string](1, time.Second))
 		require.NoError(t, err)
 
@@ -1407,6 +1437,16 @@ func (m *mockClient) getFunctionStats(ctx context.Context, database string) (map
 	return args.Get(0).(map[functionIdentifer]functionStat), args.Error(1)
 }
 
+func (m *mockClient) getVectorSearchStats(ctx context.Context) ([]vectorSearchStat, error) {
+	args := m.Called(ctx)
+	return args.Get(0).([]vectorSearchStat), args.Error(1)
+}
+
+func (m *mockClient) getVectorInsertStats(ctx context.Context) ([]vectorInsertStat, error) {
+	args := m.Called(ctx)
+	return args.Get(0).([]vectorInsertStat), args.Error(1)
+}
+
 func (m *mockClient) getBGWriterStats(ctx context.Context) (*bgStat, error) {
 	args := m.Called(ctx)
 	return args.Get(0).(*bgStat), args.Error(1)
@@ -1669,6 +1709,30 @@ func (m *mockClient) initMocks(database, schema string, databases []string, inde
 			},
 		}
 		m.On("getFunctionStats", mock.Anything, database).Return(functionStats, nil)
+
+		vectorSearchStats := []vectorSearchStat{
+			{
+				distanceFunction: "cosine",
+				calls:            int64(index + 60),
+				totalExecTime:    float64(index) + 0.5,
+				rowsReturned:     int64(index + 600),
+			},
+			{
+				distanceFunction: "l2",
+				calls:            int64(index + 61),
+				totalExecTime:    float64(index) + 1.5,
+				rowsReturned:     int64(index + 610),
+			},
+		}
+		m.On("getVectorSearchStats", mock.Anything).Return(vectorSearchStats, nil)
+
+		vectorInsertStats := []vectorInsertStat{
+			{
+				rows:          int64(index + 70),
+				totalExecTime: float64(index) + 2.5,
+			},
+		}
+		m.On("getVectorInsertStats", mock.Anything).Return(vectorInsertStats, nil)
 	}
 }
 
