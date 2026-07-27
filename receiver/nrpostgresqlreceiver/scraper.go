@@ -406,20 +406,18 @@ func (p *postgreSQLScraper) probeExplainFunctionIfNeeded(ctx context.Context, da
 	}
 
 	var pqErr *pq.Error
-	if errors.As(err, &pqErr) && pqErr.Code == pqerror.UndefinedFunction {
-		p.logger.Warn("EXPLAIN helper function not found, falling back to inline EXPLAIN",
-			zap.String("database", database),
-			zap.String("explain_function_name", p.config.ExplainFunctionName),
-			zap.Error(err))
-		p.explainFunctionCache.Add(database, explainSetupState{available: false, err: err})
-		return nil
-	}
-
 	if errors.As(err, &pqErr) {
-		p.logger.Error("EXPLAIN helper function exists but failed, falling back to inline EXPLAIN",
-			zap.String("database", database),
-			zap.String("explain_function_name", p.config.ExplainFunctionName),
-			zap.Error(err))
+		if pqErr.Code == pqerror.UndefinedFunction {
+			p.logger.Warn("EXPLAIN helper function not found, falling back to inline EXPLAIN",
+				zap.String("database", database),
+				zap.String("explain_function_name", p.config.ExplainFunctionName),
+				zap.Error(err))
+		} else {
+			p.logger.Error("EXPLAIN helper function exists but failed, falling back to inline EXPLAIN",
+				zap.String("database", database),
+				zap.String("explain_function_name", p.config.ExplainFunctionName),
+				zap.Error(err))
+		}
 		p.explainFunctionCache.Add(database, explainSetupState{available: false, err: err})
 		return nil
 	}
@@ -533,10 +531,9 @@ func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory p
 			dbClient, err := clientFactory.getClient(database)
 			if err == nil {
 				explainFunction := ""
-				if probeErr := p.probeExplainFunctionIfNeeded(ctx, database, dbClient); probeErr == nil {
-					if state, cached := p.explainFunctionCache.Get(database); cached && state.available {
-						explainFunction = quoteExplainFunctionName(p.config.ExplainFunctionName)
-					}
+				_ = p.probeExplainFunctionIfNeeded(ctx, database, dbClient)
+				if state, cached := p.explainFunctionCache.Get(database); cached && state.available {
+					explainFunction = quoteExplainFunctionName(p.config.ExplainFunctionName)
 				}
 				plan, err = dbClient.explainQuery(rawQuery, queryID, explainFunction, logger)
 				if err != nil {

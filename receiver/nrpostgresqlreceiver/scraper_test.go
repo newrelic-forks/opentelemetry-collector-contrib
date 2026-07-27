@@ -1165,6 +1165,98 @@ func TestScrapeTopQueries(t *testing.T) {
 	assert.Equal(t, float64(12), planTime)
 }
 
+func TestScrapeTopQueriesViaFunction(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.Databases = []string{}
+	cfg.Events.DbServerTopQuery.Enabled = true
+	cfg.ExplainFunctionName = "otel.explain_statement" // drive the SECURITY DEFINER helper-function path, not inline EXPLAIN
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	assert.NoError(t, err)
+
+	defer db.Close()
+
+	factory := mockSimpleClientFactory{
+		db: db,
+	}
+
+	settings := receivertest.NewNopSettings(metadata.Type)
+	logger, err := zap.NewProduction()
+	assert.NoError(t, err)
+	settings.TelemetrySettings = component.TelemetrySettings{
+		Logger: logger,
+	}
+
+	queryid := "114514"
+	rawQuery := "select * from pg_stat_activity where id = 32"
+	expectedReturnedValue := map[string]string{
+		"calls":               "123",
+		"datname":             "postgres",
+		"shared_blks_dirtied": "1111",
+		"shared_blks_hit":     "1112",
+		"shared_blks_read":    "1113",
+		"shared_blks_written": "1114",
+		"temp_blks_read":      "1115",
+		"temp_blks_written":   "1116",
+		"query":               rawQuery,
+		"queryid":             queryid,
+		"rolname":             "master",
+		"rows":                "30",
+		"total_exec_time":     "11000",
+		"total_plan_time":     "12000",
+	}
+
+	expectedRows := make([]string, 0, len(expectedReturnedValue))
+	var expectedValuesBuilder strings.Builder
+	for k, v := range expectedReturnedValue {
+		expectedRows = append(expectedRows, k)
+		fmt.Fprintf(&expectedValuesBuilder, "%s,", v)
+	}
+	expectedValues := expectedValuesBuilder.String()
+
+	scraper, scraperErr := newPostgreSQLScraper(settings, cfg, factory, newCache(30), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
+	require.NoError(t, scraperErr)
+	scraper.cache.Add(queryid+totalExecTimeColumnName, 10)
+	scraper.cache.Add(queryid+totalPlanTimeColumnName, 11)
+	scraper.cache.Add(queryid+callsColumnName, 120)
+	scraper.cache.Add(queryid+rowsColumnName, 20)
+
+	scraper.cache.Add(queryid+sharedBlksDirtiedColumnName, 1110)
+	scraper.cache.Add(queryid+sharedBlksHitColumnName, 1110)
+	scraper.cache.Add(queryid+sharedBlksReadColumnName, 1110)
+	scraper.cache.Add(queryid+sharedBlksWrittenColumnName, 1110)
+	scraper.cache.Add(queryid+tempBlksReadColumnName, 1110)
+	scraper.cache.Add(queryid+tempBlksWrittenColumnName, 1110)
+
+	functionPlan := `[{"Plan":{"Node Type":"Seq Scan","Relation Name":"pg_stat_activity"}}]`
+
+	// 1. top-query fetch
+	mock.ExpectQuery(expectedScrapeTopQuery).WillReturnRows(sqlmock.NewRows(expectedRows).FromCSVString(expectedValues[:len(expectedValues)-1]))
+	// 2. probe call: SELECT "otel"."explain_statement"('SELECT 1')
+	mock.ExpectQuery(`SELECT "otel"."explain_statement"('SELECT 1')`).
+		WillReturnRows(sqlmock.NewRows([]string{"explain_statement"}).AddRow(`[{"Plan":{}}]`))
+	// 3. real explain-via-function call: SELECT "otel"."explain_statement"($1) with the raw query text bound
+	mock.ExpectQuery(`SELECT "otel"."explain_statement"($1)`).
+		WithArgs(rawQuery).
+		WillReturnRows(sqlmock.NewRows([]string{"explain_statement"}).AddRow(functionPlan))
+
+	actualLogs, err := scraper.scrapeTopQuery(t.Context(), 31, 32, 33, time.Minute)
+	require.NoError(t, err)
+
+	require.Equal(t, 1, actualLogs.ResourceLogs().Len())
+	rl := actualLogs.ResourceLogs().At(0)
+	require.Equal(t, 1, rl.ScopeLogs().Len())
+	sl := rl.ScopeLogs().At(0)
+	require.Equal(t, 1, sl.LogRecords().Len())
+	lr := sl.LogRecords().At(0)
+
+	plan, ok := lr.Attributes().Get("postgresql.query_plan")
+	require.True(t, ok, "expected a postgresql.query_plan attribute on the log record")
+	assert.Equal(t, functionPlan, plan.Str(), "plan should come from the function-based EXPLAIN path, not the inline path")
+	assert.NotEmpty(t, plan.Str())
+
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestIsExplainableQuery(t *testing.T) {
 	testCases := []struct {
 		name     string
@@ -1502,13 +1594,13 @@ func TestScraperExplainFunctionProbeCache(t *testing.T) {
 
 		scraper := newScraperWithMockClient(t, mc)
 
-		state, ok := scraper.explainFunctionCache.Get("testdb")
+		_, ok := scraper.explainFunctionCache.Get("testdb")
 		assert.False(t, ok, "cache should start empty")
 
 		err := scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
 		require.NoError(t, err)
 
-		state, ok = scraper.explainFunctionCache.Get("testdb")
+		state, ok := scraper.explainFunctionCache.Get("testdb")
 		require.True(t, ok)
 		assert.True(t, state.available)
 		assert.NoError(t, state.err)
@@ -1552,7 +1644,11 @@ func TestScraperExplainFunctionProbeCache(t *testing.T) {
 		require.Error(t, state.err)
 		var pqErr *pq.Error
 		require.ErrorAs(t, state.err, &pqErr)
-		assert.NotEqual(t, pqerror.UndefinedFunction, pqErr.Code, "this is the distinct non-42883 branch — probeExplainFunctionIfNeeded logs it at Error, not Warn, per the code path taken (not independently asserted here: this test suite has no log-observing infra today, and the design's Testing section says not to add new test infra for this feature — the branch itself, and its effect on the cached state, is what this test verifies)")
+		// This is the distinct non-42883 branch: probeExplainFunctionIfNeeded logs it at Error,
+		// not Warn. Not independently asserted here since this test suite has no log-observing
+		// infra today; the branch itself, and its effect on the cached state, is what this
+		// test verifies.
+		assert.NotEqual(t, pqerror.UndefinedFunction, pqErr.Code, "non-42883 branch, not undefined_function")
 	})
 
 	t.Run("real explainQuery failure with undefined_function does not evict the cache", func(t *testing.T) {
@@ -1637,6 +1733,24 @@ func TestScraperExplainFunctionProbeCache(t *testing.T) {
 		mc.AssertNumberOfCalls(t, "probeExplainFunction", 1)
 
 		time.Sleep(100 * time.Millisecond) // past the 50ms TTL
+
+		err = scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
+		require.NoError(t, err)
+		mc.AssertNumberOfCalls(t, "probeExplainFunction", 2)
+	})
+
+	t.Run("connection-level non-pq error is not cached and retries on next call", func(t *testing.T) {
+		mc := &mockClient{}
+		mc.On("probeExplainFunction", mock.Anything, `"otel"."explain_statement"`).
+			Return(errors.New("dial tcp: connection refused")).Twice()
+
+		scraper := newScraperWithMockClient(t, mc)
+
+		err := scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
+		require.NoError(t, err)
+
+		_, ok := scraper.explainFunctionCache.Get("testdb")
+		assert.False(t, ok, "connection-level errors must not be cached")
 
 		err = scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
 		require.NoError(t, err)

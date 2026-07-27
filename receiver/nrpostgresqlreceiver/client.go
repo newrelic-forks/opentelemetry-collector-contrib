@@ -144,8 +144,11 @@ func quoteExplainFunctionName(name string) string {
 // probeExplainFunction checks the function is present and callable via a live test call.
 func (c *postgreSQLClient) probeExplainFunction(ctx context.Context, quotedFunctionName string) error {
 	query := fmt.Sprintf("SELECT %s('SELECT 1')", quotedFunctionName)
-	_, err := c.client.QueryContext(ctx, query)
-	return err
+	rows, err := c.client.QueryContext(ctx, query)
+	if err != nil {
+		return err
+	}
+	return rows.Close()
 }
 
 // explainQuery implements client.
