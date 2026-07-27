@@ -96,7 +96,7 @@ func createMetricsReceiver(
 		clientFactory = newDefaultClientFactory(cfg)
 	}
 
-	ns, err := newPostgreSQLScraper(params, cfg, clientFactory, newCache(1), newTTLCache[string](1, time.Second))
+	ns, err := newPostgreSQLScraper(params, cfg, clientFactory, newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +132,7 @@ func createLogsReceiver(
 	if cfg.Events.DbServerQuerySample.Enabled {
 		// query sample collection does not need cache, but we do not want to make it
 		// nil, so create one size 1 cache as a placeholder.
-		ns, err := newPostgreSQLScraper(params, cfg, clientFactory, newCache(1), newTTLCache[string](1, time.Second))
+		ns, err := newPostgreSQLScraper(params, cfg, clientFactory, newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
 		if err != nil {
 			return nil, err
 		}
@@ -152,7 +152,7 @@ func createLogsReceiver(
 
 	if cfg.Events.DbServerTopQuery.Enabled {
 		// we have 10 updated only attributes. so we set the cache size accordingly.
-		ns, err := newPostgreSQLScraper(params, cfg, clientFactory, newCache(int(cfg.TopNQuery*10*2)), newTTLCache[string](cfg.QueryPlanCacheSize, cfg.QueryPlanCacheTTL))
+		ns, err := newPostgreSQLScraper(params, cfg, clientFactory, newCache(int(cfg.TopNQuery*10*2)), newTTLCache[string](cfg.QueryPlanCacheSize, cfg.QueryPlanCacheTTL), newTTLCache[explainSetupState](cfg.QueryPlanCacheSize, cfg.ExplainFunctionCacheTTL))
 		if err != nil {
 			return nil, err
 		}

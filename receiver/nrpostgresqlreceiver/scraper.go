@@ -45,6 +45,13 @@ const (
 // See: https://opentelemetry.io/docs/specs/semconv/registry/attributes/service/
 var otelNamespaceUUID = uuid.MustParse("4d63009a-8d0f-11ee-aad7-4c796ed8e320")
 
+// explainSetupState is the cached outcome of probing whether the configured
+// EXPLAIN helper function is present and callable for a given database.
+type explainSetupState struct {
+	available bool
+	err       error
+}
+
 type postgreSQLScraper struct {
 	logger        *zap.Logger
 	config        *Config
@@ -57,6 +64,7 @@ type postgreSQLScraper struct {
 	separateSchemaAttr     bool
 	useOTelSemconv         bool
 	queryPlanCache         *expirable.LRU[string, string]
+	explainFunctionCache   *expirable.LRU[string, explainSetupState]
 	newestQueryTimestamp   float64
 	serviceInstanceID      string
 	lastExecutionTimestamp time.Time
@@ -91,6 +99,7 @@ func newPostgreSQLScraper(
 	clientFactory postgreSQLClientFactory,
 	cache *lru.Cache[string, float64],
 	queryPlanCache *expirable.LRU[string, string],
+	explainFunctionCache *expirable.LRU[string, explainSetupState],
 ) (*postgreSQLScraper, error) {
 	excludes := make(map[string]struct{})
 	for _, db := range config.ExcludeDatabases {
@@ -118,17 +127,18 @@ func newPostgreSQLScraper(
 	}
 	mbConfig := metricsBuilderConfigForFeatureGate(config.MetricsBuilderConfig, useOTelSemconv)
 	return &postgreSQLScraper{
-		logger:             settings.Logger,
-		config:             config,
-		clientFactory:      clientFactory,
-		mb:                 metadata.NewMetricsBuilder(mbConfig, settings),
-		lb:                 metadata.NewLogsBuilder(config.LogsBuilderConfig, settings),
-		excludes:           excludes,
-		cache:              cache,
-		queryPlanCache:     queryPlanCache,
-		separateSchemaAttr: separateSchemaAttr,
-		serviceInstanceID:  serviceInstanceID,
-		useOTelSemconv:     useOTelSemconv,
+		logger:               settings.Logger,
+		config:               config,
+		clientFactory:        clientFactory,
+		mb:                   metadata.NewMetricsBuilder(mbConfig, settings),
+		lb:                   metadata.NewLogsBuilder(config.LogsBuilderConfig, settings),
+		excludes:             excludes,
+		cache:                cache,
+		queryPlanCache:       queryPlanCache,
+		explainFunctionCache: explainFunctionCache,
+		separateSchemaAttr:   separateSchemaAttr,
+		serviceInstanceID:    serviceInstanceID,
+		useOTelSemconv:       useOTelSemconv,
 	}, nil
 }
 

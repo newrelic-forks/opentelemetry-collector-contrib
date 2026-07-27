@@ -43,7 +43,7 @@ func TestUnsuccessfulScrape(t *testing.T) {
 	cfg := factory.CreateDefaultConfig().(*Config)
 	cfg.Endpoint = "fake:11111"
 
-	scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, newDefaultClientFactory(cfg), newCache(1), newTTLCache[string](1, time.Second))
+	scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, newDefaultClientFactory(cfg), newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
 	require.NoError(t, err)
 
 	actualMetrics, err := scraper.scrape(t.Context())
@@ -204,7 +204,7 @@ func TestScraper(t *testing.T) {
 		cfg.Metrics.PostgresqlVectorInsertRows.Enabled = true
 		cfg.Metrics.PostgresqlVectorInsertDuration.Enabled = true
 
-		scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, factory, newCache(1), newTTLCache[string](1, time.Second))
+		scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, factory, newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
 		require.NoError(t, err)
 
 		actualMetrics, err := scraper.scrape(t.Context())
@@ -271,7 +271,7 @@ func TestScraperNoDatabaseSingle(t *testing.T) {
 		require.False(t, cfg.Metrics.PostgresqlVectorInsertDuration.Enabled)
 		cfg.Metrics.PostgresqlVectorInsertDuration.Enabled = true
 
-		scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, factory, newCache(1), newTTLCache[string](1, time.Second))
+		scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, factory, newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
 		require.NoError(t, err)
 		actualMetrics, err := scraper.scrape(t.Context())
 		require.NoError(t, err)
@@ -303,7 +303,7 @@ func TestScraperNoDatabaseSingle(t *testing.T) {
 		cfg.Metrics.PostgresqlVectorInsertRows.Enabled = false
 		cfg.Metrics.PostgresqlVectorInsertDuration.Enabled = false
 
-		scraper, err = newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, factory, newCache(1), newTTLCache[string](1, time.Second))
+		scraper, err = newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, factory, newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
 		require.NoError(t, err)
 		actualMetrics, err = scraper.scrape(t.Context())
 		require.NoError(t, err)
@@ -356,7 +356,7 @@ func TestScraperNoDatabaseMultipleWithoutPreciseLag(t *testing.T) {
 		cfg.Metrics.PostgresqlSequentialScans.Enabled = true
 		require.False(t, cfg.Metrics.PostgresqlDatabaseLocks.Enabled)
 		cfg.Metrics.PostgresqlDatabaseLocks.Enabled = true
-		scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, &factory, newCache(1), newTTLCache[string](1, time.Second))
+		scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, &factory, newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
 		require.NoError(t, err)
 
 		actualMetrics, err := scraper.scrape(t.Context())
@@ -411,7 +411,7 @@ func TestScraperNoDatabaseMultiple(t *testing.T) {
 		cfg.Metrics.PostgresqlSequentialScans.Enabled = true
 		require.False(t, cfg.Metrics.PostgresqlDatabaseLocks.Enabled)
 		cfg.Metrics.PostgresqlDatabaseLocks.Enabled = true
-		scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, &factory, newCache(1), newTTLCache[string](1, time.Second))
+		scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, &factory, newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
 		require.NoError(t, err)
 
 		actualMetrics, err := scraper.scrape(t.Context())
@@ -478,7 +478,7 @@ func TestScraperWithResourceAttributeFeatureGate(t *testing.T) {
 		require.False(t, cfg.Metrics.PostgresqlDatabaseLocks.Enabled)
 		cfg.Metrics.PostgresqlDatabaseLocks.Enabled = true
 
-		scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, &factory, newCache(1), newTTLCache[string](1, time.Second))
+		scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, &factory, newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
 		require.NoError(t, err)
 
 		actualMetrics, err := scraper.scrape(t.Context())
@@ -544,7 +544,7 @@ func TestScraperWithResourceAttributeFeatureGateSingle(t *testing.T) {
 		cfg.Metrics.PostgresqlVectorInsertRows.Enabled = true
 		require.False(t, cfg.Metrics.PostgresqlVectorInsertDuration.Enabled)
 		cfg.Metrics.PostgresqlVectorInsertDuration.Enabled = true
-		scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, &factory, newCache(1), newTTLCache[string](1, time.Second))
+		scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, &factory, newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
 		require.NoError(t, err)
 
 		actualMetrics, err := scraper.scrape(t.Context())
@@ -572,7 +572,7 @@ func TestScraperExcludeDatabase(t *testing.T) {
 		cfg := createDefaultConfig().(*Config)
 		cfg.ExcludeDatabases = []string{"open"}
 
-		scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, &factory, newCache(1), newTTLCache[string](1, time.Second))
+		scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, &factory, newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
 		require.NoError(t, err)
 
 		actualMetrics, err := scraper.scrape(t.Context())
@@ -599,7 +599,7 @@ func TestMutualExclusionOfFeatureGates(t *testing.T) {
 	factory := new(mockClientFactory)
 	factory.initMocks([]string{"otel"})
 
-	_, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, factory, newCache(1), newTTLCache[string](1, time.Second))
+	_, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, factory, newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "mutually exclusive")
 }
@@ -666,7 +666,7 @@ func TestScrapeQuerySample(t *testing.T) {
 	settings.TelemetrySettings = component.TelemetrySettings{
 		Logger: logger,
 	}
-	scraper, scraperErr := newPostgreSQLScraper(settings, cfg, factory, newCache(1), newTTLCache[string](1, time.Second))
+	scraper, scraperErr := newPostgreSQLScraper(settings, cfg, factory, newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
 	require.NoError(t, scraperErr)
 	scraper.newestQueryTimestamp = 123440.111
 	mock.ExpectQuery(expectedScrapeSampleQuery).WillReturnRows(newQuerySampleRows(t, map[string]any{
@@ -712,7 +712,7 @@ func TestScrapeQuerySampleSemconv(t *testing.T) {
 	require.NoError(t, err)
 	settings.TelemetrySettings = component.TelemetrySettings{Logger: logger}
 
-	scraper, scraperErr := newPostgreSQLScraper(settings, cfg, factory, newCache(1), newTTLCache[string](1, time.Second))
+	scraper, scraperErr := newPostgreSQLScraper(settings, cfg, factory, newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
 	require.NoError(t, scraperErr)
 	scraper.newestQueryTimestamp = 123440.111
 	mock.ExpectQuery(expectedScrapeSampleQuery).WillReturnRows(newQuerySampleRows(t, map[string]any{
@@ -765,7 +765,7 @@ func TestScrapeQuerySampleWithTraceparent(t *testing.T) {
 		Logger: logger,
 	}
 
-	scraper, scraperErr := newPostgreSQLScraper(settings, cfg, factory, newCache(1), newTTLCache[string](1, time.Second))
+	scraper, scraperErr := newPostgreSQLScraper(settings, cfg, factory, newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
 	require.NoError(t, scraperErr)
 	scraper.newestQueryTimestamp = 123440.111
 
@@ -865,7 +865,7 @@ func TestScrapeQuerySampleNoResults(t *testing.T) {
 	require.NoError(t, err)
 	settings.TelemetrySettings = component.TelemetrySettings{Logger: logger}
 
-	scraper, scraperErr := newPostgreSQLScraper(settings, cfg, factory, newCache(1), newTTLCache[string](1, time.Second))
+	scraper, scraperErr := newPostgreSQLScraper(settings, cfg, factory, newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
 	require.NoError(t, scraperErr)
 	scraper.newestQueryTimestamp = 123440.111
 
@@ -900,7 +900,7 @@ func TestScrapeQuerySampleMultipleRows(t *testing.T) {
 	require.NoError(t, err)
 	settings.TelemetrySettings = component.TelemetrySettings{Logger: logger}
 
-	scraper, scraperErr := newPostgreSQLScraper(settings, cfg, factory, newCache(1), newTTLCache[string](1, time.Second))
+	scraper, scraperErr := newPostgreSQLScraper(settings, cfg, factory, newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
 	require.NoError(t, scraperErr)
 	scraper.newestQueryTimestamp = 123440.111
 
@@ -975,7 +975,7 @@ func TestScrapeQuerySampleBlockedSession(t *testing.T) {
 	require.NoError(t, err)
 	settings.TelemetrySettings = component.TelemetrySettings{Logger: logger}
 
-	scraper, scraperErr := newPostgreSQLScraper(settings, cfg, factory, newCache(1), newTTLCache[string](1, time.Second))
+	scraper, scraperErr := newPostgreSQLScraper(settings, cfg, factory, newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
 	require.NoError(t, scraperErr)
 	scraper.newestQueryTimestamp = 123440.111
 
@@ -1031,7 +1031,7 @@ func TestScrapeQuerySampleMultiBlocker(t *testing.T) {
 	require.NoError(t, err)
 	settings.TelemetrySettings = component.TelemetrySettings{Logger: logger}
 
-	scraper, scraperErr := newPostgreSQLScraper(settings, cfg, factory, newCache(1), newTTLCache[string](1, time.Second))
+	scraper, scraperErr := newPostgreSQLScraper(settings, cfg, factory, newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
 	require.NoError(t, scraperErr)
 	scraper.newestQueryTimestamp = 123440.111
 
@@ -1124,7 +1124,7 @@ func TestScrapeTopQueries(t *testing.T) {
 	}
 	expectedValues := expectedValuesBuilder.String()
 
-	scraper, scraperErr := newPostgreSQLScraper(settings, cfg, factory, newCache(30), newTTLCache[string](1, time.Second))
+	scraper, scraperErr := newPostgreSQLScraper(settings, cfg, factory, newCache(30), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
 	require.NoError(t, scraperErr)
 	scraper.cache.Add(queryid+totalExecTimeColumnName, 10)
 	scraper.cache.Add(queryid+totalPlanTimeColumnName, 11)
@@ -1250,7 +1250,7 @@ func TestScrapeTopQueriesCollectsOnlyWhenIntervalHasElapsed(t *testing.T) {
 		Logger: logger,
 	}
 
-	scraper, scraperErr := newPostgreSQLScraper(settings, cfg, factory, newCache(30), newTTLCache[string](1, time.Second))
+	scraper, scraperErr := newPostgreSQLScraper(settings, cfg, factory, newCache(30), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
 	require.NoError(t, scraperErr)
 
 	assert.True(t, scraper.lastExecutionTimestamp.IsZero(), "lastExecutionTimestamp should be zero before first collection")
@@ -1854,6 +1854,7 @@ func TestNewPostgreSQLScraperSemconvServiceInstanceID(t *testing.T) {
 		newDefaultClientFactory(cfg),
 		newCache(1),
 		newTTLCache[string](1, time.Second),
+		newTTLCache[explainSetupState](1, time.Second),
 	)
 	require.NoError(t, err)
 
@@ -1876,6 +1877,7 @@ func TestNewPostgreSQLScraperSemconvUnixServiceInstanceID(t *testing.T) {
 		newDefaultClientFactory(cfg),
 		newCache(1),
 		newTTLCache[string](1, time.Second),
+		newTTLCache[explainSetupState](1, time.Second),
 	)
 	require.NoError(t, err)
 
