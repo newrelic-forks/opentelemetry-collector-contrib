@@ -90,8 +90,17 @@ attributes:
   db.namespace:
     description: The default database for the thread, or empty if none has been selected (originally processlist_db).
     type: string
+  db.query.comment_tags:
+    description: Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys specified in allowed_comment_keys configuration. Used for correlation with APM traces.
+    type: string
+  db.query.comment_tags.nr_service_guid:
+    description: New Relic service GUID extracted from the filtered db.query.comment_tags. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Used for correlation with APM traces.
+    type: string
   db.query.text:
     description: The SQL statement text for the event.
+    type: string
+  db.query.text.normalized.hash:
+    description: MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Used for correlation with APM slow query traces.
     type: string
   db.system.name:
     description: The name of the database system.
@@ -327,6 +336,9 @@ events:
       - client.port
       - network.peer.address
       - network.peer.port
+      - db.query.comment_tags
+      - db.query.comment_tags.nr_service_guid
+      - db.query.text.normalized.hash
 
   db.server.top_query:
     enabled: false
@@ -341,6 +353,9 @@ events:
       - mysql.events_statements_summary_by_digest.digest
       - mysql.events_statements_summary_by_digest.count_star
       - mysql.events_statements_summary_by_digest.sum_timer_wait
+      - db.query.comment_tags
+      - db.query.comment_tags.nr_service_guid
+      - db.query.text.normalized.hash
 
 metrics:
   mysql.buffer_pool.data_pages:

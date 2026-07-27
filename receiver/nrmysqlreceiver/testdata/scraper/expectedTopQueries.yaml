@@ -6,7 +6,7 @@ resourceLogs:
             stringValue: localhost:3306
         - key: service.instance.id
           value:
-            stringValue: placeholder
+            stringValue: 5502a606-efb3-5580-8d0d-f91a228bb187
     scopeLogs:
       - logRecords:
           - attributes:
@@ -31,9 +31,18 @@ resourceLogs:
               - key: mysql.events_statements_summary_by_digest.sum_timer_wait
                 value:
                   doubleValue: 0.001021918999
+              - key: db.query.comment_tags
+                value:
+                  stringValue: ""
+              - key: db.query.comment_tags.nr_service_guid
+                value:
+                  stringValue: ""
+              - key: db.query.text.normalized.hash
+                value:
+                  stringValue: 22be5cab0ae05783fd6c58d6e8507512
             body: {}
             eventName: db.server.top_query
-            timeUnixNano: "1779457646953037000"
+            timeUnixNano: "1785132730772218000"
         scope:
           name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrmysqlreceiver
           version: latest

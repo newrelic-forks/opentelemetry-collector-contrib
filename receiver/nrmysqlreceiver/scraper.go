@@ -20,6 +20,8 @@ import (
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/hashicorp/golang-lru/v2/expirable"
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon/priorityqueue"
+	"github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon/sqlcomments"
+	"github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon/sqlnormalizer"
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrmysqlreceiver/internal/metadata"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/pdata/pcommon"
@@ -792,6 +794,13 @@ func (m *mySQLScraper) scrapeTopQueries(now pcommon.Timestamp, errs *scrapererro
 			queryPlanHash = queryPlanCacheID
 		}
 
+		// Extract NR-specific correlation attributes from the raw sample text
+		// (leading /* */ comment tags injected by APM agents) and compute the
+		// normalized-SQL MD5 hash used to correlate with APM slow-query traces.
+		queryCommentTags := sqlcomments.ExtractAndFilterComments(q.querySampleText, m.config.TopQueryCollection.AllowedCommentKeys)
+		nrServiceGUID := sqlcomments.ExtractValueForKey(queryCommentTags, "nr_service_guid")
+		_, normalizedQueryHash := sqlnormalizer.NormalizeSQLAndHash(obfuscatedQuery)
+
 		m.lb.RecordDbServerTopQueryEvent(
 			context.Background(),
 			now,
@@ -802,6 +811,9 @@ func (m *mySQLScraper) scrapeTopQueries(now pcommon.Timestamp, errs *scrapererro
 			q.digest,
 			countStarVal,
 			sumTimerWaitVal,
+			queryCommentTags,
+			nrServiceGUID,
+			normalizedQueryHash,
 		)
 	}
 }
@@ -860,6 +872,13 @@ func (m *mySQLScraper) scrapeQuerySamples(_ context.Context, now pcommon.Timesta
 			queryPlanHash = queryPlanCacheID
 		}
 
+		// Extract NR-specific correlation attributes from the raw sample SQL text
+		// (leading /* */ comment tags injected by APM agents) and compute the
+		// normalized-SQL MD5 hash used to correlate with APM slow-query traces.
+		queryCommentTags := sqlcomments.ExtractAndFilterComments(sample.sqlText, m.config.QuerySampleCollection.AllowedCommentKeys)
+		nrServiceGUID := sqlcomments.ExtractValueForKey(queryCommentTags, "nr_service_guid")
+		_, normalizedQueryHash := sqlnormalizer.NormalizeSQLAndHash(obfuscatedQuery)
+
 		m.lb.RecordDbServerQuerySampleEvent(
 			recordCtx,
 			now,
@@ -883,6 +902,9 @@ func (m *mySQLScraper) scrapeQuerySamples(_ context.Context, now pcommon.Timesta
 			clientPort,
 			networkPeerAddress,
 			networkPeerPort,
+			queryCommentTags,
+			nrServiceGUID,
+			normalizedQueryHash,
 		)
 	}
 

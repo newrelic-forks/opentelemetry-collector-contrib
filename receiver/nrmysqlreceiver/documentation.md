@@ -709,6 +709,9 @@ This provides real-time visibility into active queries, helping users monitor da
 | client.port | TCP port used by the client. | Any Int | - |
 | network.peer.address | IP address of the peer client. | Any Str | - |
 | network.peer.port | TCP port used by the peer client. | Any Int | - |
+| db.query.comment_tags | Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys specified in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
+| db.query.comment_tags.nr_service_guid | New Relic service GUID extracted from the filtered db.query.comment_tags. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
+| db.query.text.normalized.hash | MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Used for correlation with APM slow query traces. | Any Str | - |
 
 ### db.server.top_query
 
@@ -727,6 +730,9 @@ This provides insights into query performance and resource usage, helping users 
 | mysql.events_statements_summary_by_digest.digest | The statement digest SHA-256 value as a string of 64 hexadecimal characters, or empty if the statements_digest consumer is no. | Any Str | - |
 | mysql.events_statements_summary_by_digest.count_star | The number of times the statement was executed, report in delta value. | Any Int | - |
 | mysql.events_statements_summary_by_digest.sum_timer_wait | The total time spent executing the statement, report in delta seconds. | Any Double | - |
+| db.query.comment_tags | Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys specified in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
+| db.query.comment_tags.nr_service_guid | New Relic service GUID extracted from the filtered db.query.comment_tags. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
+| db.query.text.normalized.hash | MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Used for correlation with APM slow query traces. | Any Str | - |
 
 ## Resource Attributes
 

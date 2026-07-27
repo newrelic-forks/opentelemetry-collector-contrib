@@ -42,11 +42,13 @@ type TopQueryCollection struct {
 	CollectionInterval  time.Duration `mapstructure:"collection_interval"`
 	QueryPlanCacheSize  int           `mapstructure:"query_plan_cache_size"`
 	QueryPlanCacheTTL   time.Duration `mapstructure:"query_plan_cache_ttl"`
+	AllowedCommentKeys  []string      `mapstructure:"allowed_comment_keys"`
 
 	_ struct{}
 }
 type QuerySampleCollection struct {
-	MaxRowsPerQuery uint64 `mapstructure:"max_rows_per_query"`
+	MaxRowsPerQuery    uint64   `mapstructure:"max_rows_per_query"`
+	AllowedCommentKeys []string `mapstructure:"allowed_comment_keys"`
 
 	_ struct{}
 }
