@@ -39,12 +39,14 @@ type TopQueryCollection struct {
 	CollectionInterval      time.Duration `mapstructure:"collection_interval"`
 	ExplainFunctionName     string        `mapstructure:"explain_function_name"`
 	ExplainFunctionCacheTTL time.Duration `mapstructure:"explain_function_cache_ttl"`
+	AllowedCommentKeys      []string      `mapstructure:"allowed_comment_keys"`
 	// prevent unkeyed literal initialization
 	_ struct{}
 }
 
 type QuerySampleCollection struct {
-	MaxRowsPerQuery int64 `mapstructure:"max_rows_per_query"`
+	MaxRowsPerQuery    int64    `mapstructure:"max_rows_per_query"`
+	AllowedCommentKeys []string `mapstructure:"allowed_comment_keys"`
 	// prevent unkeyed literal initialization
 	_ struct{}
 }

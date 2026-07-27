@@ -657,6 +657,8 @@ query sample
 | db.system.name | The database management system (DBMS) product as identified by the client instrumentation. | Str: ``postgresql`` | - |
 | db.namespace | The database namespace, following the `{database}|{schema}` format defined by OpenTelemetry semantic conventions for PostgreSQL. | Any Str | - |
 | db.query.text | The text of the database query being executed. | Any Str | - |
+| db.query.comment_tags | Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys specified in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
+| db.query.comment_tags.nr_service_guid | New Relic service GUID extracted from the filtered db.query.comment_tags. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
 | user.name | Name of the user logged into this backend. | Any Str | - |
 | postgresql.state | Current overall state of this backend | Any Str | - |
 | postgresql.pid | Process ID of this backend. | Any Int | - |
@@ -676,6 +678,7 @@ query sample
 | postgresql.blocking.lock.type | The type of lock resource being waited on (e.g. relation, transactionid, tuple). Empty string when not blocked. | Any Str | - |
 | postgresql.blocking.lock.relation | The name of the relation (table) being waited on. Empty string when not blocked or when lock is not on a relation. | Any Str | - |
 | postgresql.blocking.transaction.start_time | UTC timestamp (RFC3339) when the current transaction started. Empty string when no active transaction. | Any Str | - |
+| db.query.text.normalized.hash | MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Used for correlation with APM slow query traces. | Any Str | - |
 
 ### db.server.top_query
 
@@ -688,6 +691,8 @@ top query
 | db.system.name | The database management system (DBMS) product as identified by the client instrumentation. | Str: ``postgresql`` | - |
 | db.namespace | The database namespace, following the `{database}|{schema}` format defined by OpenTelemetry semantic conventions for PostgreSQL. | Any Str | - |
 | db.query.text | The text of the database query being executed. | Any Str | - |
+| db.query.comment_tags | Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys specified in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
+| db.query.comment_tags.nr_service_guid | New Relic service GUID extracted from the filtered db.query.comment_tags. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
 | postgresql.calls | Number of times the statement was executed, reported in delta value. | Any Int | - |
 | postgresql.rows | Total number of rows retrieved or affected by the statement, reported in delta value. | Any Int | - |
 | postgresql.shared_blks_dirtied | Total number of shared blocks dirtied by the statement, reported in delta value. | Any Int | - |
@@ -701,6 +706,7 @@ top query
 | postgresql.total_exec_time | Total time spent executing the statement, in delta milliseconds. | Any Double | - |
 | postgresql.total_plan_time | Total time spent planning the statement, in delta milliseconds. | Any Double | - |
 | postgresql.query_plan | The execution plan used by PostgreSQL for the query. | Any Str | - |
+| db.query.text.normalized.hash | MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Used for correlation with APM slow query traces. | Any Str | - |
 
 ## Resource Attributes
 

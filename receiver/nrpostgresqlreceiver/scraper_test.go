@@ -737,6 +737,7 @@ func TestScrapeQuerySampleSemconv(t *testing.T) {
 	actualLogs, err := scraper.scrapeQuerySamples(t.Context(), 30)
 	require.NoError(t, err)
 	expectedFile := filepath.Join("testdata", "scraper", "query-sample", "expected_semconv.yaml")
+	// golden.WriteLogs(t, expectedFile, actualLogs)
 	expectedLogs, err := golden.ReadLogs(expectedFile)
 	require.NoError(t, err)
 	require.NoError(t, plogtest.CompareLogs(expectedLogs, actualLogs,
@@ -1148,7 +1149,6 @@ func TestScrapeTopQueries(t *testing.T) {
 	expectedFile := filepath.Join("testdata", "scraper", "top-query", "expected.yaml")
 	expectedLogs, err := golden.ReadLogs(expectedFile)
 	require.NoError(t, err)
-	// golden.WriteLogs(t, expectedFile, actualLogs)
 	errs := plogtest.CompareLogs(expectedLogs, actualLogs, plogtest.IgnoreResourceAttributeValue("service.instance.id"), plogtest.IgnoreTimestamp())
 	assert.NoError(t, errs)
 
@@ -1766,7 +1766,7 @@ func (m *mockClient) probeExplainFunction(ctx context.Context, quotedFunctionNam
 }
 
 // getTopQuery implements client.
-func (*mockClient) getTopQuery(context.Context, int64, *zap.Logger) ([]map[string]any, error) {
+func (*mockClient) getTopQuery(context.Context, int64, []string, *zap.Logger) ([]map[string]any, error) {
 	panic("unimplemented")
 }
 
@@ -1784,7 +1784,7 @@ func (m mockSimpleClientFactory) getClient(string) (client, error) {
 }
 
 // getQuerySamples implements client.
-func (*mockClient) getQuerySamples(context.Context, int64, float64, *zap.Logger) ([]map[string]any, float64, error) {
+func (*mockClient) getQuerySamples(context.Context, int64, float64, []string, *zap.Logger) ([]map[string]any, float64, error) {
 	panic("this should not be invoked")
 }
 

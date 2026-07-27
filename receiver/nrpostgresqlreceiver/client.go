@@ -18,6 +18,8 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon/sqlcomments"
+	"github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon/sqlnormalizer"
 	sqlquery "github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrsqlquery"
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrpostgresqlreceiver/internal/metadata"
 	"go.opentelemetry.io/collector/config/confignet"
@@ -30,6 +32,13 @@ import (
 )
 
 const querySampleTraceContextKey = "_otel_trace_context"
+
+// Row-attribute keys carrying comment tags, nr_service_guid, and the normalized-query hash to scraper.go.
+const (
+	dbQueryCommentTagsAttributeKey              = "db.query.comment_tags"
+	dbQueryCommentTagsNrServiceGUIDAttributeKey = "db.query.comment_tags.nr_service_guid"
+	dbQueryTextNormalizedHashAttributeKey       = "db.query.text.normalized.hash"
+)
 
 // databaseName is a name that refers to a database so that it can be uniquely referred to later
 // i.e. database1
@@ -68,8 +77,8 @@ type client interface {
 	getVectorInsertStats(ctx context.Context) ([]vectorInsertStat, error)
 	listDatabases(ctx context.Context) ([]string, error)
 	getVersion(ctx context.Context) (string, error)
-	getQuerySamples(ctx context.Context, limit int64, newestQueryTimestamp float64, logger *zap.Logger) ([]map[string]any, float64, error)
-	getTopQuery(ctx context.Context, limit int64, logger *zap.Logger) ([]map[string]any, error)
+	getQuerySamples(ctx context.Context, limit int64, newestQueryTimestamp float64, allowedCommentKeys []string, logger *zap.Logger) ([]map[string]any, float64, error)
+	getTopQuery(ctx context.Context, limit int64, allowedCommentKeys []string, logger *zap.Logger) ([]map[string]any, error)
 	explainQuery(query, queryID, explainFunction string, logger *zap.Logger) (string, error)
 	probeExplainFunction(ctx context.Context, quotedFunctionName string) error
 }
@@ -1130,7 +1139,7 @@ func functionKey(database, schema, function string) functionIdentifer {
 //go:embed templates/querySampleTemplate.tmpl
 var querySampleTemplate string
 
-func (c *postgreSQLClient) getQuerySamples(ctx context.Context, limit int64, newestQueryTimestamp float64, logger *zap.Logger) ([]map[string]any, float64, error) {
+func (c *postgreSQLClient) getQuerySamples(ctx context.Context, limit int64, newestQueryTimestamp float64, allowedCommentKeys []string, logger *zap.Logger) ([]map[string]any, float64, error) {
 	tmpl := template.Must(template.New("querySample").Option("missingkey=error").Parse(querySampleTemplate))
 	buf := bytes.Buffer{}
 
@@ -1245,15 +1254,23 @@ func (c *postgreSQLClient) getQuerySamples(ctx context.Context, limit int64, new
 		}
 
 		// TODO: check if the query is truncated.
+		dbSQLCommentsVal := sqlcomments.ExtractAndFilterComments(row[querySampleColumnQuery], allowedCommentKeys)
+		nrServiceGUIDVal := sqlcomments.ExtractValueForKey(dbSQLCommentsVal, "nr_service_guid")
+
 		obfuscated, err := obfuscateSQL(row[querySampleColumnQuery])
 		if err != nil {
 			logger.Warn("failed to obfuscate query", zap.String("query", row[querySampleColumnQuery]))
 			obfuscated = ""
 		}
+		_, normalizedHashVal := sqlnormalizer.NormalizeSQLAndHash(obfuscated)
+
 		currentAttributes[dbAttributePrefix+querySampleColumnPID] = pid
 		currentAttributes[string(semconv.NetworkPeerPortKey)] = clientPort
 		currentAttributes[string(semconv.NetworkPeerAddressKey)] = row[querySampleColumnClientAddr]
 		currentAttributes[string(semconv.DBQueryTextKey)] = obfuscated
+		currentAttributes[dbQueryCommentTagsAttributeKey] = dbSQLCommentsVal
+		currentAttributes[dbQueryCommentTagsNrServiceGUIDAttributeKey] = nrServiceGUIDVal
+		currentAttributes[dbQueryTextNormalizedHashAttributeKey] = normalizedHashVal
 		currentAttributes[string(semconv.DBNamespaceKey)] = row[querySampleColumnDatname]
 		currentAttributes[string(semconv.UserNameKey)] = row[querySampleColumnUsename]
 		currentAttributes[postgresqlTotalExecTimeAttributeName] = duration
@@ -1292,7 +1309,7 @@ func convertToInt(column, value string, logger *zap.Logger) (any, error) {
 var topQueryTemplate string
 
 // getTopQuery implements client.
-func (c *postgreSQLClient) getTopQuery(ctx context.Context, limit int64, logger *zap.Logger) ([]map[string]any, error) {
+func (c *postgreSQLClient) getTopQuery(ctx context.Context, limit int64, allowedCommentKeys []string, logger *zap.Logger) ([]map[string]any, error) {
 	tmpl := template.Must(template.New("topQuery").Option("missingkey=error").Parse(topQueryTemplate))
 	buf := bytes.Buffer{}
 
@@ -1344,6 +1361,10 @@ func (c *postgreSQLClient) getTopQuery(ctx context.Context, limit int64, logger 
 		// Store raw query before obfuscation (needed for EXPLAIN with $N placeholders)
 		if rawQuery, ok := row["query"]; ok {
 			currentAttributes[dbAttributePrefix+"raw_query"] = rawQuery
+
+			dbSQLCommentsVal := sqlcomments.ExtractAndFilterComments(rawQuery, allowedCommentKeys)
+			currentAttributes[dbQueryCommentTagsAttributeKey] = dbSQLCommentsVal
+			currentAttributes[dbQueryCommentTagsNrServiceGUIDAttributeKey] = sqlcomments.ExtractValueForKey(dbSQLCommentsVal, "nr_service_guid")
 		}
 
 		for col := range row {
@@ -1372,6 +1393,12 @@ func (c *postgreSQLClient) getTopQuery(ctx context.Context, limit int64, logger 
 				currentAttributes[hasConvention[col]] = val
 			} else {
 				currentAttributes[dbAttributePrefix+col] = val
+			}
+			if col == "query" {
+				if obfuscated, ok := val.(string); ok {
+					_, normalizedHashVal := sqlnormalizer.NormalizeSQLAndHash(obfuscated)
+					currentAttributes[dbQueryTextNormalizedHashAttributeKey] = normalizedHashVal
+				}
 			}
 		}
 		finalAttributes = append(finalAttributes, currentAttributes)

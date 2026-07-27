@@ -3,7 +3,7 @@ resourceLogs:
       attributes:
         - key: server.address
           value:
-            stringValue: Arves-MacBook-Pro-2.fritz.box
+            stringValue: localhost
         - key: server.port
           value:
             intValue: "5432"
@@ -22,6 +22,12 @@ resourceLogs:
               - key: db.query.text
                 value:
                   stringValue: select * from pg_stat_activity where id = ?
+              - key: db.query.comment_tags
+                value:
+                  stringValue: ""
+              - key: db.query.comment_tags.nr_service_guid
+                value:
+                  stringValue: ""
               - key: user.name
                 value:
                   stringValue: otelu
@@ -79,6 +85,9 @@ resourceLogs:
               - key: postgresql.blocking.transaction.start_time
                 value:
                   stringValue: ""
+              - key: db.query.text.normalized.hash
+                value:
+                  stringValue: c6adf50579663b7fe5457a6c0f42a6b7
             body: {}
             eventName: db.server.query_sample
             timeUnixNano: "1783571008607824000"

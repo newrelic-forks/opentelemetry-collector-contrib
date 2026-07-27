@@ -346,7 +346,7 @@ func attrFloat64(atts map[string]any, key string) float64 {
 func (p *postgreSQLScraper) collectQuerySamples(ctx context.Context, dbClient client, limit int64, mux *errsMux, logger *zap.Logger) {
 	timestamp := pcommon.NewTimestampFromTime(time.Now())
 
-	attributes, newestQueryTimestamp, err := dbClient.getQuerySamples(ctx, limit, p.newestQueryTimestamp, logger)
+	attributes, newestQueryTimestamp, err := dbClient.getQuerySamples(ctx, limit, p.newestQueryTimestamp, p.config.QuerySampleCollection.AllowedCommentKeys, logger)
 	p.newestQueryTimestamp = newestQueryTimestamp
 	if err != nil {
 		mux.addPartial(err)
@@ -365,6 +365,8 @@ func (p *postgreSQLScraper) collectQuerySamples(ctx context.Context, dbClient cl
 			metadata.AttributeDbSystemNamePostgresql,
 			attrString(atts, string(semconv.DBNamespaceKey)),
 			attrString(atts, string(semconv.DBQueryTextKey)),
+			attrString(atts, dbQueryCommentTagsAttributeKey),
+			attrString(atts, dbQueryCommentTagsNrServiceGUIDAttributeKey),
 			attrString(atts, string(semconv.UserNameKey)),
 			attrString(atts, dbAttributePrefix+querySampleColumnState),
 			attrInt64(atts, dbAttributePrefix+querySampleColumnPID),
@@ -384,6 +386,7 @@ func (p *postgreSQLScraper) collectQuerySamples(ctx context.Context, dbClient cl
 			attrString(atts, dbAttributePrefix+querySampleColumnBlockingLockType),
 			attrString(atts, dbAttributePrefix+querySampleColumnBlockingLockRelation),
 			attrString(atts, dbAttributePrefix+querySampleColumnBlockingTxnStartTime),
+			attrString(atts, dbQueryTextNormalizedHashAttributeKey),
 		)
 	}
 }
@@ -440,7 +443,7 @@ func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory p
 
 	defer defaultDbClient.Close()
 
-	rows, err := defaultDbClient.getTopQuery(ctx, limit, logger)
+	rows, err := defaultDbClient.getTopQuery(ctx, limit, p.config.TopQueryCollection.AllowedCommentKeys, logger)
 	if err != nil {
 		logger.Error("failed to get top query", zap.Error(err))
 		mux.addPartial(err)
@@ -549,12 +552,18 @@ func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory p
 			explained++
 		}
 
+		dbSQLCommentsVal, _ := item.Value[dbQueryCommentTagsAttributeKey].(string)
+		nrServiceGUIDVal, _ := item.Value[dbQueryCommentTagsNrServiceGUIDAttributeKey].(string)
+		normalizedHashVal, _ := item.Value[dbQueryTextNormalizedHashAttributeKey].(string)
+
 		p.lb.RecordDbServerTopQueryEvent(
 			context.Background(),
 			timestamp,
 			metadata.AttributeDbSystemNamePostgresql,
 			item.Value[string(semconv.DBNamespaceKey)].(string),
 			query,
+			dbSQLCommentsVal,
+			nrServiceGUIDVal,
 			item.Value[dbAttributePrefix+callsColumnName].(int64),
 			item.Value[dbAttributePrefix+rowsColumnName].(int64),
 			item.Value[dbAttributePrefix+sharedBlksDirtiedColumnName].(int64),
@@ -568,6 +577,7 @@ func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory p
 			item.Value[dbAttributePrefix+totalExecTimeColumnName].(float64),
 			item.Value[dbAttributePrefix+totalPlanTimeColumnName].(float64),
 			plan,
+			normalizedHashVal,
 		)
 		count++
 	}

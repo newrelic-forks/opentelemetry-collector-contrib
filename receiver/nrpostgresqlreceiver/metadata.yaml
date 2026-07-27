@@ -119,8 +119,17 @@ attributes:
   db.namespace:
     description: The database namespace, following the `{database}|{schema}` format defined by OpenTelemetry semantic conventions for PostgreSQL.
     type: string
+  db.query.comment_tags:
+    description: Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys specified in allowed_comment_keys configuration. Used for correlation with APM traces.
+    type: string
+  db.query.comment_tags.nr_service_guid:
+    description: New Relic service GUID extracted from the filtered db.query.comment_tags. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Used for correlation with APM traces.
+    type: string
   db.query.text:
     description: The text of the database query being executed.
+    type: string
+  db.query.text.normalized.hash:
+    description: "MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Used for correlation with APM slow query traces."
     type: string
   db.system.name:
     description: The database management system (DBMS) product as identified by the client instrumentation.
@@ -295,6 +304,8 @@ events:
       - db.system.name
       - db.namespace
       - db.query.text
+      - db.query.comment_tags
+      - db.query.comment_tags.nr_service_guid
       - user.name
       - postgresql.state
       - postgresql.pid
@@ -314,6 +325,7 @@ events:
       - postgresql.blocking.lock.type
       - postgresql.blocking.lock.relation
       - postgresql.blocking.transaction.start_time
+      - db.query.text.normalized.hash
   db.server.top_query:
     enabled: false
     description: top query
@@ -321,6 +333,8 @@ events:
       - db.system.name
       - db.namespace
       - db.query.text
+      - db.query.comment_tags
+      - db.query.comment_tags.nr_service_guid
       - postgresql.calls
       - postgresql.rows
       - postgresql.shared_blks_dirtied
@@ -334,6 +348,7 @@ events:
       - postgresql.total_exec_time
       - postgresql.total_plan_time
       - postgresql.query_plan
+      - db.query.text.normalized.hash
 
 metrics:
   postgresql.backends:
