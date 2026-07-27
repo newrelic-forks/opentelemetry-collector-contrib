@@ -28,6 +28,11 @@ $defs:
       collection_interval:
         type: string
         format: duration
+      explain_function_cache_ttl:
+        type: string
+        format: duration
+      explain_function_name:
+        type: string
       max_explain_each_interval:
         type: integer
         x-customType: int64

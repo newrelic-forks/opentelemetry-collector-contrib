@@ -1597,8 +1597,7 @@ func TestScraperExplainFunctionProbeCache(t *testing.T) {
 		_, ok := scraper.explainFunctionCache.Get("testdb")
 		assert.False(t, ok, "cache should start empty")
 
-		err := scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
-		require.NoError(t, err)
+		scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
 
 		state, ok := scraper.explainFunctionCache.Get("testdb")
 		require.True(t, ok)
@@ -1606,8 +1605,7 @@ func TestScraperExplainFunctionProbeCache(t *testing.T) {
 		assert.NoError(t, state.err)
 
 		// Second call within the TTL window must not probe again.
-		err = scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
-		require.NoError(t, err)
+		scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
 		mc.AssertNumberOfCalls(t, "probeExplainFunction", 1)
 	})
 
@@ -1617,8 +1615,7 @@ func TestScraperExplainFunctionProbeCache(t *testing.T) {
 			Return(&pq.Error{Code: pqerror.UndefinedFunction, Message: "does not exist"}).Once()
 
 		scraper := newScraperWithMockClient(t, mc)
-		err := scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
-		require.NoError(t, err) // probing failure is not a scrape error, it's a cached state
+		scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc) // probing failure is not a scrape error, it's a cached state
 
 		state, ok := scraper.explainFunctionCache.Get("testdb")
 		require.True(t, ok)
@@ -1635,8 +1632,7 @@ func TestScraperExplainFunctionProbeCache(t *testing.T) {
 			Return(&pq.Error{Code: pqerror.Code("42501"), Message: "permission denied for table orders"}).Once()
 
 		scraper := newScraperWithMockClient(t, mc)
-		err := scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
-		require.NoError(t, err)
+		scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
 
 		state, ok := scraper.explainFunctionCache.Get("testdb")
 		require.True(t, ok)
@@ -1656,16 +1652,14 @@ func TestScraperExplainFunctionProbeCache(t *testing.T) {
 		mc.On("probeExplainFunction", mock.Anything, `"otel"."explain_statement"`).Return(nil).Once()
 
 		scraper := newScraperWithMockClient(t, mc)
-		err := scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
-		require.NoError(t, err)
+		scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
 
 		state, ok := scraper.explainFunctionCache.Get("testdb")
 		require.True(t, ok)
 		assert.True(t, state.available, "cache must still say available after only a probe")
 
 		// re-probing (simulating a real call failure) must not evict the cache entry
-		err = scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
-		require.NoError(t, err)
+		scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
 		mc.AssertNumberOfCalls(t, "probeExplainFunction", 1)
 
 		state, ok = scraper.explainFunctionCache.Get("testdb")
@@ -1695,10 +1689,8 @@ func TestScraperExplainFunctionProbeCache(t *testing.T) {
 			newTTLCache[explainSetupState](2, time.Second))
 		require.NoError(t, err)
 
-		err = scraper.probeExplainFunctionIfNeeded(t.Context(), "db_a", mc)
-		require.NoError(t, err)
-		err = scraper.probeExplainFunctionIfNeeded(t.Context(), "db_b", mc)
-		require.NoError(t, err)
+		scraper.probeExplainFunctionIfNeeded(t.Context(), "db_a", mc)
+		scraper.probeExplainFunctionIfNeeded(t.Context(), "db_b", mc)
 
 		stateA, ok := scraper.explainFunctionCache.Get("db_a")
 		require.True(t, ok)
@@ -1728,14 +1720,12 @@ func TestScraperExplainFunctionProbeCache(t *testing.T) {
 			newTTLCache[explainSetupState](1, 50*time.Millisecond)) // short TTL for the test
 		require.NoError(t, err)
 
-		err = scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
-		require.NoError(t, err)
+		scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
 		mc.AssertNumberOfCalls(t, "probeExplainFunction", 1)
 
 		time.Sleep(100 * time.Millisecond) // past the 50ms TTL
 
-		err = scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
-		require.NoError(t, err)
+		scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
 		mc.AssertNumberOfCalls(t, "probeExplainFunction", 2)
 	})
 
@@ -1746,14 +1736,12 @@ func TestScraperExplainFunctionProbeCache(t *testing.T) {
 
 		scraper := newScraperWithMockClient(t, mc)
 
-		err := scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
-		require.NoError(t, err)
+		scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
 
 		_, ok := scraper.explainFunctionCache.Get("testdb")
 		assert.False(t, ok, "connection-level errors must not be cached")
 
-		err = scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
-		require.NoError(t, err)
+		scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
 		mc.AssertNumberOfCalls(t, "probeExplainFunction", 2)
 	})
 }

@@ -389,20 +389,20 @@ func (p *postgreSQLScraper) collectQuerySamples(ctx context.Context, dbClient cl
 }
 
 // probeExplainFunctionIfNeeded probes and caches EXPLAIN helper function availability per database; only this probe writes to the cache, never a real explainQuery call.
-func (p *postgreSQLScraper) probeExplainFunctionIfNeeded(ctx context.Context, database string, dbClient client) error {
+func (p *postgreSQLScraper) probeExplainFunctionIfNeeded(ctx context.Context, database string, dbClient client) {
 	if p.config.ExplainFunctionName == "" {
-		return nil
+		return
 	}
 
 	if _, ok := p.explainFunctionCache.Get(database); ok {
-		return nil
+		return
 	}
 
 	quoted := quoteExplainFunctionName(p.config.ExplainFunctionName)
 	err := dbClient.probeExplainFunction(ctx, quoted)
 	if err == nil {
 		p.explainFunctionCache.Add(database, explainSetupState{available: true})
-		return nil
+		return
 	}
 
 	var pqErr *pq.Error
@@ -419,14 +419,13 @@ func (p *postgreSQLScraper) probeExplainFunctionIfNeeded(ctx context.Context, da
 				zap.Error(err))
 		}
 		p.explainFunctionCache.Add(database, explainSetupState{available: false, err: err})
-		return nil
+		return
 	}
 
 	// Connection-level or other non-pq error: don't cache, retry probe next call.
 	p.logger.Warn("failed to probe EXPLAIN helper function, will retry",
 		zap.String("database", database),
 		zap.Error(err))
-	return nil
 }
 
 func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory postgreSQLClientFactory, limit, topNQuery, maxExplainEachInterval int64, mux *errsMux, logger *zap.Logger, collectionTime time.Time) {
@@ -531,7 +530,7 @@ func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory p
 			dbClient, err := clientFactory.getClient(database)
 			if err == nil {
 				explainFunction := ""
-				_ = p.probeExplainFunctionIfNeeded(ctx, database, dbClient)
+				p.probeExplainFunctionIfNeeded(ctx, database, dbClient)
 				if state, cached := p.explainFunctionCache.Get(database); cached && state.available {
 					explainFunction = quoteExplainFunctionName(p.config.ExplainFunctionName)
 				}

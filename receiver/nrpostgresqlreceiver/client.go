@@ -143,7 +143,7 @@ func quoteExplainFunctionName(name string) string {
 
 // probeExplainFunction checks the function is present and callable via a live test call.
 func (c *postgreSQLClient) probeExplainFunction(ctx context.Context, quotedFunctionName string) error {
-	query := fmt.Sprintf("SELECT %s('SELECT 1')", quotedFunctionName)
+	query := fmt.Sprintf("SELECT %s('SELECT 1')", quotedFunctionName) // #nosec G201 -- quotedFunctionName is produced by quoteExplainFunctionName from a config value already validated against a strict identifier pattern, not user input
 	rows, err := c.client.QueryContext(ctx, query)
 	if err != nil {
 		return err
