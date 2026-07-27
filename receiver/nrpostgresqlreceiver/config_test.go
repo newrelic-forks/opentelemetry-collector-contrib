@@ -96,6 +96,66 @@ func TestValidate(t *testing.T) {
 			},
 			expected: nil,
 		},
+		{
+			desc: "valid unqualified explain function name",
+			defaultConfigModifier: func(cfg *Config) {
+				cfg.Username = "otel"
+				cfg.Password = "otel"
+				cfg.ExplainFunctionName = "explain_statement"
+			},
+			expected: nil,
+		},
+		{
+			desc: "valid schema-qualified explain function name",
+			defaultConfigModifier: func(cfg *Config) {
+				cfg.Username = "otel"
+				cfg.Password = "otel"
+				cfg.ExplainFunctionName = "otel.explain_statement"
+			},
+			expected: nil,
+		},
+		{
+			desc: "empty explain function name is valid (disables the feature)",
+			defaultConfigModifier: func(cfg *Config) {
+				cfg.Username = "otel"
+				cfg.Password = "otel"
+				cfg.ExplainFunctionName = ""
+			},
+			expected: nil,
+		},
+		{
+			desc: "explain function name with too many dots is rejected",
+			defaultConfigModifier: func(cfg *Config) {
+				cfg.Username = "otel"
+				cfg.Password = "otel"
+				cfg.ExplainFunctionName = "a.b.c"
+			},
+			expected: []error{
+				errors.New(ErrInvalidExplainFunctionName),
+			},
+		},
+		{
+			desc: "explain function name with SQL injection attempt is rejected",
+			defaultConfigModifier: func(cfg *Config) {
+				cfg.Username = "otel"
+				cfg.Password = "otel"
+				cfg.ExplainFunctionName = "explain_statement; DROP TABLE orders"
+			},
+			expected: []error{
+				errors.New(ErrInvalidExplainFunctionName),
+			},
+		},
+		{
+			desc: "explain function name starting with a digit is rejected",
+			defaultConfigModifier: func(cfg *Config) {
+				cfg.Username = "otel"
+				cfg.Password = "otel"
+				cfg.ExplainFunctionName = "1explain"
+			},
+			expected: []error{
+				errors.New(ErrInvalidExplainFunctionName),
+			},
+		},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {

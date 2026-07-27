@@ -69,12 +69,14 @@ func createDefaultConfig() component.Config {
 			MaxRowsPerQuery: 1000,
 		},
 		TopQueryCollection: TopQueryCollection{
-			CollectionInterval:     time.Minute,
-			TopNQuery:              200,
-			MaxRowsPerQuery:        1000,
-			MaxExplainEachInterval: 1000,
-			QueryPlanCacheSize:     1000,
-			QueryPlanCacheTTL:      time.Hour,
+			CollectionInterval:      time.Minute,
+			TopNQuery:               200,
+			MaxRowsPerQuery:         1000,
+			MaxExplainEachInterval:  1000,
+			QueryPlanCacheSize:      1000,
+			QueryPlanCacheTTL:       time.Hour,
+			ExplainFunctionName:     "otel.explain_statement",
+			ExplainFunctionCacheTTL: 5 * time.Minute,
 		},
 	}
 }

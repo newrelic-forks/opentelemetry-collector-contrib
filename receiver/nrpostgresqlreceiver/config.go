@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"regexp"
 	"time"
 
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrpostgresqlreceiver/internal/metadata"
@@ -19,20 +20,25 @@ import (
 
 // Errors for missing required config parameters.
 const (
-	ErrNoUsername          = "invalid config: missing username"
-	ErrNoPassword          = "invalid config: missing password" // #nosec G101 - not hardcoded credentials
-	ErrNotSupported        = "invalid config: field '%s' not supported"
-	ErrTransportsSupported = "invalid config: 'transport' must be 'tcp' or 'unix'"
-	ErrHostPort            = "invalid config: 'endpoint' must be in the form <host>:<port> no matter what 'transport' is configured"
+	ErrNoUsername                 = "invalid config: missing username"
+	ErrNoPassword                 = "invalid config: missing password" // #nosec G101 - not hardcoded credentials
+	ErrNotSupported               = "invalid config: field '%s' not supported"
+	ErrTransportsSupported        = "invalid config: 'transport' must be 'tcp' or 'unix'"
+	ErrHostPort                   = "invalid config: 'endpoint' must be in the form <host>:<port> no matter what 'transport' is configured"
+	ErrInvalidExplainFunctionName = "invalid config: 'top_query_collection.explain_function_name' must be empty or a valid [schema.]function_name identifier"
 )
 
+var explainFunctionNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$`)
+
 type TopQueryCollection struct {
-	MaxRowsPerQuery        int64         `mapstructure:"max_rows_per_query"`
-	TopNQuery              int64         `mapstructure:"top_n_query"`
-	MaxExplainEachInterval int64         `mapstructure:"max_explain_each_interval"`
-	QueryPlanCacheSize     int           `mapstructure:"query_plan_cache_size"`
-	QueryPlanCacheTTL      time.Duration `mapstructure:"query_plan_cache_ttl"`
-	CollectionInterval     time.Duration `mapstructure:"collection_interval"`
+	MaxRowsPerQuery         int64         `mapstructure:"max_rows_per_query"`
+	TopNQuery               int64         `mapstructure:"top_n_query"`
+	MaxExplainEachInterval  int64         `mapstructure:"max_explain_each_interval"`
+	QueryPlanCacheSize      int           `mapstructure:"query_plan_cache_size"`
+	QueryPlanCacheTTL       time.Duration `mapstructure:"query_plan_cache_ttl"`
+	CollectionInterval      time.Duration `mapstructure:"collection_interval"`
+	ExplainFunctionName     string        `mapstructure:"explain_function_name"`
+	ExplainFunctionCacheTTL time.Duration `mapstructure:"explain_function_cache_ttl"`
 	// prevent unkeyed literal initialization
 	_ struct{}
 }
@@ -93,6 +99,10 @@ func (cfg *Config) Validate() error {
 		}
 	default:
 		err = multierr.Append(err, errors.New(ErrTransportsSupported))
+	}
+
+	if cfg.ExplainFunctionName != "" && !explainFunctionNamePattern.MatchString(cfg.ExplainFunctionName) {
+		err = multierr.Append(err, errors.New(ErrInvalidExplainFunctionName))
 	}
 
 	return err
