@@ -71,6 +71,7 @@ type client interface {
 	getQuerySamples(ctx context.Context, limit int64, newestQueryTimestamp float64, logger *zap.Logger) ([]map[string]any, float64, error)
 	getTopQuery(ctx context.Context, limit int64, logger *zap.Logger) ([]map[string]any, error)
 	explainQuery(query, queryID string, logger *zap.Logger) (string, error)
+	probeExplainFunction(ctx context.Context, quotedFunctionName string) error
 }
 
 type postgreSQLClient struct {
@@ -128,6 +129,30 @@ func isExplainableQuery(query string) bool {
 
 	_, ok := explainableStatements[strings.ToUpper(firstWord)]
 	return ok
+}
+
+// quoteExplainFunctionName double-quotes each segment of an already-validated
+// [schema.]name identifier (see Config.Validate's explainFunctionNamePattern check),
+// so the configured name can never collide with a reserved word or be
+// misinterpreted due to case folding when interpolated into SQL.
+func quoteExplainFunctionName(name string) string {
+	parts := strings.Split(name, ".")
+	quoted := make([]string, len(parts))
+	for i, p := range parts {
+		quoted[i] = `"` + p + `"`
+	}
+	return strings.Join(quoted, ".")
+}
+
+// probeExplainFunction checks whether the given (already quoted) function name
+// is present and callable, by actually calling it with a trivial, always-valid
+// statement. This is a live validation call, not a catalog lookup — it catches
+// a present-but-broken function (e.g. insufficient owner privilege) that a
+// catalog lookup like to_regprocedure would miss.
+func (c *postgreSQLClient) probeExplainFunction(ctx context.Context, quotedFunctionName string) error {
+	query := fmt.Sprintf("SELECT %s('SELECT 1')", quotedFunctionName)
+	_, err := c.client.QueryContext(ctx, query)
+	return err
 }
 
 // explainQuery implements client.

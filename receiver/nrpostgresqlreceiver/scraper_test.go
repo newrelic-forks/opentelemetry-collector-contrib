@@ -1362,6 +1362,11 @@ func (*mockClient) explainQuery(string, string, *zap.Logger) (string, error) {
 	panic("unimplemented")
 }
 
+// probeExplainFunction implements client.
+func (*mockClient) probeExplainFunction(context.Context, string) error {
+	panic("unimplemented")
+}
+
 // getTopQuery implements client.
 func (*mockClient) getTopQuery(context.Context, int64, *zap.Logger) ([]map[string]any, error) {
 	panic("unimplemented")
