@@ -199,6 +199,19 @@ var queryCDBResponses = map[string][]metricRow{
 		{"METRIC_NAME": sysmetricCPUUsagePerSec, "VALUE": "150.00", "PDB_NAME": "PDB1"},
 		{"METRIC_NAME": sysmetricCursorCacheHitRatio, "VALUE": "96.40", "PDB_NAME": "PDB1"},
 		{"METRIC_NAME": sysmetricResponseTimePerTxn, "VALUE": "12.34", "PDB_NAME": "PDB1"},
+		{"METRIC_NAME": sysmetricDBBlockChangesPerSec, "VALUE": "10.00", "PDB_NAME": "PDB1"},
+		{"METRIC_NAME": sysmetricLogicalReadsPerSec, "VALUE": "20.00", "PDB_NAME": "PDB1"},
+		{"METRIC_NAME": sysmetricPhysicalReadTotalBytesPerSec, "VALUE": "30.00", "PDB_NAME": "PDB1"},
+		{"METRIC_NAME": sysmetricPhysicalReadTotalIORequestsPerSec, "VALUE": "40.00", "PDB_NAME": "PDB1"},
+		{"METRIC_NAME": sysmetricPhysicalReadsPerSec, "VALUE": "50.00", "PDB_NAME": "PDB1"},
+		{"METRIC_NAME": sysmetricRedoGeneratedPerSec, "VALUE": "60.00", "PDB_NAME": "PDB1"},
+		{"METRIC_NAME": sysmetricEnqueueDeadlocksPerSec, "VALUE": "0.50", "PDB_NAME": "PDB1"},
+		{"METRIC_NAME": sysmetricEnqueueTimeoutsPerSec, "VALUE": "1.50", "PDB_NAME": "PDB1"},
+		{"METRIC_NAME": sysmetricExecutionsPerSec, "VALUE": "70.00", "PDB_NAME": "PDB1"},
+		{"METRIC_NAME": sysmetricHardParseCountPerSec, "VALUE": "2.00", "PDB_NAME": "PDB1"},
+		{"METRIC_NAME": sysmetricLogonsPerSec, "VALUE": "3.00", "PDB_NAME": "PDB1"},
+		{"METRIC_NAME": sysmetricOpenCursorsPerSec, "VALUE": "4.00", "PDB_NAME": "PDB1"},
+		{"METRIC_NAME": sysmetricUserCommitsPerSec, "VALUE": "80.00", "PDB_NAME": "PDB1"},
 	},
 	sessionCountCDBSQL: {{"VALUE": "1", "STATUS": "ACTIVE", "TYPE": "USER", "PDB_NAME": "PDB1"}},
 	systemResourceLimitsSQL: {
@@ -460,6 +473,60 @@ func TestScraper_ScrapeCDBRoot_NewPdbMetrics(t *testing.T) {
 		cfg.Metrics.OracledbTransactionResponseTime.EnabledAttributes,
 		metadata.OracledbTransactionResponseTimeMetricAttributeKeyOracleDbPdb)
 
+	// Per-PDB V$SYSMETRIC rate metrics.
+	cfg.Metrics.OracledbBufferCacheBlockChangesRate.Enabled = true
+	cfg.Metrics.OracledbBufferCacheBlockChangesRate.EnabledAttributes = append(
+		cfg.Metrics.OracledbBufferCacheBlockChangesRate.EnabledAttributes,
+		metadata.OracledbBufferCacheBlockChangesRateMetricAttributeKeyOracleDbPdb)
+	cfg.Metrics.OracledbLogicalReadsRate.Enabled = true
+	cfg.Metrics.OracledbLogicalReadsRate.EnabledAttributes = append(
+		cfg.Metrics.OracledbLogicalReadsRate.EnabledAttributes,
+		metadata.OracledbLogicalReadsRateMetricAttributeKeyOracleDbPdb)
+	cfg.Metrics.OracledbPhysicalIoTransferredRate.Enabled = true
+	cfg.Metrics.OracledbPhysicalIoTransferredRate.EnabledAttributes = append(
+		cfg.Metrics.OracledbPhysicalIoTransferredRate.EnabledAttributes,
+		metadata.OracledbPhysicalIoTransferredRateMetricAttributeKeyOracleDbPdb)
+	cfg.Metrics.OracledbPhysicalIoRequestsRate.Enabled = true
+	cfg.Metrics.OracledbPhysicalIoRequestsRate.EnabledAttributes = append(
+		cfg.Metrics.OracledbPhysicalIoRequestsRate.EnabledAttributes,
+		metadata.OracledbPhysicalIoRequestsRateMetricAttributeKeyOracleDbPdb)
+	cfg.Metrics.OracledbPhysicalOperationsRate.Enabled = true
+	cfg.Metrics.OracledbPhysicalOperationsRate.EnabledAttributes = append(
+		cfg.Metrics.OracledbPhysicalOperationsRate.EnabledAttributes,
+		metadata.OracledbPhysicalOperationsRateMetricAttributeKeyOracleDbPdb)
+	cfg.Metrics.OracledbRedoSizeRate.Enabled = true
+	cfg.Metrics.OracledbRedoSizeRate.EnabledAttributes = append(
+		cfg.Metrics.OracledbRedoSizeRate.EnabledAttributes,
+		metadata.OracledbRedoSizeRateMetricAttributeKeyOracleDbPdb)
+	cfg.Metrics.OracledbEnqueueDeadlocksRate.Enabled = true
+	cfg.Metrics.OracledbEnqueueDeadlocksRate.EnabledAttributes = append(
+		cfg.Metrics.OracledbEnqueueDeadlocksRate.EnabledAttributes,
+		metadata.OracledbEnqueueDeadlocksRateMetricAttributeKeyOracleDbPdb)
+	cfg.Metrics.OracledbEnqueueTimeoutsRate.Enabled = true
+	cfg.Metrics.OracledbEnqueueTimeoutsRate.EnabledAttributes = append(
+		cfg.Metrics.OracledbEnqueueTimeoutsRate.EnabledAttributes,
+		metadata.OracledbEnqueueTimeoutsRateMetricAttributeKeyOracleDbPdb)
+	cfg.Metrics.OracledbExecutionsRate.Enabled = true
+	cfg.Metrics.OracledbExecutionsRate.EnabledAttributes = append(
+		cfg.Metrics.OracledbExecutionsRate.EnabledAttributes,
+		metadata.OracledbExecutionsRateMetricAttributeKeyOracleDbPdb)
+	cfg.Metrics.OracledbHardParsesRate.Enabled = true
+	cfg.Metrics.OracledbHardParsesRate.EnabledAttributes = append(
+		cfg.Metrics.OracledbHardParsesRate.EnabledAttributes,
+		metadata.OracledbHardParsesRateMetricAttributeKeyOracleDbPdb)
+	cfg.Metrics.OracledbLogonsRate.Enabled = true
+	cfg.Metrics.OracledbLogonsRate.EnabledAttributes = append(
+		cfg.Metrics.OracledbLogonsRate.EnabledAttributes,
+		metadata.OracledbLogonsRateMetricAttributeKeyOracleDbPdb)
+	cfg.Metrics.OracledbCursorOpenRate.Enabled = true
+	cfg.Metrics.OracledbCursorOpenRate.EnabledAttributes = append(
+		cfg.Metrics.OracledbCursorOpenRate.EnabledAttributes,
+		metadata.OracledbCursorOpenRateMetricAttributeKeyOracleDbPdb)
+	cfg.Metrics.OracledbTransactionsRate.Enabled = true
+	cfg.Metrics.OracledbTransactionsRate.EnabledAttributes = append(
+		cfg.Metrics.OracledbTransactionsRate.EnabledAttributes,
+		metadata.OracledbTransactionsRateMetricAttributeKeyOracleDbPdb)
+
 	scrpr := oracleScraper{
 		logger: zap.NewNop(),
 		mb:     metadata.NewMetricsBuilder(cfg, receivertest.NewNopSettings(metadata.Type)),
@@ -552,9 +619,27 @@ func TestScraper_ScrapeCDBRoot_NewPdbMetrics(t *testing.T) {
 			dp := me.Gauge().DataPoints().At(0)
 			requirePdb(t, me.Name(), dp)
 			assert.InDelta(t, 0.1234, dp.DoubleValue(), floatDelta)
+		case "oracledb.buffer_cache.block.changes.rate",
+			"oracledb.logical_reads.rate",
+			"oracledb.redo.size.rate",
+			"oracledb.enqueue.deadlocks.rate",
+			"oracledb.enqueue.timeouts.rate",
+			"oracledb.executions.rate",
+			"oracledb.hard_parses.rate",
+			"oracledb.logons.rate",
+			"oracledb.cursor.open.rate",
+			"oracledb.physical_io.transferred.rate",
+			"oracledb.physical_io.requests.rate",
+			"oracledb.physical_operations.rate",
+			"oracledb.transactions.rate":
+			seen++
+			dps := me.Gauge().DataPoints()
+			for j := 0; j < dps.Len(); j++ {
+				requirePdb(t, me.Name(), dps.At(j))
+			}
 		}
 	}
-	assert.Equal(t, 9, seen, "expected all nine new per-PDB metrics to be emitted")
+	assert.Equal(t, 22, seen, "expected all nine original plus thirteen new per-PDB rate metrics to be emitted")
 }
 
 func TestScraper_ScrapeOperationalMetrics(t *testing.T) {
