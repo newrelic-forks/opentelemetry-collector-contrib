@@ -131,10 +131,7 @@ func isExplainableQuery(query string) bool {
 	return ok
 }
 
-// quoteExplainFunctionName double-quotes each segment of an already-validated
-// [schema.]name identifier (see Config.Validate's explainFunctionNamePattern check),
-// so the configured name can never collide with a reserved word or be
-// misinterpreted due to case folding when interpolated into SQL.
+// quoteExplainFunctionName double-quotes each segment of a validated [schema.]name.
 func quoteExplainFunctionName(name string) string {
 	parts := strings.Split(name, ".")
 	quoted := make([]string, len(parts))
@@ -144,11 +141,7 @@ func quoteExplainFunctionName(name string) string {
 	return strings.Join(quoted, ".")
 }
 
-// probeExplainFunction checks whether the given (already quoted) function name
-// is present and callable, by actually calling it with a trivial, always-valid
-// statement. This is a live validation call, not a catalog lookup — it catches
-// a present-but-broken function (e.g. insufficient owner privilege) that a
-// catalog lookup like to_regprocedure would miss.
+// probeExplainFunction checks the function is present and callable via a live test call.
 func (c *postgreSQLClient) probeExplainFunction(ctx context.Context, quotedFunctionName string) error {
 	query := fmt.Sprintf("SELECT %s('SELECT 1')", quotedFunctionName)
 	_, err := c.client.QueryContext(ctx, query)
@@ -170,11 +163,7 @@ func (c *postgreSQLClient) explainQuery(query, queryID, explainFunction string, 
 	return c.explainQueryInline(query, queryID, logger)
 }
 
-// explainQueryViaFunction calls a DBA-provisioned SECURITY DEFINER helper
-// function to EXPLAIN a query the monitoring user cannot EXPLAIN directly
-// (row-locking or write statements fail the plan-time privilege check for a
-// read-only role). explainFunction must already be validated and quoted
-// (see quoteExplainFunctionName) — this function does no further escaping.
+// explainQueryViaFunction runs EXPLAIN through a DBA-provisioned SECURITY DEFINER helper function.
 func (c *postgreSQLClient) explainQueryViaFunction(query, queryID, explainFunction string, logger *zap.Logger) (string, error) {
 	sql := fmt.Sprintf("SELECT %s($1)", explainFunction)
 	wrappedDb := sqlquery.NewDbClient(sqlquery.DbWrapper{Db: c.client}, sql, logger, sqlquery.TelemetryConfig{})
@@ -204,10 +193,7 @@ func (c *postgreSQLClient) explainQueryViaFunction(query, queryID, explainFuncti
 	return plan, nil
 }
 
-// explainQueryInline runs EXPLAIN directly as the monitoring user via
-// PREPARE/EXPLAIN EXECUTE/DEALLOCATE. This fails with permission denied for
-// row-locking or write statements unless the monitoring user has write
-// access — see explainQueryViaFunction for the alternative.
+// explainQueryInline runs EXPLAIN directly as the monitoring user (PREPARE/EXPLAIN EXECUTE/DEALLOCATE).
 func (c *postgreSQLClient) explainQueryInline(query, queryID string, logger *zap.Logger) (string, error) {
 	normalizedQueryID := strings.ReplaceAll(queryID, "-", "_")
 

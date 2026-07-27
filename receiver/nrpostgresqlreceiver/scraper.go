@@ -47,8 +47,7 @@ const (
 // See: https://opentelemetry.io/docs/specs/semconv/registry/attributes/service/
 var otelNamespaceUUID = uuid.MustParse("4d63009a-8d0f-11ee-aad7-4c796ed8e320")
 
-// explainSetupState is the cached outcome of probing whether the configured
-// EXPLAIN helper function is present and callable for a given database.
+// explainSetupState is the cached outcome of probing the EXPLAIN helper function for a database.
 type explainSetupState struct {
 	available bool
 	err       error
@@ -389,12 +388,7 @@ func (p *postgreSQLScraper) collectQuerySamples(ctx context.Context, dbClient cl
 	}
 }
 
-// probeExplainFunctionIfNeeded returns the cached availability of the
-// configured EXPLAIN helper function for database, probing it with a real,
-// trivial call if there is no cache entry (first use, or the TTL expired).
-// Real explainQuery call failures never write to this cache — only this
-// probe does — matching Datadog's own explain-availability caching, which
-// keeps a dedicated per-database cache separate from per-query error caching.
+// probeExplainFunctionIfNeeded probes and caches EXPLAIN helper function availability per database; only this probe writes to the cache, never a real explainQuery call.
 func (p *postgreSQLScraper) probeExplainFunctionIfNeeded(ctx context.Context, database string, dbClient client) error {
 	if p.config.ExplainFunctionName == "" {
 		return nil

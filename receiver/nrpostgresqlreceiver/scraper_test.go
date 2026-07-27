@@ -1084,11 +1084,7 @@ func TestScrapeTopQueries(t *testing.T) {
 	cfg := createDefaultConfig().(*Config)
 	cfg.Databases = []string{}
 	cfg.Events.DbServerTopQuery.Enabled = true
-	// This test's mockSimpleClientFactory/sqlmock setup only expects the
-	// inline EXPLAIN sequence. Explicitly disable the function path so this
-	// test keeps exercising the same inline code path it always has,
-	// regardless of the default ExplainFunctionName.
-	cfg.ExplainFunctionName = ""
+	cfg.ExplainFunctionName = "" // this test's mock only expects the inline EXPLAIN sequence
 	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
 	assert.NoError(t, err)
 
@@ -1455,8 +1451,7 @@ func TestExplainQueryViaFunction(t *testing.T) {
 		plan, err := client.explainQuery("GRANT SELECT ON users TO demo", "12348", `"otel"."explain_statement"`, logger)
 		require.NoError(t, err)
 		assert.Empty(t, plan)
-		// No mock.ExpectQuery was set up at all — if explainQuery touched the DB,
-		// sqlmock would fail this test with "call to Query ... was not expected".
+		// no mock.ExpectQuery set up — sqlmock fails the test if explainQuery touches the DB
 	})
 
 	t.Run("explainFunction empty string forces inline path even for a FOR UPDATE query", func(t *testing.T) {
@@ -1470,9 +1465,7 @@ func TestExplainQueryViaFunction(t *testing.T) {
 		client := &postgreSQLClient{client: db, closeFn: func() error { return nil }}
 
 		query := "SELECT * FROM orders WHERE id = $1 FOR UPDATE"
-		// Expect the INLINE sequence (PREPARE/EXPLAIN EXECUTE/DEALLOCATE), not a
-		// call to the function — this proves explainFunction=="" always wins,
-		// regardless of whether a function is configured/available elsewhere.
+		// expects the INLINE sequence, not the function — proves explainFunction=="" always wins
 		expectedSQL := "/* otel-collector-ignore */ SET plan_cache_mode = force_generic_plan;PREPARE otel_12350 AS SELECT * FROM orders WHERE id = $1 FOR UPDATE;EXPLAIN(FORMAT JSON) EXECUTE otel_12350(null);"
 		mock.ExpectQuery(expectedSQL).WillReturnRows(
 			sqlmock.NewRows([]string{"QUERY PLAN"}).AddRow(`[{"Plan":{"Node Type":"LockRows"}}]`),
@@ -1574,9 +1567,7 @@ func TestScraperExplainFunctionProbeCache(t *testing.T) {
 		require.True(t, ok)
 		assert.True(t, state.available, "cache must still say available after only a probe")
 
-		// Simulate a real explainQuery call failing with undefined_function —
-		// this must NOT evict/change the cache entry (Datadog-aligned: only the
-		// dedicated probe writes to this cache).
+		// re-probing (simulating a real call failure) must not evict the cache entry
 		err = scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
 		require.NoError(t, err)
 		mc.AssertNumberOfCalls(t, "probeExplainFunction", 1)
@@ -1587,9 +1578,7 @@ func TestScraperExplainFunctionProbeCache(t *testing.T) {
 	})
 
 	t.Run("two different databases are cached independently", func(t *testing.T) {
-		// Cache size must be >= 2 here (unlike newScraperWithMockClient's size-1
-		// cache used by the other subtests) so that adding "db_b" does not evict
-		// "db_a" via LRU eviction before both are asserted on below.
+		// cache size must be >= 2 so adding "db_b" doesn't evict "db_a" first
 		cfg := createDefaultConfig().(*Config)
 		cfg.ExplainFunctionName = "otel.explain_statement"
 		mc := &mockClient{}
