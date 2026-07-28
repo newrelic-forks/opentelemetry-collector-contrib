@@ -124,8 +124,6 @@ all_set:
     sqlserver.index.size:
       enabled: true
       attributes: ["db.namespace","sqlserver.index.id","sqlserver.object.name","sqlserver.schema.name"]
-    sqlserver.kill_connection.error.rate:
-      enabled: true
     sqlserver.latch.superlatch.count:
       enabled: true
     sqlserver.latch.superlatch.transition.rate:
@@ -171,8 +169,6 @@ all_set:
     sqlserver.memory.page.count:
       enabled: true
       attributes: ["page.pool"]
-    sqlserver.memory.target:
-      enabled: true
     sqlserver.memory.usage:
       enabled: true
       attributes: ["workload_group.name"]
@@ -459,8 +455,6 @@ reaggregate_set:
     sqlserver.index.size:
       enabled: true
       attributes: []
-    sqlserver.kill_connection.error.rate:
-      enabled: true
     sqlserver.latch.superlatch.count:
       enabled: true
     sqlserver.latch.superlatch.transition.rate:
@@ -506,8 +500,6 @@ reaggregate_set:
     sqlserver.memory.page.count:
       enabled: true
       attributes: []
-    sqlserver.memory.target:
-      enabled: true
     sqlserver.memory.usage:
       enabled: true
       attributes: []
@@ -794,8 +786,6 @@ none_set:
     sqlserver.index.size:
       enabled: false
       attributes: ["db.namespace","sqlserver.index.id","sqlserver.object.name","sqlserver.schema.name"]
-    sqlserver.kill_connection.error.rate:
-      enabled: false
     sqlserver.latch.superlatch.count:
       enabled: false
     sqlserver.latch.superlatch.transition.rate:
@@ -841,8 +831,6 @@ none_set:
     sqlserver.memory.page.count:
       enabled: false
       attributes: ["page.pool"]
-    sqlserver.memory.target:
-      enabled: false
     sqlserver.memory.usage:
       enabled: false
       attributes: ["workload_group.name"]

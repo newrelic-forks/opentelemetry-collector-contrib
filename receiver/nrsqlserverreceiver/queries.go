@@ -1126,36 +1126,6 @@ func getSQLServerWaitStatsQuery(instanceName string) string {
 	return r.Replace(sqlServerWaitStatsQuery)
 }
 
-const sqlServerMemoryTargetQuery = `
-SET DEADLOCK_PRIORITY -10;
-IF SERVERPROPERTY('EngineEdition') NOT IN (2,3,4,5,8) BEGIN
-	DECLARE @ErrorMessage AS nvarchar(500) = 'Connection string Server:'+ @@ServerName + ',Database:' + DB_NAME() +' is not a SQL Server Standard, Enterprise, Express, Azure SQL Database or Azure SQL Managed Instance. This query is only supported on these editions.';
-	RAISERROR (@ErrorMessage,11,1)
-	RETURN
-END
-
-SELECT
-	'sqlserver_memory_target' AS [measurement],
-	REPLACE(@@SERVERNAME,'\',':') AS [sql_instance],
-	CAST(cntr_value * 1024 AS BIGINT) AS [target_memory_bytes]
-FROM sys.dm_os_performance_counters WITH (NOLOCK)
-WHERE
-	object_name LIKE '%Memory Manager%'
-	AND counter_name = 'Target Server Memory (KB)'
-{filter_instance_name};
-`
-
-func getSQLServerMemoryTargetQuery(instanceName string) string {
-	if instanceName != "" {
-		whereClause := fmt.Sprintf("\tAND @@SERVERNAME = '%s'", instanceName)
-		r := strings.NewReplacer("{filter_instance_name}", whereClause)
-		return r.Replace(sqlServerMemoryTargetQuery)
-	}
-
-	r := strings.NewReplacer("{filter_instance_name}", "")
-	return r.Replace(sqlServerMemoryTargetQuery)
-}
-
 const sqlServerDatabaseSizeQuery = `
 SET DEADLOCK_PRIORITY -10;
 IF SERVERPROPERTY('EngineEdition') NOT IN (2,3,4,5,8) BEGIN /*NOT IN Standard,Enterprise,Express,Azure SQL Database, Azure SQL Managed Instance*/

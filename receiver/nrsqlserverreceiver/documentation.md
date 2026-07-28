@@ -867,16 +867,6 @@ This metric is only available when the receiver is configured to directly connec
 | sqlserver.object.name | The name of the database object. | Any Str | Recommended | - |
 | sqlserver.schema.name | The name of the database schema. | Any Str | Recommended | - |
 
-### sqlserver.kill_connection.error.rate
-
-Number of kill-connection errors per second.
-
-This metric is only available when the receiver is configured to directly connect to SQL Server.
-
-| Unit | Metric Type | Value Type | Stability |
-| ---- | ----------- | ---------- | --------- |
-| {errors}/s | Gauge | Double | Development |
-
 ### sqlserver.latch.superlatch.count
 
 Number of superlatches currently active.
@@ -1090,16 +1080,6 @@ This metric is only available when the receiver is configured to directly connec
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
 | page.pool | The type of page pool in the SQL Server buffer manager. | Str: ``cache``, ``total``, ``target``, ``database``, ``stolen``, ``reserved``, ``free`` | Recommended | - |
-
-### sqlserver.memory.target
-
-Maximum amount of memory SQL Server is willing to use (target server memory).
-
-This metric is only available when the receiver is configured to directly connect to SQL Server. Target memory represents the ideal amount of memory SQL Server would like to acquire based on recent memory demand. When actual memory usage is less than target memory, SQL Server will attempt to acquire more memory. Available on SQL Server 2005+.
-
-| Unit | Metric Type | Value Type | Stability |
-| ---- | ----------- | ---------- | --------- |
-| By | Gauge | Int | Development |
 
 ### sqlserver.memory.usage
 

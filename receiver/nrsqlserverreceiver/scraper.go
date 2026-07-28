@@ -127,8 +127,6 @@ func (s *sqlServerScraperHelper) ScrapeMetrics(ctx context.Context) (pmetric.Met
 		err = s.recordDatabaseStatusMetrics(ctx)
 	case getSQLServerWaitStatsQuery(s.config.InstanceName):
 		err = s.recordDatabaseWaitMetrics(ctx)
-	case getSQLServerMemoryTargetQuery(s.config.InstanceName):
-		err = s.recordMemoryTargetMetrics(ctx)
 	case getSQLServerDatabaseSizeQuery(s.config.InstanceName):
 		err = s.recordDatabaseSizeMetrics(ctx)
 	case getSQLServerOSMemoryQuery(s.config.InstanceName):
@@ -581,7 +579,6 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 	const diskWriteIOSec = "Disk Write IO/sec"
 	const diskWriteIOThrottled = "Disk Write IO Throttled/sec"
 	const errorsPerSec = "Errors/sec"
-	const killConnectionErrorsInstance = "Kill Connection Errors"
 	const executionErrors = "Execution Errors"
 	const failedAutoParamsPerSec = "Failed Auto-Params/sec"
 	const forcedParameterizationsPerSec = "Forced Parameterizations/sec"
@@ -781,12 +778,10 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 			}
 		case errorsPerSec:
 			// Errors/sec has multiple instances (User Errors, Kill Connection Errors, DB Offline
-			// Errors, Info Errors, ...). Upstream sqlserver.error.rate reports every known
-			// category via the sqlserver.error.category attribute; the nr-specific
-			// sqlserver.kill_connection.error.rate additionally reports only the kill-connection
-			// instance for backward compatibility.
+			// Errors, Info Errors, ...). sqlserver.error.rate reports every known category via
+			// the sqlserver.error.category attribute.
 			category, categoryOK := errorCategoryAttr(row[instanceKey])
-			if !categoryOK && row[instanceKey] != killConnectionErrorsInstance {
+			if !categoryOK {
 				break
 			}
 			val, err := retrieveFloat(row, valueKey)
@@ -794,12 +789,7 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s/%s", i, err, errorsPerSec, row[instanceKey])
 				errs = append(errs, err)
 			} else {
-				if categoryOK {
-					s.mb.RecordSqlserverErrorRateDataPoint(now, val.(float64), category)
-				}
-				if row[instanceKey] == killConnectionErrorsInstance {
-					s.mb.RecordSqlserverKillConnectionErrorRateDataPoint(now, val.(float64))
-				}
+				s.mb.RecordSqlserverErrorRateDataPoint(now, val.(float64), category)
 			}
 		case freeListStalls:
 			val, err := retrieveInt(row, valueKey)
@@ -1618,32 +1608,6 @@ func (s *sqlServerScraperHelper) recordDatabaseWaitMetrics(ctx context.Context) 
 		}
 
 		errs = append(errs, s.mb.RecordSqlserverOsWaitTasksCountDataPoint(now, row[waitingTasksCount], row[waitCategory], row[waitType]))
-
-		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
-	}
-
-	return errors.Join(errs...)
-}
-
-func (s *sqlServerScraperHelper) recordMemoryTargetMetrics(ctx context.Context) error {
-	const targetMemoryBytes = "target_memory_bytes"
-
-	rows, err := s.client.QueryRows(ctx)
-	if err != nil {
-		if !errors.Is(err, sqlquery.ErrNullValueWarning) {
-			return fmt.Errorf("sqlServerScraperHelper: %w", err)
-		}
-		s.logger.Warn("problems encountered getting metric rows", zap.Error(err))
-	}
-
-	var errs []error
-	now := pcommon.NewTimestampFromTime(time.Now())
-	for i, row := range rows {
-		rb := s.setupResourceBuilder(s.mb.NewResourceBuilder(), row)
-
-		if err := s.mb.RecordSqlserverMemoryTargetDataPoint(now, row[targetMemoryBytes]); err != nil {
-			errs = append(errs, fmt.Errorf("failed to parse memory target for row %d: %w", i, err))
-		}
 
 		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
 	}

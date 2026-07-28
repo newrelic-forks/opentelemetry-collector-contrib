@@ -1314,9 +1314,6 @@ var MetricsInfo = metricsInfo{
 		Name:       "sqlserver.index.size",
 		Attributes: []string{"db.namespace", "sqlserver.index.id", "sqlserver.object.name", "sqlserver.schema.name"},
 	},
-	SqlserverKillConnectionErrorRate: metricInfo{
-		Name: "sqlserver.kill_connection.error.rate",
-	},
 	SqlserverLatchSuperlatchCount: metricInfo{
 		Name: "sqlserver.latch.superlatch.count",
 	},
@@ -1383,9 +1380,6 @@ var MetricsInfo = metricsInfo{
 	SqlserverMemoryPageCount: metricInfo{
 		Name:       "sqlserver.memory.page.count",
 		Attributes: []string{"page.pool"},
-	},
-	SqlserverMemoryTarget: metricInfo{
-		Name: "sqlserver.memory.target",
 	},
 	SqlserverMemoryUsage: metricInfo{
 		Name:       "sqlserver.memory.usage",
@@ -1636,7 +1630,6 @@ type metricsInfo struct {
 	SqlserverIndexRecordCount                             metricInfo
 	SqlserverIndexSearchRate                              metricInfo
 	SqlserverIndexSize                                    metricInfo
-	SqlserverKillConnectionErrorRate                      metricInfo
 	SqlserverLatchSuperlatchCount                         metricInfo
 	SqlserverLatchSuperlatchTransitionRate                metricInfo
 	SqlserverLatchWaitRate                                metricInfo
@@ -1657,7 +1650,6 @@ type metricsInfo struct {
 	SqlserverMemoryCacheObjectCount                       metricInfo
 	SqlserverMemoryGrantsPendingCount                     metricInfo
 	SqlserverMemoryPageCount                              metricInfo
-	SqlserverMemoryTarget                                 metricInfo
 	SqlserverMemoryUsage                                  metricInfo
 	SqlserverOsDiskSize                                   metricInfo
 	SqlserverOsMemoryUsage                                metricInfo
@@ -5287,56 +5279,6 @@ func newMetricSqlserverIndexSize(cfg SqlserverIndexSizeMetricConfig) metricSqlse
 	return m
 }
 
-type metricSqlserverKillConnectionErrorRate struct {
-	data     pmetric.Metric                               // data buffer for generated metric.
-	config   SqlserverKillConnectionErrorRateMetricConfig // metric config provided by user.
-	capacity int                                          // max observed number of data points added to the metric.
-}
-
-// init fills sqlserver.kill_connection.error.rate metric with initial data.
-func (m *metricSqlserverKillConnectionErrorRate) init() {
-	m.data.SetName("sqlserver.kill_connection.error.rate")
-	m.data.SetDescription("Number of kill-connection errors per second.")
-	m.data.SetUnit("{errors}/s")
-	m.data.SetEmptyGauge()
-}
-
-func (m *metricSqlserverKillConnectionErrorRate) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val float64) {
-	if !m.config.Enabled {
-		return
-	}
-	dp := m.data.Gauge().DataPoints().AppendEmpty()
-	dp.SetStartTimestamp(start)
-	dp.SetTimestamp(ts)
-	dp.SetDoubleValue(val)
-}
-
-// updateCapacity saves max length of data point slices that will be used for the slice capacity.
-func (m *metricSqlserverKillConnectionErrorRate) updateCapacity() {
-	if m.data.Gauge().DataPoints().Len() > m.capacity {
-		m.capacity = m.data.Gauge().DataPoints().Len()
-	}
-}
-
-// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
-func (m *metricSqlserverKillConnectionErrorRate) emit(metrics pmetric.MetricSlice) {
-	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
-		m.updateCapacity()
-		m.data.MoveTo(metrics.AppendEmpty())
-		m.init()
-	}
-}
-
-func newMetricSqlserverKillConnectionErrorRate(cfg SqlserverKillConnectionErrorRateMetricConfig) metricSqlserverKillConnectionErrorRate {
-	m := metricSqlserverKillConnectionErrorRate{config: cfg}
-
-	if cfg.Enabled {
-		m.data = pmetric.NewMetric()
-		m.init()
-	}
-	return m
-}
-
 type metricSqlserverLatchSuperlatchCount struct {
 	data     pmetric.Metric                            // data buffer for generated metric.
 	config   SqlserverLatchSuperlatchCountMetricConfig // metric config provided by user.
@@ -6536,56 +6478,6 @@ func (m *metricSqlserverMemoryPageCount) emit(metrics pmetric.MetricSlice) {
 
 func newMetricSqlserverMemoryPageCount(cfg SqlserverMemoryPageCountMetricConfig) metricSqlserverMemoryPageCount {
 	m := metricSqlserverMemoryPageCount{config: cfg}
-
-	if cfg.Enabled {
-		m.data = pmetric.NewMetric()
-		m.init()
-	}
-	return m
-}
-
-type metricSqlserverMemoryTarget struct {
-	data     pmetric.Metric                    // data buffer for generated metric.
-	config   SqlserverMemoryTargetMetricConfig // metric config provided by user.
-	capacity int                               // max observed number of data points added to the metric.
-}
-
-// init fills sqlserver.memory.target metric with initial data.
-func (m *metricSqlserverMemoryTarget) init() {
-	m.data.SetName("sqlserver.memory.target")
-	m.data.SetDescription("Maximum amount of memory SQL Server is willing to use (target server memory).")
-	m.data.SetUnit("By")
-	m.data.SetEmptyGauge()
-}
-
-func (m *metricSqlserverMemoryTarget) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
-	if !m.config.Enabled {
-		return
-	}
-	dp := m.data.Gauge().DataPoints().AppendEmpty()
-	dp.SetStartTimestamp(start)
-	dp.SetTimestamp(ts)
-	dp.SetIntValue(val)
-}
-
-// updateCapacity saves max length of data point slices that will be used for the slice capacity.
-func (m *metricSqlserverMemoryTarget) updateCapacity() {
-	if m.data.Gauge().DataPoints().Len() > m.capacity {
-		m.capacity = m.data.Gauge().DataPoints().Len()
-	}
-}
-
-// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
-func (m *metricSqlserverMemoryTarget) emit(metrics pmetric.MetricSlice) {
-	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
-		m.updateCapacity()
-		m.data.MoveTo(metrics.AppendEmpty())
-		m.init()
-	}
-}
-
-func newMetricSqlserverMemoryTarget(cfg SqlserverMemoryTargetMetricConfig) metricSqlserverMemoryTarget {
-	m := metricSqlserverMemoryTarget{config: cfg}
 
 	if cfg.Enabled {
 		m.data = pmetric.NewMetric()
@@ -10408,7 +10300,6 @@ type MetricsBuilder struct {
 	metricSqlserverIndexRecordCount                             metricSqlserverIndexRecordCount
 	metricSqlserverIndexSearchRate                              metricSqlserverIndexSearchRate
 	metricSqlserverIndexSize                                    metricSqlserverIndexSize
-	metricSqlserverKillConnectionErrorRate                      metricSqlserverKillConnectionErrorRate
 	metricSqlserverLatchSuperlatchCount                         metricSqlserverLatchSuperlatchCount
 	metricSqlserverLatchSuperlatchTransitionRate                metricSqlserverLatchSuperlatchTransitionRate
 	metricSqlserverLatchWaitRate                                metricSqlserverLatchWaitRate
@@ -10429,7 +10320,6 @@ type MetricsBuilder struct {
 	metricSqlserverMemoryCacheObjectCount                       metricSqlserverMemoryCacheObjectCount
 	metricSqlserverMemoryGrantsPendingCount                     metricSqlserverMemoryGrantsPendingCount
 	metricSqlserverMemoryPageCount                              metricSqlserverMemoryPageCount
-	metricSqlserverMemoryTarget                                 metricSqlserverMemoryTarget
 	metricSqlserverMemoryUsage                                  metricSqlserverMemoryUsage
 	metricSqlserverOsDiskSize                                   metricSqlserverOsDiskSize
 	metricSqlserverOsMemoryUsage                                metricSqlserverOsMemoryUsage
@@ -10562,7 +10452,6 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		metricSqlserverIndexRecordCount:                             newMetricSqlserverIndexRecordCount(mbc.Metrics.SqlserverIndexRecordCount),
 		metricSqlserverIndexSearchRate:                              newMetricSqlserverIndexSearchRate(mbc.Metrics.SqlserverIndexSearchRate),
 		metricSqlserverIndexSize:                                    newMetricSqlserverIndexSize(mbc.Metrics.SqlserverIndexSize),
-		metricSqlserverKillConnectionErrorRate:                      newMetricSqlserverKillConnectionErrorRate(mbc.Metrics.SqlserverKillConnectionErrorRate),
 		metricSqlserverLatchSuperlatchCount:                         newMetricSqlserverLatchSuperlatchCount(mbc.Metrics.SqlserverLatchSuperlatchCount),
 		metricSqlserverLatchSuperlatchTransitionRate:                newMetricSqlserverLatchSuperlatchTransitionRate(mbc.Metrics.SqlserverLatchSuperlatchTransitionRate),
 		metricSqlserverLatchWaitRate:                                newMetricSqlserverLatchWaitRate(mbc.Metrics.SqlserverLatchWaitRate),
@@ -10583,7 +10472,6 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		metricSqlserverMemoryCacheObjectCount:                       newMetricSqlserverMemoryCacheObjectCount(mbc.Metrics.SqlserverMemoryCacheObjectCount),
 		metricSqlserverMemoryGrantsPendingCount:                     newMetricSqlserverMemoryGrantsPendingCount(mbc.Metrics.SqlserverMemoryGrantsPendingCount),
 		metricSqlserverMemoryPageCount:                              newMetricSqlserverMemoryPageCount(mbc.Metrics.SqlserverMemoryPageCount),
-		metricSqlserverMemoryTarget:                                 newMetricSqlserverMemoryTarget(mbc.Metrics.SqlserverMemoryTarget),
 		metricSqlserverMemoryUsage:                                  newMetricSqlserverMemoryUsage(mbc.Metrics.SqlserverMemoryUsage),
 		metricSqlserverOsDiskSize:                                   newMetricSqlserverOsDiskSize(mbc.Metrics.SqlserverOsDiskSize),
 		metricSqlserverOsMemoryUsage:                                newMetricSqlserverOsMemoryUsage(mbc.Metrics.SqlserverOsMemoryUsage),
@@ -10817,7 +10705,6 @@ func (mb *MetricsBuilder) EmitForResource(options ...ResourceMetricsOption) {
 	mb.metricSqlserverIndexRecordCount.emit(ils.Metrics())
 	mb.metricSqlserverIndexSearchRate.emit(ils.Metrics())
 	mb.metricSqlserverIndexSize.emit(ils.Metrics())
-	mb.metricSqlserverKillConnectionErrorRate.emit(ils.Metrics())
 	mb.metricSqlserverLatchSuperlatchCount.emit(ils.Metrics())
 	mb.metricSqlserverLatchSuperlatchTransitionRate.emit(ils.Metrics())
 	mb.metricSqlserverLatchWaitRate.emit(ils.Metrics())
@@ -10838,7 +10725,6 @@ func (mb *MetricsBuilder) EmitForResource(options ...ResourceMetricsOption) {
 	mb.metricSqlserverMemoryCacheObjectCount.emit(ils.Metrics())
 	mb.metricSqlserverMemoryGrantsPendingCount.emit(ils.Metrics())
 	mb.metricSqlserverMemoryPageCount.emit(ils.Metrics())
-	mb.metricSqlserverMemoryTarget.emit(ils.Metrics())
 	mb.metricSqlserverMemoryUsage.emit(ils.Metrics())
 	mb.metricSqlserverOsDiskSize.emit(ils.Metrics())
 	mb.metricSqlserverOsMemoryUsage.emit(ils.Metrics())
@@ -11263,11 +11149,6 @@ func (mb *MetricsBuilder) RecordSqlserverIndexSizeDataPoint(ts pcommon.Timestamp
 	return nil
 }
 
-// RecordSqlserverKillConnectionErrorRateDataPoint adds a data point to sqlserver.kill_connection.error.rate metric.
-func (mb *MetricsBuilder) RecordSqlserverKillConnectionErrorRateDataPoint(ts pcommon.Timestamp, val float64) {
-	mb.metricSqlserverKillConnectionErrorRate.recordDataPoint(mb.startTime, ts, val)
-}
-
 // RecordSqlserverLatchSuperlatchCountDataPoint adds a data point to sqlserver.latch.superlatch.count metric.
 func (mb *MetricsBuilder) RecordSqlserverLatchSuperlatchCountDataPoint(ts pcommon.Timestamp, val int64) {
 	mb.metricSqlserverLatchSuperlatchCount.recordDataPoint(mb.startTime, ts, val)
@@ -11366,16 +11247,6 @@ func (mb *MetricsBuilder) RecordSqlserverMemoryGrantsPendingCountDataPoint(ts pc
 // RecordSqlserverMemoryPageCountDataPoint adds a data point to sqlserver.memory.page.count metric.
 func (mb *MetricsBuilder) RecordSqlserverMemoryPageCountDataPoint(ts pcommon.Timestamp, val int64, pagePoolAttributeValue AttributePagePool) {
 	mb.metricSqlserverMemoryPageCount.recordDataPoint(mb.startTime, ts, val, pagePoolAttributeValue.String())
-}
-
-// RecordSqlserverMemoryTargetDataPoint adds a data point to sqlserver.memory.target metric.
-func (mb *MetricsBuilder) RecordSqlserverMemoryTargetDataPoint(ts pcommon.Timestamp, inputVal string) error {
-	val, err := strconv.ParseInt(inputVal, 10, 64)
-	if err != nil {
-		return fmt.Errorf("failed to parse int64 for SqlserverMemoryTarget, value was %s: %w", inputVal, err)
-	}
-	mb.metricSqlserverMemoryTarget.recordDataPoint(mb.startTime, ts, val)
-	return nil
 }
 
 // RecordSqlserverMemoryUsageDataPoint adds a data point to sqlserver.memory.usage metric.

@@ -68,7 +68,6 @@ func configureAllScraperMetricsAndEvents(cfg *Config, enabled bool) {
 	cfg.Metrics.SqlserverMemoryArea.Enabled = enabled
 	cfg.Metrics.SqlserverMemoryCacheObjectCount.Enabled = enabled
 	cfg.Metrics.SqlserverMemoryGrantsPendingCount.Enabled = enabled
-	cfg.Metrics.SqlserverMemoryTarget.Enabled = enabled
 	cfg.Metrics.SqlserverMemoryPageCount.Enabled = enabled
 	cfg.Metrics.SqlserverMemoryUsage.Enabled = enabled
 	cfg.Metrics.SqlserverOsWaitDuration.Enabled = enabled
@@ -206,8 +205,6 @@ func TestSuccessfulScrape(t *testing.T) {
 					expectedFile = filepath.Join("testdata", "expectedWaitStats")
 				case getSQLServerDatabaseSizeQuery(scraper.config.InstanceName):
 					expectedFile = filepath.Join("testdata", "expectedDatabaseSize")
-				case getSQLServerMemoryTargetQuery(scraper.config.InstanceName):
-					expectedFile = filepath.Join("testdata", "expectedMemoryTarget")
 				}
 				expectedFile += fileSuffix
 
@@ -454,8 +451,6 @@ func (mc mockClient) QueryRows(context.Context, ...any) ([]sqlquery.StringMap, e
 		queryResults, err = readFile("recordDatabaseSampleQueryData.txt")
 	case getSQLServerDatabaseSizeQuery(mc.instanceName):
 		queryResults, err = readFile("database_size_scraped_data.txt")
-	case getSQLServerMemoryTargetQuery(mc.instanceName):
-		queryResults, err = readFile("memory_target_scraped_data.txt")
 	default:
 		return nil, errors.New("No valid query found")
 	}

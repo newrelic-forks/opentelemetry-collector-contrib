@@ -269,8 +269,6 @@ $defs:
         $ref: sqlserver_index_search_rate_metric_config
       sqlserver.index.size:
         $ref: sqlserver_index_size_metric_config
-      sqlserver.kill_connection.error.rate:
-        $ref: sqlserver_kill_connection_error_rate_metric_config
       sqlserver.latch.superlatch.count:
         $ref: sqlserver_latch_superlatch_count_metric_config
       sqlserver.latch.superlatch.transition.rate:
@@ -311,8 +309,6 @@ $defs:
         $ref: sqlserver_memory_grants_pending_count_metric_config
       sqlserver.memory.page.count:
         $ref: sqlserver_memory_page_count_metric_config
-      sqlserver.memory.target:
-        $ref: sqlserver_memory_target_metric_config
       sqlserver.memory.usage:
         $ref: sqlserver_memory_usage_metric_config
       sqlserver.os.disk.size:
@@ -1211,12 +1207,6 @@ $defs:
         description: OverrideValue allows users to override the value of this resource attribute.
         x-pointer: true
         type: string
-  sqlserver_kill_connection_error_rate_metric_config:
-    description: SqlserverKillConnectionErrorRateMetricConfig provides config for the sqlserver.kill_connection.error.rate metric.
-    type: object
-    properties:
-      enabled:
-        type: boolean
   sqlserver_latch_superlatch_count_metric_config:
     description: SqlserverLatchSuperlatchCountMetricConfig provides config for the sqlserver.latch.superlatch.count metric.
     type: object
@@ -1380,12 +1370,6 @@ $defs:
         type: array
         items:
           $ref: sqlserver_memory_page_count_metric_attribute_key
-      enabled:
-        type: boolean
-  sqlserver_memory_target_metric_config:
-    description: SqlserverMemoryTargetMetricConfig provides config for the sqlserver.memory.target metric.
-    type: object
-    properties:
       enabled:
         type: boolean
   sqlserver_memory_usage_metric_attribute_key:

@@ -86,10 +86,6 @@ func setupQueries(cfg *Config) []string {
 		queries = append(queries, getSQLServerWaitStatsQuery(cfg.InstanceName))
 	}
 
-	if cfg.Metrics.SqlserverMemoryTarget.Enabled {
-		queries = append(queries, getSQLServerMemoryTargetQuery(cfg.InstanceName))
-	}
-
 	if cfg.Metrics.SqlserverDatabaseFileSize.Enabled {
 		queries = append(queries, getSQLServerDatabaseSizeQuery(cfg.InstanceName))
 	}
@@ -424,7 +420,6 @@ func isPerfCounterQueryEnabled(metrics *metadata.MetricsConfig) bool {
 		metrics.SqlserverDatabaseExecutionErrors.Enabled ||
 		metrics.SqlserverDatabaseFullScanRate.Enabled ||
 		metrics.SqlserverDatabaseTransactionsActive.Enabled ||
-		metrics.SqlserverKillConnectionErrorRate.Enabled ||
 		metrics.SqlserverDatabaseTempdbSpace.Enabled ||
 		metrics.SqlserverDatabaseTempdbVersionStoreSize.Enabled ||
 		metrics.SqlserverDeadlockRate.Enabled ||

@@ -1061,15 +1061,6 @@ metrics:
       input_type: string
     attributes: [db.namespace, sqlserver.index.id, sqlserver.object.name, sqlserver.schema.name]
     extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
-  sqlserver.kill_connection.error.rate:
-    enabled: false
-    description: Number of kill-connection errors per second.
-    stability: development
-    unit: "{errors}/s"
-    gauge:
-      value_type: double
-    attributes: []
-    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.latch.superlatch.count:
     enabled: false
     description: Number of superlatches currently active.
@@ -1251,16 +1242,6 @@ metrics:
       value_type: int
     attributes: [page.pool]
     extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
-  sqlserver.memory.target:
-    enabled: false
-    description: Maximum amount of memory SQL Server is willing to use (target server memory).
-    stability: development
-    unit: By
-    gauge:
-      value_type: int
-      input_type: string
-    attributes: []
-    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server. Target memory represents the ideal amount of memory SQL Server would like to acquire based on recent memory demand. When actual memory usage is less than target memory, SQL Server will attempt to acquire more memory. Available on SQL Server 2005+.
   sqlserver.memory.usage:
     enabled: false
     description: Total memory in use.

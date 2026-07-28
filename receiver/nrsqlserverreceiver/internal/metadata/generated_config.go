@@ -1731,26 +1731,6 @@ func (ms *SqlserverIndexSizeMetricConfig) Validate() error {
 	return nil
 }
 
-// SqlserverKillConnectionErrorRateMetricConfig provides config for the sqlserver.kill_connection.error.rate metric.
-type SqlserverKillConnectionErrorRateMetricConfig struct {
-	Enabled          bool `mapstructure:"enabled"`
-	enabledSetByUser bool
-}
-
-func (ms *SqlserverKillConnectionErrorRateMetricConfig) Unmarshal(parser *confmap.Conf) error {
-	if parser == nil {
-		return nil
-	}
-
-	err := parser.Unmarshal(ms)
-	if err != nil {
-		return err
-	}
-
-	ms.enabledSetByUser = parser.IsSet("enabled")
-	return nil
-}
-
 // SqlserverLatchSuperlatchCountMetricConfig provides config for the sqlserver.latch.superlatch.count metric.
 type SqlserverLatchSuperlatchCountMetricConfig struct {
 	Enabled          bool `mapstructure:"enabled"`
@@ -2288,26 +2268,6 @@ func (ms *SqlserverMemoryPageCountMetricConfig) Validate() error {
 		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
 	}
 
-	return nil
-}
-
-// SqlserverMemoryTargetMetricConfig provides config for the sqlserver.memory.target metric.
-type SqlserverMemoryTargetMetricConfig struct {
-	Enabled          bool `mapstructure:"enabled"`
-	enabledSetByUser bool
-}
-
-func (ms *SqlserverMemoryTargetMetricConfig) Unmarshal(parser *confmap.Conf) error {
-	if parser == nil {
-		return nil
-	}
-
-	err := parser.Unmarshal(ms)
-	if err != nil {
-		return err
-	}
-
-	ms.enabledSetByUser = parser.IsSet("enabled")
 	return nil
 }
 
@@ -4114,7 +4074,6 @@ type MetricsConfig struct {
 	SqlserverIndexRecordCount                             SqlserverIndexRecordCountMetricConfig                             `mapstructure:"sqlserver.index.record.count"`
 	SqlserverIndexSearchRate                              SqlserverIndexSearchRateMetricConfig                              `mapstructure:"sqlserver.index.search.rate"`
 	SqlserverIndexSize                                    SqlserverIndexSizeMetricConfig                                    `mapstructure:"sqlserver.index.size"`
-	SqlserverKillConnectionErrorRate                      SqlserverKillConnectionErrorRateMetricConfig                      `mapstructure:"sqlserver.kill_connection.error.rate"`
 	SqlserverLatchSuperlatchCount                         SqlserverLatchSuperlatchCountMetricConfig                         `mapstructure:"sqlserver.latch.superlatch.count"`
 	SqlserverLatchSuperlatchTransitionRate                SqlserverLatchSuperlatchTransitionRateMetricConfig                `mapstructure:"sqlserver.latch.superlatch.transition.rate"`
 	SqlserverLatchWaitRate                                SqlserverLatchWaitRateMetricConfig                                `mapstructure:"sqlserver.latch.wait.rate"`
@@ -4135,7 +4094,6 @@ type MetricsConfig struct {
 	SqlserverMemoryCacheObjectCount                       SqlserverMemoryCacheObjectCountMetricConfig                       `mapstructure:"sqlserver.memory.cache.object.count"`
 	SqlserverMemoryGrantsPendingCount                     SqlserverMemoryGrantsPendingCountMetricConfig                     `mapstructure:"sqlserver.memory.grants.pending.count"`
 	SqlserverMemoryPageCount                              SqlserverMemoryPageCountMetricConfig                              `mapstructure:"sqlserver.memory.page.count"`
-	SqlserverMemoryTarget                                 SqlserverMemoryTargetMetricConfig                                 `mapstructure:"sqlserver.memory.target"`
 	SqlserverMemoryUsage                                  SqlserverMemoryUsageMetricConfig                                  `mapstructure:"sqlserver.memory.usage"`
 	SqlserverOsDiskSize                                   SqlserverOsDiskSizeMetricConfig                                   `mapstructure:"sqlserver.os.disk.size"`
 	SqlserverOsMemoryUsage                                SqlserverOsMemoryUsageMetricConfig                                `mapstructure:"sqlserver.os.memory.usage"`
@@ -4395,9 +4353,6 @@ func DefaultMetricsConfig() MetricsConfig {
 			AggregationStrategy: AggregationStrategyAvg,
 			EnabledAttributes:   []SqlserverIndexSizeMetricAttributeKey{SqlserverIndexSizeMetricAttributeKeyDbNamespace, SqlserverIndexSizeMetricAttributeKeySqlserverIndexID, SqlserverIndexSizeMetricAttributeKeySqlserverObjectName, SqlserverIndexSizeMetricAttributeKeySqlserverSchemaName},
 		},
-		SqlserverKillConnectionErrorRate: SqlserverKillConnectionErrorRateMetricConfig{
-			Enabled: false,
-		},
 		SqlserverLatchSuperlatchCount: SqlserverLatchSuperlatchCountMetricConfig{
 			Enabled: false,
 		},
@@ -4467,9 +4422,6 @@ func DefaultMetricsConfig() MetricsConfig {
 			Enabled:             false,
 			AggregationStrategy: AggregationStrategyAvg,
 			EnabledAttributes:   []SqlserverMemoryPageCountMetricAttributeKey{SqlserverMemoryPageCountMetricAttributeKeyPagePool},
-		},
-		SqlserverMemoryTarget: SqlserverMemoryTargetMetricConfig{
-			Enabled: false,
 		},
 		SqlserverMemoryUsage: SqlserverMemoryUsageMetricConfig{
 			Enabled:             false,

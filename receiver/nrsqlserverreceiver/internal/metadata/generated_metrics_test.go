@@ -350,9 +350,6 @@ func TestMetricsBuilder(t *testing.T) {
 			}
 
 			allMetricsCount++
-			mb.RecordSqlserverKillConnectionErrorRateDataPoint(ts, 1)
-
-			allMetricsCount++
 			mb.RecordSqlserverLatchSuperlatchCountDataPoint(ts, 1)
 
 			allMetricsCount++
@@ -426,9 +423,6 @@ func TestMetricsBuilder(t *testing.T) {
 			if tt.name == "reaggregate_set" {
 				mb.RecordSqlserverMemoryPageCountDataPoint(ts, 3, AttributePagePoolTotal)
 			}
-
-			allMetricsCount++
-			mb.RecordSqlserverMemoryTargetDataPoint(ts, "1")
 
 			allMetricsCount++
 			mb.RecordSqlserverMemoryUsageDataPoint(ts, 1, AttributeWorkloadGroupNameDefault)
@@ -2278,18 +2272,6 @@ func TestMetricsBuilder(t *testing.T) {
 						_, ok = dp.Attributes().Get("sqlserver.schema.name")
 						assert.False(t, ok)
 					}
-				case "sqlserver.kill_connection.error.rate":
-					assert.False(t, validatedMetrics["sqlserver.kill_connection.error.rate"], "Found a duplicate in the metrics slice: sqlserver.kill_connection.error.rate")
-					validatedMetrics["sqlserver.kill_connection.error.rate"] = true
-					assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
-					assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
-					assert.Equal(t, "Number of kill-connection errors per second.", mi.Description())
-					assert.Equal(t, "{errors}/s", mi.Unit())
-					dp := mi.Gauge().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
-					assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
 				case "sqlserver.latch.superlatch.count":
 					assert.False(t, validatedMetrics["sqlserver.latch.superlatch.count"], "Found a duplicate in the metrics slice: sqlserver.latch.superlatch.count")
 					validatedMetrics["sqlserver.latch.superlatch.count"] = true
@@ -2686,18 +2668,6 @@ func TestMetricsBuilder(t *testing.T) {
 						_, ok := dp.Attributes().Get("page.pool")
 						assert.False(t, ok)
 					}
-				case "sqlserver.memory.target":
-					assert.False(t, validatedMetrics["sqlserver.memory.target"], "Found a duplicate in the metrics slice: sqlserver.memory.target")
-					validatedMetrics["sqlserver.memory.target"] = true
-					assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
-					assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
-					assert.Equal(t, "Maximum amount of memory SQL Server is willing to use (target server memory).", mi.Description())
-					assert.Equal(t, "By", mi.Unit())
-					dp := mi.Gauge().DataPoints().At(0)
-					assert.Equal(t, start, dp.StartTimestamp())
-					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
 				case "sqlserver.memory.usage":
 					if tt.name != "reaggregate_set" {
 						assert.False(t, validatedMetrics["sqlserver.memory.usage"], "Found a duplicate in the metrics slice: sqlserver.memory.usage")
