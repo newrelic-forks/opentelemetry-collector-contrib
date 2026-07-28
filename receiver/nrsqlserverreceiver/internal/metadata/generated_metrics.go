@@ -1231,10 +1231,6 @@ var MetricsInfo = metricsInfo{
 		Name:       "sqlserver.database.page_file.size",
 		Attributes: []string{"db.namespace", "page_file.state"},
 	},
-	SqlserverDatabaseSecurityRoleMembershipCount: metricInfo{
-		Name:       "sqlserver.database.security.role_membership.count",
-		Attributes: []string{"db.namespace", "role"},
-	},
 	SqlserverDatabaseTempdbSpace: metricInfo{
 		Name:       "sqlserver.database.tempdb.space",
 		Attributes: []string{"tempdb.state"},
@@ -1488,13 +1484,6 @@ var MetricsInfo = metricsInfo{
 	SqlserverScanPointRevalidationRate: metricInfo{
 		Name: "sqlserver.scan_point.revalidation.rate",
 	},
-	SqlserverServerSecurityPrincipalCount: metricInfo{
-		Name: "sqlserver.server.security.principal.count",
-	},
-	SqlserverServerSecurityRoleMembershipCount: metricInfo{
-		Name:       "sqlserver.server.security.role_membership.count",
-		Attributes: []string{"role"},
-	},
 	SqlserverStoredProcedureInvocationRate: metricInfo{
 		Name: "sqlserver.stored_procedure.invocation.rate",
 	},
@@ -1625,7 +1614,6 @@ type metricsInfo struct {
 	SqlserverDatabaseLatency                              metricInfo
 	SqlserverDatabaseOperations                           metricInfo
 	SqlserverDatabasePageFileSize                         metricInfo
-	SqlserverDatabaseSecurityRoleMembershipCount          metricInfo
 	SqlserverDatabaseTempdbSpace                          metricInfo
 	SqlserverDatabaseTempdbVersionStoreSize               metricInfo
 	SqlserverDatabaseTransactionsActive                   metricInfo
@@ -1698,8 +1686,6 @@ type metricsInfo struct {
 	SqlserverResourcePoolDiskThrottledReadRate            metricInfo
 	SqlserverResourcePoolDiskThrottledWriteRate           metricInfo
 	SqlserverScanPointRevalidationRate                    metricInfo
-	SqlserverServerSecurityPrincipalCount                 metricInfo
-	SqlserverServerSecurityRoleMembershipCount            metricInfo
 	SqlserverStoredProcedureInvocationRate                metricInfo
 	SqlserverTableCount                                   metricInfo
 	SqlserverTaskCount                                    metricInfo
@@ -3527,98 +3513,6 @@ func (m *metricSqlserverDatabasePageFileSize) emit(metrics pmetric.MetricSlice) 
 
 func newMetricSqlserverDatabasePageFileSize(cfg SqlserverDatabasePageFileSizeMetricConfig) metricSqlserverDatabasePageFileSize {
 	m := metricSqlserverDatabasePageFileSize{config: cfg}
-
-	if cfg.Enabled {
-		m.data = pmetric.NewMetric()
-		m.init()
-	}
-	return m
-}
-
-type metricSqlserverDatabaseSecurityRoleMembershipCount struct {
-	data          pmetric.Metric                                           // data buffer for generated metric.
-	config        SqlserverDatabaseSecurityRoleMembershipCountMetricConfig // metric config provided by user.
-	capacity      int                                                      // max observed number of data points added to the metric.
-	aggDataPoints []int64                                                  // slice containing number of aggregated datapoints at each index
-}
-
-// init fills sqlserver.database.security.role_membership.count metric with initial data.
-func (m *metricSqlserverDatabaseSecurityRoleMembershipCount) init() {
-	m.data.SetName("sqlserver.database.security.role_membership.count")
-	m.data.SetDescription("Number of members in a database role.")
-	m.data.SetUnit("{members}")
-	m.data.SetEmptyGauge()
-	m.data.Gauge().DataPoints().EnsureCapacity(m.capacity)
-	m.aggDataPoints = m.aggDataPoints[:0]
-}
-
-func (m *metricSqlserverDatabaseSecurityRoleMembershipCount) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, dbNamespaceAttributeValue string, roleAttributeValue string) {
-	if !m.config.Enabled {
-		return
-	}
-
-	dp := pmetric.NewNumberDataPoint()
-	dp.SetStartTimestamp(start)
-	dp.SetTimestamp(ts)
-	if slices.Contains(m.config.EnabledAttributes, SqlserverDatabaseSecurityRoleMembershipCountMetricAttributeKeyDbNamespace) {
-		dp.Attributes().PutStr("db.namespace", dbNamespaceAttributeValue)
-	}
-	if slices.Contains(m.config.EnabledAttributes, SqlserverDatabaseSecurityRoleMembershipCountMetricAttributeKeyRole) {
-		dp.Attributes().PutStr("role", roleAttributeValue)
-	}
-
-	var s string
-	dps := m.data.Gauge().DataPoints()
-	for i := 0; i < dps.Len(); i++ {
-		dpi := dps.At(i)
-		if dp.Attributes().Equal(dpi.Attributes()) && dp.StartTimestamp() == dpi.StartTimestamp() && dp.Timestamp() == dpi.Timestamp() {
-			switch s = m.config.AggregationStrategy; s {
-			case AggregationStrategySum, AggregationStrategyAvg:
-				dpi.SetIntValue(dpi.IntValue() + val)
-				m.aggDataPoints[i] += 1
-				return
-			case AggregationStrategyMin:
-				if dpi.IntValue() > val {
-					dpi.SetIntValue(val)
-				}
-				return
-			case AggregationStrategyMax:
-				if dpi.IntValue() < val {
-					dpi.SetIntValue(val)
-				}
-				return
-			}
-		}
-	}
-
-	dp.SetIntValue(val)
-	m.aggDataPoints = append(m.aggDataPoints, 1)
-	dp.MoveTo(dps.AppendEmpty())
-}
-
-// updateCapacity saves max length of data point slices that will be used for the slice capacity.
-func (m *metricSqlserverDatabaseSecurityRoleMembershipCount) updateCapacity() {
-	if m.data.Gauge().DataPoints().Len() > m.capacity {
-		m.capacity = m.data.Gauge().DataPoints().Len()
-	}
-}
-
-// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
-func (m *metricSqlserverDatabaseSecurityRoleMembershipCount) emit(metrics pmetric.MetricSlice) {
-	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
-		if m.config.AggregationStrategy == AggregationStrategyAvg {
-			for i, aggCount := range m.aggDataPoints {
-				m.data.Gauge().DataPoints().At(i).SetIntValue(m.data.Gauge().DataPoints().At(i).IntValue() / aggCount)
-			}
-		}
-		m.updateCapacity()
-		m.data.MoveTo(metrics.AppendEmpty())
-		m.init()
-	}
-}
-
-func newMetricSqlserverDatabaseSecurityRoleMembershipCount(cfg SqlserverDatabaseSecurityRoleMembershipCountMetricConfig) metricSqlserverDatabaseSecurityRoleMembershipCount {
-	m := metricSqlserverDatabaseSecurityRoleMembershipCount{config: cfg}
 
 	if cfg.Enabled {
 		m.data = pmetric.NewMetric()
@@ -8545,145 +8439,6 @@ func newMetricSqlserverScanPointRevalidationRate(cfg SqlserverScanPointRevalidat
 	return m
 }
 
-type metricSqlserverServerSecurityPrincipalCount struct {
-	data     pmetric.Metric                                    // data buffer for generated metric.
-	config   SqlserverServerSecurityPrincipalCountMetricConfig // metric config provided by user.
-	capacity int                                               // max observed number of data points added to the metric.
-}
-
-// init fills sqlserver.server.security.principal.count metric with initial data.
-func (m *metricSqlserverServerSecurityPrincipalCount) init() {
-	m.data.SetName("sqlserver.server.security.principal.count")
-	m.data.SetDescription("Number of security principals (logins, users) at the server level.")
-	m.data.SetUnit("{principals}")
-	m.data.SetEmptyGauge()
-}
-
-func (m *metricSqlserverServerSecurityPrincipalCount) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64) {
-	if !m.config.Enabled {
-		return
-	}
-	dp := m.data.Gauge().DataPoints().AppendEmpty()
-	dp.SetStartTimestamp(start)
-	dp.SetTimestamp(ts)
-	dp.SetIntValue(val)
-}
-
-// updateCapacity saves max length of data point slices that will be used for the slice capacity.
-func (m *metricSqlserverServerSecurityPrincipalCount) updateCapacity() {
-	if m.data.Gauge().DataPoints().Len() > m.capacity {
-		m.capacity = m.data.Gauge().DataPoints().Len()
-	}
-}
-
-// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
-func (m *metricSqlserverServerSecurityPrincipalCount) emit(metrics pmetric.MetricSlice) {
-	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
-		m.updateCapacity()
-		m.data.MoveTo(metrics.AppendEmpty())
-		m.init()
-	}
-}
-
-func newMetricSqlserverServerSecurityPrincipalCount(cfg SqlserverServerSecurityPrincipalCountMetricConfig) metricSqlserverServerSecurityPrincipalCount {
-	m := metricSqlserverServerSecurityPrincipalCount{config: cfg}
-
-	if cfg.Enabled {
-		m.data = pmetric.NewMetric()
-		m.init()
-	}
-	return m
-}
-
-type metricSqlserverServerSecurityRoleMembershipCount struct {
-	data          pmetric.Metric                                         // data buffer for generated metric.
-	config        SqlserverServerSecurityRoleMembershipCountMetricConfig // metric config provided by user.
-	capacity      int                                                    // max observed number of data points added to the metric.
-	aggDataPoints []int64                                                // slice containing number of aggregated datapoints at each index
-}
-
-// init fills sqlserver.server.security.role_membership.count metric with initial data.
-func (m *metricSqlserverServerSecurityRoleMembershipCount) init() {
-	m.data.SetName("sqlserver.server.security.role_membership.count")
-	m.data.SetDescription("Number of members in a server role.")
-	m.data.SetUnit("{members}")
-	m.data.SetEmptyGauge()
-	m.data.Gauge().DataPoints().EnsureCapacity(m.capacity)
-	m.aggDataPoints = m.aggDataPoints[:0]
-}
-
-func (m *metricSqlserverServerSecurityRoleMembershipCount) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, roleAttributeValue string) {
-	if !m.config.Enabled {
-		return
-	}
-
-	dp := pmetric.NewNumberDataPoint()
-	dp.SetStartTimestamp(start)
-	dp.SetTimestamp(ts)
-	if slices.Contains(m.config.EnabledAttributes, SqlserverServerSecurityRoleMembershipCountMetricAttributeKeyRole) {
-		dp.Attributes().PutStr("role", roleAttributeValue)
-	}
-
-	var s string
-	dps := m.data.Gauge().DataPoints()
-	for i := 0; i < dps.Len(); i++ {
-		dpi := dps.At(i)
-		if dp.Attributes().Equal(dpi.Attributes()) && dp.StartTimestamp() == dpi.StartTimestamp() && dp.Timestamp() == dpi.Timestamp() {
-			switch s = m.config.AggregationStrategy; s {
-			case AggregationStrategySum, AggregationStrategyAvg:
-				dpi.SetIntValue(dpi.IntValue() + val)
-				m.aggDataPoints[i] += 1
-				return
-			case AggregationStrategyMin:
-				if dpi.IntValue() > val {
-					dpi.SetIntValue(val)
-				}
-				return
-			case AggregationStrategyMax:
-				if dpi.IntValue() < val {
-					dpi.SetIntValue(val)
-				}
-				return
-			}
-		}
-	}
-
-	dp.SetIntValue(val)
-	m.aggDataPoints = append(m.aggDataPoints, 1)
-	dp.MoveTo(dps.AppendEmpty())
-}
-
-// updateCapacity saves max length of data point slices that will be used for the slice capacity.
-func (m *metricSqlserverServerSecurityRoleMembershipCount) updateCapacity() {
-	if m.data.Gauge().DataPoints().Len() > m.capacity {
-		m.capacity = m.data.Gauge().DataPoints().Len()
-	}
-}
-
-// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
-func (m *metricSqlserverServerSecurityRoleMembershipCount) emit(metrics pmetric.MetricSlice) {
-	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
-		if m.config.AggregationStrategy == AggregationStrategyAvg {
-			for i, aggCount := range m.aggDataPoints {
-				m.data.Gauge().DataPoints().At(i).SetIntValue(m.data.Gauge().DataPoints().At(i).IntValue() / aggCount)
-			}
-		}
-		m.updateCapacity()
-		m.data.MoveTo(metrics.AppendEmpty())
-		m.init()
-	}
-}
-
-func newMetricSqlserverServerSecurityRoleMembershipCount(cfg SqlserverServerSecurityRoleMembershipCountMetricConfig) metricSqlserverServerSecurityRoleMembershipCount {
-	m := metricSqlserverServerSecurityRoleMembershipCount{config: cfg}
-
-	if cfg.Enabled {
-		m.data = pmetric.NewMetric()
-		m.init()
-	}
-	return m
-}
-
 type metricSqlserverStoredProcedureInvocationRate struct {
 	data     pmetric.Metric                                     // data buffer for generated metric.
 	config   SqlserverStoredProcedureInvocationRateMetricConfig // metric config provided by user.
@@ -10631,7 +10386,6 @@ type MetricsBuilder struct {
 	metricSqlserverDatabaseLatency                              metricSqlserverDatabaseLatency
 	metricSqlserverDatabaseOperations                           metricSqlserverDatabaseOperations
 	metricSqlserverDatabasePageFileSize                         metricSqlserverDatabasePageFileSize
-	metricSqlserverDatabaseSecurityRoleMembershipCount          metricSqlserverDatabaseSecurityRoleMembershipCount
 	metricSqlserverDatabaseTempdbSpace                          metricSqlserverDatabaseTempdbSpace
 	metricSqlserverDatabaseTempdbVersionStoreSize               metricSqlserverDatabaseTempdbVersionStoreSize
 	metricSqlserverDatabaseTransactionsActive                   metricSqlserverDatabaseTransactionsActive
@@ -10704,8 +10458,6 @@ type MetricsBuilder struct {
 	metricSqlserverResourcePoolDiskThrottledReadRate            metricSqlserverResourcePoolDiskThrottledReadRate
 	metricSqlserverResourcePoolDiskThrottledWriteRate           metricSqlserverResourcePoolDiskThrottledWriteRate
 	metricSqlserverScanPointRevalidationRate                    metricSqlserverScanPointRevalidationRate
-	metricSqlserverServerSecurityPrincipalCount                 metricSqlserverServerSecurityPrincipalCount
-	metricSqlserverServerSecurityRoleMembershipCount            metricSqlserverServerSecurityRoleMembershipCount
 	metricSqlserverStoredProcedureInvocationRate                metricSqlserverStoredProcedureInvocationRate
 	metricSqlserverTableCount                                   metricSqlserverTableCount
 	metricSqlserverTaskCount                                    metricSqlserverTaskCount
@@ -10788,7 +10540,6 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		metricSqlserverDatabaseLatency:                              newMetricSqlserverDatabaseLatency(mbc.Metrics.SqlserverDatabaseLatency),
 		metricSqlserverDatabaseOperations:                           newMetricSqlserverDatabaseOperations(mbc.Metrics.SqlserverDatabaseOperations),
 		metricSqlserverDatabasePageFileSize:                         newMetricSqlserverDatabasePageFileSize(mbc.Metrics.SqlserverDatabasePageFileSize),
-		metricSqlserverDatabaseSecurityRoleMembershipCount:          newMetricSqlserverDatabaseSecurityRoleMembershipCount(mbc.Metrics.SqlserverDatabaseSecurityRoleMembershipCount),
 		metricSqlserverDatabaseTempdbSpace:                          newMetricSqlserverDatabaseTempdbSpace(mbc.Metrics.SqlserverDatabaseTempdbSpace),
 		metricSqlserverDatabaseTempdbVersionStoreSize:               newMetricSqlserverDatabaseTempdbVersionStoreSize(mbc.Metrics.SqlserverDatabaseTempdbVersionStoreSize),
 		metricSqlserverDatabaseTransactionsActive:                   newMetricSqlserverDatabaseTransactionsActive(mbc.Metrics.SqlserverDatabaseTransactionsActive),
@@ -10861,8 +10612,6 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		metricSqlserverResourcePoolDiskThrottledReadRate:            newMetricSqlserverResourcePoolDiskThrottledReadRate(mbc.Metrics.SqlserverResourcePoolDiskThrottledReadRate),
 		metricSqlserverResourcePoolDiskThrottledWriteRate:           newMetricSqlserverResourcePoolDiskThrottledWriteRate(mbc.Metrics.SqlserverResourcePoolDiskThrottledWriteRate),
 		metricSqlserverScanPointRevalidationRate:                    newMetricSqlserverScanPointRevalidationRate(mbc.Metrics.SqlserverScanPointRevalidationRate),
-		metricSqlserverServerSecurityPrincipalCount:                 newMetricSqlserverServerSecurityPrincipalCount(mbc.Metrics.SqlserverServerSecurityPrincipalCount),
-		metricSqlserverServerSecurityRoleMembershipCount:            newMetricSqlserverServerSecurityRoleMembershipCount(mbc.Metrics.SqlserverServerSecurityRoleMembershipCount),
 		metricSqlserverStoredProcedureInvocationRate:                newMetricSqlserverStoredProcedureInvocationRate(mbc.Metrics.SqlserverStoredProcedureInvocationRate),
 		metricSqlserverTableCount:                                   newMetricSqlserverTableCount(mbc.Metrics.SqlserverTableCount),
 		metricSqlserverTaskCount:                                    newMetricSqlserverTaskCount(mbc.Metrics.SqlserverTaskCount),
@@ -11046,7 +10795,6 @@ func (mb *MetricsBuilder) EmitForResource(options ...ResourceMetricsOption) {
 	mb.metricSqlserverDatabaseLatency.emit(ils.Metrics())
 	mb.metricSqlserverDatabaseOperations.emit(ils.Metrics())
 	mb.metricSqlserverDatabasePageFileSize.emit(ils.Metrics())
-	mb.metricSqlserverDatabaseSecurityRoleMembershipCount.emit(ils.Metrics())
 	mb.metricSqlserverDatabaseTempdbSpace.emit(ils.Metrics())
 	mb.metricSqlserverDatabaseTempdbVersionStoreSize.emit(ils.Metrics())
 	mb.metricSqlserverDatabaseTransactionsActive.emit(ils.Metrics())
@@ -11119,8 +10867,6 @@ func (mb *MetricsBuilder) EmitForResource(options ...ResourceMetricsOption) {
 	mb.metricSqlserverResourcePoolDiskThrottledReadRate.emit(ils.Metrics())
 	mb.metricSqlserverResourcePoolDiskThrottledWriteRate.emit(ils.Metrics())
 	mb.metricSqlserverScanPointRevalidationRate.emit(ils.Metrics())
-	mb.metricSqlserverServerSecurityPrincipalCount.emit(ils.Metrics())
-	mb.metricSqlserverServerSecurityRoleMembershipCount.emit(ils.Metrics())
 	mb.metricSqlserverStoredProcedureInvocationRate.emit(ils.Metrics())
 	mb.metricSqlserverTableCount.emit(ils.Metrics())
 	mb.metricSqlserverTaskCount.emit(ils.Metrics())
@@ -11349,16 +11095,6 @@ func (mb *MetricsBuilder) RecordSqlserverDatabasePageFileSizeDataPoint(ts pcommo
 		return fmt.Errorf("failed to parse int64 for SqlserverDatabasePageFileSize, value was %s: %w", inputVal, err)
 	}
 	mb.metricSqlserverDatabasePageFileSize.recordDataPoint(mb.startTime, ts, val, dbNamespaceAttributeValue, pageFileStateAttributeValue.String())
-	return nil
-}
-
-// RecordSqlserverDatabaseSecurityRoleMembershipCountDataPoint adds a data point to sqlserver.database.security.role_membership.count metric.
-func (mb *MetricsBuilder) RecordSqlserverDatabaseSecurityRoleMembershipCountDataPoint(ts pcommon.Timestamp, inputVal string, dbNamespaceAttributeValue string, roleAttributeValue string) error {
-	val, err := strconv.ParseInt(inputVal, 10, 64)
-	if err != nil {
-		return fmt.Errorf("failed to parse int64 for SqlserverDatabaseSecurityRoleMembershipCount, value was %s: %w", inputVal, err)
-	}
-	mb.metricSqlserverDatabaseSecurityRoleMembershipCount.recordDataPoint(mb.startTime, ts, val, dbNamespaceAttributeValue, roleAttributeValue)
 	return nil
 }
 
@@ -11820,26 +11556,6 @@ func (mb *MetricsBuilder) RecordSqlserverResourcePoolDiskThrottledWriteRateDataP
 // RecordSqlserverScanPointRevalidationRateDataPoint adds a data point to sqlserver.scan_point.revalidation.rate metric.
 func (mb *MetricsBuilder) RecordSqlserverScanPointRevalidationRateDataPoint(ts pcommon.Timestamp, val float64) {
 	mb.metricSqlserverScanPointRevalidationRate.recordDataPoint(mb.startTime, ts, val)
-}
-
-// RecordSqlserverServerSecurityPrincipalCountDataPoint adds a data point to sqlserver.server.security.principal.count metric.
-func (mb *MetricsBuilder) RecordSqlserverServerSecurityPrincipalCountDataPoint(ts pcommon.Timestamp, inputVal string) error {
-	val, err := strconv.ParseInt(inputVal, 10, 64)
-	if err != nil {
-		return fmt.Errorf("failed to parse int64 for SqlserverServerSecurityPrincipalCount, value was %s: %w", inputVal, err)
-	}
-	mb.metricSqlserverServerSecurityPrincipalCount.recordDataPoint(mb.startTime, ts, val)
-	return nil
-}
-
-// RecordSqlserverServerSecurityRoleMembershipCountDataPoint adds a data point to sqlserver.server.security.role_membership.count metric.
-func (mb *MetricsBuilder) RecordSqlserverServerSecurityRoleMembershipCountDataPoint(ts pcommon.Timestamp, inputVal string, roleAttributeValue string) error {
-	val, err := strconv.ParseInt(inputVal, 10, 64)
-	if err != nil {
-		return fmt.Errorf("failed to parse int64 for SqlserverServerSecurityRoleMembershipCount, value was %s: %w", inputVal, err)
-	}
-	mb.metricSqlserverServerSecurityRoleMembershipCount.recordDataPoint(mb.startTime, ts, val, roleAttributeValue)
-	return nil
 }
 
 // RecordSqlserverStoredProcedureInvocationRateDataPoint adds a data point to sqlserver.stored_procedure.invocation.rate metric.

@@ -65,9 +65,6 @@ all_set:
     sqlserver.database.page_file.size:
       enabled: true
       attributes: ["db.namespace","page_file.state"]
-    sqlserver.database.security.role_membership.count:
-      enabled: true
-      attributes: ["db.namespace","role"]
     sqlserver.database.tempdb.space:
       enabled: true
       attributes: ["tempdb.state"]
@@ -243,11 +240,6 @@ all_set:
       enabled: true
     sqlserver.scan_point.revalidation.rate:
       enabled: true
-    sqlserver.server.security.principal.count:
-      enabled: true
-    sqlserver.server.security.role_membership.count:
-      enabled: true
-      attributes: ["role"]
     sqlserver.stored_procedure.invocation.rate:
       enabled: true
     sqlserver.table.count:
@@ -408,9 +400,6 @@ reaggregate_set:
     sqlserver.database.page_file.size:
       enabled: true
       attributes: []
-    sqlserver.database.security.role_membership.count:
-      enabled: true
-      attributes: []
     sqlserver.database.tempdb.space:
       enabled: true
       attributes: []
@@ -586,11 +575,6 @@ reaggregate_set:
       enabled: true
     sqlserver.scan_point.revalidation.rate:
       enabled: true
-    sqlserver.server.security.principal.count:
-      enabled: true
-    sqlserver.server.security.role_membership.count:
-      enabled: true
-      attributes: []
     sqlserver.stored_procedure.invocation.rate:
       enabled: true
     sqlserver.table.count:
@@ -751,9 +735,6 @@ none_set:
     sqlserver.database.page_file.size:
       enabled: false
       attributes: ["db.namespace","page_file.state"]
-    sqlserver.database.security.role_membership.count:
-      enabled: false
-      attributes: ["db.namespace","role"]
     sqlserver.database.tempdb.space:
       enabled: false
       attributes: ["tempdb.state"]
@@ -929,11 +910,6 @@ none_set:
       enabled: false
     sqlserver.scan_point.revalidation.rate:
       enabled: false
-    sqlserver.server.security.principal.count:
-      enabled: false
-    sqlserver.server.security.role_membership.count:
-      enabled: false
-      attributes: ["role"]
     sqlserver.stored_procedure.invocation.rate:
       enabled: false
     sqlserver.table.count:

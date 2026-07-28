@@ -846,55 +846,6 @@ func (ms *SqlserverDatabasePageFileSizeMetricConfig) Validate() error {
 	return nil
 }
 
-// SqlserverDatabaseSecurityRoleMembershipCountMetricAttributeKey specifies the key of an attribute for the sqlserver.database.security.role_membership.count metric.
-type SqlserverDatabaseSecurityRoleMembershipCountMetricAttributeKey string
-
-const (
-	SqlserverDatabaseSecurityRoleMembershipCountMetricAttributeKeyDbNamespace SqlserverDatabaseSecurityRoleMembershipCountMetricAttributeKey = "db.namespace"
-	SqlserverDatabaseSecurityRoleMembershipCountMetricAttributeKeyRole        SqlserverDatabaseSecurityRoleMembershipCountMetricAttributeKey = "role"
-)
-
-// SqlserverDatabaseSecurityRoleMembershipCountMetricConfig provides config for the sqlserver.database.security.role_membership.count metric.
-type SqlserverDatabaseSecurityRoleMembershipCountMetricConfig struct {
-	Enabled          bool `mapstructure:"enabled"`
-	enabledSetByUser bool
-
-	AggregationStrategy string                                                           `mapstructure:"aggregation_strategy"`
-	EnabledAttributes   []SqlserverDatabaseSecurityRoleMembershipCountMetricAttributeKey `mapstructure:"attributes"`
-}
-
-func (ms *SqlserverDatabaseSecurityRoleMembershipCountMetricConfig) Unmarshal(parser *confmap.Conf) error {
-	if parser == nil {
-		return nil
-	}
-
-	err := parser.Unmarshal(ms)
-	if err != nil {
-		return err
-	}
-
-	ms.enabledSetByUser = parser.IsSet("enabled")
-	return nil
-}
-
-func (ms *SqlserverDatabaseSecurityRoleMembershipCountMetricConfig) Validate() error {
-	for _, val := range ms.EnabledAttributes {
-		switch val {
-		case SqlserverDatabaseSecurityRoleMembershipCountMetricAttributeKeyDbNamespace, SqlserverDatabaseSecurityRoleMembershipCountMetricAttributeKeyRole:
-		default:
-			return fmt.Errorf("metric sqlserver.database.security.role_membership.count doesn't have an attribute %v, valid attributes: [db.namespace, role]", val)
-		}
-	}
-
-	switch ms.AggregationStrategy {
-	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
-	default:
-		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
-	}
-
-	return nil
-}
-
 // SqlserverDatabaseTempdbSpaceMetricAttributeKey specifies the key of an attribute for the sqlserver.database.tempdb.space metric.
 type SqlserverDatabaseTempdbSpaceMetricAttributeKey string
 
@@ -3230,74 +3181,6 @@ func (ms *SqlserverScanPointRevalidationRateMetricConfig) Unmarshal(parser *conf
 	return nil
 }
 
-// SqlserverServerSecurityPrincipalCountMetricConfig provides config for the sqlserver.server.security.principal.count metric.
-type SqlserverServerSecurityPrincipalCountMetricConfig struct {
-	Enabled          bool `mapstructure:"enabled"`
-	enabledSetByUser bool
-}
-
-func (ms *SqlserverServerSecurityPrincipalCountMetricConfig) Unmarshal(parser *confmap.Conf) error {
-	if parser == nil {
-		return nil
-	}
-
-	err := parser.Unmarshal(ms)
-	if err != nil {
-		return err
-	}
-
-	ms.enabledSetByUser = parser.IsSet("enabled")
-	return nil
-}
-
-// SqlserverServerSecurityRoleMembershipCountMetricAttributeKey specifies the key of an attribute for the sqlserver.server.security.role_membership.count metric.
-type SqlserverServerSecurityRoleMembershipCountMetricAttributeKey string
-
-const (
-	SqlserverServerSecurityRoleMembershipCountMetricAttributeKeyRole SqlserverServerSecurityRoleMembershipCountMetricAttributeKey = "role"
-)
-
-// SqlserverServerSecurityRoleMembershipCountMetricConfig provides config for the sqlserver.server.security.role_membership.count metric.
-type SqlserverServerSecurityRoleMembershipCountMetricConfig struct {
-	Enabled          bool `mapstructure:"enabled"`
-	enabledSetByUser bool
-
-	AggregationStrategy string                                                         `mapstructure:"aggregation_strategy"`
-	EnabledAttributes   []SqlserverServerSecurityRoleMembershipCountMetricAttributeKey `mapstructure:"attributes"`
-}
-
-func (ms *SqlserverServerSecurityRoleMembershipCountMetricConfig) Unmarshal(parser *confmap.Conf) error {
-	if parser == nil {
-		return nil
-	}
-
-	err := parser.Unmarshal(ms)
-	if err != nil {
-		return err
-	}
-
-	ms.enabledSetByUser = parser.IsSet("enabled")
-	return nil
-}
-
-func (ms *SqlserverServerSecurityRoleMembershipCountMetricConfig) Validate() error {
-	for _, val := range ms.EnabledAttributes {
-		switch val {
-		case SqlserverServerSecurityRoleMembershipCountMetricAttributeKeyRole:
-		default:
-			return fmt.Errorf("metric sqlserver.server.security.role_membership.count doesn't have an attribute %v, valid attributes: [role]", val)
-		}
-	}
-
-	switch ms.AggregationStrategy {
-	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
-	default:
-		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
-	}
-
-	return nil
-}
-
 // SqlserverStoredProcedureInvocationRateMetricConfig provides config for the sqlserver.stored_procedure.invocation.rate metric.
 type SqlserverStoredProcedureInvocationRateMetricConfig struct {
 	Enabled          bool `mapstructure:"enabled"`
@@ -4209,7 +4092,6 @@ type MetricsConfig struct {
 	SqlserverDatabaseLatency                              SqlserverDatabaseLatencyMetricConfig                              `mapstructure:"sqlserver.database.latency"`
 	SqlserverDatabaseOperations                           SqlserverDatabaseOperationsMetricConfig                           `mapstructure:"sqlserver.database.operations"`
 	SqlserverDatabasePageFileSize                         SqlserverDatabasePageFileSizeMetricConfig                         `mapstructure:"sqlserver.database.page_file.size"`
-	SqlserverDatabaseSecurityRoleMembershipCount          SqlserverDatabaseSecurityRoleMembershipCountMetricConfig          `mapstructure:"sqlserver.database.security.role_membership.count"`
 	SqlserverDatabaseTempdbSpace                          SqlserverDatabaseTempdbSpaceMetricConfig                          `mapstructure:"sqlserver.database.tempdb.space"`
 	SqlserverDatabaseTempdbVersionStoreSize               SqlserverDatabaseTempdbVersionStoreSizeMetricConfig               `mapstructure:"sqlserver.database.tempdb.version_store.size"`
 	SqlserverDatabaseTransactionsActive                   SqlserverDatabaseTransactionsActiveMetricConfig                   `mapstructure:"sqlserver.database.transactions.active"`
@@ -4282,8 +4164,6 @@ type MetricsConfig struct {
 	SqlserverResourcePoolDiskThrottledReadRate            SqlserverResourcePoolDiskThrottledReadRateMetricConfig            `mapstructure:"sqlserver.resource_pool.disk.throttled.read.rate"`
 	SqlserverResourcePoolDiskThrottledWriteRate           SqlserverResourcePoolDiskThrottledWriteRateMetricConfig           `mapstructure:"sqlserver.resource_pool.disk.throttled.write.rate"`
 	SqlserverScanPointRevalidationRate                    SqlserverScanPointRevalidationRateMetricConfig                    `mapstructure:"sqlserver.scan_point.revalidation.rate"`
-	SqlserverServerSecurityPrincipalCount                 SqlserverServerSecurityPrincipalCountMetricConfig                 `mapstructure:"sqlserver.server.security.principal.count"`
-	SqlserverServerSecurityRoleMembershipCount            SqlserverServerSecurityRoleMembershipCountMetricConfig            `mapstructure:"sqlserver.server.security.role_membership.count"`
 	SqlserverStoredProcedureInvocationRate                SqlserverStoredProcedureInvocationRateMetricConfig                `mapstructure:"sqlserver.stored_procedure.invocation.rate"`
 	SqlserverTableCount                                   SqlserverTableCountMetricConfig                                   `mapstructure:"sqlserver.table.count"`
 	SqlserverTaskCount                                    SqlserverTaskCountMetricConfig                                    `mapstructure:"sqlserver.task.count"`
@@ -4418,11 +4298,6 @@ func DefaultMetricsConfig() MetricsConfig {
 			Enabled:             false,
 			AggregationStrategy: AggregationStrategyAvg,
 			EnabledAttributes:   []SqlserverDatabasePageFileSizeMetricAttributeKey{SqlserverDatabasePageFileSizeMetricAttributeKeyDbNamespace, SqlserverDatabasePageFileSizeMetricAttributeKeyPageFileState},
-		},
-		SqlserverDatabaseSecurityRoleMembershipCount: SqlserverDatabaseSecurityRoleMembershipCountMetricConfig{
-			Enabled:             false,
-			AggregationStrategy: AggregationStrategyAvg,
-			EnabledAttributes:   []SqlserverDatabaseSecurityRoleMembershipCountMetricAttributeKey{SqlserverDatabaseSecurityRoleMembershipCountMetricAttributeKeyDbNamespace, SqlserverDatabaseSecurityRoleMembershipCountMetricAttributeKeyRole},
 		},
 		SqlserverDatabaseTempdbSpace: SqlserverDatabaseTempdbSpaceMetricConfig{
 			Enabled:             false,
@@ -4701,14 +4576,6 @@ func DefaultMetricsConfig() MetricsConfig {
 		},
 		SqlserverScanPointRevalidationRate: SqlserverScanPointRevalidationRateMetricConfig{
 			Enabled: false,
-		},
-		SqlserverServerSecurityPrincipalCount: SqlserverServerSecurityPrincipalCountMetricConfig{
-			Enabled: false,
-		},
-		SqlserverServerSecurityRoleMembershipCount: SqlserverServerSecurityRoleMembershipCountMetricConfig{
-			Enabled:             false,
-			AggregationStrategy: AggregationStrategyAvg,
-			EnabledAttributes:   []SqlserverServerSecurityRoleMembershipCountMetricAttributeKey{SqlserverServerSecurityRoleMembershipCountMetricAttributeKeyRole},
 		},
 		SqlserverStoredProcedureInvocationRate: SqlserverStoredProcedureInvocationRateMetricConfig{
 			Enabled: false,
