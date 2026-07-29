@@ -43,9 +43,11 @@ Phase 3 can run to completion on its own; Phase 4 requires a stop.
 
 1. Fetch `upstream` and `origin`. Find the newest `vX.Y.Z` tag reachable from `origin/main` (or
    `upstream/main` if they're equal — confirm equality first, same check as sync-and-port Phase 1
-   step 1). That is the target version for this cycle, e.g. if `origin/main` is at contrib `v0.157.0`,
-   the target is `v0.157.0` (or `v0.157.1` if `internal/nrcommon`/`internal/nrsqlquery` need a patch
-   bump distinct from the receivers — see step 2).
+   step 1). That is the default target version for this cycle, e.g. if `origin/main` is at contrib
+   `v0.157.0`, the target is `v0.157.0`. If a previous cycle already used that exact version (check
+   existing tags in step 2) — e.g. because an out-of-band fix landed between upstream releases —
+   bump the patch component instead (`v0.157.1`) so every tag this cycle is still strictly newer than
+   what's already published; ask the user to confirm which if it's ambiguous.
 2. Check the *current* tags on `internal/nrcommon` and `internal/nrsqlquery`
    (`git tag -l "internal/nrcommon/*" "internal/nrsqlquery/*" | sort -V`) and on each receiver
    (`git tag -l "receiver/nr<name>receiver/*" | sort -V`). This just tells you the starting point —
@@ -80,7 +82,9 @@ it is still a legitimate release; do not skip it because "nothing changed."
      receiver/<base>/go.mod` vs the fork's. These carry real version numbers (e.g. `v0.157.0`), NOT
      pseudo-versions, so they drift silently and sync-and-port's pseudo-version alignment step does
      NOT catch them — this is a distinct check every cycle, not covered elsewhere. Bump any that
-     lag behind base with `go mod edit -C <receiver> -require=.../pkg/<name>@vX.Y.0`.
+     lag behind base with `go mod edit -C <receiver> -require=.../pkg/<name>@<exact-version-from-base-go.mod>`
+     — read the version string directly from the base receiver's `go.mod`, don't assume it ends
+     `.0` (it has so far, but that's an observation, not a guarantee).
    - `go mod tidy -C <receiver>` — should produce zero *unexpected* diff (the version bumps
      themselves are expected; anything beyond that needs investigation).
    - `go build -C <receiver> ./...` and `go test -C <receiver> ./...` — green.
@@ -88,14 +92,16 @@ it is still a legitimate release; do not skip it because "nothing changed."
 ## Phase 3 — Breaking-change reconciliation + draft `NR_CHANGELOG.md`
 
 1. For each fork↔base pair, find every `.chloggen/*.yaml` entry added to the base receiver's history
-   between the previous cycle's tracked upstream version and this cycle's target version:
+   between the previous cycle's upstream version and this cycle's target version:
    `git log --format=%H <prev-upstream-tag>..<new-upstream-tag> -- .chloggen/`, then for each commit,
    `git show --diff-filter=A --name-only <commit> -- .chloggen/` to find newly-added files, then read
    each for `component:` matching `receiver/sqlserver`, `receiver/oracledb`, `receiver/postgresql`,
    `receiver/mysql` (or whichever base receivers have an nr-prefixed fork) and `change_type: breaking`.
-   ("Previous cycle's tracked upstream version" — read it from last cycle's `NR_CHANGELOG.md` section
-   header, e.g. "Tracks upstream contrib v0.156.0 and v0.157.0" tells you the last cycle covered up
-   to v0.157.0, so this cycle starts there.)
+   Find "the previous cycle's upstream version" from the git history, not from `NR_CHANGELOG.md`
+   prose (the file's entries don't restate a tracked-version line — keep them terse, per step 4): use
+   `git log --oneline <old-fork-tag>..<new-fork-tag> -- go.mod` on any receiver, or diff the
+   `go.opentelemetry.io/collector/*` pseudo-version between the two fork tags and match it back to an
+   upstream release tag.
 2. For each breaking-change entry found: check whether the fork already matches upstream's new
    behavior (same technique as sync-and-port Phase 2 — diff the specific query/template/metric
    definition named in the chloggen note) or whether it needs porting. If it needs porting, that's
@@ -111,13 +117,24 @@ it is still a legitimate release; do not skip it because "nothing changed."
    `.github/workflows/changelog.yml`'s "Ensure no changes to the CHANGELOG.md or CHANGELOG-API.md"
    step diffs `./CHANGELOG*.md` unconditionally on every PR and fails the build if anything matching
    that glob changed (a first attempt at `NR_CHANGELOG.md` hit exactly this and had to be renamed).
-   Structure:
-   - A line noting which upstream releases this cycle tracks (e.g. "Tracks upstream contrib v0.156.0
-     and v0.157.0") — this is what lets the next cycle know where to resume the chloggen sweep.
-   - `### 🛑 Breaking changes 🛑` — one bullet per item from steps 1–3. For adopted-from-upstream
-     items, ALWAYS state the verdict explicitly: "already matched, no fork change needed" or "ported:
-     <what changed>". Do not omit the ones where nothing needed to change — that confirmation is the
-     valuable signal, not a skippable formality.
+
+   Keep the file's top-level description terse (one line — what the file is, e.g. "user-facing
+   changes for the `nr`-prefixed receivers, including confirmation of which breaking changes from
+   CHANGELOG.md apply to them"). Do NOT claim the file excludes anything already in `CHANGELOG.md` —
+   it deliberately restates relevant upstream items (see the "already matched" bullet below), so a
+   claim like "changes not already covered by CHANGELOG.md" would contradict the content.
+
+   Each version section's entries must be self-contained: a reader of THIS tag's changelog should not
+   have to also cross-reference base's `CHANGELOG.md` at some other version number to know what
+   applies to the version they're consuming. That defeats the entire reason NRDOT asked for this file
+   (they were reverse-engineering breaking changes by hand). Structure per section:
+   - `### 🛑 Breaking changes 🛑` — one bullet per item from steps 1–3, covering BOTH:
+     - fork-specific breaking changes (something the `nr`-prefixed component itself changed/removed), and
+     - upstream breaking changes this cycle's target version range includes for `receiver/sqlserver`,
+       `receiver/oracledb`, etc. — restate upstream's note in your own words and ALWAYS give the
+       verdict for the fork: "already matched, no fork change needed" or "ported: <what changed>".
+       Do not omit the ones where nothing needed to change — that confirmation (we checked, upstream's
+       fix was already true here) is the valuable signal NRDOT asked for, not a skippable formality.
    - `### 🚩 New components 🚩` (reuse only if there's something to list) — additive metrics/queries
      ported this cycle, one bullet per fork, referencing the upstream issue/PR.
 5. Leave `NR_CHANGELOG.md` uncommitted. **Stop here.** Report the draft to the user and wait for
