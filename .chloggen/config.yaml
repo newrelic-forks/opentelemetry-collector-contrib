@@ -174,6 +174,7 @@ components:
     - pkg/stanza
     - pkg/stanza/operator/input/journald
     - pkg/status
+    - pkg/tcp_input
     - pkg/topic
     - pkg/translator/azure
     - pkg/translator/loki
@@ -263,6 +264,7 @@ components:
     - receiver/collectd
     - receiver/couchdb
     - receiver/datadog
+    - receiver/dns_check
     - receiver/docker_stats
     - receiver/elasticsearch
     - receiver/envoy_als
