@@ -34,9 +34,7 @@ func (d DbWrapper) QueryContext(ctx context.Context, query string, args ...any) 
 	return rowsWrapper{rows}, err
 }
 
-// ConnWrapper wraps a dedicated *sql.Conn rather than the shared *sql.DB pool, so a sequence
-// of calls built on it (e.g. PREPARE followed by later statements referencing it) are
-// guaranteed to run on the same physical backend connection.
+// ConnWrapper wraps a dedicated *sql.Conn so a sequence of calls share one connection.
 type ConnWrapper struct {
 	Conn *sql.Conn
 }

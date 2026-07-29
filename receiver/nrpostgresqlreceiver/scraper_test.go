@@ -1805,6 +1805,90 @@ func TestExplainQueryInlineDedicatedConnectionFails(t *testing.T) {
 	assert.Empty(t, plan)
 }
 
+func TestShouldCacheExplainFailure(t *testing.T) {
+	testCases := []struct {
+		name          string
+		err           error
+		expectedCache bool
+	}{
+		{
+			name:          "nil error (success) is cached",
+			err:           nil,
+			expectedCache: true,
+		},
+		{
+			name:          "insufficient_privilege is NOT cached, so a later GRANT is retried next scrape",
+			err:           &pq.Error{Code: pqerror.InsufficientPrivilege, Message: "permission denied for table orders"},
+			expectedCache: false,
+		},
+		{
+			name:          "undefined_table IS cached — dropping the table doesn't un-drop itself between scrapes",
+			err:           &pq.Error{Code: pqerror.Code("42P01"), Message: "relation \"orders\" does not exist"},
+			expectedCache: true,
+		},
+		{
+			name:          "syntax error IS cached — malformed SQL doesn't fix itself between scrapes",
+			err:           &pq.Error{Code: pqerror.Code("42601"), Message: "syntax error"},
+			expectedCache: true,
+		},
+		{
+			name:          "connection-level non-pq error IS cached — matches every other failure mode's default",
+			err:           errors.New("dial tcp: connection refused"),
+			expectedCache: true,
+		},
+		{
+			name:          "wrapped insufficient_privilege is still detected through errors.As",
+			err:           fmt.Errorf("failed to explain statement: %w", &pq.Error{Code: pqerror.InsufficientPrivilege, Message: "permission denied"}),
+			expectedCache: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expectedCache, shouldCacheExplainFailure(tc.err))
+		})
+	}
+}
+
+func TestExplainQueryInlinePermissionDeniedIsNotCachedAcrossScrapes(t *testing.T) {
+	// End-to-end proof: an InsufficientPrivilege failure from explainQueryInline, combined with
+	// shouldCacheExplainFailure at the collectTopQuery call site, means a DBA's GRANT takes effect
+	// on the very next scrape rather than sitting behind the full query_plan_cache_ttl. This test
+	// exercises explainQueryInline directly (the real source of the pq.Error) and confirms the
+	// error it returns is one shouldCacheExplainFailure correctly recognizes — the caching decision
+	// itself is covered by TestShouldCacheExplainFailure, since mockClient.explainQuery is a fixed
+	// panic stub and not wired to return a caller-controlled error.
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	require.NoError(t, err)
+	defer db.Close()
+
+	logger, err := zap.NewProduction()
+	require.NoError(t, err)
+
+	client := &postgreSQLClient{
+		client:  db,
+		closeFn: func() error { return nil },
+	}
+
+	query := "UPDATE orders SET status = 'shipped' WHERE id = $1"
+	queryID := "50001"
+
+	expectServerVersion(mock, "14.5")
+	mock.ExpectQuery("/* otel-collector-ignore */ SET plan_cache_mode = force_generic_plan;PREPARE otel_50001 AS UPDATE orders SET status = 'shipped' WHERE id = $1;").
+		WillReturnRows(sqlmock.NewRows([]string{}))
+	mock.ExpectQuery("/* otel-collector-ignore */ SELECT COALESCE(array_length(parameter_types, 1), 0) AS param_count FROM pg_prepared_statements WHERE name = 'otel_50001';").
+		WillReturnRows(sqlmock.NewRows([]string{"param_count"}).AddRow("1"))
+	mock.ExpectQuery("EXPLAIN(FORMAT JSON) EXECUTE otel_50001(null);").
+		WillReturnError(&pq.Error{Code: pqerror.InsufficientPrivilege, Message: "permission denied for table orders"})
+	mock.ExpectExec("/* otel-collector-ignore */ DEALLOCATE PREPARE otel_50001").WillReturnResult(sqlmock.NewResult(0, 0))
+
+	plan, err := client.explainQuery(query, queryID, "", logger)
+	require.Error(t, err)
+	assert.Empty(t, plan)
+	assert.False(t, shouldCacheExplainFailure(err), "collectTopQuery must not cache this error, so the query is retried next scrape")
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestExplainQueryViaFunction(t *testing.T) {
 	t.Run("parameterized query calls the function with raw text as bound arg", func(t *testing.T) {
 		db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))

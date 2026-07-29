@@ -204,21 +204,12 @@ func (c *postgreSQLClient) explainQueryViaFunction(query, queryID, explainFuncti
 	return plan, nil
 }
 
-// minPlanCacheModeVersion is the first PostgreSQL major version exposing plan_cache_mode as a
-// settable GUC. Before this, the generic/custom plan choice existed internally but wasn't
-// user-controllable, so explainQueryInline can't force a generic plan on older servers.
+// minPlanCacheModeVersion is the first PostgreSQL version with plan_cache_mode as a GUC.
 const minPlanCacheModeVersion = 12
 
 // explainQueryInline runs EXPLAIN directly as the monitoring user (PREPARE/EXPLAIN EXECUTE/DEALLOCATE).
-//
-// Requires PostgreSQL 12+ for plan_cache_mode; see minPlanCacheModeVersion.
-//
-// The number of placeholders to bind is looked up from pg_prepared_statements after PREPARE,
-// rather than inferred by counting "$N" occurrences in the query text: counting occurrences
-// overcounts when a placeholder is reused (e.g. "WHERE a = $1 OR b = $1" has one real parameter,
-// not two) and when "$N" appears inside a string literal. Postgres has already parsed and
-// deduplicated the real parameter list by the time PREPARE succeeds, so asking it directly is
-// the only way to get a count that's correct in every case.
+// Requires PostgreSQL 12+ for plan_cache_mode. Param count comes from pg_prepared_statements,
+// not text counting, since "$1" can repeat or appear inside a string literal.
 func (c *postgreSQLClient) explainQueryInline(query, queryID string, logger *zap.Logger) (string, error) {
 	version, err := c.getVersion(context.Background())
 	if err != nil {
@@ -238,13 +229,7 @@ func (c *postgreSQLClient) explainQueryInline(query, queryID string, logger *zap
 
 	normalizedQueryID := strings.ReplaceAll(queryID, "-", "_")
 
-	// PREPARE creates session-scoped state that only exists on the specific backend connection
-	// it ran on. c.client is a connection pool, not a single connection, so every step below
-	// (PREPARE, the parameter-count lookup, EXPLAIN EXECUTE, and DEALLOCATE) must run on the
-	// same dedicated connection rather than each independently borrowing whatever connection
-	// the pool happens to hand out — otherwise the lookup can find nothing, EXPLAIN EXECUTE can
-	// fail with "prepared statement does not exist", and DEALLOCATE can miss the connection that
-	// actually holds the prepared statement, leaking it until that connection closes.
+	// PREPARE is session-scoped, so PREPARE/lookup/EXPLAIN/DEALLOCATE must share one connection.
 	conn, err := c.client.Conn(context.Background())
 	if err != nil {
 		logger.Error("failed to obtain a dedicated connection for EXPLAIN", zap.Error(err), zap.String("queryID", queryID))
@@ -1034,7 +1019,7 @@ type replicationStats struct {
 }
 
 func (c *postgreSQLClient) getDeprecatedReplicationStats(ctx context.Context) ([]replicationStats, error) {
-	query := `SELECT
+	query := `/* otel-collector-ignore */ SELECT
 	coalesce(cast(client_addr as varchar), 'unix') AS client_addr,
 	coalesce(pg_wal_lsn_diff(pg_current_wal_lsn(), replay_lsn), -1) AS replication_bytes_pending,
 	extract('epoch' from coalesce(write_lag, '-1 seconds'))::integer,
@@ -1076,7 +1061,7 @@ func (c *postgreSQLClient) getReplicationStats(ctx context.Context) ([]replicati
 		return c.getDeprecatedReplicationStats(ctx)
 	}
 
-	query := `SELECT
+	query := `/* otel-collector-ignore */ SELECT
 	coalesce(cast(client_addr as varchar), 'unix') AS client_addr,
 	coalesce(pg_wal_lsn_diff(pg_current_wal_lsn(), replay_lsn), -1) AS replication_bytes_pending,
 	extract('epoch' from coalesce(write_lag, '-1 seconds'))::decimal AS write_lag_fractional,

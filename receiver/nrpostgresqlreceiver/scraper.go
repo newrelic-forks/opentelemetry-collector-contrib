@@ -425,13 +425,22 @@ func (p *postgreSQLScraper) probeExplainFunctionIfNeeded(ctx context.Context, da
 		return
 	}
 
-	// Connection-level or other non-pq error: cache as unavailable too, so a flaky
-	// database is re-probed at most once per explain_function_cache_ttl window,
-	// not once per top-query candidate falling back to inline EXPLAIN.
+	// Connection-level error: cache as unavailable too, so a flaky database is re-probed
+	// at most once per explain_function_cache_ttl, not once per candidate query.
 	p.logger.Warn("failed to probe EXPLAIN helper function, falling back to inline EXPLAIN",
 		zap.String("database", database),
 		zap.Error(err))
 	p.explainFunctionCache.Add(database, explainSetupState{available: false, err: err})
+}
+
+// shouldCacheExplainFailure returns false for permission errors so a later GRANT is retried
+// next scrape, instead of sitting behind query_plan_cache_ttl like other failures.
+func shouldCacheExplainFailure(err error) bool {
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) && pqErr.Code == pqerror.InsufficientPrivilege {
+		return false
+	}
+	return true
 }
 
 func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory postgreSQLClientFactory, limit, topNQuery, maxExplainEachInterval int64, mux *errsMux, logger *zap.Logger, collectionTime time.Time) {
@@ -546,7 +555,9 @@ func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory p
 				}
 				// to avoid flood the error message. there are some internal queries meant to not be
 				// explained. we wait for the cache to expire and report the error again.
-				p.queryPlanCache.Add(queryID+"-plan", plan)
+				if shouldCacheExplainFailure(err) { // permission errors are retried next scrape instead
+					p.queryPlanCache.Add(queryID+"-plan", plan)
+				}
 				err = dbClient.Close()
 				if err != nil {
 					logger.Error("failed to close", zap.Error(err))
