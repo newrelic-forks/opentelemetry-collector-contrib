@@ -42,6 +42,7 @@ func configureAllScraperMetricsAndEvents(cfg *Config, enabled bool) {
 	cfg.Metrics.SqlserverBatchRequestRate.Enabled = enabled
 	cfg.Metrics.SqlserverBatchSQLCompilationRate.Enabled = enabled
 	cfg.Metrics.SqlserverBatchSQLRecompilationRate.Enabled = enabled
+	cfg.Metrics.SqlserverCPUUtilization.Enabled = enabled
 	cfg.Metrics.SqlserverDatabaseBackupOrRestoreRate.Enabled = enabled
 	cfg.Metrics.SqlserverDatabaseCount.Enabled = enabled
 	cfg.Metrics.SqlserverDatabaseExecutionErrors.Enabled = enabled
@@ -53,6 +54,10 @@ func configureAllScraperMetricsAndEvents(cfg *Config, enabled bool) {
 	cfg.Metrics.SqlserverDatabaseTempdbSpace.Enabled = enabled
 	cfg.Metrics.SqlserverDatabaseTempdbVersionStoreSize.Enabled = enabled
 	cfg.Metrics.SqlserverDeadlockRate.Enabled = enabled
+	cfg.Metrics.SqlserverDiskIo.Enabled = enabled
+	cfg.Metrics.SqlserverDiskOperations.Enabled = enabled
+	cfg.Metrics.SqlserverHostMemoryLimit.Enabled = enabled
+	cfg.Metrics.SqlserverHostMemoryUsage.Enabled = enabled
 	cfg.Metrics.SqlserverIndexSearchRate.Enabled = enabled
 	cfg.Metrics.SqlserverLatchSuperlatchCount.Enabled = enabled
 	cfg.Metrics.SqlserverLatchSuperlatchTransitionRate.Enabled = enabled
@@ -205,6 +210,10 @@ func TestSuccessfulScrape(t *testing.T) {
 					expectedFile = filepath.Join("testdata", "expectedWaitStats")
 				case getSQLServerDatabaseSizeQuery(scraper.config.InstanceName):
 					expectedFile = filepath.Join("testdata", "expectedDatabaseSize")
+				case getSQLServerCPUMemoryQuery(scraper.config.InstanceName):
+					expectedFile = filepath.Join("testdata", "expectedCPUMemory")
+				case getSQLServerDiskIOQuery(scraper.config.InstanceName):
+					expectedFile = filepath.Join("testdata", "expectedDiskIO")
 				}
 				expectedFile += fileSuffix
 
@@ -451,6 +460,10 @@ func (mc mockClient) QueryRows(context.Context, ...any) ([]sqlquery.StringMap, e
 		queryResults, err = readFile("recordDatabaseSampleQueryData.txt")
 	case getSQLServerDatabaseSizeQuery(mc.instanceName):
 		queryResults, err = readFile("database_size_scraped_data.txt")
+	case getSQLServerCPUMemoryQuery(mc.instanceName):
+		queryResults, err = readFile("cpuMemoryQueryData.txt")
+	case getSQLServerDiskIOQuery(mc.instanceName):
+		queryResults, err = readFile("diskIOQueryData.txt")
 	default:
 		return nil, errors.New("No valid query found")
 	}
