@@ -1,6 +1,6 @@
 ---
 name: release-nr-receivers
-description: "Use when cutting a new tagged release of the newrelic-forks nr-prefixed receiver ecosystem (internal/nrcommon, internal/nrsqlquery, nroracledbreceiver, nrsqlserverreceiver, nrpostgresqlreceiver, and future nr-prefixed forks) on the bi-weekly cadence NRDOT depends on — independent of whether sync-and-port-nr-receivers found anything to port this cycle. Covers version derivation, always re-tagging internal modules, bumping receiver go.mod deps (including versioned pkg/* deps that pseudo-version alignment misses), reconciling upstream + fork-authored breaking changes, drafting CHANGELOG-NR.md, and — only after explicit user sign-off — tagging and pushing."
+description: "Use when cutting a new tagged release of the newrelic-forks nr-prefixed receiver ecosystem (internal/nrcommon, internal/nrsqlquery, nroracledbreceiver, nrsqlserverreceiver, nrpostgresqlreceiver, and future nr-prefixed forks) on the bi-weekly cadence NRDOT depends on — independent of whether sync-and-port-nr-receivers found anything to port this cycle. Covers version derivation, always re-tagging internal modules, bumping receiver go.mod deps (including versioned pkg/* deps that pseudo-version alignment misses), reconciling upstream + fork-authored breaking changes, drafting NR_CHANGELOG.md, and — only after explicit user sign-off — tagging and pushing."
 ---
 
 # Release & Tag NR-Prefixed Receivers
@@ -23,7 +23,7 @@ new metrics/queries." This skill answers "is there a tagged release NRDOT can co
 changelog say what changed." Run sync-and-port first if there's a new upstream release to absorb;
 either way, run this skill every cycle to cut the release.
 
-**Stop-and-wait point:** Phase 3 (drafting `CHANGELOG-NR.md`) is the last step you do without
+**Stop-and-wait point:** Phase 3 (drafting `NR_CHANGELOG.md`) is the last step you do without
 explicit sign-off. Do not tag or push (Phase 4) until the user has reviewed the changelog draft and
 told you to proceed — they will say so explicitly ("go ahead", "tag it", etc.). Everything through
 Phase 3 can run to completion on its own; Phase 4 requires a stop.
@@ -85,7 +85,7 @@ it is still a legitimate release; do not skip it because "nothing changed."
      themselves are expected; anything beyond that needs investigation).
    - `go build -C <receiver> ./...` and `go test -C <receiver> ./...` — green.
 
-## Phase 3 — Breaking-change reconciliation + draft `CHANGELOG-NR.md`
+## Phase 3 — Breaking-change reconciliation + draft `NR_CHANGELOG.md`
 
 1. For each fork↔base pair, find every `.chloggen/*.yaml` entry added to the base receiver's history
    between the previous cycle's tracked upstream version and this cycle's target version:
@@ -93,7 +93,7 @@ it is still a legitimate release; do not skip it because "nothing changed."
    `git show --diff-filter=A --name-only <commit> -- .chloggen/` to find newly-added files, then read
    each for `component:` matching `receiver/sqlserver`, `receiver/oracledb`, `receiver/postgresql`,
    `receiver/mysql` (or whichever base receivers have an nr-prefixed fork) and `change_type: breaking`.
-   ("Previous cycle's tracked upstream version" — read it from last cycle's `CHANGELOG-NR.md` section
+   ("Previous cycle's tracked upstream version" — read it from last cycle's `NR_CHANGELOG.md` section
    header, e.g. "Tracks upstream contrib v0.156.0 and v0.157.0" tells you the last cycle covered up
    to v0.157.0, so this cycle starts there.)
 2. For each breaking-change entry found: check whether the fork already matches upstream's new
@@ -105,9 +105,13 @@ it is still a legitimate release; do not skip it because "nothing changed."
    changes (metric/attribute removals or format changes made only in the fork, not inherited from
    upstream) — `git log <last-fork-tag>..HEAD --oneline -- receiver/<fork>/`, look for anything that
    removes or reshapes a fork-specific metric/attribute.
-4. Draft a new `## vX.Y.Z` section at the top of `/CHANGELOG-NR.md` (create the file at repo root,
+4. Draft a new `## vX.Y.Z` section at the top of `/NR_CHANGELOG.md` (create the file at repo root,
    matching the header/structure of the base `CHANGELOG.md`, if it doesn't exist yet), right after
-   the `<!-- next version -->` marker. Structure:
+   the `<!-- next version -->` marker. **Filename must NOT match `CHANGELOG*.md`** —
+   `.github/workflows/changelog.yml`'s "Ensure no changes to the CHANGELOG.md or CHANGELOG-API.md"
+   step diffs `./CHANGELOG*.md` unconditionally on every PR and fails the build if anything matching
+   that glob changed (a first attempt at `NR_CHANGELOG.md` hit exactly this and had to be renamed).
+   Structure:
    - A line noting which upstream releases this cycle tracks (e.g. "Tracks upstream contrib v0.156.0
      and v0.157.0") — this is what lets the next cycle know where to resume the chloggen sweep.
    - `### 🛑 Breaking changes 🛑` — one bullet per item from steps 1–3. For adopted-from-upstream
@@ -116,12 +120,12 @@ it is still a legitimate release; do not skip it because "nothing changed."
      valuable signal, not a skippable formality.
    - `### 🚩 New components 🚩` (reuse only if there's something to list) — additive metrics/queries
      ported this cycle, one bullet per fork, referencing the upstream issue/PR.
-5. Leave `CHANGELOG-NR.md` uncommitted. **Stop here.** Report the draft to the user and wait for
+5. Leave `NR_CHANGELOG.md` uncommitted. **Stop here.** Report the draft to the user and wait for
    explicit approval before Phase 4. Do not proceed on your own judgment that the draft "looks done."
 
 ## Phase 4 — Tag receivers and push (only after user sign-off)
 
-1. Confirm the user has reviewed and approved the `CHANGELOG-NR.md` draft, and — if they wanted the
+1. Confirm the user has reviewed and approved the `NR_CHANGELOG.md` draft, and — if they wanted the
    go.mod bumps / changelog committed first — that a commit exists. Check `git log -1` and
    `git status` to see what's actually committed vs. still unstaged; don't assume either way.
 2. Tag each nr-prefixed receiver at the target version, pointing at the commit that contains the
@@ -140,6 +144,6 @@ it is still a legitimate release; do not skip it because "nothing changed."
 
 Report per cycle: target version and how it was derived, Phase 2 build/test/tidy results per module,
 the breaking-change reconciliation findings (adopted vs. needs-porting vs. fork-authored), the
-`CHANGELOG-NR.md` draft, and — once approved — the final tag list and push confirmation. If Phase 3
+`NR_CHANGELOG.md` draft, and — once approved — the final tag list and push confirmation. If Phase 3
 surfaces a breaking change that still needs porting, say so clearly and suggest running
 sync-and-port-nr-receivers before finishing this cycle's release, rather than silently skipping it.
