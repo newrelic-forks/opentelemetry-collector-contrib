@@ -1078,9 +1078,6 @@ func TestScrapeQuerySampleMultiBlocker(t *testing.T) {
 //go:embed testdata/scraper/top-query/expectedSql.sql
 var expectedScrapeTopQuery string
 
-//go:embed testdata/scraper/top-query/expectedExplain.sql
-var expectedExplain string
-
 func TestScrapeTopQueries(t *testing.T) {
 	cfg := createDefaultConfig().(*Config)
 	cfg.Databases = []string{}
@@ -1143,7 +1140,7 @@ func TestScrapeTopQueries(t *testing.T) {
 	scraper.cache.Add(queryid+tempBlksWrittenColumnName, 1110)
 
 	mock.ExpectQuery(expectedScrapeTopQuery).WillReturnRows(sqlmock.NewRows(expectedRows).FromCSVString(expectedValues[:len(expectedValues)-1]))
-	mock.ExpectQuery(expectedExplain).WillReturnRows(sqlmock.NewRows([]string{"QUERY PLAN"}).AddRow("[{\"Plan\":{\"Node Type\":\"Merge Join\",\"Parallel Aware\":false,\"Async Capable\":false,\"Join Type\":\"Inner\",\"Startup Cost\":0.43,\"Total Cost\":55.27,\"Plan Rows\":290,\"Plan Width\":1675,\"Inner Unique\":\"?\",\"Merge Cond\":\"( e.businessentityid = p.businessentityid )\",\"Plans\":[{\"Node Type\":\"Index Scan\",\"Parent Relationship\":\"Outer\",\"Parallel Aware\":false,\"Async Capable\":false,\"Scan Direction\":\"Forward\",\"Index Name\":\"PK_Employee_BusinessEntityID\",\"Relation Name\":\"employee\",\"Alias\":\"e\",\"Startup Cost\":0.15,\"Total Cost\":21.5,\"Plan Rows\":290,\"Plan Width\":112},{\"Node Type\":\"Index Scan\",\"Parent Relationship\":\"Inner\",\"Parallel Aware\":false,\"Async Capable\":false,\"Scan Direction\":\"Forward\",\"Index Name\":\"PK_Person_BusinessEntityID\",\"Relation Name\":\"person\",\"Alias\":\"p\",\"Startup Cost\":0.29,\"Total Cost\":2261.87,\"Plan Rows\":19972,\"Plan Width\":1563}]}}]"))
+	expectPrepareLookupExplain(mock, queryid, expectedReturnedValue["query"], 0, "[{\"Plan\":{\"Node Type\":\"Merge Join\",\"Parallel Aware\":false,\"Async Capable\":false,\"Join Type\":\"Inner\",\"Startup Cost\":0.43,\"Total Cost\":55.27,\"Plan Rows\":290,\"Plan Width\":1675,\"Inner Unique\":\"?\",\"Merge Cond\":\"( e.businessentityid = p.businessentityid )\",\"Plans\":[{\"Node Type\":\"Index Scan\",\"Parent Relationship\":\"Outer\",\"Parallel Aware\":false,\"Async Capable\":false,\"Scan Direction\":\"Forward\",\"Index Name\":\"PK_Employee_BusinessEntityID\",\"Relation Name\":\"employee\",\"Alias\":\"e\",\"Startup Cost\":0.15,\"Total Cost\":21.5,\"Plan Rows\":290,\"Plan Width\":112},{\"Node Type\":\"Index Scan\",\"Parent Relationship\":\"Inner\",\"Parallel Aware\":false,\"Async Capable\":false,\"Scan Direction\":\"Forward\",\"Index Name\":\"PK_Person_BusinessEntityID\",\"Relation Name\":\"person\",\"Alias\":\"p\",\"Startup Cost\":0.29,\"Total Cost\":2261.87,\"Plan Rows\":19972,\"Plan Width\":1563}]}}]")
 	actualLogs, err := scraper.scrapeTopQuery(t.Context(), 31, 32, 33, time.Minute)
 	assert.NoError(t, err)
 	expectedFile := filepath.Join("testdata", "scraper", "top-query", "expected.yaml")
@@ -1380,41 +1377,114 @@ func TestIsCollectionDue(t *testing.T) {
 	assert.False(t, isCollectionDue, "collection_interval is not yet reached since lastExecutionTimestamp, so collection is not due.")
 }
 
+// expectPrepareLookupExplain sets up the three ordered queries explainQueryInline issues:
+// SET+PREPARE, the pg_prepared_statements parameter-count lookup, and EXPLAIN EXECUTE.
+// expectServerVersion mocks the "SHOW server_version;" call explainQueryInline issues before
+// attempting plan_cache_mode, which requires PostgreSQL 12+.
+func expectServerVersion(mock sqlmock.Sqlmock, version string) {
+	mock.ExpectQuery("SHOW server_version;").WillReturnRows(
+		sqlmock.NewRows([]string{"server_version"}).AddRow(version),
+	)
+}
+
+func expectPrepareLookupExplain(mock sqlmock.Sqlmock, normalizedQueryID, query string, paramCount int, planResult string) {
+	expectServerVersion(mock, "14.5")
+	prepareSQL := fmt.Sprintf("/* otel-collector-ignore */ SET plan_cache_mode = force_generic_plan;PREPARE otel_%s AS %s;", normalizedQueryID, query)
+	mock.ExpectQuery(prepareSQL).WillReturnRows(sqlmock.NewRows([]string{}))
+
+	lookupSQL := fmt.Sprintf("/* otel-collector-ignore */ SELECT COALESCE(array_length(parameter_types, 1), 0) AS param_count FROM pg_prepared_statements WHERE name = 'otel_%s';", normalizedQueryID)
+	mock.ExpectQuery(lookupSQL).WillReturnRows(
+		sqlmock.NewRows([]string{"param_count"}).AddRow(fmt.Sprintf("%d", paramCount)),
+	)
+
+	nullsString := ""
+	if paramCount > 0 {
+		nulls := make([]string, paramCount)
+		for i := range nulls {
+			nulls[i] = "null"
+		}
+		nullsString = "(" + strings.Join(nulls, ", ") + ")"
+	}
+	explainSQL := fmt.Sprintf("EXPLAIN(FORMAT JSON) EXECUTE otel_%s%s;", normalizedQueryID, nullsString)
+	if planResult != "" {
+		mock.ExpectQuery(explainSQL).WillReturnRows(sqlmock.NewRows([]string{"QUERY PLAN"}).AddRow(planResult))
+	} else {
+		mock.ExpectQuery(explainSQL).WillReturnRows(sqlmock.NewRows([]string{"QUERY PLAN"}))
+	}
+}
+
 func TestExplainQuery(t *testing.T) {
 	testCases := []struct {
-		name           string
-		query          string
-		queryID        string
-		expectedSQL    string
-		mockPlanResult string
+		name              string
+		query             string
+		queryID           string
+		normalizedQueryID string
+		paramCount        int
+		mockPlanResult    string
 	}{
 		{
-			name:           "query with no parameters",
-			query:          "SELECT * FROM users",
-			queryID:        "12345",
-			expectedSQL:    "/* otel-collector-ignore */ SET plan_cache_mode = force_generic_plan;PREPARE otel_12345 AS SELECT * FROM users;EXPLAIN(FORMAT JSON) EXECUTE otel_12345;",
-			mockPlanResult: `[{"Plan":{"Node Type":"Seq Scan","Relation Name":"users"}}]`,
+			name:              "query with no parameters",
+			query:             "SELECT * FROM users",
+			queryID:           "12345",
+			normalizedQueryID: "12345",
+			paramCount:        0,
+			mockPlanResult:    `[{"Plan":{"Node Type":"Seq Scan","Relation Name":"users"}}]`,
 		},
 		{
-			name:           "query with single parameter",
-			query:          "SELECT * FROM users WHERE id = $1",
-			queryID:        "12346",
-			expectedSQL:    "/* otel-collector-ignore */ SET plan_cache_mode = force_generic_plan;PREPARE otel_12346 AS SELECT * FROM users WHERE id = $1;EXPLAIN(FORMAT JSON) EXECUTE otel_12346(null);",
-			mockPlanResult: `[{"Plan":{"Node Type":"Index Scan","Relation Name":"users"}}]`,
+			name:              "query with single parameter",
+			query:             "SELECT * FROM users WHERE id = $1",
+			queryID:           "12346",
+			normalizedQueryID: "12346",
+			paramCount:        1,
+			mockPlanResult:    `[{"Plan":{"Node Type":"Index Scan","Relation Name":"users"}}]`,
 		},
 		{
-			name:           "query with multiple parameters",
-			query:          "SELECT * FROM orders WHERE user_id = $1 AND status = $2 AND created_at > $3",
-			queryID:        "12347",
-			expectedSQL:    "/* otel-collector-ignore */ SET plan_cache_mode = force_generic_plan;PREPARE otel_12347 AS SELECT * FROM orders WHERE user_id = $1 AND status = $2 AND created_at > $3;EXPLAIN(FORMAT JSON) EXECUTE otel_12347(null, null, null);",
-			mockPlanResult: `[{"Plan":{"Node Type":"Index Scan","Relation Name":"orders"}}]`,
+			name:              "query with multiple distinct parameters",
+			query:             "SELECT * FROM orders WHERE user_id = $1 AND status = $2 AND created_at > $3",
+			queryID:           "12347",
+			normalizedQueryID: "12347",
+			paramCount:        3,
+			mockPlanResult:    `[{"Plan":{"Node Type":"Index Scan","Relation Name":"orders"}}]`,
 		},
 		{
-			name:           "query with hyphenated queryID",
-			query:          "SELECT * FROM products WHERE id = $1",
-			queryID:        "abc-def-123",
-			expectedSQL:    "/* otel-collector-ignore */ SET plan_cache_mode = force_generic_plan;PREPARE otel_abc_def_123 AS SELECT * FROM products WHERE id = $1;EXPLAIN(FORMAT JSON) EXECUTE otel_abc_def_123(null);",
-			mockPlanResult: `[{"Plan":{"Node Type":"Index Scan","Relation Name":"products"}}]`,
+			name:              "query with hyphenated queryID",
+			query:             "SELECT * FROM products WHERE id = $1",
+			queryID:           "abc-def-123",
+			normalizedQueryID: "abc_def_123",
+			paramCount:        1,
+			mockPlanResult:    `[{"Plan":{"Node Type":"Index Scan","Relation Name":"products"}}]`,
+		},
+		{
+			// Bug-fix regression: the old regex counted "$1" twice here (it appears twice in the
+			// query text) and would have tried to bind 2 nulls against a 1-parameter prepared
+			// statement. The real parameter count from pg_prepared_statements is 1.
+			name:              "query with repeated placeholder",
+			query:             "SELECT * FROM orders WHERE customer_id = $1 OR referred_by = $1",
+			queryID:           "20001",
+			normalizedQueryID: "20001",
+			paramCount:        1,
+			mockPlanResult:    `[{"Plan":{"Node Type":"Seq Scan","Relation Name":"orders"}}]`,
+		},
+		{
+			// Bug-fix regression: the old regex matched "$123" inside the string literal and would
+			// have tried to bind 1 null against a 0-parameter prepared statement.
+			name:              "query with dollar-sign inside string literal",
+			query:             "SELECT * FROM logs WHERE message = '$123'",
+			queryID:           "20002",
+			normalizedQueryID: "20002",
+			paramCount:        0,
+			mockPlanResult:    `[{"Plan":{"Node Type":"Seq Scan","Relation Name":"logs"}}]`,
+		},
+		{
+			// Combines both bug modes in one query to prove the fix isn't order-dependent or only
+			// catching one at a time: one real (repeated) parameter, plus a string literal that
+			// looks like a second placeholder but isn't.
+			name:              "query with repeated placeholder and a literal dollar-sign",
+			query:             "SELECT * FROM orders WHERE customer_id = $1 OR referred_by = $1 AND note = '$99'",
+			queryID:           "20003",
+			normalizedQueryID: "20003",
+			paramCount:        1,
+			mockPlanResult:    `[{"Plan":{"Node Type":"Seq Scan","Relation Name":"orders"}}]`,
 		},
 	}
 
@@ -1432,16 +1502,391 @@ func TestExplainQuery(t *testing.T) {
 				closeFn: func() error { return nil },
 			}
 
-			// Expect the EXPLAIN query
-			mock.ExpectQuery(tc.expectedSQL).WillReturnRows(
-				sqlmock.NewRows([]string{"QUERY PLAN"}).AddRow(tc.mockPlanResult),
-			)
+			expectPrepareLookupExplain(mock, tc.normalizedQueryID, tc.query, tc.paramCount, tc.mockPlanResult)
 
 			plan, err := client.explainQuery(tc.query, tc.queryID, "", logger)
 			require.NoError(t, err)
 			assert.Equal(t, tc.mockPlanResult, plan)
 		})
 	}
+}
+
+func TestExplainQueryInlineParamCountLookupEmpty(t *testing.T) {
+	// If PREPARE succeeds but pg_prepared_statements has no matching row (unexpected, but the code
+	// must not blindly index into an empty result), explainQuery should return a clear error rather
+	// than panicking.
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	require.NoError(t, err)
+	defer db.Close()
+
+	logger, err := zap.NewProduction()
+	require.NoError(t, err)
+
+	client := &postgreSQLClient{
+		client:  db,
+		closeFn: func() error { return nil },
+	}
+
+	query := "SELECT * FROM users WHERE id = $1"
+	queryID := "30001"
+
+	expectServerVersion(mock, "14.5")
+	mock.ExpectQuery("/* otel-collector-ignore */ SET plan_cache_mode = force_generic_plan;PREPARE otel_30001 AS SELECT * FROM users WHERE id = $1;").
+		WillReturnRows(sqlmock.NewRows([]string{}))
+	mock.ExpectQuery("/* otel-collector-ignore */ SELECT COALESCE(array_length(parameter_types, 1), 0) AS param_count FROM pg_prepared_statements WHERE name = 'otel_30001';").
+		WillReturnRows(sqlmock.NewRows([]string{"param_count"}))
+
+	plan, err := client.explainQuery(query, queryID, "", logger)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not found in pg_prepared_statements")
+	assert.Empty(t, plan)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestExplainQueryInlineParamCountLookupFails(t *testing.T) {
+	// A connection drop between PREPARE and the parameter-count lookup must surface an error, and
+	// critically must still fire the deferred DEALLOCATE PREPARE so no prepared statement leaks on
+	// the connection.
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	require.NoError(t, err)
+	defer db.Close()
+
+	logger, err := zap.NewProduction()
+	require.NoError(t, err)
+
+	client := &postgreSQLClient{
+		client:  db,
+		closeFn: func() error { return nil },
+	}
+
+	query := "SELECT * FROM users WHERE id = $1"
+	queryID := "30002"
+
+	expectServerVersion(mock, "14.5")
+	mock.ExpectQuery("/* otel-collector-ignore */ SET plan_cache_mode = force_generic_plan;PREPARE otel_30002 AS SELECT * FROM users WHERE id = $1;").
+		WillReturnRows(sqlmock.NewRows([]string{}))
+	mock.ExpectQuery("/* otel-collector-ignore */ SELECT COALESCE(array_length(parameter_types, 1), 0) AS param_count FROM pg_prepared_statements WHERE name = 'otel_30002';").
+		WillReturnError(errors.New("dial tcp: connection reset by peer"))
+	mock.ExpectExec("/* otel-collector-ignore */ DEALLOCATE PREPARE otel_30002").WillReturnResult(sqlmock.NewResult(0, 0))
+
+	plan, err := client.explainQuery(query, queryID, "", logger)
+	require.Error(t, err)
+	assert.Empty(t, plan)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestExplainQueryInlinePrepareFails(t *testing.T) {
+	// PREPARE itself failing (e.g. syntax error surfaced only at prepare time) must surface an
+	// error without attempting the parameter-count lookup or EXPLAIN EXECUTE.
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	require.NoError(t, err)
+	defer db.Close()
+
+	logger, err := zap.NewProduction()
+	require.NoError(t, err)
+
+	client := &postgreSQLClient{
+		client:  db,
+		closeFn: func() error { return nil },
+	}
+
+	query := "SELECT * FROM users WHERE id = $1"
+	queryID := "30003"
+
+	expectServerVersion(mock, "14.5")
+	mock.ExpectQuery("/* otel-collector-ignore */ SET plan_cache_mode = force_generic_plan;PREPARE otel_30003 AS SELECT * FROM users WHERE id = $1;").
+		WillReturnError(errors.New("pq: syntax error"))
+	mock.ExpectExec("/* otel-collector-ignore */ DEALLOCATE PREPARE otel_30003").WillReturnResult(sqlmock.NewResult(0, 0))
+
+	plan, err := client.explainQuery(query, queryID, "", logger)
+	require.Error(t, err)
+	assert.Empty(t, plan)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestExplainQueryInlineExplainExecuteFails(t *testing.T) {
+	// A correct parameter-count lookup followed by a failing EXPLAIN EXECUTE (e.g. permission
+	// denied surfaced only at execute time) must still surface that error normally — the new
+	// lookup step must not change existing error propagation for the final EXPLAIN call.
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	require.NoError(t, err)
+	defer db.Close()
+
+	logger, err := zap.NewProduction()
+	require.NoError(t, err)
+
+	client := &postgreSQLClient{
+		client:  db,
+		closeFn: func() error { return nil },
+	}
+
+	query := "UPDATE orders SET status = 'shipped' WHERE id = $1"
+	queryID := "30004"
+
+	expectServerVersion(mock, "14.5")
+	mock.ExpectQuery("/* otel-collector-ignore */ SET plan_cache_mode = force_generic_plan;PREPARE otel_30004 AS UPDATE orders SET status = 'shipped' WHERE id = $1;").
+		WillReturnRows(sqlmock.NewRows([]string{}))
+	mock.ExpectQuery("/* otel-collector-ignore */ SELECT COALESCE(array_length(parameter_types, 1), 0) AS param_count FROM pg_prepared_statements WHERE name = 'otel_30004';").
+		WillReturnRows(sqlmock.NewRows([]string{"param_count"}).AddRow("1"))
+	mock.ExpectQuery("EXPLAIN(FORMAT JSON) EXECUTE otel_30004(null);").
+		WillReturnError(errors.New("pq: permission denied for table orders"))
+	mock.ExpectExec("/* otel-collector-ignore */ DEALLOCATE PREPARE otel_30004").WillReturnResult(sqlmock.NewResult(0, 0))
+
+	plan, err := client.explainQuery(query, queryID, "", logger)
+	require.Error(t, err)
+	assert.Empty(t, plan)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestExplainQueryInlineEmptyExplainResult(t *testing.T) {
+	// Bug fix: EXPLAIN EXECUTE returning zero rows must not panic on result[0]["QUERY PLAN"] —
+	// it must return ("", nil), mirroring explainQueryViaFunction's existing empty-result guard.
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	require.NoError(t, err)
+	defer db.Close()
+
+	logger, err := zap.NewProduction()
+	require.NoError(t, err)
+
+	client := &postgreSQLClient{
+		client:  db,
+		closeFn: func() error { return nil },
+	}
+
+	query := "SELECT * FROM users WHERE id = $1"
+	queryID := "30005"
+
+	expectPrepareLookupExplain(mock, "30005", query, 1, "")
+
+	plan, err := client.explainQuery(query, queryID, "", logger)
+	require.NoError(t, err)
+	assert.Empty(t, plan)
+}
+
+func TestExplainQueryInlineVersionGate(t *testing.T) {
+	// plan_cache_mode was introduced in PostgreSQL 12; explainQueryInline must not attempt it on
+	// older servers, where it would fail with "unrecognized configuration parameter".
+	testCases := []struct {
+		name                string
+		serverVersion       string
+		expectPrepareAndRun bool
+	}{
+		{name: "below minimum (11.9) skips EXPLAIN entirely", serverVersion: "11.9", expectPrepareAndRun: false},
+		{name: "well below minimum (9.6.24) skips EXPLAIN entirely", serverVersion: "9.6.24", expectPrepareAndRun: false},
+		{name: "exactly at minimum (12.0) proceeds", serverVersion: "12.0", expectPrepareAndRun: true},
+		{name: "above minimum (14.5) proceeds", serverVersion: "14.5", expectPrepareAndRun: true},
+		{name: "one below minimum (11.22) skips EXPLAIN entirely", serverVersion: "11.22", expectPrepareAndRun: false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+			require.NoError(t, err)
+			defer db.Close()
+
+			logger, err := zap.NewProduction()
+			require.NoError(t, err)
+
+			client := &postgreSQLClient{
+				client:  db,
+				closeFn: func() error { return nil },
+			}
+
+			query := "SELECT * FROM users WHERE id = $1"
+			queryID := "40001"
+
+			expectServerVersion(mock, tc.serverVersion)
+			if tc.expectPrepareAndRun {
+				mock.ExpectQuery("/* otel-collector-ignore */ SET plan_cache_mode = force_generic_plan;PREPARE otel_40001 AS SELECT * FROM users WHERE id = $1;").
+					WillReturnRows(sqlmock.NewRows([]string{}))
+				mock.ExpectQuery("/* otel-collector-ignore */ SELECT COALESCE(array_length(parameter_types, 1), 0) AS param_count FROM pg_prepared_statements WHERE name = 'otel_40001';").
+					WillReturnRows(sqlmock.NewRows([]string{"param_count"}).AddRow("1"))
+				mock.ExpectQuery("EXPLAIN(FORMAT JSON) EXECUTE otel_40001(null);").
+					WillReturnRows(sqlmock.NewRows([]string{"QUERY PLAN"}).AddRow(`[{"Plan":{"Node Type":"Index Scan"}}]`))
+				mock.ExpectExec("/* otel-collector-ignore */ DEALLOCATE PREPARE otel_40001").WillReturnResult(sqlmock.NewResult(0, 0))
+			}
+			// When expectPrepareAndRun is false, no further expectations are set — sqlmock fails
+			// the test if explainQuery touches PREPARE/EXPLAIN at all, proving the version gate
+			// short-circuits before any of that.
+
+			plan, err := client.explainQuery(query, queryID, "", logger)
+			require.NoError(t, err)
+			if tc.expectPrepareAndRun {
+				assert.Equal(t, `[{"Plan":{"Node Type":"Index Scan"}}]`, plan)
+			} else {
+				assert.Empty(t, plan)
+			}
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
+}
+
+func TestExplainQueryInlineVersionLookupFails(t *testing.T) {
+	// If the version query itself fails (e.g. connection issue), explainQuery must surface that
+	// error rather than proceeding to PREPARE against a server of unknown version.
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	require.NoError(t, err)
+	defer db.Close()
+
+	logger, err := zap.NewProduction()
+	require.NoError(t, err)
+
+	client := &postgreSQLClient{
+		client:  db,
+		closeFn: func() error { return nil },
+	}
+
+	query := "SELECT * FROM users WHERE id = $1"
+	queryID := "40002"
+
+	mock.ExpectQuery("SHOW server_version;").WillReturnError(errors.New("dial tcp: connection reset by peer"))
+
+	plan, err := client.explainQuery(query, queryID, "", logger)
+	require.Error(t, err)
+	assert.Empty(t, plan)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestExplainQueryInlineVersionUnparseable(t *testing.T) {
+	// A malformed server_version string (no dot) must surface a clear parse error rather than
+	// panicking or silently proceeding as if the version check passed.
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	require.NoError(t, err)
+	defer db.Close()
+
+	logger, err := zap.NewProduction()
+	require.NoError(t, err)
+
+	client := &postgreSQLClient{
+		client:  db,
+		closeFn: func() error { return nil },
+	}
+
+	query := "SELECT * FROM users WHERE id = $1"
+	queryID := "40003"
+
+	expectServerVersion(mock, "not-a-version")
+
+	plan, err := client.explainQuery(query, queryID, "", logger)
+	require.Error(t, err)
+	assert.Empty(t, plan)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestExplainQueryInlineDedicatedConnectionFails(t *testing.T) {
+	// If obtaining a dedicated connection for PREPARE/EXPLAIN fails (pool exhausted, connection
+	// error, or the pool being closed underneath the receiver during shutdown), explainQuery
+	// must surface that error cleanly rather than panicking or proceeding to use an invalid
+	// connection for PREPARE and the steps that follow it. sqlmock has no dedicated primitive
+	// for forcing DB.Conn() specifically to fail, so this closes the whole pool up front —
+	// getVersion fails first with the same underlying "database is closed" condition, which is
+	// an equally valid way to prove the function returns a clean error instead of a panic; the
+	// version-check failure path itself is exercised more narrowly by
+	// TestExplainQueryInlineVersionLookupFails, and the Conn() call is exercised implicitly by
+	// every other passing test in this file that reaches it successfully.
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	require.NoError(t, err)
+	mock.ExpectClose()
+	require.NoError(t, db.Close())
+
+	logger, err := zap.NewProduction()
+	require.NoError(t, err)
+
+	client := &postgreSQLClient{
+		client:  db,
+		closeFn: func() error { return nil },
+	}
+
+	query := "SELECT * FROM users WHERE id = $1"
+	queryID := "40004"
+
+	plan, err := client.explainQuery(query, queryID, "", logger)
+	require.Error(t, err)
+	assert.Empty(t, plan)
+}
+
+func TestShouldCacheExplainFailure(t *testing.T) {
+	testCases := []struct {
+		name          string
+		err           error
+		expectedCache bool
+	}{
+		{
+			name:          "nil error (success) is cached",
+			err:           nil,
+			expectedCache: true,
+		},
+		{
+			name:          "insufficient_privilege is NOT cached, so a later GRANT is retried next scrape",
+			err:           &pq.Error{Code: pqerror.InsufficientPrivilege, Message: "permission denied for table orders"},
+			expectedCache: false,
+		},
+		{
+			name:          "undefined_table IS cached — dropping the table doesn't un-drop itself between scrapes",
+			err:           &pq.Error{Code: pqerror.Code("42P01"), Message: "relation \"orders\" does not exist"},
+			expectedCache: true,
+		},
+		{
+			name:          "syntax error IS cached — malformed SQL doesn't fix itself between scrapes",
+			err:           &pq.Error{Code: pqerror.Code("42601"), Message: "syntax error"},
+			expectedCache: true,
+		},
+		{
+			name:          "connection-level non-pq error IS cached — matches every other failure mode's default",
+			err:           errors.New("dial tcp: connection refused"),
+			expectedCache: true,
+		},
+		{
+			name:          "wrapped insufficient_privilege is still detected through errors.As",
+			err:           fmt.Errorf("failed to explain statement: %w", &pq.Error{Code: pqerror.InsufficientPrivilege, Message: "permission denied"}),
+			expectedCache: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expectedCache, shouldCacheExplainFailure(tc.err))
+		})
+	}
+}
+
+func TestExplainQueryInlinePermissionDeniedIsNotCachedAcrossScrapes(t *testing.T) {
+	// End-to-end proof: an InsufficientPrivilege failure from explainQueryInline, combined with
+	// shouldCacheExplainFailure at the collectTopQuery call site, means a DBA's GRANT takes effect
+	// on the very next scrape rather than sitting behind the full query_plan_cache_ttl. This test
+	// exercises explainQueryInline directly (the real source of the pq.Error) and confirms the
+	// error it returns is one shouldCacheExplainFailure correctly recognizes — the caching decision
+	// itself is covered by TestShouldCacheExplainFailure, since mockClient.explainQuery is a fixed
+	// panic stub and not wired to return a caller-controlled error.
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	require.NoError(t, err)
+	defer db.Close()
+
+	logger, err := zap.NewProduction()
+	require.NoError(t, err)
+
+	client := &postgreSQLClient{
+		client:  db,
+		closeFn: func() error { return nil },
+	}
+
+	query := "UPDATE orders SET status = 'shipped' WHERE id = $1"
+	queryID := "50001"
+
+	expectServerVersion(mock, "14.5")
+	mock.ExpectQuery("/* otel-collector-ignore */ SET plan_cache_mode = force_generic_plan;PREPARE otel_50001 AS UPDATE orders SET status = 'shipped' WHERE id = $1;").
+		WillReturnRows(sqlmock.NewRows([]string{}))
+	mock.ExpectQuery("/* otel-collector-ignore */ SELECT COALESCE(array_length(parameter_types, 1), 0) AS param_count FROM pg_prepared_statements WHERE name = 'otel_50001';").
+		WillReturnRows(sqlmock.NewRows([]string{"param_count"}).AddRow("1"))
+	mock.ExpectQuery("EXPLAIN(FORMAT JSON) EXECUTE otel_50001(null);").
+		WillReturnError(&pq.Error{Code: pqerror.InsufficientPrivilege, Message: "permission denied for table orders"})
+	mock.ExpectExec("/* otel-collector-ignore */ DEALLOCATE PREPARE otel_50001").WillReturnResult(sqlmock.NewResult(0, 0))
+
+	plan, err := client.explainQuery(query, queryID, "", logger)
+	require.Error(t, err)
+	assert.Empty(t, plan)
+	assert.False(t, shouldCacheExplainFailure(err), "collectTopQuery must not cache this error, so the query is retried next scrape")
+	require.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestExplainQueryViaFunction(t *testing.T) {
@@ -1558,10 +2003,7 @@ func TestExplainQueryViaFunction(t *testing.T) {
 
 		query := "SELECT * FROM orders WHERE id = $1 FOR UPDATE"
 		// expects the INLINE sequence, not the function — proves explainFunction=="" always wins
-		expectedSQL := "/* otel-collector-ignore */ SET plan_cache_mode = force_generic_plan;PREPARE otel_12350 AS SELECT * FROM orders WHERE id = $1 FOR UPDATE;EXPLAIN(FORMAT JSON) EXECUTE otel_12350(null);"
-		mock.ExpectQuery(expectedSQL).WillReturnRows(
-			sqlmock.NewRows([]string{"QUERY PLAN"}).AddRow(`[{"Plan":{"Node Type":"LockRows"}}]`),
-		)
+		expectPrepareLookupExplain(mock, "12350", query, 1, `[{"Plan":{"Node Type":"LockRows"}}]`)
 
 		plan, err := client.explainQuery(query, "12350", "", logger)
 		require.NoError(t, err)
@@ -1729,20 +2171,23 @@ func TestScraperExplainFunctionProbeCache(t *testing.T) {
 		mc.AssertNumberOfCalls(t, "probeExplainFunction", 2)
 	})
 
-	t.Run("connection-level non-pq error is not cached and retries on next call", func(t *testing.T) {
+	t.Run("connection-level non-pq error is cached and does not retry within TTL", func(t *testing.T) {
 		mc := &mockClient{}
 		mc.On("probeExplainFunction", mock.Anything, `"otel"."explain_statement"`).
-			Return(errors.New("dial tcp: connection refused")).Twice()
+			Return(errors.New("dial tcp: connection refused")).Once()
 
 		scraper := newScraperWithMockClient(t, mc)
 
 		scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
 
-		_, ok := scraper.explainFunctionCache.Get("testdb")
-		assert.False(t, ok, "connection-level errors must not be cached")
+		state, ok := scraper.explainFunctionCache.Get("testdb")
+		require.True(t, ok, "connection-level errors must be cached, same as any other probe outcome")
+		assert.False(t, state.available)
+		require.Error(t, state.err)
 
+		// Second call within the TTL window must not probe again.
 		scraper.probeExplainFunctionIfNeeded(t.Context(), "testdb", mc)
-		mc.AssertNumberOfCalls(t, "probeExplainFunction", 2)
+		mc.AssertNumberOfCalls(t, "probeExplainFunction", 1)
 	})
 }
 

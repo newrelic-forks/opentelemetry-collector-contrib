@@ -131,14 +131,32 @@ separately. This could lead some resources usage and limit this will reduce the 
 This defines the cache's size for query plan.
 - `query_plan_cache_ttl`: (optional, default=1h). How long before the query plan cache got expired. Example values: `1m`, `1h`. 
 - `collection_interval`: (optional, default=60s). This receiver can collect top_query metrics on an interval. If not provided then the global collection_interval takes effect. This value must be a string readable by Golang's [time.ParseDuration](https://pkg.go.dev/time#ParseDuration). Valid time units are `ns`, `us` (or `µs`), `ms`, `s`, `m`, `h`.
+- `allowed_comment_keys`: (optional, default=empty). List of SQL comment keys (e.g. `nr_service_guid`) to extract from the query's leading block comments into `db.query.comment_tags` and, for `nr_service_guid` specifically, `db.query.comment_tags.nr_service_guid`. Empty by default (no extraction). See the note below on why `top_query` comment tags can be stale.
+
+#### `top_query` comment tags reflect the first-seen execution, not the current one
+
+`pg_stat_statements` hashes `queryid` from query structure only, ignoring comments, and freezes the
+stored text (comment included) at first execution — later callers with a different `nr_service_guid`
+just increment counters, never update the text. So `top_query`'s comment tags reflect whichever
+caller ran first, not necessarily the current/dominant one. `query_sample` has no such issue (it
+reads live text from `pg_stat_activity` every scrape); prefer it for per-execution APM correlation.
+
+### PostgreSQL version requirement for inline EXPLAIN
+
+Explaining a parameterized query requires `plan_cache_mode = force_generic_plan` before
+`PREPARE`/`EXPLAIN EXECUTE`, since we only have `null`s to bind, not real values. That GUC needs
+**PostgreSQL 12+**; on older servers the receiver detects the version and skips EXPLAIN for that
+query instead of sending a `SET` that would fail. Non-parameterized queries are unaffected on any
+version, and `explain_function_name` below has no such requirement (it EXPLAINs literal text, not
+via `PREPARE`/`EXECUTE`).
 
 ### Collecting EXPLAIN plans for locking and write queries (`explain_function_name`)
 
-By default, `EXPLAIN` runs directly as the monitoring user. PostgreSQL checks table
-privileges at *plan* time, so `EXPLAIN` on a query with a row-locking clause (`FOR
-UPDATE`/`FOR SHARE`) or a write statement (`UPDATE`/`INSERT`/`DELETE`/`MERGE`) fails
-with `permission denied` unless the monitoring user has write access — which this
-receiver's monitoring user should never be granted.
+By default, `EXPLAIN` runs directly as the monitoring user. Postgres checks table privileges at
+*plan* time, so a row-locking clause (`FOR UPDATE`/`FOR SHARE`) or a write statement
+(`UPDATE`/`INSERT`/`DELETE`/`MERGE`) fails with `permission denied` unless the monitoring user has
+write access — which it should never be granted. This function also covers pre-12 servers, since
+it doesn't use `plan_cache_mode`.
 
 To collect plans for these query types without granting write access, provision a
 `SECURITY DEFINER` helper function once per database:
@@ -180,11 +198,16 @@ receivers:
       explain_function_cache_ttl: 5m                  # default
 ```
 
-If the function is not present (or fails), the receiver logs once and falls back to
-running `EXPLAIN` directly, exactly as it does when this feature is not configured —
-no error, no missing metrics, just no plan for the affected queries until the
-function is provisioned (or, if it existed and was dropped, until the next probe
-after `explain_function_cache_ttl` elapses).
+If the function is missing or fails (including a transient connection error probing it), the
+receiver logs once per `explain_function_cache_ttl` per database and falls back to inline
+EXPLAIN — no error, no missing metrics, just no function-based plan until the function is fixed
+and the next probe runs.
+
+**Two independent cache clocks.** `query_plan_cache_ttl` (1h) caches a *query's* plan;
+`explain_function_cache_ttl` (5m) caches a *database's* function availability. Since they're
+separate caches, a query can keep showing a stale plan-availability outcome for up to an hour
+after the function's status actually changed, while a different query that misses cache sooner
+sees the new state immediately — two queries of the same shape can disagree. Expected, not a bug.
 
 ### Example Configuration
 

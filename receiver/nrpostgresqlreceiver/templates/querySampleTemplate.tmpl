@@ -1,4 +1,4 @@
-SELECT
+/* otel-collector-ignore */ SELECT
     COALESCE(sa.datname, '') AS datname,
     COALESCE(sa.usename, '') AS usename,
     COALESCE(sa.client_addr::TEXT, '') AS client_addr,
