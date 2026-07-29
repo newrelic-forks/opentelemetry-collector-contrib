@@ -245,7 +245,7 @@ func (c *postgreSQLClient) explainQueryInline(query, queryID string, logger *zap
 	prepareStatement := fmt.Sprintf("PREPARE otel_%s AS %s;", normalizedQueryID, query)
 
 	prepareDb := sqlquery.NewDbClient(sqlquery.ConnWrapper{Conn: conn}, setPlanCacheMode+prepareStatement, logger, sqlquery.TelemetryConfig{})
-	if _, err := prepareDb.QueryRows(context.Background()); err != nil {
+	if _, err = prepareDb.QueryRows(context.Background()); err != nil {
 		logger.Error("failed to prepare statement for EXPLAIN", zap.Error(err), zap.String("queryID", queryID))
 		return "", err
 	}
