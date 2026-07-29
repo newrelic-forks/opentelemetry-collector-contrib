@@ -425,10 +425,13 @@ func (p *postgreSQLScraper) probeExplainFunctionIfNeeded(ctx context.Context, da
 		return
 	}
 
-	// Connection-level or other non-pq error: don't cache, retry probe next call.
-	p.logger.Warn("failed to probe EXPLAIN helper function, will retry",
+	// Connection-level or other non-pq error: cache as unavailable too, so a flaky
+	// database is re-probed at most once per explain_function_cache_ttl window,
+	// not once per top-query candidate falling back to inline EXPLAIN.
+	p.logger.Warn("failed to probe EXPLAIN helper function, falling back to inline EXPLAIN",
 		zap.String("database", database),
 		zap.Error(err))
+	p.explainFunctionCache.Add(database, explainSetupState{available: false, err: err})
 }
 
 func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory postgreSQLClientFactory, limit, topNQuery, maxExplainEachInterval int64, mux *errsMux, logger *zap.Logger, collectionTime time.Time) {

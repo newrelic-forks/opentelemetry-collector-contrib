@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"math"
 	"net"
-	"regexp"
 	"strconv"
 	"strings"
 	"text/template"
@@ -205,40 +204,107 @@ func (c *postgreSQLClient) explainQueryViaFunction(query, queryID, explainFuncti
 	return plan, nil
 }
 
+// minPlanCacheModeVersion is the first PostgreSQL major version exposing plan_cache_mode as a
+// settable GUC. Before this, the generic/custom plan choice existed internally but wasn't
+// user-controllable, so explainQueryInline can't force a generic plan on older servers.
+const minPlanCacheModeVersion = 12
+
 // explainQueryInline runs EXPLAIN directly as the monitoring user (PREPARE/EXPLAIN EXECUTE/DEALLOCATE).
+//
+// Requires PostgreSQL 12+ for plan_cache_mode; see minPlanCacheModeVersion.
+//
+// The number of placeholders to bind is looked up from pg_prepared_statements after PREPARE,
+// rather than inferred by counting "$N" occurrences in the query text: counting occurrences
+// overcounts when a placeholder is reused (e.g. "WHERE a = $1 OR b = $1" has one real parameter,
+// not two) and when "$N" appears inside a string literal. Postgres has already parsed and
+// deduplicated the real parameter list by the time PREPARE succeeds, so asking it directly is
+// the only way to get a count that's correct in every case.
 func (c *postgreSQLClient) explainQueryInline(query, queryID string, logger *zap.Logger) (string, error) {
+	version, err := c.getVersion(context.Background())
+	if err != nil {
+		logger.Error("failed to determine PostgreSQL version for EXPLAIN", zap.Error(err), zap.String("queryID", queryID))
+		return "", err
+	}
+	major, err := parseMajorVersion(version)
+	if err != nil {
+		logger.Error("failed to parse PostgreSQL version for EXPLAIN", zap.Error(err), zap.String("queryID", queryID))
+		return "", err
+	}
+	if major < minPlanCacheModeVersion {
+		logger.Debug("skipping EXPLAIN: plan_cache_mode requires PostgreSQL 12+",
+			zap.Int("serverMajorVersion", major), zap.String("queryID", queryID))
+		return "", nil
+	}
+
 	normalizedQueryID := strings.ReplaceAll(queryID, "-", "_")
 
-	// PostgreSQL's pg_stat_statements returns queries with $1, $2 placeholders
-	paramRegex := regexp.MustCompile(`\$\d+`)
-	matches := paramRegex.FindAllString(query, -1)
-
-	// Build nulls array for placeholders
-	nulls := make([]string, len(matches))
-	for i := range nulls {
-		nulls[i] = "null"
+	// PREPARE creates session-scoped state that only exists on the specific backend connection
+	// it ran on. c.client is a connection pool, not a single connection, so every step below
+	// (PREPARE, the parameter-count lookup, EXPLAIN EXECUTE, and DEALLOCATE) must run on the
+	// same dedicated connection rather than each independently borrowing whatever connection
+	// the pool happens to hand out — otherwise the lookup can find nothing, EXPLAIN EXECUTE can
+	// fail with "prepared statement does not exist", and DEALLOCATE can miss the connection that
+	// actually holds the prepared statement, leaking it until that connection closes.
+	conn, err := c.client.Conn(context.Background())
+	if err != nil {
+		logger.Error("failed to obtain a dedicated connection for EXPLAIN", zap.Error(err), zap.String("queryID", queryID))
+		return "", err
 	}
+	defer conn.Close()
 
 	defer func() {
-		_, _ = c.client.Exec(fmt.Sprintf("/* otel-collector-ignore */ DEALLOCATE PREPARE otel_%s", normalizedQueryID))
+		_, _ = conn.ExecContext(context.Background(), fmt.Sprintf("/* otel-collector-ignore */ DEALLOCATE PREPARE otel_%s", normalizedQueryID))
 	}()
 
-	// if there is no parameter needed, we can not put an empty bracket
-
-	nullsString := ""
-	if len(nulls) > 0 {
-		nullsString = "(" + strings.Join(nulls, ", ") + ")"
-	}
 	setPlanCacheMode := "/* otel-collector-ignore */ SET plan_cache_mode = force_generic_plan;"
 	prepareStatement := fmt.Sprintf("PREPARE otel_%s AS %s;", normalizedQueryID, query)
+
+	prepareDb := sqlquery.NewDbClient(sqlquery.ConnWrapper{Conn: conn}, setPlanCacheMode+prepareStatement, logger, sqlquery.TelemetryConfig{})
+	if _, err := prepareDb.QueryRows(context.Background()); err != nil {
+		logger.Error("failed to prepare statement for EXPLAIN", zap.Error(err), zap.String("queryID", queryID))
+		return "", err
+	}
+
+	paramCountSQL := fmt.Sprintf(
+		"/* otel-collector-ignore */ SELECT COALESCE(array_length(parameter_types, 1), 0) AS param_count FROM pg_prepared_statements WHERE name = 'otel_%s';",
+		normalizedQueryID,
+	)
+	paramCountDb := sqlquery.NewDbClient(sqlquery.ConnWrapper{Conn: conn}, paramCountSQL, logger, sqlquery.TelemetryConfig{})
+	paramCountResult, err := paramCountDb.QueryRows(context.Background())
+	if err != nil {
+		logger.Error("failed to look up prepared statement parameter count", zap.Error(err), zap.String("queryID", queryID))
+		return "", err
+	}
+	if len(paramCountResult) == 0 {
+		logger.Error("prepared statement not found in pg_prepared_statements after PREPARE succeeded", zap.String("queryID", queryID))
+		return "", fmt.Errorf("prepared statement otel_%s not found in pg_prepared_statements", normalizedQueryID)
+	}
+
+	paramCount, err := strconv.Atoi(paramCountResult[0]["param_count"])
+	if err != nil {
+		logger.Error("failed to parse prepared statement parameter count", zap.Error(err), zap.String("queryID", queryID))
+		return "", err
+	}
+
+	nullsString := ""
+	if paramCount > 0 {
+		nulls := make([]string, paramCount)
+		for i := range nulls {
+			nulls[i] = "null"
+		}
+		nullsString = "(" + strings.Join(nulls, ", ") + ")"
+	}
 	explainStatement := fmt.Sprintf("EXPLAIN(FORMAT JSON) EXECUTE otel_%s%s;", normalizedQueryID, nullsString)
 
-	wrappedDb := sqlquery.NewDbClient(sqlquery.DbWrapper{Db: c.client}, setPlanCacheMode+prepareStatement+explainStatement, logger, sqlquery.TelemetryConfig{})
-
-	result, err := wrappedDb.QueryRows(context.Background())
+	explainDb := sqlquery.NewDbClient(sqlquery.ConnWrapper{Conn: conn}, explainStatement, logger, sqlquery.TelemetryConfig{})
+	result, err := explainDb.QueryRows(context.Background())
 	if err != nil {
 		logger.Error("failed to explain statement", zap.Error(err))
 		return "", err
+	}
+
+	if len(result) == 0 {
+		return "", nil
 	}
 
 	plan, err := obfuscateSQLExecPlan(result[0]["QUERY PLAN"])
