@@ -14,16 +14,76 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestObfuscateSQLError(t *testing.T) {
-	// An unterminated string literal causes ObfuscateSQLStringWithOptions to return an error.
-	_, err := newObfuscator().obfuscateSQLString("SELECT 'unterminated")
-	assert.Error(t, err)
+func TestObfuscateSQLMalformedInput(t *testing.T) {
+	// obfuscate_and_normalize (matching nroracledbreceiver/nrsqlserverreceiver) tolerates
+	// malformed SQL rather than erroring — an unterminated string literal is obfuscated
+	// away instead of surfacing a parse error.
+	result, err := newObfuscator().obfuscateSQLString("SELECT 'unterminated")
+	assert.NoError(t, err)
+	assert.Equal(t, "SELECT ?", result)
 }
 
 func TestObfuscatePlanError(t *testing.T) {
 	// Malformed JSON causes ObfuscateSQLExecPlan to return an error.
 	_, err := newObfuscator().obfuscatePlan("{invalid json")
 	assert.Error(t, err)
+}
+
+func TestObfuscateSQLWithComments(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "APM correlation comment tag at start",
+			input:    `/*nr_service_guid='abc123',traceparent='00-abcd-1234-01'*/ SELECT * FROM orders WHERE id = 5 AND status = 'shipped'`,
+			expected: `? SELECT * FROM orders WHERE id = ? AND status = ?`,
+		},
+		{
+			// obfuscate_and_normalize collapses newlines/whitespace to single spaces,
+			// unlike Oracle's normalizer which preserves line breaks.
+			name: "multiline comment at start",
+			input: `/* Fetching active admin profiles */
+SELECT * FROM profiles
+WHERE role = 'admin' AND structural_id = 9954`,
+			expected: `? SELECT * FROM profiles WHERE role = ? AND structural_id = ?`,
+		},
+		{
+			name: "inline comment at end",
+			input: `SELECT * FROM profiles
+WHERE role = 'admin' AND structural_id = 9954 -- Verification filter`,
+			expected: `SELECT * FROM profiles WHERE role = ? AND structural_id = ? ?`,
+		},
+		{
+			name: "comment in middle of query",
+			input: `SELECT * FROM employees
+/* Get high earners */
+WHERE salary > 100000`,
+			expected: `SELECT * FROM employees ? WHERE salary > ?`,
+		},
+		{
+			// Unlike Oracle, MySQL's obfuscator DOES collect "#" hash comments.
+			name: "hash comment style",
+			input: `SELECT * FROM orders
+WHERE order_date > '2024-01-01' # Recent orders only`,
+			expected: `SELECT * FROM orders WHERE order_date > ? ?`,
+		},
+		{
+			name:     "comment with optimizer hint",
+			input:    `SELECT /*+ INDEX(orders idx_orders_status) */ * FROM orders WHERE status = 'pending'`,
+			expected: `SELECT ? * FROM orders WHERE status = ?`,
+		},
+	}
+
+	obf := newObfuscator()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := obf.obfuscateSQLString(tt.input)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expected, result, "Comments should be replaced with ? during obfuscation")
+		})
+	}
 }
 
 func TestObfuscateSQL(t *testing.T) {

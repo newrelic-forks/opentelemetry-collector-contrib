@@ -4,12 +4,34 @@
 package nrmysqlreceiver // import "github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrmysqlreceiver"
 
 import (
+	"strings"
+
 	"github.com/DataDog/datadog-agent/pkg/obfuscate"
 )
 
 var (
-	obfuscateSQLConfig = obfuscate.SQLConfig{DBMS: "mysql"}
-	obfuscatorConfig   = obfuscate.Config{
+	// collectCommentsConfig extracts comments into metadata so they can be located
+	// in the original SQL. Matches nroracledbreceiver/nrsqlserverreceiver.
+	collectCommentsConfig = obfuscate.SQLConfig{
+		DBMS:            "mysql",
+		ObfuscationMode: "obfuscate_and_normalize",
+		CollectComments: true,
+		KeepSQLAlias:    true,
+		KeepBoolean:     true,
+		KeepNull:        true,
+	}
+
+	// obfuscateSQLConfig replaces literals with ? while preserving the query structure.
+	obfuscateSQLConfig = obfuscate.SQLConfig{
+		DBMS:            "mysql",
+		ObfuscationMode: "obfuscate_and_normalize",
+		KeepSQLAlias:    true,
+		KeepBoolean:     true,
+		KeepNull:        true,
+	}
+
+	obfuscatorConfig = obfuscate.Config{
+		SQL:         obfuscateSQLConfig,
 		SQLExecPlan: defaultSQLPlanObfuscateSettings,
 	}
 )
@@ -20,8 +42,24 @@ func newObfuscator() *obfuscator {
 	return (*obfuscator)(obfuscate.NewObfuscator(obfuscatorConfig))
 }
 
+// obfuscateSQLString obfuscates a SQL string in two passes, matching
+// nroracledbreceiver/nrsqlserverreceiver:
+//  1. Collect leading/embedded SQL comments (e.g. APM correlation tags like
+//     /*nr_service_guid='...'*/) and replace each one with a single "?" placeholder
+//     in the raw text, so the comment's contents never reach the obfuscated output.
+//  2. Obfuscate literals in the now comment-redacted text.
 func (o *obfuscator) obfuscateSQLString(sql string) (string, error) {
-	obfuscatedQuery, err := (*obfuscate.Obfuscator)(o).ObfuscateSQLStringWithOptions(sql, &obfuscateSQLConfig, "")
+	collectResult, err := (*obfuscate.Obfuscator)(o).ObfuscateSQLStringWithOptions(sql, &collectCommentsConfig, "")
+	if err != nil {
+		return "", err
+	}
+
+	sqlWithAnonymizedComments := sql
+	for _, comment := range collectResult.Metadata.Comments {
+		sqlWithAnonymizedComments = strings.Replace(sqlWithAnonymizedComments, comment, "?", 1)
+	}
+
+	obfuscatedQuery, err := (*obfuscate.Obfuscator)(o).ObfuscateSQLStringWithOptions(sqlWithAnonymizedComments, &obfuscateSQLConfig, "")
 	if err != nil {
 		return "", err
 	}
