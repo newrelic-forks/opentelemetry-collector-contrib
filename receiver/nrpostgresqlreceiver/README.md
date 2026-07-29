@@ -169,10 +169,37 @@ SECURITY DEFINER
 AS $$
 DECLARE
     v_plan json;
+    v_param_count int;
+    v_nulls text := '';
 BEGIN
     SET TRANSACTION READ ONLY;
-    EXECUTE 'EXPLAIN (FORMAT JSON) ' || l_query INTO v_plan;
+
+    -- l_query is text from pg_stat_statements, normalized with $1/$2/... placeholders
+    -- (no bound values). PREPARE/EXECUTE with generic-plan NULLs, same as the inline
+    -- EXPLAIN path, but running as the function owner so it also covers locking/write
+    -- queries the monitoring user has no privilege to plan directly.
+    EXECUTE 'PREPARE otel_explain_stmt AS ' || l_query;
+
+    SELECT COALESCE(array_length(parameter_types, 1), 0) INTO v_param_count
+    FROM pg_prepared_statements WHERE name = 'otel_explain_stmt';
+
+    IF v_param_count > 0 THEN
+        SELECT string_agg('null', ', ') INTO v_nulls FROM generate_series(1, v_param_count);
+        v_nulls := '(' || v_nulls || ')';
+    END IF;
+
+    EXECUTE 'EXPLAIN (FORMAT JSON) EXECUTE otel_explain_stmt' || v_nulls INTO v_plan;
+    DEALLOCATE otel_explain_stmt;
     RETURN v_plan;
+EXCEPTION WHEN OTHERS THEN
+    -- Always clean up the prepared statement, even on failure (e.g. a query shape
+    -- PREPARE rejects), so it never leaks across calls. Postgres's DEALLOCATE has no
+    -- IF EXISTS clause, so guard with pg_prepared_statements instead — PREPARE itself
+    -- may be what failed, in which case there's nothing to deallocate.
+    IF EXISTS (SELECT 1 FROM pg_prepared_statements WHERE name = 'otel_explain_stmt') THEN
+        DEALLOCATE otel_explain_stmt;
+    END IF;
+    RAISE;
 END;
 $$;
 
@@ -187,6 +214,25 @@ never be granted `CREATE` on any database or schema it connects through** — th
 function intentionally does not pin `search_path` (so unqualified table names in
 captured queries resolve correctly), which is only safe if the monitoring role
 cannot create objects to redirect that resolution into.
+
+**Security note:** `l_query` is `PREPARE`d and run under the function owner's elevated
+privilege, so it must only ever come from already-executed SQL text (`pg_stat_statements`
+or `pg_stat_activity`) — never from user/API input. This function is not a general-purpose
+SQL execution endpoint.
+
+`l_query` is the normalized text from `pg_stat_statements.query` — it contains `$1`/`$2`/...
+placeholders with no bound values, not literals. The function `PREPARE`s it and runs
+`EXPLAIN EXECUTE` with all-`NULL` arguments (a generic plan, not parameter-sniffed) inside
+its own body, so this also works for locking/write queries the monitoring user can't PREPARE
+directly. Each invocation uses a fixed statement name (`otel_explain_stmt`) since PL/pgSQL
+functions execute one call at a time per session and the connection is not reused across
+calls the way `explainQueryInline`'s dedicated connection is.
+
+PREPARE and EXPLAIN EXECUTE can't be split across two functions or done partly in the
+caller: Postgres re-checks table privileges at EXPLAIN-EXECUTE time, not just at PREPARE
+time, so a step run outside `SECURITY DEFINER` still hits `permission denied` for
+write/locking queries even if PREPARE itself succeeded inside the function. Both steps must
+run together, under the same elevated call.
 
 Configuration:
 
