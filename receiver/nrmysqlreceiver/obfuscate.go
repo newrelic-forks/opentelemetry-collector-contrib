@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/DataDog/datadog-agent/pkg/obfuscate"
+
+	"github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon/sqlcomments"
 )
 
 var (
@@ -64,6 +66,36 @@ func (o *obfuscator) obfuscateSQLString(sql string) (string, error) {
 		return "", err
 	}
 	return obfuscatedQuery.Query, nil
+}
+
+// obfuscateSQLStringWithComment obfuscates digestText the same way obfuscateSQLString
+// does, but additionally prepends a single "?" placeholder — matching
+// nroracledbreceiver/nrsqlserverreceiver's visible output — when a leading SQL comment
+// (e.g. an APM correlation tag like /*nr_service_guid='...'*/) was present in the raw
+// source but is no longer visible in digestText.
+//
+// This exists because MySQL's own server-side statement digesting
+// (performance_schema DIGEST_TEXT, and by extension events_statements_summary_by_digest's
+// digest_text) already strips leading comments before the receiver ever sees the text —
+// unlike Oracle's V$SQL.SQL_TEXT or SQL Server's sys.dm_exec_sql_text, which retain them
+// verbatim. So obfuscateSQLString's own comment-collection pass (above) has nothing to
+// redact in the common case: by the time digestText reaches it, the comment is already
+// gone, not merely hidden. rawSQLText — the *_TEXT column that MySQL doesn't digest, e.g.
+// events_statements_current.SQL_TEXT or events_statements_summary_by_digest's own
+// QUERY_SAMPLE_TEXT — is checked instead to detect that a comment existed at all.
+//
+// If digestText itself still carries a comment (e.g. DIGEST_TEXT was unavailable and a
+// raw-text fallback was used upstream), obfuscateSQLString already redacted it, so no
+// second marker is added — checked via HasLeadingComment(digestText) to avoid a double "?".
+func (o *obfuscator) obfuscateSQLStringWithComment(digestText, rawSQLText string) (string, error) {
+	obfuscated, err := o.obfuscateSQLString(digestText)
+	if err != nil {
+		return "", err
+	}
+	if !sqlcomments.HasLeadingComment(digestText) && sqlcomments.HasLeadingComment(rawSQLText) {
+		obfuscated = "? " + obfuscated
+	}
+	return obfuscated, nil
 }
 
 func (o *obfuscator) obfuscatePlan(plan string) (string, error) {

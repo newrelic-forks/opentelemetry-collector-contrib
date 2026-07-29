@@ -86,6 +86,59 @@ WHERE order_date > '2024-01-01' # Recent orders only`,
 	}
 }
 
+func TestObfuscateSQLStringWithComment(t *testing.T) {
+	tests := []struct {
+		name       string
+		digestText string
+		rawSQLText string
+		expected   string
+	}{
+		{
+			// The common, real-world case: MySQL's own server-side digesting
+			// (performance_schema DIGEST_TEXT / events_statements_summary_by_digest's
+			// digest_text) has already stripped the leading APM comment tag before the
+			// receiver ever sees digestText, but the raw *_TEXT column (SQL_TEXT /
+			// QUERY_SAMPLE_TEXT) still has it — so the marker has to come from there.
+			name:       "digest already comment-free, raw text has the comment",
+			digestText: `SELECT id FROM orders WHERE id = ?`,
+			rawSQLText: `/*nr_service_guid="abc123"*/SELECT id FROM orders WHERE id = 5`,
+			expected:   `? SELECT id FROM orders WHERE id = ?`,
+		},
+		{
+			name:       "no comment anywhere",
+			digestText: `SELECT id FROM orders WHERE id = ?`,
+			rawSQLText: `SELECT id FROM orders WHERE id = 5`,
+			expected:   `SELECT id FROM orders WHERE id = ?`,
+		},
+		{
+			// Rare fallback case: DIGEST_TEXT itself carries the comment (e.g. a
+			// raw-text fallback was used upstream because DIGEST_TEXT was
+			// unavailable). obfuscateSQLString's own comment-collection pass already
+			// redacts it — must not double up to "? ? SELECT ...".
+			name:       "digest text itself still has the comment (no double marker)",
+			digestText: `/*nr_service_guid="abc123"*/SELECT id FROM orders WHERE id = 5`,
+			rawSQLText: `/*nr_service_guid="abc123"*/SELECT id FROM orders WHERE id = 5`,
+			expected:   `? SELECT id FROM orders WHERE id = ?`,
+		},
+		{
+			// MySQL <8 / MariaDB fallback template path: querySampleText/sqlText is "".
+			name:       "empty raw text (no sample available)",
+			digestText: `SELECT id FROM orders WHERE id = ?`,
+			rawSQLText: ``,
+			expected:   `SELECT id FROM orders WHERE id = ?`,
+		},
+	}
+
+	obf := newObfuscator()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := obf.obfuscateSQLStringWithComment(tt.digestText, tt.rawSQLText)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
 func TestObfuscateSQL(t *testing.T) {
 	expected, err := os.ReadFile(filepath.Join("testdata", "obfuscate", "expectedSQL.sql"))
 	assert.NoError(t, err)

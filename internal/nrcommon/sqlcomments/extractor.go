@@ -33,6 +33,15 @@ func ExtractAndFilterComments(sqlText string, allowedKeys []string) string {
 	return strings.Join(filteredPairs, ",")
 }
 
+// HasLeadingComment reports whether sqlText starts with one or more /* */ block
+// comments (optionally preceded by whitespace), regardless of their content or
+// whether any key inside matches an allowlist. Used to detect that a comment was
+// present in a raw SQL source even when ExtractAndFilterComments returns "" for it
+// (e.g. an allowed keys list that doesn't match, or no allowed keys configured).
+func HasLeadingComment(sqlText string) bool {
+	return leadingBlockCommentRegex.MatchString(sqlText)
+}
+
 // ExtractValueForKey returns the value associated with key in a comma-separated
 // key=value string such as the output of ExtractAndFilterComments
 // (e.g. "nr_service_guid=abc-123,app_id=xyz"). It returns "" when the key is not

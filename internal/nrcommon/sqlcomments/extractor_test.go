@@ -134,6 +134,59 @@ func TestExtractAndFilterComments(t *testing.T) {
 	}
 }
 
+func TestHasLeadingComment(t *testing.T) {
+	tests := []struct {
+		name     string
+		sqlText  string
+		expected bool
+	}{
+		{
+			name:     "leading block comment",
+			sqlText:  `/*nr_service_guid="abc"*/ SELECT * FROM t`,
+			expected: true,
+		},
+		{
+			name:     "whitespace before comment",
+			sqlText:  "   /* application=abc */ SELECT * FROM t",
+			expected: true,
+		},
+		{
+			name:     "comment with no matching allowlist key still detected",
+			sqlText:  "/* other=val */ SELECT * FROM t",
+			expected: true,
+		},
+		{
+			name:     "no comment",
+			sqlText:  "SELECT * FROM t",
+			expected: false,
+		},
+		{
+			name:     "comment not at start",
+			sqlText:  "SELECT * FROM t /* a=1 */",
+			expected: false,
+		},
+		{
+			name:     "unclosed comment",
+			sqlText:  "/* unclosed SELECT * FROM t",
+			expected: false,
+		},
+		{
+			name:     "empty string",
+			sqlText:  "",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := HasLeadingComment(tt.sqlText)
+			if got != tt.expected {
+				t.Errorf("HasLeadingComment(%q) = %v, want %v", tt.sqlText, got, tt.expected)
+			}
+		})
+	}
+}
+
 func TestExtractValueForKey(t *testing.T) {
 	tests := []struct {
 		name     string

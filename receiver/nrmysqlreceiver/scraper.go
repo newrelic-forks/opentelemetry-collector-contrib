@@ -774,7 +774,7 @@ func (m *mySQLScraper) scrapeTopQueries(now pcommon.Timestamp, errs *scrapererro
 			countStarVal = 0
 		}
 
-		obfuscatedQuery, err := m.obfuscator.obfuscateSQLString(q.digestText)
+		obfuscatedQuery, err := m.obfuscator.obfuscateSQLStringWithComment(q.digestText, q.querySampleText)
 		if err != nil {
 			m.logger.Error("Failed to obfuscate query", zap.Error(err))
 		}
@@ -840,7 +840,7 @@ func (m *mySQLScraper) scrapeQuerySamples(_ context.Context, now pcommon.Timesta
 		networkPeerAddress := clientAddress
 		networkPeerPort := clientPort
 
-		obfuscatedQuery, obfErr := m.obfuscator.obfuscateSQLString(sample.digestText)
+		obfuscatedQuery, obfErr := m.obfuscator.obfuscateSQLStringWithComment(sample.digestText, sample.sqlText)
 		if obfErr != nil {
 			m.logger.Error("Failed to obfuscate query", zap.Error(obfErr))
 		}
