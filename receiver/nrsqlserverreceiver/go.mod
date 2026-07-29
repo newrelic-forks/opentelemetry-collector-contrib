@@ -7,11 +7,11 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/microsoft/go-mssqldb v1.9.6
-	github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon v0.156.1
-	github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrsqlquery v0.156.1
+	github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon v0.157.1
+	github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrsqlquery v0.157.1
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/golden v0.157.0
-	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatatest v0.156.0
-	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/winperfcounters v0.156.0
+	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatatest v0.157.0
+	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/winperfcounters v0.157.0
 	github.com/stretchr/testify v1.11.1
 	github.com/testcontainers/testcontainers-go v0.42.0
 	go.opentelemetry.io/collector/component v1.63.1-0.20260723141305-52e6bf4aaaba
