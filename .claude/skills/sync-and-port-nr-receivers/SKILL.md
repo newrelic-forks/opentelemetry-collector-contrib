@@ -1,9 +1,15 @@
 ---
 name: sync-and-port-nr-receivers
-description: "Use when syncing the newrelic-forks contrib repo with upstream and porting new upstream receiver changes into the nr-prefixed forks (nroracledbreceiver, nrsqlserverreceiver, nrpostgresqlreceiver, and — once it exists — nrmysqlreceiver). Covers the full recurring release workflow: merge origin/main, align collector deps, compute the base→fork parity delta, port additively (handling attribute collisions and shared-metric drift), regenerate, and run all gates."
+description: "Use when syncing the newrelic-forks contrib repo with upstream and porting new upstream receiver changes into the nr-prefixed forks (nroracledbreceiver, nrsqlserverreceiver, nrpostgresqlreceiver, and — once it exists — nrmysqlreceiver). Covers merging origin/main, aligning collector deps, computing the base→fork parity delta, porting additively (handling attribute collisions and shared-metric drift), regenerating, and running all gates. Does NOT cut a release — see [[release-nr-receivers]] for tagging/publishing on the bi-weekly cadence, which runs every cycle regardless of whether this skill found anything to port."
 ---
 
 # Sync & Port NR-Prefixed Receivers
+
+**Relationship to [[release-nr-receivers]]:** this skill answers "did we pull in upstream's new
+metrics/queries." That skill answers "is there a tagged release NRDOT can consume, and does its
+changelog say what changed." Run this skill when there's new upstream content to absorb; run
+release-nr-receivers every cycle regardless, even when this skill was a no-op — NRDOT bumps on a
+fixed 2-week schedule and needs a new fork tag every time, changes or not.
 
 Keeps the `nr`-prefixed forks (`receiver/nroracledbreceiver`, `receiver/nrsqlserverreceiver`,
 `receiver/nrpostgresqlreceiver`, and — once it exists — `receiver/nrmysqlreceiver`) in sync with
