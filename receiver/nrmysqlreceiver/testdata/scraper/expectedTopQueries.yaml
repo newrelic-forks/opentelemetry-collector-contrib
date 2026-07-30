@@ -40,9 +40,12 @@ resourceLogs:
               - key: db.query.text.normalized.hash
                 value:
                   stringValue: 0f711cef50ce34d0a0f51e96f015684c
+              - key: db.namespace
+                value:
+                  stringValue: mysql
             body: {}
             eventName: db.server.top_query
-            timeUnixNano: "1785132730772218000"
+            timeUnixNano: "1785406307684463000"
         scope:
           name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrmysqlreceiver
           version: latest

@@ -88,7 +88,7 @@ attributes:
     enum: [accepted, closed, rejected]
     requirement_level: recommended
   db.namespace:
-    description: The default database for the thread, or empty if none has been selected (originally processlist_db).
+    description: The default database/schema for the query. On query samples this is the thread's current database (processlist_db); on top queries it is the digest's SCHEMA_NAME. Empty when no default database was selected.
     type: string
   db.query.comment_tags:
     description: Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys specified in allowed_comment_keys configuration. Used for correlation with APM traces.
@@ -356,6 +356,7 @@ events:
       - db.query.comment_tags
       - db.query.comment_tags.nr_service_guid
       - db.query.text.normalized.hash
+      - db.namespace
 
 metrics:
   mysql.buffer_pool.data_pages:

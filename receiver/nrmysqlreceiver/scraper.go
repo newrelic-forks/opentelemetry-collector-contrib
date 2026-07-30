@@ -814,6 +814,7 @@ func (m *mySQLScraper) scrapeTopQueries(now pcommon.Timestamp, errs *scrapererro
 			queryCommentTags,
 			nrServiceGUID,
 			normalizedQueryHash,
+			q.schemaName,
 		)
 	}
 }

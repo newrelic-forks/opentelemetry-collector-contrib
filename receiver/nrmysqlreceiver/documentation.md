@@ -692,7 +692,7 @@ This provides real-time visibility into active queries, helping users monitor da
 | db.system.name | The name of the database system. | Str: ``mysql`` | - |
 | mysql.threads.thread_id | The unique identifier for the thread executing the statement. | Any Int | - |
 | user.name | The user associated with a foreground thread, empty for a background thread (originally processlist_user). | Any Str | - |
-| db.namespace | The default database for the thread, or empty if none has been selected (originally processlist_db). | Any Str | - |
+| db.namespace | The default database/schema for the query. On query samples this is the thread's current database (processlist_db); on top queries it is the digest's SCHEMA_NAME. Empty when no default database was selected. | Any Str | - |
 | mysql.threads.processlist_command | The type of command the thread is executing on behalf of the client for foreground threads, or `Sleep` if the session is idle. | Any Str | - |
 | mysql.threads.processlist_state | An action, event, or state that indicates what the thread is doing. | Any Str | - |
 | db.query.text | The SQL statement text for the event. | Any Str | - |
@@ -733,6 +733,7 @@ This provides insights into query performance and resource usage, helping users 
 | db.query.comment_tags | Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys specified in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
 | db.query.comment_tags.nr_service_guid | New Relic service GUID extracted from the filtered db.query.comment_tags. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
 | db.query.text.normalized.hash | MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Used for correlation with APM slow query traces. | Any Str | - |
+| db.namespace | The default database/schema for the query. On query samples this is the thread's current database (processlist_db); on top queries it is the digest's SCHEMA_NAME. Empty when no default database was selected. | Any Str | - |
 
 ## Resource Attributes
 

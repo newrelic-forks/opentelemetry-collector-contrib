@@ -1092,6 +1092,12 @@ func TestScrapeTopQueriesNoSampleText(t *testing.T) {
 		assert.Empty(t, planVal.Str(), "mysql.query_plan should be empty when sample text is unavailable")
 	}
 
+	// db.namespace (from SCHEMA_NAME) must be populated even on the no-sample-text
+	// (MySQL <8.0.3) fallback path — the fixture's SCHEMA_NAME column is "mysql".
+	nsVal, hasNS := lr.Attributes().Get("db.namespace")
+	require.True(t, hasNS, "db.namespace should be present on top_query (MySQL 5.7 path)")
+	assert.Equal(t, "mysql", nsVal.Str())
+
 	// mysql.query_plan.hash should also be empty when no plan is available.
 	hashVal, hasHash := lr.Attributes().Get("mysql.query_plan.hash")
 	if hasHash {
@@ -1123,6 +1129,11 @@ func TestScrapeTopQueriesMariaDB(t *testing.T) {
 	if hasHash {
 		assert.Empty(t, hashVal.Str(), "mysql.query_plan.hash should be empty when no plan is available")
 	}
+
+	// db.namespace (from SCHEMA_NAME) must be populated on the MariaDB fallback path too.
+	nsVal, hasNS := lr.Attributes().Get("db.namespace")
+	require.True(t, hasNS, "db.namespace should be present on top_query (MariaDB path)")
+	assert.Equal(t, "mysql", nsVal.Str())
 }
 
 // TestScrapeQuerySamplesExplainPlan verifies that scrapeQuerySamples emits the
