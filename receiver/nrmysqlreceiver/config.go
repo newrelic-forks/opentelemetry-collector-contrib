@@ -4,6 +4,7 @@
 package nrmysqlreceiver // import "github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrmysqlreceiver"
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrmysqlreceiver/internal/metadata"
@@ -20,6 +21,20 @@ const (
 	defaultStatementEventsTimeLimit       = 24 * time.Hour
 )
 
+// EXPLAIN execution modes (see explain_mode config option).
+const (
+	// explainModeInline runs EXPLAIN directly on the monitoring connection.
+	// EXPLAIN of a write statement then requires the connection user to hold the
+	// matching DML privilege, so a read-only monitoring user loses plans for
+	// UPDATE/DELETE/INSERT/REPLACE.
+	explainModeInline = "inline"
+	// explainModeProcedure routes EXPLAIN through a SQL SECURITY DEFINER stored
+	// procedure (<schema>.explain_statement) so write statements can be explained
+	// without granting DML to the monitoring user. Falls back to inline EXPLAIN
+	// when the procedure is absent for a schema.
+	explainModeProcedure = "procedure"
+)
+
 type Config struct {
 	scraperhelper.ControllerConfig `mapstructure:",squash"`
 	Username                       string              `mapstructure:"username,omitempty"`
@@ -33,6 +48,11 @@ type Config struct {
 	StatementEvents                StatementEventsConfig         `mapstructure:"statement_events"`
 	TopQueryCollection             TopQueryCollection            `mapstructure:"top_query_collection"`
 	QuerySampleCollection          QuerySampleCollection         `mapstructure:"query_sample_collection"`
+	// ExplainMode selects how execution plans are retrieved: "inline" (default,
+	// direct EXPLAIN on the monitoring connection) or "procedure" (CALL the
+	// <schema>.explain_statement SQL SECURITY DEFINER procedure, so write
+	// statements can be explained without granting DML to the monitoring user).
+	ExplainMode string `mapstructure:"explain_mode"`
 }
 
 type TopQueryCollection struct {
@@ -57,6 +77,15 @@ type StatementEventsConfig struct {
 	DigestTextLimit int           `mapstructure:"digest_text_limit"`
 	Limit           int           `mapstructure:"limit"`
 	TimeLimit       time.Duration `mapstructure:"time_limit"`
+}
+
+func (cfg *Config) Validate() error {
+	switch cfg.ExplainMode {
+	case "", explainModeInline, explainModeProcedure:
+		return nil
+	default:
+		return fmt.Errorf("invalid explain_mode %q: must be %q or %q", cfg.ExplainMode, explainModeInline, explainModeProcedure)
+	}
 }
 
 func (cfg *Config) Unmarshal(componentParser *confmap.Conf) error {

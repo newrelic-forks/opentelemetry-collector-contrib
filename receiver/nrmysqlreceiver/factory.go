@@ -34,6 +34,7 @@ func createDefaultConfig() component.Config {
 		ControllerConfig:     cfg,
 		AllowNativePasswords: true,
 		Username:             "root",
+		ExplainMode:          explainModeInline,
 		AddrConfig: confignet.AddrConfig{
 			Endpoint:  "localhost:3306",
 			Transport: confignet.TransportTypeTCP,

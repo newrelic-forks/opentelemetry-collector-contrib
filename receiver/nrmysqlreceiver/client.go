@@ -8,11 +8,13 @@ import (
 	"context"
 	"database/sql"
 	_ "embed"
+	"errors"
 	"fmt"
 	"net"
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"text/template"
 	"time"
 
@@ -138,6 +140,22 @@ type mySQLClient struct {
 	statementEventsLimit           int
 	statementEventsTimeLimit       time.Duration
 	dbVersion                      dbVersion
+
+	// explainMode selects how execution plans are retrieved (explainModeInline |
+	// explainModeProcedure). See explainQuery.
+	explainMode string
+	// explainProc caches, per schema, whether the <schema>.explain_statement
+	// definer procedure exists, so the probe runs at most once per schema. Held
+	// behind a pointer so mySQLClient stays copyable (a value-receiver method
+	// copies it) — an embedded sync.Mutex would make copies a vet error.
+	explainProc *explainProcCache
+}
+
+// explainProcCache memoizes the per-schema availability of the
+// <schema>.explain_statement definer procedure used by explain_mode=procedure.
+type explainProcCache struct {
+	mu        sync.Mutex
+	available map[string]bool
 }
 
 type ioWaitsStats struct {
@@ -355,6 +373,8 @@ func newMySQLClient(conf *Config) (client, error) {
 		statementEventsDigestTextLimit: conf.StatementEvents.DigestTextLimit,
 		statementEventsLimit:           conf.StatementEvents.Limit,
 		statementEventsTimeLimit:       conf.StatementEvents.TimeLimit,
+		explainMode:                    conf.ExplainMode,
+		explainProc:                    &explainProcCache{available: make(map[string]bool)},
 	}, nil
 }
 
@@ -1041,6 +1061,46 @@ func (c *mySQLClient) explainQuery(digestText, sampleStatement, schema, digest s
 	}
 	defer conn.Close()
 
+	stmt := strings.TrimSpace(sampleStatement)
+
+	// explain_mode=procedure: route EXPLAIN through the SQL SECURITY DEFINER
+	// procedure <schema>.explain_statement so write statements (UPDATE/DELETE/
+	// INSERT/REPLACE) can be explained without granting DML to the monitoring
+	// user. Requires a schema (the procedure is created per database) and the
+	// procedure to exist; otherwise falls back to the inline EXPLAIN below.
+	if c.explainMode == explainModeProcedure && schema != "" && c.explainProcedureAvailable(ctx, conn, schema, logger) {
+		escapedSchema := strings.ReplaceAll(schema, "`", "``")
+		// Statement passed as a bind parameter (not concatenated) — the only
+		// dynamic concatenation happens inside the definer procedure, guarded by
+		// PREPARE's single-statement boundary.
+		rows, qErr := conn.QueryContext(ctx, fmt.Sprintf("CALL `%s`.explain_statement(?)", escapedSchema), stmt)
+		if qErr != nil {
+			logger.Warn("unable to execute explain via definer procedure", zap.String("digest", digest), zap.Error(qErr))
+			return ""
+		}
+		defer rows.Close()
+
+		var plan string
+		if rows.Next() {
+			if sErr := rows.Scan(&plan); sErr != nil {
+				logger.Warn("unable to scan explain procedure result", zap.String("digest", digest), zap.Error(sErr))
+				return ""
+			}
+		}
+		// A CALL leaves trailing result set(s); drain them so the pooled
+		// connection is returned to a clean state.
+		for rows.NextResultSet() {
+			for rows.Next() { //nolint:revive // draining rows
+			}
+		}
+		if plan == "" {
+			logger.Warn("explain procedure returned empty plan", zap.String("digest", digest))
+		}
+		return plan
+	}
+
+	// inline EXPLAIN — default behavior, and the fallback when explain_mode=
+	// procedure but the procedure is unavailable for this schema.
 	if schema != "" {
 		if _, err = conn.ExecContext(ctx, fmt.Sprintf("/* otel-collector-ignore */ USE `%s`;", strings.ReplaceAll(schema, "`", "``"))); err != nil {
 			logger.Warn(fmt.Sprintf("unable to use schema: %s", schema), zap.String("digest", digest), zap.Error(err))
@@ -1049,7 +1109,7 @@ func (c *mySQLClient) explainQuery(digestText, sampleStatement, schema, digest s
 	}
 
 	var plan string
-	if err = conn.QueryRowContext(ctx, "EXPLAIN FORMAT=json "+strings.TrimSpace(sampleStatement)).Scan(&plan); err != nil {
+	if err = conn.QueryRowContext(ctx, "EXPLAIN FORMAT=json "+stmt).Scan(&plan); err != nil {
 		logger.Warn("unable to execute explain statement", zap.String("digest", digest), zap.Error(err))
 		return ""
 	}
@@ -1057,6 +1117,39 @@ func (c *mySQLClient) explainQuery(digestText, sampleStatement, schema, digest s
 		logger.Warn("explain query returned empty plan", zap.String("digest", digest))
 	}
 	return plan
+}
+
+// explainProcedureAvailable reports whether the <schema>.explain_statement
+// SQL SECURITY DEFINER procedure exists, used when explain_mode=procedure. The
+// probe result is cached per schema (so it runs at most once per schema); a
+// missing procedure is logged once per schema and the caller falls back to
+// inline EXPLAIN. Never hard-fails.
+func (c *mySQLClient) explainProcedureAvailable(ctx context.Context, conn *sql.Conn, schema string, logger *zap.Logger) bool {
+	c.explainProc.mu.Lock()
+	if avail, ok := c.explainProc.available[schema]; ok {
+		c.explainProc.mu.Unlock()
+		return avail
+	}
+	c.explainProc.mu.Unlock()
+
+	var found int
+	err := conn.QueryRowContext(ctx,
+		"SELECT 1 FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA = ? AND ROUTINE_NAME = 'explain_statement' AND ROUTINE_TYPE = 'PROCEDURE' LIMIT 1",
+		schema).Scan(&found)
+	avail := err == nil
+	switch {
+	case err != nil && !errors.Is(err, sql.ErrNoRows):
+		logger.Warn("unable to probe for explain_statement procedure; falling back to inline EXPLAIN",
+			zap.String("schema", schema), zap.Error(err))
+	case !avail:
+		logger.Info("explain_mode=procedure but explain_statement procedure not found in schema; falling back to inline EXPLAIN",
+			zap.String("schema", schema))
+	}
+
+	c.explainProc.mu.Lock()
+	c.explainProc.available[schema] = avail
+	c.explainProc.mu.Unlock()
+	return avail
 }
 
 // This function filters out queries that are unsupported by 'EXPLAIN'
