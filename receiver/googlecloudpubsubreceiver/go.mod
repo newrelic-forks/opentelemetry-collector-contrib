@@ -10,7 +10,6 @@ require (
 	go.opentelemetry.io/collector/component v1.63.1-0.20260723141305-52e6bf4aaaba
 	go.opentelemetry.io/collector/component/componenttest v0.157.1-0.20260723141305-52e6bf4aaaba
 	go.opentelemetry.io/collector/confmap v1.63.1-0.20260723141305-52e6bf4aaaba
-	go.opentelemetry.io/collector/confmap/xconfmap v0.157.1-0.20260723141305-52e6bf4aaaba
 	go.opentelemetry.io/collector/consumer v1.63.1-0.20260723141305-52e6bf4aaaba
 	go.opentelemetry.io/collector/consumer/consumertest v0.157.1-0.20260723141305-52e6bf4aaaba
 	go.opentelemetry.io/collector/exporter/exporterhelper v0.157.1-0.20260723141305-52e6bf4aaaba
@@ -76,7 +75,7 @@ require (
 	go.opentelemetry.io/collector/pipeline/xpipeline v0.157.1-0.20260723141305-52e6bf4aaaba // indirect
 	go.opentelemetry.io/collector/receiver/xreceiver v0.157.1-0.20260723141305-52e6bf4aaaba // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.67.0 // indirect
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.67.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.69.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.44.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect

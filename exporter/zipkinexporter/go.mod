@@ -18,7 +18,6 @@ require (
 	go.opentelemetry.io/collector/config/configretry v1.63.1-0.20260723141305-52e6bf4aaaba
 	go.opentelemetry.io/collector/config/configtls v1.63.1-0.20260723141305-52e6bf4aaaba
 	go.opentelemetry.io/collector/confmap v1.63.1-0.20260723141305-52e6bf4aaaba
-	go.opentelemetry.io/collector/confmap/xconfmap v0.157.1-0.20260723141305-52e6bf4aaaba
 	go.opentelemetry.io/collector/consumer/consumererror v0.157.1-0.20260723141305-52e6bf4aaaba
 	go.opentelemetry.io/collector/exporter v1.63.1-0.20260723141305-52e6bf4aaaba
 	go.opentelemetry.io/collector/exporter/exporterhelper v0.157.1-0.20260723141305-52e6bf4aaaba
@@ -98,7 +97,7 @@ require (
 	golang.org/x/net v0.57.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.40.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260414002931-afd174a4e478 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260610212136-7ab31c22f7ad // indirect
 	google.golang.org/grpc v1.82.1 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

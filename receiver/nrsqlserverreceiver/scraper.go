@@ -127,16 +127,8 @@ func (s *sqlServerScraperHelper) ScrapeMetrics(ctx context.Context) (pmetric.Met
 		err = s.recordDatabaseStatusMetrics(ctx)
 	case getSQLServerWaitStatsQuery(s.config.InstanceName):
 		err = s.recordDatabaseWaitMetrics(ctx)
-	case getSQLServerMemoryTargetQuery(s.config.InstanceName):
-		err = s.recordMemoryTargetMetrics(ctx)
 	case getSQLServerDatabaseSizeQuery(s.config.InstanceName):
 		err = s.recordDatabaseSizeMetrics(ctx)
-	case getSQLServerSecurityPrincipalsQuery(s.config.InstanceName):
-		err = s.recordSecurityPrincipalsMetrics(ctx)
-	case getSQLServerSecurityRoleMembersQuery(s.config.InstanceName):
-		err = s.recordSecurityRoleMembersMetrics(ctx)
-	case getSQLServerDatabaseSecurityRoleMembersQuery(s.config.InstanceName):
-		err = s.recordDatabaseSecurityRoleMembersMetrics(ctx)
 	case getSQLServerOSMemoryQuery(s.config.InstanceName):
 		err = s.recordOSMemoryMetrics(ctx)
 	case getSQLServerOSDiskQuery(s.config.InstanceName):
@@ -147,8 +139,6 @@ func (s *sqlServerScraperHelper) ScrapeMetrics(ctx context.Context) (pmetric.Met
 		err = s.recordProcessCountMetrics(ctx)
 	case getSQLServerDatabasePageFileQuery(s.config.InstanceName):
 		err = s.recordDatabasePageFileMetrics(ctx)
-	case getSQLServerLockQuery(s.config.InstanceName):
-		err = s.recordLockMetrics(ctx)
 	case getSQLServerThreadPoolQuery(s.config.InstanceName):
 		err = s.recordThreadPoolMetrics(ctx)
 	case getSQLServerWorkerThreadsQuery(s.config.InstanceName):
@@ -163,16 +153,14 @@ func (s *sqlServerScraperHelper) ScrapeMetrics(ctx context.Context) (pmetric.Met
 		err = s.recordFailoverClusterReplicaMetrics(ctx)
 	case getSQLServerFailoverClusterReplicaDatabaseQuery(s.config.InstanceName):
 		err = s.recordFailoverClusterReplicaDatabaseMetrics(ctx)
-	case getSQLServerDatabasePrincipalsQuery(s.config.InstanceName):
-		err = s.recordDatabasePrincipalsMetrics(ctx)
-	case getSQLServerDatabaseRoleMembershipQuery(s.config.InstanceName):
-		err = s.recordDatabaseRoleMembershipMetrics(ctx)
-	case getSQLServerDatabaseRoleRiskLevelQuery(s.config.InstanceName):
-		err = s.recordDatabaseRoleRiskLevelMetrics(ctx)
 	case getSQLServerLongestRunningTransactionQuery(s.config.InstanceName):
 		err = s.recordLongestRunningTransactionMetrics(ctx)
 	case getSQLServerIndexPhysicalStatsQuery(s.config.InstanceName):
 		err = s.recordIndexPhysicalMetrics(ctx)
+	case getSQLServerCPUMemoryQuery(s.config.InstanceName):
+		err = s.recordCPUMemoryMetrics(ctx)
+	case getSQLServerDiskIOQuery(s.config.InstanceName):
+		err = s.recordDiskIOMetrics(ctx)
 	default:
 		return pmetric.Metrics{}, fmt.Errorf("Attempted to get metrics from unsupported query: %s", s.sqlQuery)
 	}
@@ -595,7 +583,6 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 	const diskWriteIOSec = "Disk Write IO/sec"
 	const diskWriteIOThrottled = "Disk Write IO Throttled/sec"
 	const errorsPerSec = "Errors/sec"
-	const killConnectionErrorsInstance = "Kill Connection Errors"
 	const executionErrors = "Execution Errors"
 	const failedAutoParamsPerSec = "Failed Auto-Params/sec"
 	const forcedParameterizationsPerSec = "Forced Parameterizations/sec"
@@ -638,7 +625,7 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 	const totalServerMemory = "Total Server Memory (KB)"
 	const cachePages = "Cache Pages"
 	const totalPages = "Total Pages"
-	const targetPages = "Target pages"
+	const targetPages = "Target Pages"
 	const databasePages = "Database pages"
 	const stolenPages = "Stolen Pages"
 	const reservedPages = "Reserved Pages"
@@ -795,12 +782,10 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 			}
 		case errorsPerSec:
 			// Errors/sec has multiple instances (User Errors, Kill Connection Errors, DB Offline
-			// Errors, Info Errors, ...). Upstream sqlserver.error.rate reports every known
-			// category via the sqlserver.error.category attribute; the nr-specific
-			// sqlserver.kill_connection.error.rate additionally reports only the kill-connection
-			// instance for backward compatibility.
+			// Errors, Info Errors, ...). sqlserver.error.rate reports every known category via
+			// the sqlserver.error.category attribute.
 			category, categoryOK := errorCategoryAttr(row[instanceKey])
-			if !categoryOK && row[instanceKey] != killConnectionErrorsInstance {
+			if !categoryOK {
 				break
 			}
 			val, err := retrieveFloat(row, valueKey)
@@ -808,12 +793,7 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s/%s", i, err, errorsPerSec, row[instanceKey])
 				errs = append(errs, err)
 			} else {
-				if categoryOK {
-					s.mb.RecordSqlserverErrorRateDataPoint(now, val.(float64), category)
-				}
-				if row[instanceKey] == killConnectionErrorsInstance {
-					s.mb.RecordSqlserverKillConnectionErrorRateDataPoint(now, val.(float64))
-				}
+				s.mb.RecordSqlserverErrorRateDataPoint(now, val.(float64), category)
 			}
 		case freeListStalls:
 			val, err := retrieveInt(row, valueKey)
@@ -1639,32 +1619,6 @@ func (s *sqlServerScraperHelper) recordDatabaseWaitMetrics(ctx context.Context) 
 	return errors.Join(errs...)
 }
 
-func (s *sqlServerScraperHelper) recordMemoryTargetMetrics(ctx context.Context) error {
-	const targetMemoryBytes = "target_memory_bytes"
-
-	rows, err := s.client.QueryRows(ctx)
-	if err != nil {
-		if !errors.Is(err, sqlquery.ErrNullValueWarning) {
-			return fmt.Errorf("sqlServerScraperHelper: %w", err)
-		}
-		s.logger.Warn("problems encountered getting metric rows", zap.Error(err))
-	}
-
-	var errs []error
-	now := pcommon.NewTimestampFromTime(time.Now())
-	for i, row := range rows {
-		rb := s.setupResourceBuilder(s.mb.NewResourceBuilder(), row)
-
-		if err := s.mb.RecordSqlserverMemoryTargetDataPoint(now, row[targetMemoryBytes]); err != nil {
-			errs = append(errs, fmt.Errorf("failed to parse memory target for row %d: %w", i, err))
-		}
-
-		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
-	}
-
-	return errors.Join(errs...)
-}
-
 func (s *sqlServerScraperHelper) recordDatabaseSizeMetrics(ctx context.Context) error {
 	const (
 		databaseName = "database_name"
@@ -1862,62 +1816,6 @@ func (s *sqlServerScraperHelper) recordDatabasePageFileMetrics(ctx context.Conte
 			errs = append(errs, s.mb.RecordSqlserverDatabasePageFileSizeDataPoint(now, fmt.Sprintf("%d", usedBytes), row[databaseName], metadata.AttributePageFileStateUsed))
 		}
 
-		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
-	}
-
-	return errors.Join(errs...)
-}
-
-func (s *sqlServerScraperHelper) recordLockMetrics(ctx context.Context) error {
-	const databaseName = "db_name"
-	lockModeCols := []struct {
-		col   string
-		value metadata.AttributeLockMode
-	}{
-		{"mode_shared", metadata.AttributeLockModeShared},
-		{"mode_exclusive", metadata.AttributeLockModeExclusive},
-		{"mode_update", metadata.AttributeLockModeUpdate},
-		{"mode_intent", metadata.AttributeLockModeIntent},
-		{"mode_schema", metadata.AttributeLockModeSchema},
-		{"mode_bulk_update", metadata.AttributeLockModeBulkUpdate},
-		{"mode_shared_intent_exclusive", metadata.AttributeLockModeSharedIntentExclusive},
-	}
-	lockResourceCols := []struct {
-		col   string
-		value metadata.AttributeLockResource
-	}{
-		{"resource_key", metadata.AttributeLockResourceKey},
-		{"resource_page", metadata.AttributeLockResourcePage},
-		{"resource_row", metadata.AttributeLockResourceRow},
-		{"resource_table", metadata.AttributeLockResourceTable},
-		{"resource_extent", metadata.AttributeLockResourceExtent},
-		{"resource_file", metadata.AttributeLockResourceFile},
-		{"resource_hobt", metadata.AttributeLockResourceHobt},
-		{"resource_metadata", metadata.AttributeLockResourceMetadata},
-		{"resource_application", metadata.AttributeLockResourceApplication},
-		{"resource_allocation_unit", metadata.AttributeLockResourceAllocationUnit},
-		{"resource_database_level", metadata.AttributeLockResourceDatabaseLevel},
-	}
-
-	rows, err := s.client.QueryRows(ctx)
-	if err != nil {
-		if !errors.Is(err, sqlquery.ErrNullValueWarning) {
-			return fmt.Errorf("sqlServerScraperHelper: %w", err)
-		}
-		s.logger.Warn("problems encountered getting metric rows", zap.Error(err))
-	}
-
-	var errs []error
-	now := pcommon.NewTimestampFromTime(time.Now())
-	for _, row := range rows {
-		rb := s.setupResourceBuilder(s.mb.NewResourceBuilder(), row)
-		rb.SetSqlserverDatabaseName(row[databaseName])
-		for _, c := range lockModeCols {
-			errs = append(errs, s.mb.RecordSqlserverLockByModeCountDataPoint(now, row[c.col], row[databaseName], c.value))
-		}
-		for _, c := range lockResourceCols {
-			errs = append(errs, s.mb.RecordSqlserverLockByResourceCountDataPoint(now, row[c.col], row[databaseName], c.value))
-		}
 		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
 	}
 
@@ -2264,141 +2162,6 @@ func (s *sqlServerScraperHelper) recordFailoverClusterReplicaDatabaseMetrics(ctx
 	return errors.Join(errs...)
 }
 
-func (s *sqlServerScraperHelper) recordDatabasePrincipalsMetrics(ctx context.Context) error {
-	const (
-		databaseName            = "db_name"
-		sqlUser                 = "sql_user"
-		windowsUser             = "windows_user"
-		roleCol                 = "role"
-		applicationRole         = "application_role"
-		certificateMappedUser   = "certificate_mapped_user"
-		asymmetricKeyMappedUser = "asymmetric_key_mapped_user"
-		recentlyCreated         = "recently_created"
-		old                     = "old"
-		orphanedUsers           = "orphaned_users"
-	)
-	principalTypeCols := []struct {
-		col   string
-		value metadata.AttributePrincipalType
-	}{
-		{sqlUser, metadata.AttributePrincipalTypeSQLUser},
-		{windowsUser, metadata.AttributePrincipalTypeWindowsUser},
-		{roleCol, metadata.AttributePrincipalTypeRole},
-		{applicationRole, metadata.AttributePrincipalTypeApplicationRole},
-		{certificateMappedUser, metadata.AttributePrincipalTypeCertificateMappedUser},
-		{asymmetricKeyMappedUser, metadata.AttributePrincipalTypeAsymmetricKeyMappedUser},
-	}
-
-	rows, err := s.client.QueryRows(ctx)
-	if err != nil {
-		if !errors.Is(err, sqlquery.ErrNullValueWarning) {
-			return fmt.Errorf("sqlServerScraperHelper: %w", err)
-		}
-		s.logger.Warn("problems encountered getting metric rows", zap.Error(err))
-	}
-
-	var errs []error
-	now := pcommon.NewTimestampFromTime(time.Now())
-	for _, row := range rows {
-		rb := s.setupResourceBuilder(s.mb.NewResourceBuilder(), row)
-		rb.SetSqlserverDatabaseName(row[databaseName])
-		for _, c := range principalTypeCols {
-			errs = append(errs, s.mb.RecordSqlserverDatabasePrincipalsCountDataPoint(now, row[c.col], row[databaseName], c.value))
-		}
-		errs = append(errs,
-			s.mb.RecordSqlserverDatabasePrincipalsRecentlyCreatedDataPoint(now, row[recentlyCreated], row[databaseName]),
-			s.mb.RecordSqlserverDatabasePrincipalsOldDataPoint(now, row[old], row[databaseName]),
-			s.mb.RecordSqlserverDatabasePrincipalsOrphanedUsersDataPoint(now, row[orphanedUsers], row[databaseName]),
-		)
-		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
-	}
-
-	return errors.Join(errs...)
-}
-
-func (s *sqlServerScraperHelper) recordDatabaseRoleMembershipMetrics(ctx context.Context) error {
-	const databaseName = "db_name"
-	memberCols := []struct {
-		col   string
-		value metadata.AttributeMemberKind
-	}{
-		{"members_app_role", metadata.AttributeMemberKindAppRole},
-		{"members_cross_role", metadata.AttributeMemberKindCrossRole},
-		{"members_high_privilege", metadata.AttributeMemberKindHighPrivilege},
-		{"members_unique", metadata.AttributeMemberKindUnique},
-	}
-	membershipCols := []struct {
-		col   string
-		value metadata.AttributeMembershipKind
-	}{
-		{"memberships_active", metadata.AttributeMembershipKindActive},
-		{"memberships_custom", metadata.AttributeMembershipKindCustom},
-		{"memberships_nested", metadata.AttributeMembershipKindNested},
-		{"memberships_users", metadata.AttributeMembershipKindUsers},
-	}
-	roleCols := []struct {
-		col   string
-		value metadata.AttributeRoleState
-	}{
-		{"roles_empty", metadata.AttributeRoleStateEmpty},
-		{"roles_with_members", metadata.AttributeRoleStateWithMembers},
-	}
-
-	rows, err := s.client.QueryRows(ctx)
-	if err != nil {
-		if !errors.Is(err, sqlquery.ErrNullValueWarning) {
-			return fmt.Errorf("sqlServerScraperHelper: %w", err)
-		}
-		s.logger.Warn("problems encountered getting metric rows", zap.Error(err))
-	}
-
-	var errs []error
-	now := pcommon.NewTimestampFromTime(time.Now())
-	for _, row := range rows {
-		rb := s.setupResourceBuilder(s.mb.NewResourceBuilder(), row)
-		rb.SetSqlserverDatabaseName(row[databaseName])
-		for _, c := range memberCols {
-			errs = append(errs, s.mb.RecordSqlserverDatabaseRoleMembersCountDataPoint(now, row[c.col], row[databaseName], c.value))
-		}
-		for _, c := range membershipCols {
-			errs = append(errs, s.mb.RecordSqlserverDatabaseRoleMembershipsCountDataPoint(now, row[c.col], row[databaseName], c.value))
-		}
-		for _, c := range roleCols {
-			errs = append(errs, s.mb.RecordSqlserverDatabaseRoleRolesCountDataPoint(now, row[c.col], row[databaseName], c.value))
-		}
-		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
-	}
-
-	return errors.Join(errs...)
-}
-
-func (s *sqlServerScraperHelper) recordDatabaseRoleRiskLevelMetrics(ctx context.Context) error {
-	const (
-		databaseName = "db_name"
-		roleName     = "role_name"
-		riskLevel    = "risk_level"
-	)
-
-	rows, err := s.client.QueryRows(ctx)
-	if err != nil {
-		if !errors.Is(err, sqlquery.ErrNullValueWarning) {
-			return fmt.Errorf("sqlServerScraperHelper: %w", err)
-		}
-		s.logger.Warn("problems encountered getting metric rows", zap.Error(err))
-	}
-
-	var errs []error
-	now := pcommon.NewTimestampFromTime(time.Now())
-	for _, row := range rows {
-		rb := s.setupResourceBuilder(s.mb.NewResourceBuilder(), row)
-		rb.SetSqlserverDatabaseName(row[databaseName])
-		errs = append(errs, s.mb.RecordSqlserverDatabaseRolePermissionRiskLevelDataPoint(now, row[riskLevel], row[databaseName], row[roleName]))
-		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
-	}
-
-	return errors.Join(errs...)
-}
-
 func (s *sqlServerScraperHelper) recordLongestRunningTransactionMetrics(ctx context.Context) error {
 	const longestSeconds = "longest_running_seconds"
 
@@ -2493,6 +2256,114 @@ func (s *sqlServerScraperHelper) recordIndexPhysicalMetrics(ctx context.Context)
 
 	if len(rows) == 0 {
 		s.logger.Info("SQLServerScraperHelper: No rows found by index physical stats query")
+	}
+
+	return errors.Join(errs...)
+}
+
+func (s *sqlServerScraperHelper) recordCPUMemoryMetrics(ctx context.Context) error {
+	const cpuUtilization = "cpu_utilization"
+	const memoryLimitBytes = "memory_limit_bytes"
+	const memoryUsedBytes = "memory_used_bytes"
+	const memoryFreeBytes = "memory_free_bytes"
+
+	rows, err := s.client.QueryRows(ctx)
+	if err != nil {
+		if !errors.Is(err, sqlquery.ErrNullValueWarning) {
+			return fmt.Errorf("sqlServerScraperHelper: %w", err)
+		}
+		s.logger.Warn("problems encountered getting metric rows", zap.Error(err))
+	}
+
+	var errs []error
+	now := pcommon.NewTimestampFromTime(time.Now())
+	for i, row := range rows {
+		rb := s.setupResourceBuilder(s.mb.NewResourceBuilder(), row)
+
+		val, err := retrieveFloat(row, cpuUtilization)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse %s for row %d: %w", cpuUtilization, i, err))
+		} else {
+			s.mb.RecordSqlserverCPUUtilizationDataPoint(now, val.(float64))
+		}
+
+		val, err = retrieveInt(row, memoryLimitBytes)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse %s for row %d: %w", memoryLimitBytes, i, err))
+		} else {
+			s.mb.RecordSqlserverHostMemoryLimitDataPoint(now, val.(int64))
+		}
+
+		val, err = retrieveInt(row, memoryUsedBytes)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse %s for row %d: %w", memoryUsedBytes, i, err))
+		} else {
+			s.mb.RecordSqlserverHostMemoryUsageDataPoint(now, val.(int64), metadata.AttributeSystemMemoryStateUsed)
+		}
+
+		val, err = retrieveInt(row, memoryFreeBytes)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse %s for row %d: %w", memoryFreeBytes, i, err))
+		} else {
+			s.mb.RecordSqlserverHostMemoryUsageDataPoint(now, val.(int64), metadata.AttributeSystemMemoryStateFree)
+		}
+
+		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
+	}
+
+	return errors.Join(errs...)
+}
+
+func (s *sqlServerScraperHelper) recordDiskIOMetrics(ctx context.Context) error {
+	const diskDrive = "disk_drive"
+	const readOps = "read_ops"
+	const writeOps = "write_ops"
+	const readBytes = "read_bytes"
+	const writeBytes = "write_bytes"
+
+	rows, err := s.client.QueryRows(ctx)
+	if err != nil {
+		if !errors.Is(err, sqlquery.ErrNullValueWarning) {
+			return fmt.Errorf("sqlServerScraperHelper: %w", err)
+		}
+		s.logger.Warn("problems encountered getting metric rows", zap.Error(err))
+	}
+
+	var errs []error
+	now := pcommon.NewTimestampFromTime(time.Now())
+	for i, row := range rows {
+		rb := s.setupResourceBuilder(s.mb.NewResourceBuilder(), row)
+		drive := row[diskDrive]
+
+		rOps, err := retrieveInt(row, readOps)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse %s for row %d: %w", readOps, i, err))
+		} else {
+			s.mb.RecordSqlserverDiskOperationsDataPoint(now, rOps.(int64), metadata.AttributeDiskIoDirectionRead, drive)
+		}
+
+		wOps, err := retrieveInt(row, writeOps)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse %s for row %d: %w", writeOps, i, err))
+		} else {
+			s.mb.RecordSqlserverDiskOperationsDataPoint(now, wOps.(int64), metadata.AttributeDiskIoDirectionWrite, drive)
+		}
+
+		rBytes, err := retrieveInt(row, readBytes)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse %s for row %d: %w", readBytes, i, err))
+		} else {
+			s.mb.RecordSqlserverDiskIoDataPoint(now, rBytes.(int64), metadata.AttributeDiskIoDirectionRead, drive)
+		}
+
+		wBytes, err := retrieveInt(row, writeBytes)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse %s for row %d: %w", writeBytes, i, err))
+		} else {
+			s.mb.RecordSqlserverDiskIoDataPoint(now, wBytes.(int64), metadata.AttributeDiskIoDirectionWrite, drive)
+		}
+
+		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
 	}
 
 	return errors.Join(errs...)
@@ -3108,90 +2979,4 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 		}
 	}
 	return resources, errors.Join(errs...)
-}
-
-func (s *sqlServerScraperHelper) recordSecurityPrincipalsMetrics(ctx context.Context) error {
-	const principalCount = "principal_count"
-
-	rows, err := s.client.QueryRows(ctx)
-	if err != nil {
-		if !errors.Is(err, sqlquery.ErrNullValueWarning) {
-			return fmt.Errorf("sqlServerScraperHelper: %w", err)
-		}
-		s.logger.Warn("problems encountered getting metric rows", zap.Error(err))
-	}
-
-	var errs []error
-	now := pcommon.NewTimestampFromTime(time.Now())
-	for i, row := range rows {
-		rb := s.setupResourceBuilder(s.mb.NewResourceBuilder(), row)
-
-		if err := s.mb.RecordSqlserverServerSecurityPrincipalCountDataPoint(now, row[principalCount]); err != nil {
-			errs = append(errs, fmt.Errorf("failed to parse server security principal count for row %d: %w", i, err))
-		}
-
-		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
-	}
-
-	return errors.Join(errs...)
-}
-
-func (s *sqlServerScraperHelper) recordSecurityRoleMembersMetrics(ctx context.Context) error {
-	const (
-		roleName        = "role_name"
-		roleMemberCount = "role_member_count"
-	)
-
-	rows, err := s.client.QueryRows(ctx)
-	if err != nil {
-		if !errors.Is(err, sqlquery.ErrNullValueWarning) {
-			return fmt.Errorf("sqlServerScraperHelper: %w", err)
-		}
-		s.logger.Warn("problems encountered getting metric rows", zap.Error(err))
-	}
-
-	var errs []error
-	now := pcommon.NewTimestampFromTime(time.Now())
-	for i, row := range rows {
-		rb := s.setupResourceBuilder(s.mb.NewResourceBuilder(), row)
-
-		if err := s.mb.RecordSqlserverServerSecurityRoleMembershipCountDataPoint(now, row[roleMemberCount], row[roleName]); err != nil {
-			errs = append(errs, fmt.Errorf("failed to parse server security role membership count for row %d: %w", i, err))
-		}
-
-		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
-	}
-
-	return errors.Join(errs...)
-}
-
-func (s *sqlServerScraperHelper) recordDatabaseSecurityRoleMembersMetrics(ctx context.Context) error {
-	const (
-		databaseName    = "database_name"
-		roleName        = "role_name"
-		roleMemberCount = "role_member_count"
-	)
-
-	rows, err := s.client.QueryRows(ctx)
-	if err != nil {
-		if !errors.Is(err, sqlquery.ErrNullValueWarning) {
-			return fmt.Errorf("sqlServerScraperHelper: %w", err)
-		}
-		s.logger.Warn("problems encountered getting metric rows", zap.Error(err))
-	}
-
-	var errs []error
-	now := pcommon.NewTimestampFromTime(time.Now())
-	for i, row := range rows {
-		rb := s.setupResourceBuilder(s.mb.NewResourceBuilder(), row)
-		rb.SetSqlserverDatabaseName(row[databaseName])
-
-		if err := s.mb.RecordSqlserverDatabaseSecurityRoleMembershipCountDataPoint(now, row[roleMemberCount], row[databaseName], row[roleName]); err != nil {
-			errs = append(errs, fmt.Errorf("failed to parse database security role membership count for row %d: %w", i, err))
-		}
-
-		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
-	}
-
-	return errors.Join(errs...)
 }

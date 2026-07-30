@@ -1,8 +1,0 @@
-[
-    {
-        "measurement": "sqlserver_database_security_principals",
-        "sql_instance": "SERVER1",
-        "database_name": "testdb",
-        "principal_count": "18"
-    }
-]

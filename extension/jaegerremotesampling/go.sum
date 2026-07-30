@@ -119,8 +119,6 @@ go.opentelemetry.io/collector/config/configtls v1.63.1-0.20260723141305-52e6bf4a
 go.opentelemetry.io/collector/config/configtls v1.63.1-0.20260723141305-52e6bf4aaaba/go.mod h1:I962r+gFnA6N/U35JR3B0b7gVuprgWsqCjkUdtS7iHA=
 go.opentelemetry.io/collector/confmap v1.63.1-0.20260723141305-52e6bf4aaaba h1:eJbAiR2GK23KtnnwPxMFk5pngmu1V4OG4kMVqOgW+yI=
 go.opentelemetry.io/collector/confmap v1.63.1-0.20260723141305-52e6bf4aaaba/go.mod h1:ksJNAmLTiMkBjMYwXFW1MRRfXYnRsHXA0fW+ZGwb/1U=
-go.opentelemetry.io/collector/confmap/xconfmap v0.157.1-0.20260723141305-52e6bf4aaaba h1:WEz6OFby9cHhdvZFtaqEbo1ypACq6kOM+1EcNPwzGW8=
-go.opentelemetry.io/collector/confmap/xconfmap v0.157.1-0.20260723141305-52e6bf4aaaba/go.mod h1:W1wZk6YJ3+IyvIZEmkXH/ejwkUtBV2zCThY6ewZYd6E=
 go.opentelemetry.io/collector/consumer v1.63.0 h1:0eOZh0qmDg6HCJaiUqI9FAb4BD4fKJNNO+ygMV/WW0w=
 go.opentelemetry.io/collector/consumer v1.63.0/go.mod h1:IVhjv4d+PmSf4Ttz/guJFbWJtRM3Ld3nRcZ12gxy6PA=
 go.opentelemetry.io/collector/extension v1.63.1-0.20260723141305-52e6bf4aaaba h1:8Wmi/FUX6WzWgdy87IiQ/8p4IMQR+b53kGPL7ka4wiI=
@@ -214,8 +212,8 @@ golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543/go.mod h1:I/5z698sn9Ka8T
 golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 gonum.org/v1/gonum v0.17.0 h1:VbpOemQlsSMrYmn7T2OUvQ4dqxQXU+ouZFQsZOx50z4=
 gonum.org/v1/gonum v0.17.0/go.mod h1:El3tOrEuMpv2UdMrbNlKEh9vd86bmQ6vqIcDwxEOc1E=
-google.golang.org/genproto/googleapis/rpc v0.0.0-20260526163538-3dc84a4a5aaa h1:mZHHdPZl0dbGHCflZgAq/Q468DWVFcU2whhB2KAo8fk=
-google.golang.org/genproto/googleapis/rpc v0.0.0-20260526163538-3dc84a4a5aaa/go.mod h1:4Hqkh8ycfw05ld/3BWL7rJOSfebL2Q+DVDeRgYgxUU8=
+google.golang.org/genproto/googleapis/rpc v0.0.0-20260610212136-7ab31c22f7ad h1:45WmJvIV6C2+O/jjLkPUH+F3aOj/1miDoU2DD0+NWbg=
+google.golang.org/genproto/googleapis/rpc v0.0.0-20260610212136-7ab31c22f7ad/go.mod h1:4Hqkh8ycfw05ld/3BWL7rJOSfebL2Q+DVDeRgYgxUU8=
 google.golang.org/grpc v1.82.1 h1:NnAxzGRA0677vCa4BUkOAnO5+FfQqVl9iUXeD0IqcGE=
 google.golang.org/grpc v1.82.1/go.mod h1:yzTZ1TB1Z3SG+LIYaI+WiE8D5+PZ3ArnrSp8zF3+/ZA=
 google.golang.org/protobuf v1.36.11 h1:fV6ZwhNocDyBLK0dj+fg8ektcVegBBuEolpbTQyBNVE=

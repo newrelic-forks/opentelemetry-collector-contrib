@@ -99,8 +99,6 @@ go.opentelemetry.io/collector/config/configopaque v1.63.1-0.20260723141305-52e6b
 go.opentelemetry.io/collector/config/configopaque v1.63.1-0.20260723141305-52e6bf4aaaba/go.mod h1:GGIOZ5UUlO6+D81QD3DlH4QrjfEUb/wffq351dPtTa4=
 go.opentelemetry.io/collector/confmap v1.63.1-0.20260723141305-52e6bf4aaaba h1:eJbAiR2GK23KtnnwPxMFk5pngmu1V4OG4kMVqOgW+yI=
 go.opentelemetry.io/collector/confmap v1.63.1-0.20260723141305-52e6bf4aaaba/go.mod h1:ksJNAmLTiMkBjMYwXFW1MRRfXYnRsHXA0fW+ZGwb/1U=
-go.opentelemetry.io/collector/confmap/xconfmap v0.157.1-0.20260723141305-52e6bf4aaaba h1:WEz6OFby9cHhdvZFtaqEbo1ypACq6kOM+1EcNPwzGW8=
-go.opentelemetry.io/collector/confmap/xconfmap v0.157.1-0.20260723141305-52e6bf4aaaba/go.mod h1:W1wZk6YJ3+IyvIZEmkXH/ejwkUtBV2zCThY6ewZYd6E=
 go.opentelemetry.io/collector/consumer v1.63.1-0.20260723141305-52e6bf4aaaba h1:qEPmbmkbG0XhB1AO15y5eSsp3pCeHxA8sE9g4JSnaag=
 go.opentelemetry.io/collector/consumer v1.63.1-0.20260723141305-52e6bf4aaaba/go.mod h1:IVhjv4d+PmSf4Ttz/guJFbWJtRM3Ld3nRcZ12gxy6PA=
 go.opentelemetry.io/collector/consumer/consumertest v0.157.1-0.20260723141305-52e6bf4aaaba h1:BYyLVLxQ8YE3MfZoKoyxVnksxpHq9zfZTcDxn2izH38=
@@ -176,8 +174,8 @@ golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c/go.mod h1:h1NjWce9XRLGQEsW7w
 golang.org/x/sys v0.0.0-20210330210617-4fbd30eecc44/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20210510120138-977fb7262007/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.0.0-20220627191245-f75cf1eec38b/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
-golang.org/x/sys v0.45.0 h1:dO4czNzziLiiXplLQgBCEpCvXQ3dnkn0SdaZSYdQ+FY=
-golang.org/x/sys v0.45.0/go.mod h1:4GL1E5IUh+htKOUEOaiffhrAeqysfVGipDYzABqnCmw=
+golang.org/x/sys v0.46.0 h1:noSf2Fq6F8DBgS+LysIkx7rIExoNHJsxOAtPp4rthXw=
+golang.org/x/sys v0.46.0/go.mod h1:4GL1E5IUh+htKOUEOaiffhrAeqysfVGipDYzABqnCmw=
 golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1/go.mod h1:bj7SfCRtBDWHUb9snDiAeCFNEtKQo2Wmx5Cou7ajbmo=
 golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
 golang.org/x/text v0.3.3/go.mod h1:5Zoc/QRtKVWzQhOtBMvqHzDpF6irO9z98xDceosuGiQ=
