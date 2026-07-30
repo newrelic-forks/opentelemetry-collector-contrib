@@ -105,6 +105,15 @@ func TestObfuscateSQLStringWithComment(t *testing.T) {
 			expected:   `? SELECT id FROM orders WHERE id = ?`,
 		},
 		{
+			// Multi-line leading APM comment in the raw text. The (?s) dotall fix in
+			// sqlcomments must detect it so the marker is still added (some agents/
+			// drivers pretty-print the correlation tag across several lines).
+			name:       "multi-line leading comment in raw text",
+			digestText: `SELECT id FROM orders WHERE id = ?`,
+			rawSQLText: "/*\n nr_service_guid=\"abc123\",\n traceparent=\"xyz\" \n*/ SELECT id FROM orders WHERE id = 5",
+			expected:   `? SELECT id FROM orders WHERE id = ?`,
+		},
+		{
 			name:       "no comment anywhere",
 			digestText: `SELECT id FROM orders WHERE id = ?`,
 			rawSQLText: `SELECT id FROM orders WHERE id = 5`,

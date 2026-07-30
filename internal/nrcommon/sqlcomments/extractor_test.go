@@ -122,6 +122,12 @@ func TestExtractAndFilterComments(t *testing.T) {
 			allowedKeys: []string{"a", "b"},
 			expected:    "a=1",
 		},
+		{
+			name:        "multi-line leading comment",
+			sqlText:     "/*\n nr_service_guid=abc-123,\n traceparent=xyz \n*/ SELECT * FROM t",
+			allowedKeys: []string{"nr_service_guid", "traceparent"},
+			expected:    "nr_service_guid=abc-123,traceparent=xyz",
+		},
 	}
 
 	for _, tt := range tests {
@@ -164,6 +170,11 @@ func TestHasLeadingComment(t *testing.T) {
 			name:     "comment not at start",
 			sqlText:  "SELECT * FROM t /* a=1 */",
 			expected: false,
+		},
+		{
+			name:     "multi-line leading comment",
+			sqlText:  "/*\n nr_service_guid=abc \n*/ SELECT * FROM t",
+			expected: true,
 		},
 		{
 			name:     "unclosed comment",
