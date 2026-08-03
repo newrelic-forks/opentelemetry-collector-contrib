@@ -906,6 +906,7 @@ func (m *mySQLScraper) scrapeQuerySamples(_ context.Context, now pcommon.Timesta
 			queryCommentTags,
 			nrServiceGUID,
 			normalizedQueryHash,
+			sample.blockingThreadID,
 		)
 	}
 

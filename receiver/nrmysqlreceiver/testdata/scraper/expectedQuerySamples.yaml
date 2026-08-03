@@ -79,10 +79,13 @@ resourceLogs:
               - key: db.query.text.normalized.hash
                 value:
                   stringValue: 848a6061c056748f461053e1ed9e5642
+              - key: mysql.blocking.blocker.thread_id
+                value:
+                  intValue: "0"
             body: {}
             eventName: db.server.query_sample
             spanId: "2222222222222222"
-            timeUnixNano: "1785132730757404000"
+            timeUnixNano: "1785595764256376000"
             traceId: "11111111111111111111111111111111"
         scope:
           name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrmysqlreceiver

@@ -329,6 +329,10 @@ type querySample struct {
 	waitTime           float64
 	statementTimerWait float64
 	traceparent        string
+	// blockingThreadID is the thread_id of the session currently blocking this
+	// one on a row lock, sourced from performance_schema.data_lock_waits.
+	// 0 means not blocked (thread_id 0 is never assigned by MySQL).
+	blockingThreadID int64
 }
 
 type topQuery struct {
@@ -1017,6 +1021,8 @@ func (c *mySQLClient) getQuerySamples(limit uint64, supportsProcesslist bool) ([
 				dest = append(dest, &s.statementTimerWait)
 			case "traceparent":
 				dest = append(dest, &s.traceparent)
+			case "blocking_thread_id":
+				dest = append(dest, &s.blockingThreadID)
 			default:
 				return nil, fmt.Errorf("unknown column name %q for query samples", col)
 			}

@@ -712,6 +712,7 @@ This provides real-time visibility into active queries, helping users monitor da
 | db.query.comment_tags | Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys specified in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
 | db.query.comment_tags.nr_service_guid | New Relic service GUID extracted from the filtered db.query.comment_tags. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
 | db.query.text.normalized.hash | MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Used for correlation with APM slow query traces. | Any Str | - |
+| mysql.blocking.blocker.thread_id | The thread_id of the session currently holding the lock this session is waiting on, sourced from performance_schema.data_lock_waits. 0 indicates the session is not currently blocked (thread_id 0 is never assigned by MySQL). | Any Int | - |
 
 ### db.server.top_query
 

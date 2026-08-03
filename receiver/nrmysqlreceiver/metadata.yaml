@@ -167,6 +167,9 @@ attributes:
     type: string
     enum: [waits, write_requests, writes, fsyncs]
     requirement_level: recommended
+  mysql.blocking.blocker.thread_id:
+    description: The thread_id of the session currently holding the lock this session is waiting on, sourced from performance_schema.data_lock_waits. 0 indicates the session is not currently blocked (thread_id 0 is never assigned by MySQL).
+    type: int
   mysql.event_id:
     description: The thread associated with the event and the thread current event number when the event starts.
     type: int
@@ -339,6 +342,7 @@ events:
       - db.query.comment_tags
       - db.query.comment_tags.nr_service_guid
       - db.query.text.normalized.hash
+      - mysql.blocking.blocker.thread_id
 
   db.server.top_query:
     enabled: false

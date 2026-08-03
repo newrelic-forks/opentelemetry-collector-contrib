@@ -73,7 +73,20 @@
     -- Use CONVERT for MySQL 8.0+ which stores user variables as binary (VARBINARY);
     -- on MySQL 5.7 and MariaDB the value is VARCHAR, so CONVERT is a no-op.
     -- utf8mb4 is used instead of the deprecated utf8 alias.
-    COALESCE(CONVERT(uvt.VARIABLE_VALUE USING utf8mb4), '') AS traceparent
+    COALESCE(CONVERT(uvt.VARIABLE_VALUE USING utf8mb4), '') AS traceparent,
+    -- Extension: blocking_thread_id identifies the session (by thread_id, the
+    -- same ID space as thread.thread_id above) currently holding the lock this
+    -- session is waiting on. A correlated scalar subquery is used instead of a
+    -- LEFT JOIN to avoid row fanout — a thread can in theory be recorded as
+    -- waiting on locks from more than one blocker in data_lock_waits.
+    COALESCE(
+        (
+            SELECT lw.BLOCKING_THREAD_ID
+            FROM performance_schema.data_lock_waits AS lw
+            WHERE lw.REQUESTING_THREAD_ID = thread.thread_id
+            LIMIT 1
+        ), 0
+    ) AS blocking_thread_id
 FROM
     performance_schema.threads AS thread
     LEFT JOIN performance_schema.events_statements_current AS statement ON statement.thread_id = thread.thread_id
