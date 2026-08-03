@@ -97,6 +97,7 @@ func (o *obfuscator) obfuscateSQLStringWithComment(digestText, rawSQLText string
 	return obfuscated, nil
 }
 
+// obfuscatePlan redacts SQL values from a JSON EXPLAIN plan while preserving plan structure.
 func (o *obfuscator) obfuscatePlan(plan string) (string, error) {
 	obfuscated, err := (*obfuscate.Obfuscator)(o).ObfuscateSQLExecPlan(plan, false)
 	if err != nil {

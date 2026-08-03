@@ -142,6 +142,43 @@ that statement on all versions. Truncation is controlled by
 [`performance_schema_max_sql_text_length`](https://dev.mysql.com/doc/refman/8.0/en/performance-schema-system-variables.html#sysvar_performance_schema_max_sql_text_length)
 (default 1024). Setting it to `4096` is recommended — see the requirements table below.
 
+### `explain_mode`: collecting plans for write statements
+
+`EXPLAIN` requires the same privilege as the statement itself, so with a `SELECT`-only
+monitoring user, `UPDATE`/`DELETE`/`INSERT`/`REPLACE` statements fail to `EXPLAIN` and are
+emitted with an empty plan. `explain_mode` (optional, `inline` (default) | `procedure`)
+controls how the receiver obtains the plan:
+
+- `inline` (default): runs `EXPLAIN FORMAT=json <statement>` directly on the monitoring
+  connection — today's behavior, sufficient for `SELECT`-only workloads.
+- `procedure`: routes `EXPLAIN` through a `SQL SECURITY DEFINER` stored procedure named
+  `<schema>.explain_statement`, so write statements can be explained without granting DML to
+  the monitoring user. The procedure must be created once per database by a privileged user
+  (see `docs/mysql-receiver/explain-plan-privilege-workaround-implementation-guide.md` for the
+  provisioning script); if it's missing for a schema, the receiver logs once and falls back to
+  `inline`. The monitoring user only ever needs `EXECUTE` on the procedure — no table grants.
+
+### `mysql.query_plan` and JSON-shaped log attributes
+
+`mysql.query_plan` holds the raw `EXPLAIN FORMAT=json` plan as a JSON-encoded string. New
+Relic's log ingest auto-detects JSON-shaped string attributes and flattens them into dotted
+sub-attributes (e.g. `mysql.query_plan.query_block.select_id`), **dropping the original flat
+string in the process** — this happens for every plan, not just write-statement ones, since
+`EXPLAIN FORMAT=json` output is always JSON. If you need the complete, unflattened plan text
+to survive ingest, duplicate it under a non-JSON-looking attribute name before it reaches New
+Relic, e.g. via a `transform` processor in the pipeline:
+
+```yaml
+processors:
+  transform:
+    log_statements:
+      - context: log
+        statements:
+          # Prefix so ingest doesn't recognize it as JSON; must run before any
+          # attribute-size truncation.
+          - set(log.attributes["mysql.query_plan_raw"], Concat(["RAWPLAN:", log.attributes["mysql.query_plan"]], "")) where log.attributes["mysql.query_plan"] != nil and log.attributes["mysql.query_plan"] != ""
+```
+
 ### MySQL Requirements to enable log collection
 
 | Parameter                                | Value                            | Description                                         |
