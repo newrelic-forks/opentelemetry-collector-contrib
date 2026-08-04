@@ -28,24 +28,30 @@ const (
 	ErrInvalidExplainFunctionName = "invalid config: 'top_query_collection.explain_function_name' must be empty or a valid [schema.]function_name identifier"
 )
 
+// explainFunctionNamePattern validates [schema.]function_name before it's quoted and used in SQL.
 var explainFunctionNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$`)
 
 type TopQueryCollection struct {
-	MaxRowsPerQuery         int64         `mapstructure:"max_rows_per_query"`
-	TopNQuery               int64         `mapstructure:"top_n_query"`
-	MaxExplainEachInterval  int64         `mapstructure:"max_explain_each_interval"`
-	QueryPlanCacheSize      int           `mapstructure:"query_plan_cache_size"`
-	QueryPlanCacheTTL       time.Duration `mapstructure:"query_plan_cache_ttl"`
-	CollectionInterval      time.Duration `mapstructure:"collection_interval"`
-	ExplainFunctionName     string        `mapstructure:"explain_function_name"`
+	MaxRowsPerQuery        int64         `mapstructure:"max_rows_per_query"`
+	TopNQuery              int64         `mapstructure:"top_n_query"`
+	MaxExplainEachInterval int64         `mapstructure:"max_explain_each_interval"`
+	QueryPlanCacheSize     int           `mapstructure:"query_plan_cache_size"`
+	QueryPlanCacheTTL      time.Duration `mapstructure:"query_plan_cache_ttl"`
+	CollectionInterval     time.Duration `mapstructure:"collection_interval"`
+	// ExplainFunctionName is the DBA-provisioned SECURITY DEFINER helper used to EXPLAIN
+	// locking/write queries. Empty (default) keeps the existing inline EXPLAIN behavior.
+	ExplainFunctionName string `mapstructure:"explain_function_name"`
+	// ExplainFunctionCacheTTL is how often ExplainFunctionName availability is re-probed per database.
 	ExplainFunctionCacheTTL time.Duration `mapstructure:"explain_function_cache_ttl"`
-	AllowedCommentKeys      []string      `mapstructure:"allowed_comment_keys"`
+	// AllowedCommentKeys are SQL comment keys extracted into db.query.comment_tags.
+	AllowedCommentKeys []string `mapstructure:"allowed_comment_keys"`
 	// prevent unkeyed literal initialization
 	_ struct{}
 }
 
 type QuerySampleCollection struct {
-	MaxRowsPerQuery    int64    `mapstructure:"max_rows_per_query"`
+	MaxRowsPerQuery int64 `mapstructure:"max_rows_per_query"`
+	// AllowedCommentKeys are SQL comment keys extracted into db.query.comment_tags.
 	AllowedCommentKeys []string `mapstructure:"allowed_comment_keys"`
 	// prevent unkeyed literal initialization
 	_ struct{}

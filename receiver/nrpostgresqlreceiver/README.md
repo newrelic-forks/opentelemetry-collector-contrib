@@ -181,6 +181,7 @@ DECLARE
     v_plan json;
     v_param_count int;
     v_nulls text := '';
+    i int;
 BEGIN
     SET TRANSACTION READ ONLY;
 
@@ -193,8 +194,15 @@ BEGIN
     SELECT COALESCE(array_length(parameter_types, 1), 0) INTO v_param_count
     FROM pg_prepared_statements WHERE name = 'otel_explain_stmt';
 
+    -- Built with a plain loop, not a query (e.g. SELECT ... FROM generate_series(1, v_param_count)):
+    -- that query would itself get captured by pg_stat_statements when pg_stat_statements.track = all,
+    -- and later get mistaken for a top query — but v_param_count is a local variable with no meaning
+    -- outside this function, so re-EXPLAINing that captured text on its own fails with
+    -- "column v_param_count does not exist".
     IF v_param_count > 0 THEN
-        SELECT string_agg('null', ', ') INTO v_nulls FROM generate_series(1, v_param_count);
+        FOR i IN 1..v_param_count LOOP
+            v_nulls := v_nulls || CASE WHEN i > 1 THEN ', ' ELSE '' END || 'null';
+        END LOOP;
         v_nulls := '(' || v_nulls || ')';
     END IF;
 
