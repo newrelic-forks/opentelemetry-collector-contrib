@@ -941,6 +941,17 @@ func (m *mySQLScraper) retrieveQueryPlan(queryDigestText, querySampleText, schem
 				// Obfuscation returned an error, log it. We cannot publish the unobfuscated plan as it may contain sensitive data
 				m.logger.Error("Failed to obfuscate query plan", zap.Error(obfErr))
 			}
+			if queryPlan != "" {
+				// Wrap the plan in a one-element JSON array before emission. New
+				// Relic's log ingest auto-flattens a top-level JSON *object*
+				// string attribute into dotted sub-attributes, silently dropping
+				// the original flat value (verified live against NRDB). A
+				// top-level JSON *array* is not flattened the same way, so
+				// wrapping makes the full plan survive ingest while staying
+				// valid, directly parseable JSON (index [0] for the original
+				// object). No other transformation of the plan content itself.
+				queryPlan = "[" + queryPlan + "]"
+			}
 		}
 		// add the obfuscated plan to the cache so we can use it again
 		m.queryPlanCache.Add(cacheKey, queryPlan)

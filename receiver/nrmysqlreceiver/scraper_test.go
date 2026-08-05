@@ -6,6 +6,7 @@ package nrmysqlreceiver
 import (
 	"bufio"
 	"database/sql"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -1065,6 +1066,142 @@ func TestQueryPlanCacheReuse(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, 1, spy.explainCalls, "query plan should be fetched only once across both flows")
+	})
+}
+
+// TestQueryPlanArrayWrapping verifies that a non-empty query plan is wrapped in a
+// one-element JSON array before being emitted on mysql.query_plan, working around
+// New Relic log ingest's auto-flatten behavior for top-level JSON *objects* (see
+// docs/superpowers/specs/2026-08-05-query-plan-array-wrap-design.md). Empty plans
+// must stay empty ("" not "[]"), and a cached plan must not be wrapped a second time.
+func TestQueryPlanArrayWrapping(t *testing.T) {
+	baseCfg := createDefaultConfig().(*Config)
+	baseCfg.Username = "otel"
+	baseCfg.Password = "otel"
+	baseCfg.AddrConfig = confignet.AddrConfig{Endpoint: "localhost:3306"}
+	baseCfg.LogsBuilderConfig.Events.DbServerTopQuery.Enabled = true
+	baseCfg.TopQueryCollection.TopQueryCount = 10
+
+	makeScraper := func(t *testing.T, cfg *Config, spy *queryPlanSpyClient) *mySQLScraper {
+		t.Helper()
+		scraper := newMySQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, newCache[int64](100), newTTLCache[string](0, time.Hour*24*365*10))
+		scraper.sqlclient = spy
+		return scraper
+	}
+
+	seedTopQueryDiffCache := func(scraper *mySQLScraper, schema, digest string, countStar, sumTimerWait int64) {
+		// Top query events are emitted only when the value is already cached and increases.
+		scraper.cacheAndDiff(schema, digest, "count_star", countStar-1)
+		scraper.cacheAndDiff(schema, digest, "sum_timer_wait", sumTimerWait-1)
+	}
+
+	planAttr := func(t *testing.T, logs plog.Logs) string {
+		t.Helper()
+		attr, ok := logs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0).Attributes().Get("mysql.query_plan")
+		require.True(t, ok, "mysql.query_plan attribute should be present")
+		return attr.Str()
+	}
+
+	newSpy := func(schema, digest, explainPlan string) *queryPlanSpyClient {
+		return &queryPlanSpyClient{
+			topQueries: []topQuery{
+				{
+					schemaName:                schema,
+					digest:                    digest,
+					digestText:                "SELECT * FROM t",
+					querySampleText:           "SELECT * FROM t",
+					countStar:                 10,
+					sumTimerWaitInPicoSeconds: 200,
+				},
+			},
+			explainPlan: explainPlan,
+		}
+	}
+
+	t.Run("non-empty plan is wrapped in a one-element array", func(t *testing.T) {
+		cfg := *baseCfg
+		schema, digest := "adventureworks", "digest-wrap-1"
+		spy := newSpy(schema, digest, `{"query_block":{"select_id":1}}`)
+		scraper := makeScraper(t, &cfg, spy)
+		seedTopQueryDiffCache(scraper, schema, digest, 10, 200)
+
+		logs, err := scraper.scrapeTopQueryFunc(t.Context())
+		require.NoError(t, err)
+
+		got := planAttr(t, logs)
+		assert.Equal(t, `[{"query_block":{"select_id":1}}]`, got)
+
+		// The wrapped value must itself be valid JSON: a one-element array whose
+		// single element is the original plan object.
+		var arr []map[string]any
+		require.NoError(t, json.Unmarshal([]byte(got), &arr))
+		require.Len(t, arr, 1)
+	})
+
+	t.Run("empty plan stays empty, not wrapped to []", func(t *testing.T) {
+		cfg := *baseCfg
+		schema, digest := "adventureworks", "digest-wrap-empty"
+		spy := newSpy(schema, digest, "")
+		scraper := makeScraper(t, &cfg, spy)
+		seedTopQueryDiffCache(scraper, schema, digest, 10, 200)
+
+		logs, err := scraper.scrapeTopQueryFunc(t.Context())
+		require.NoError(t, err)
+
+		assert.Empty(t, planAttr(t, logs), `an unavailable plan must stay empty, not become "[]"`)
+	})
+
+	t.Run("cached plan is reused wrapped exactly once, not re-wrapped", func(t *testing.T) {
+		cfg := *baseCfg
+		schema, digest := "adventureworks", "digest-wrap-cache"
+		spy := newSpy(schema, digest, `{"query_block":{"select_id":1}}`)
+		scraper := makeScraper(t, &cfg, spy)
+		seedTopQueryDiffCache(scraper, schema, digest, 10, 200)
+
+		first, err := scraper.scrapeTopQueryFunc(t.Context())
+		require.NoError(t, err)
+		firstVal := planAttr(t, first)
+
+		// Force a second top-query emission for the same digest by bumping the
+		// diffed counters again -- this reuses the cached (already-wrapped) plan
+		// rather than calling EXPLAIN a second time. Also rewind
+		// lastExecutionTimestamp so the second call isn't skipped by the
+		// top_query_collection.collection_interval throttle (scraper.go:235),
+		// which would otherwise make it a same-second back-to-back no-op.
+		spy.topQueries[0].countStar = 20
+		spy.topQueries[0].sumTimerWaitInPicoSeconds = 400
+		scraper.lastExecutionTimestamp = time.Now().Add(-time.Hour)
+
+		second, err := scraper.scrapeTopQueryFunc(t.Context())
+		require.NoError(t, err)
+		secondVal := planAttr(t, second)
+
+		assert.Equal(t, 1, spy.explainCalls, "EXPLAIN should run once; the second emission must reuse the cached plan")
+		assert.Equal(t, firstVal, secondVal, "cached plan must not be wrapped a second time")
+		assert.False(t, strings.HasPrefix(secondVal, "[["), "plan must not be double-wrapped")
+	})
+
+	t.Run("wrap is content-agnostic across plan shapes", func(t *testing.T) {
+		shapes := []string{
+			`{"query_block":{"select_id":1,"message":"No tables used"}}`,
+			`{"query_block":{"select_id":1,"cost_info":{"query_cost":"4383.82"},"ordering_operation":{"table":{"table_name":"sub"}}}}`,
+		}
+		for i, plan := range shapes {
+			schema, digest := "adventureworks", "digest-wrap-shape-"+strconv.Itoa(i)
+			spy := newSpy(schema, digest, plan)
+			cfg := *baseCfg
+			scraper := makeScraper(t, &cfg, spy)
+			seedTopQueryDiffCache(scraper, schema, digest, 10, 200)
+
+			logs, err := scraper.scrapeTopQueryFunc(t.Context())
+			require.NoError(t, err)
+
+			got := planAttr(t, logs)
+			require.True(t, strings.HasPrefix(got, "[") && strings.HasSuffix(got, "]"), "plan %q should be wrapped, got %q", plan, got)
+			var arr []map[string]any
+			require.NoError(t, json.Unmarshal([]byte(got), &arr), "wrapped plan must be valid JSON")
+			require.Len(t, arr, 1)
+		}
 	})
 }
 
