@@ -151,22 +151,22 @@ just increment counters, never update the text. So `top_query`'s comment tags re
 caller ran first, not necessarily the current/dominant one. `query_sample` has no such issue (it
 reads live text from `pg_stat_activity` every scrape); prefer it for per-execution APM correlation.
 
-### PostgreSQL version requirement for inline EXPLAIN
+### PostgreSQL version requirement for EXPLAIN
 
 Explaining a parameterized query requires `plan_cache_mode = force_generic_plan` before
-`PREPARE`/`EXPLAIN EXECUTE`, since we only have `null`s to bind, not real values. That GUC needs
-**PostgreSQL 12+**; on older servers the receiver detects the version and skips EXPLAIN for that
-query instead of sending a `SET` that would fail. Non-parameterized queries are unaffected on any
-version, and `explain_function_name` below has no such requirement (it EXPLAINs literal text, not
-via `PREPARE`/`EXECUTE`).
+`PREPARE`/`EXPLAIN EXECUTE`, since we only have `null`s to bind, not real values. Without it,
+Postgres's default plan_cache_mode (`auto`) builds a plan around the bound `null` and collapses
+it into a useless no-op `Result` node. That GUC needs **PostgreSQL 12+**; on older servers the
+receiver detects the version and skips EXPLAIN for that query instead of sending a `SET` that
+would fail. Non-parameterized queries are unaffected on any version. `explain_function_name`
+below uses the same mechanism internally, so it has the same PostgreSQL 12+ requirement.
 
 ### Collecting EXPLAIN plans for locking and write queries (`explain_function_name`)
 
 By default, `EXPLAIN` runs directly as the monitoring user. Postgres checks table privileges at
 *plan* time, so a row-locking clause (`FOR UPDATE`/`FOR SHARE`) or a write statement
 (`UPDATE`/`INSERT`/`DELETE`/`MERGE`) fails with `permission denied` unless the monitoring user has
-write access — which it should never be granted. This function also covers pre-12 servers, since
-it doesn't use `plan_cache_mode`.
+write access — which it should never be granted.
 
 To collect plans for these query types without granting write access, provision a
 `SECURITY DEFINER` helper function once per database:
@@ -184,6 +184,10 @@ DECLARE
     i int;
 BEGIN
     SET TRANSACTION READ ONLY;
+
+    -- Without this, the default plan_cache_mode peeks at the bound NULL and collapses
+    -- the plan into a useless no-op Result node. force_generic_plan treats $1 as opaque.
+    SET plan_cache_mode = force_generic_plan;
 
     -- l_query is text from pg_stat_statements, normalized with $1/$2/... placeholders
     -- (no bound values). PREPARE/EXECUTE with generic-plan NULLs, same as the inline

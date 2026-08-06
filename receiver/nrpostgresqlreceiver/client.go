@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"regexp"
 	"strconv"
 	"strings"
 	"text/template"
@@ -159,6 +160,15 @@ func (c *postgreSQLClient) probeExplainFunction(ctx context.Context, quotedFunct
 	return rows.Close()
 }
 
+// intervalParamPattern matches "INTERVAL $N", a placeholder pg_stat_statements leaves after
+// normalizing a literal interval. $N isn't a real bind param, so PREPARE rejects it as-is.
+var intervalParamPattern = regexp.MustCompile(`(?i)INTERVAL\s+(\$\d+)`)
+
+// rewriteIntervalParams rewrites "INTERVAL $N" to "$N::interval" so PREPARE accepts it.
+func rewriteIntervalParams(query string) string {
+	return intervalParamPattern.ReplaceAllString(query, "$1::interval")
+}
+
 // explainQuery implements client.
 func (c *postgreSQLClient) explainQuery(query, queryID, explainFunction string, logger *zap.Logger) (string, error) {
 	// Check if the query is explainable before attempting EXPLAIN
@@ -166,6 +176,8 @@ func (c *postgreSQLClient) explainQuery(query, queryID, explainFunction string, 
 		logger.Debug("skipping EXPLAIN for non-explainable query", zap.String("queryID", queryID))
 		return "", nil
 	}
+
+	query = rewriteIntervalParams(query)
 
 	if explainFunction != "" {
 		return c.explainQueryViaFunction(query, queryID, explainFunction, logger)
@@ -175,7 +187,16 @@ func (c *postgreSQLClient) explainQuery(query, queryID, explainFunction string, 
 }
 
 // explainQueryViaFunction runs EXPLAIN through a DBA-provisioned SECURITY DEFINER helper function.
+// Requires PostgreSQL 12+, same as explainQueryInline.
 func (c *postgreSQLClient) explainQueryViaFunction(query, queryID, explainFunction string, logger *zap.Logger) (string, error) {
+	supported, err := c.supportsPlanCacheMode(queryID, logger)
+	if err != nil {
+		return "", err
+	}
+	if !supported {
+		return "", nil
+	}
+
 	sql := fmt.Sprintf("SELECT %s($1)", explainFunction)
 	wrappedDb := sqlquery.NewDbClient(sqlquery.DbWrapper{Db: c.client}, sql, logger, sqlquery.TelemetryConfig{})
 
@@ -207,23 +228,35 @@ func (c *postgreSQLClient) explainQueryViaFunction(query, queryID, explainFuncti
 // minPlanCacheModeVersion is the first PostgreSQL version with plan_cache_mode as a GUC.
 const minPlanCacheModeVersion = 12
 
-// explainQueryInline runs EXPLAIN directly as the monitoring user (PREPARE/EXPLAIN EXECUTE/DEALLOCATE).
-// Requires PostgreSQL 12+ for plan_cache_mode. Param count comes from pg_prepared_statements,
-// not text counting, since "$1" can repeat or appear inside a string literal.
-func (c *postgreSQLClient) explainQueryInline(query, queryID string, logger *zap.Logger) (string, error) {
+// supportsPlanCacheMode reports whether the server supports plan_cache_mode (PostgreSQL 12+).
+// A false, nil-error return means "skip EXPLAIN for this query", not a failure.
+func (c *postgreSQLClient) supportsPlanCacheMode(queryID string, logger *zap.Logger) (bool, error) {
 	version, err := c.getVersion(context.Background())
 	if err != nil {
 		logger.Error("failed to determine PostgreSQL version for EXPLAIN", zap.Error(err), zap.String("queryID", queryID))
-		return "", err
+		return false, err
 	}
 	major, err := parseMajorVersion(version)
 	if err != nil {
 		logger.Error("failed to parse PostgreSQL version for EXPLAIN", zap.Error(err), zap.String("queryID", queryID))
-		return "", err
+		return false, err
 	}
 	if major < minPlanCacheModeVersion {
 		logger.Debug("skipping EXPLAIN: plan_cache_mode requires PostgreSQL 12+",
 			zap.Int("serverMajorVersion", major), zap.String("queryID", queryID))
+		return false, nil
+	}
+	return true, nil
+}
+
+// explainQueryInline runs EXPLAIN directly as the monitoring user (PREPARE/EXPLAIN EXECUTE/DEALLOCATE).
+// Param count comes from pg_prepared_statements, not text counting, since "$1" can repeat.
+func (c *postgreSQLClient) explainQueryInline(query, queryID string, logger *zap.Logger) (string, error) {
+	supported, err := c.supportsPlanCacheMode(queryID, logger)
+	if err != nil {
+		return "", err
+	}
+	if !supported {
 		return "", nil
 	}
 
@@ -1227,6 +1260,7 @@ func (c *postgreSQLClient) getQuerySamples(ctx context.Context, limit int64, new
 		var traceCtx context.Context
 		querySampleSimpleColumns := []string{
 			querySampleColumnClientHostname,
+			querySampleColumnBackendStart,
 			querySampleColumnQueryStart,
 			querySampleColumnWaitEventType,
 			querySampleColumnWaitEvent,
@@ -1304,6 +1338,15 @@ func (c *postgreSQLClient) getQuerySamples(ctx context.Context, limit int64, new
 			}
 		}
 
+		sessionDuration := int64(0)
+		if row[querySampleColumnSessionDuration] != "" {
+			sessionDuration, err = strconv.ParseInt(row[querySampleColumnSessionDuration], 10, 64)
+			if err != nil {
+				logger.Warn("failed to convert session_duration to int64", zap.Error(err))
+				errs = append(errs, err)
+			}
+		}
+
 		// TODO: check if the query is truncated.
 		dbSQLCommentsVal := sqlcomments.ExtractAndFilterComments(row[querySampleColumnQuery], allowedCommentKeys)
 		nrServiceGUIDVal := sqlcomments.ExtractValueForKey(dbSQLCommentsVal, "nr_service_guid")
@@ -1326,6 +1369,7 @@ func (c *postgreSQLClient) getQuerySamples(ctx context.Context, limit int64, new
 		currentAttributes[string(semconv.UserNameKey)] = row[querySampleColumnUsename]
 		currentAttributes[postgresqlTotalExecTimeAttributeName] = duration
 		currentAttributes[dbAttributePrefix+querySampleColumnBlockingWaitDuration] = blockingWaitDuration
+		currentAttributes[dbAttributePrefix+querySampleColumnSessionDuration] = sessionDuration
 		finalAttributes = append(finalAttributes, currentAttributes)
 	}
 

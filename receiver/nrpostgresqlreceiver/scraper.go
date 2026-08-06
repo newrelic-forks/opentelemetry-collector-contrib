@@ -360,7 +360,8 @@ func (p *postgreSQLScraper) collectQuerySamples(ctx context.Context, dbClient cl
 				logCtx = ctx
 			}
 		}
-		p.lb.RecordDbServerQuerySampleEvent(logCtx,
+		p.lb.RecordDbServerQuerySampleEvent(
+			logCtx,
 			timestamp,
 			metadata.AttributeDbSystemNamePostgresql,
 			attrString(atts, string(semconv.DBNamespaceKey)),
@@ -370,6 +371,8 @@ func (p *postgreSQLScraper) collectQuerySamples(ctx context.Context, dbClient cl
 			attrString(atts, string(semconv.UserNameKey)),
 			attrString(atts, dbAttributePrefix+querySampleColumnState),
 			attrInt64(atts, dbAttributePrefix+querySampleColumnPID),
+			attrString(atts, dbAttributePrefix+querySampleColumnBackendStart),
+			attrInt64(atts, dbAttributePrefix+querySampleColumnSessionDuration),
 			attrString(atts, dbAttributePrefix+querySampleColumnApplicationName),
 			attrString(atts, string(semconv.NetworkPeerAddressKey)),
 			attrInt64(atts, string(semconv.NetworkPeerPortKey)),

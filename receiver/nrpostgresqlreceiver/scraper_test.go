@@ -616,6 +616,8 @@ var querySampleColumns = []string{
 	querySampleColumnClientHostname,
 	querySampleColumnClientPort,
 	querySampleColumnQueryStart,
+	querySampleColumnBackendStart,
+	querySampleColumnSessionDuration,
 	querySampleColumnWaitEventType,
 	querySampleColumnWaitEvent,
 	querySampleColumnQueryID,
@@ -1231,7 +1233,8 @@ func TestScrapeTopQueriesViaFunction(t *testing.T) {
 	// 2. probe call: SELECT "otel"."explain_statement"('SELECT 1')
 	mock.ExpectQuery(`SELECT "otel"."explain_statement"('SELECT 1')`).
 		WillReturnRows(sqlmock.NewRows([]string{"explain_statement"}).AddRow(`[{"Plan":{}}]`))
-	// 3. real explain-via-function call: SELECT "otel"."explain_statement"($1) with the raw query text bound
+	// 3. real explain-via-function call: version check, then the explain_statement call
+	expectServerVersion(mock, "16.4")
 	mock.ExpectQuery(`SELECT "otel"."explain_statement"($1)`).
 		WithArgs(rawQuery).
 		WillReturnRows(sqlmock.NewRows([]string{"explain_statement"}).AddRow(functionPlan))
@@ -1252,6 +1255,54 @@ func TestScrapeTopQueriesViaFunction(t *testing.T) {
 	assert.NotEmpty(t, plan.Str())
 
 	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestRewriteIntervalParams(t *testing.T) {
+	testCases := []struct {
+		name     string
+		query    string
+		expected string
+	}{
+		{
+			name:     "no interval, unchanged",
+			query:    "SELECT * FROM orders WHERE id = $1",
+			expected: "SELECT * FROM orders WHERE id = $1",
+		},
+		{
+			// Shape pg_stat_statements produces from a literal interval like "INTERVAL '30 days'".
+			name:     "single normalized interval",
+			query:    "SELECT * FROM orders WHERE created_at > NOW() - INTERVAL $1",
+			expected: "SELECT * FROM orders WHERE created_at > NOW() - $1::interval",
+		},
+		{
+			name:     "lowercase interval keyword",
+			query:    "SELECT * FROM orders WHERE created_at > NOW() - interval $1",
+			expected: "SELECT * FROM orders WHERE created_at > NOW() - $1::interval",
+		},
+		{
+			name:     "two normalized intervals in one query",
+			query:    "SELECT * FROM orders WHERE created_at > NOW() - INTERVAL $1 AND shipped_at < NOW() - INTERVAL $2",
+			expected: "SELECT * FROM orders WHERE created_at > NOW() - $1::interval AND shipped_at < NOW() - $2::interval",
+		},
+		{
+			// $1 is a genuine bind parameter, $2 is a normalized literal interval.
+			name:     "real bind parameter alongside a normalized interval",
+			query:    "SELECT * FROM orders WHERE status = $1 AND created_at > NOW() - INTERVAL $2",
+			expected: "SELECT * FROM orders WHERE status = $1 AND created_at > NOW() - $2::interval",
+		},
+		{
+			// "INTERVAL" as a substring, not the keyword, must not be touched.
+			name:     "INTERVAL as part of a column name, not a keyword",
+			query:    "SELECT interval_seconds FROM orders WHERE id = $1",
+			expected: "SELECT interval_seconds FROM orders WHERE id = $1",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expected, rewriteIntervalParams(tc.query))
+		})
+	}
 }
 
 func TestIsExplainableQuery(t *testing.T) {
@@ -1417,6 +1468,7 @@ func TestExplainQuery(t *testing.T) {
 	testCases := []struct {
 		name              string
 		query             string
+		expectedPrepared  string // actual PREPAREd text after rewriteIntervalParams; defaults to query if empty
 		queryID           string
 		normalizedQueryID string
 		paramCount        int
@@ -1486,6 +1538,16 @@ func TestExplainQuery(t *testing.T) {
 			paramCount:        1,
 			mockPlanResult:    `[{"Plan":{"Node Type":"Seq Scan","Relation Name":"orders"}}]`,
 		},
+		{
+			// $N from a normalized INTERVAL literal; rewriteIntervalParams must fix it before PREPARE.
+			name:              "query with normalized literal interval",
+			query:             "SELECT * FROM orders WHERE status = $1 AND created_at > NOW() - INTERVAL $2",
+			expectedPrepared:  "SELECT * FROM orders WHERE status = $1 AND created_at > NOW() - $2::interval",
+			queryID:           "20004",
+			normalizedQueryID: "20004",
+			paramCount:        2,
+			mockPlanResult:    `[{"Plan":{"Node Type":"Seq Scan","Relation Name":"orders"}}]`,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -1502,7 +1564,11 @@ func TestExplainQuery(t *testing.T) {
 				closeFn: func() error { return nil },
 			}
 
-			expectPrepareLookupExplain(mock, tc.normalizedQueryID, tc.query, tc.paramCount, tc.mockPlanResult)
+			expectedPrepared := tc.expectedPrepared
+			if expectedPrepared == "" {
+				expectedPrepared = tc.query
+			}
+			expectPrepareLookupExplain(mock, tc.normalizedQueryID, expectedPrepared, tc.paramCount, tc.mockPlanResult)
 
 			plan, err := client.explainQuery(tc.query, tc.queryID, "", logger)
 			require.NoError(t, err)
@@ -1902,6 +1968,7 @@ func TestExplainQueryViaFunction(t *testing.T) {
 
 		query := "SELECT * FROM orders WHERE id = $1 FOR UPDATE"
 		mockPlan := `[{"Plan":{"Node Type":"LockRows"}}]`
+		expectServerVersion(mock, "16.4")
 		mock.ExpectQuery(`SELECT "otel"."explain_statement"($1)`).
 			WithArgs(query).
 			WillReturnRows(sqlmock.NewRows([]string{"explain_statement"}).AddRow(mockPlan))
@@ -1923,6 +1990,7 @@ func TestExplainQueryViaFunction(t *testing.T) {
 
 		query := "SELECT * FROM orders WHERE id = 5 FOR UPDATE"
 		mockPlan := `[{"Plan":{"Node Type":"LockRows"}}]`
+		expectServerVersion(mock, "16.4")
 		mock.ExpectQuery(`SELECT "otel"."explain_statement"($1)`).
 			WithArgs(query).
 			WillReturnRows(sqlmock.NewRows([]string{"explain_statement"}).AddRow(mockPlan))
@@ -1943,6 +2011,7 @@ func TestExplainQueryViaFunction(t *testing.T) {
 		client := &postgreSQLClient{client: db, closeFn: func() error { return nil }}
 
 		query := "SELECT * FROM orders WHERE id = $1 FOR UPDATE"
+		expectServerVersion(mock, "16.4")
 		mock.ExpectQuery(`SELECT "otel"."explain_statement"($1)`).
 			WithArgs(query).
 			WillReturnError(&pq.Error{Code: pqerror.UndefinedFunction, Message: "function does not exist"})
@@ -1950,6 +2019,9 @@ func TestExplainQueryViaFunction(t *testing.T) {
 		plan, err := client.explainQuery(query, "12347", `"otel"."explain_statement"`, logger)
 		require.Error(t, err)
 		assert.Empty(t, plan)
+		var pqErr *pq.Error
+		require.ErrorAs(t, err, &pqErr)
+		assert.Equal(t, pqerror.UndefinedFunction, pqErr.Code, "this case is specifically the undefined_function branch")
 	})
 
 	t.Run("function call error (non-42883, e.g. permission denied) is returned, not swallowed", func(t *testing.T) {
@@ -1963,6 +2035,7 @@ func TestExplainQueryViaFunction(t *testing.T) {
 		client := &postgreSQLClient{client: db, closeFn: func() error { return nil }}
 
 		query := "SELECT * FROM orders WHERE id = $1 FOR UPDATE"
+		expectServerVersion(mock, "16.4")
 		mock.ExpectQuery(`SELECT "otel"."explain_statement"($1)`).
 			WithArgs(query).
 			WillReturnError(&pq.Error{Code: pqerror.Code("42501"), Message: "permission denied for table orders"})
@@ -2009,6 +2082,55 @@ func TestExplainQueryViaFunction(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, `[{"Plan":{"Node Type":"LockRows"}}]`, plan)
 	})
+}
+
+func TestExplainQueryViaFunctionVersionGate(t *testing.T) {
+	// The function sets plan_cache_mode, so it needs the same PostgreSQL 12+ gate as inline EXPLAIN.
+	testCases := []struct {
+		name               string
+		serverVersion      string
+		expectFunctionCall bool
+	}{
+		{name: "below minimum (11.9) skips EXPLAIN entirely", serverVersion: "11.9", expectFunctionCall: false},
+		{name: "well below minimum (9.6.24) skips EXPLAIN entirely", serverVersion: "9.6.24", expectFunctionCall: false},
+		{name: "exactly at minimum (12.0) proceeds", serverVersion: "12.0", expectFunctionCall: true},
+		{name: "above minimum (14.5) proceeds", serverVersion: "14.5", expectFunctionCall: true},
+		{name: "one below minimum (11.22) skips EXPLAIN entirely", serverVersion: "11.22", expectFunctionCall: false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+			require.NoError(t, err)
+			defer db.Close()
+
+			logger, err := zap.NewProduction()
+			require.NoError(t, err)
+
+			client := &postgreSQLClient{client: db, closeFn: func() error { return nil }}
+
+			query := "SELECT * FROM orders WHERE id = $1 FOR UPDATE"
+			queryID := "50001"
+
+			expectServerVersion(mock, tc.serverVersion)
+			if tc.expectFunctionCall {
+				mockPlan := `[{"Plan":{"Node Type":"LockRows"}}]`
+				mock.ExpectQuery(`SELECT "otel"."explain_statement"($1)`).
+					WithArgs(query).
+					WillReturnRows(sqlmock.NewRows([]string{"explain_statement"}).AddRow(mockPlan))
+			}
+			// If expectFunctionCall is false, sqlmock fails the test if the function gets called.
+
+			plan, err := client.explainQuery(query, queryID, `"otel"."explain_statement"`, logger)
+			require.NoError(t, err)
+			if tc.expectFunctionCall {
+				assert.Equal(t, `[{"Plan":{"Node Type":"LockRows"}}]`, plan)
+			} else {
+				assert.Empty(t, plan)
+			}
+			require.NoError(t, mock.ExpectationsWereMet())
+		})
+	}
 }
 
 func TestScraperExplainFunctionProbeCache(t *testing.T) {
