@@ -338,6 +338,11 @@ type querySample struct {
 	// time) that changes only when a new statement begins on this thread.
 	// Used as a stable per-execution key, MySQL's analogue of query_start.
 	statementTimerStart int64
+	// blockingSessionID is the blocker's PROCESSLIST_ID (not THREAD_ID),
+	// resolved from blockingThreadID via performance_schema.threads. Use this
+	// to cross-reference the blocker against mysql.session.id elsewhere on
+	// the dashboard. 0 means not blocked.
+	blockingSessionID int64
 }
 
 type topQuery struct {
@@ -1030,6 +1035,8 @@ func (c *mySQLClient) getQuerySamples(limit uint64, supportsProcesslist bool) ([
 				dest = append(dest, &s.blockingThreadID)
 			case "statement_timer_start":
 				dest = append(dest, &s.statementTimerStart)
+			case "blocking_session_id":
+				dest = append(dest, &s.blockingSessionID)
 			default:
 				return nil, fmt.Errorf("unknown column name %q for query samples", col)
 			}

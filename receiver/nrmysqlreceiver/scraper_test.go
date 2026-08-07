@@ -421,6 +421,46 @@ func TestScrapeQuerySamplesTimerStart(t *testing.T) {
 	})
 }
 
+func TestScrapeQuerySamplesBlockingSessionID(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.Username = "otel"
+	cfg.Password = "otel"
+	cfg.AddrConfig = confignet.AddrConfig{Endpoint: "localhost:3306"}
+	cfg.LogsBuilderConfig.Events.DbServerQuerySample.Enabled = true
+
+	t.Run("blocked session reports the blocker's PROCESSLIST_ID, not its THREAD_ID", func(t *testing.T) {
+		scraper := newMySQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, newCache[int64](100), newTTLCache[string](0, time.Hour*24*365*10))
+		scraper.sqlclient = &mockClient{querySamplesFile: "query_samples_blocking_session_id"}
+
+		result, err := scraper.scrapeQuerySampleFunc(t.Context())
+		require.NoError(t, err)
+		require.Equal(t, 1, result.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().Len())
+		record := result.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0)
+
+		threadIDVal, ok := record.Attributes().Get("mysql.blocking.blocker.thread_id")
+		require.True(t, ok, "mysql.blocking.blocker.thread_id must be present")
+		assert.Equal(t, int64(93833), threadIDVal.Int())
+
+		sessionIDVal, ok := record.Attributes().Get("mysql.blocking.blocker.session_id")
+		require.True(t, ok, "mysql.blocking.blocker.session_id must be present")
+		assert.Equal(t, int64(93771), sessionIDVal.Int(), "must be the blocker's PROCESSLIST_ID, distinct from its THREAD_ID")
+	})
+
+	t.Run("unblocked session reports zero blocking session id", func(t *testing.T) {
+		scraper := newMySQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, newCache[int64](100), newTTLCache[string](0, time.Hour*24*365*10))
+		scraper.sqlclient = &mockClient{querySamplesFile: "query_samples_no_traceparent"}
+
+		result, err := scraper.scrapeQuerySampleFunc(t.Context())
+		require.NoError(t, err)
+		require.Equal(t, 1, result.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().Len())
+		record := result.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0)
+
+		val, ok := record.Attributes().Get("mysql.blocking.blocker.session_id")
+		require.True(t, ok, "mysql.blocking.blocker.session_id must be present")
+		assert.Equal(t, int64(0), val.Int())
+	})
+}
+
 func TestScrapeTopQueryInterval(t *testing.T) {
 	cfg := createDefaultConfig().(*Config)
 	cfg.Username = "otel"
@@ -892,6 +932,9 @@ func (c *mockClient) getQuerySamples(uint64, bool) ([]querySample, error) {
 		}
 		if len(text) > 18 {
 			s.statementTimerStart, _ = parseInt(text[18])
+		}
+		if len(text) > 19 {
+			s.blockingSessionID, _ = parseInt(text[19])
 		}
 
 		samples = append(samples, s)

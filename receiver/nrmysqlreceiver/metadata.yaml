@@ -167,6 +167,9 @@ attributes:
     type: string
     enum: [waits, write_requests, writes, fsyncs]
     requirement_level: recommended
+  mysql.blocking.blocker.session_id:
+    description: The PROCESSLIST_ID (session id) of the session currently holding the lock this session is waiting on, resolved from BLOCKING_THREAD_ID via performance_schema.threads. 0 indicates the session is not currently blocked. Use this, not mysql.blocking.blocker.thread_id, to cross-reference the blocking session against mysql.session.id elsewhere on the dashboard.
+    type: int
   mysql.blocking.blocker.thread_id:
     description: The thread_id of the session currently holding the lock this session is waiting on, sourced from performance_schema.data_lock_waits. 0 indicates the session is not currently blocked (thread_id 0 is never assigned by MySQL).
     type: int
@@ -347,6 +350,7 @@ events:
       - db.query.text.normalized.hash
       - mysql.blocking.blocker.thread_id
       - mysql.events_statements_current.timer_start
+      - mysql.blocking.blocker.session_id
 
   db.server.top_query:
     enabled: false

@@ -85,6 +85,9 @@ resourceLogs:
               - key: mysql.events_statements_current.timer_start
                 value:
                   intValue: "0"
+              - key: mysql.blocking.blocker.session_id
+                value:
+                  intValue: "0"
             body: {}
             eventName: db.server.query_sample
             spanId: "2222222222222222"

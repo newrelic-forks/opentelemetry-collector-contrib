@@ -908,6 +908,7 @@ func (m *mySQLScraper) scrapeQuerySamples(_ context.Context, now pcommon.Timesta
 			normalizedQueryHash,
 			sample.blockingThreadID,
 			sample.statementTimerStart,
+			sample.blockingSessionID,
 		)
 	}
 

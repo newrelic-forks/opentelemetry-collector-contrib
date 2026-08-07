@@ -93,7 +93,21 @@
             WHERE lw.REQUESTING_THREAD_ID = thread.thread_id
             LIMIT 1
         ), 0
-    ) AS blocking_thread_id
+    ) AS blocking_thread_id,
+    -- Extension: blocking_session_id resolves the blocker's PROCESSLIST_ID
+    -- (not its thread_id, a different ID space) via performance_schema.threads,
+    -- so a blocked session can be cross-referenced against mysql.session.id
+    -- elsewhere on the dashboard. Same cost profile as blocking_thread_id
+    -- above — the extra join only runs for the rare blocked row.
+    COALESCE(
+        (
+            SELECT bt.PROCESSLIST_ID
+            FROM performance_schema.data_lock_waits AS lw
+            JOIN performance_schema.threads AS bt ON bt.THREAD_ID = lw.BLOCKING_THREAD_ID
+            WHERE lw.REQUESTING_THREAD_ID = thread.thread_id
+            LIMIT 1
+        ), 0
+    ) AS blocking_session_id
 FROM
     performance_schema.threads AS thread
     LEFT JOIN performance_schema.events_statements_current AS statement ON statement.thread_id = thread.thread_id
