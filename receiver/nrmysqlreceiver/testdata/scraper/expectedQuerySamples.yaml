@@ -88,6 +88,9 @@ resourceLogs:
               - key: mysql.blocking.blocker.session_id
                 value:
                   intValue: "0"
+              - key: mysql.session.client_name
+                value:
+                  stringValue: ""
             body: {}
             eventName: db.server.query_sample
             spanId: "2222222222222222"

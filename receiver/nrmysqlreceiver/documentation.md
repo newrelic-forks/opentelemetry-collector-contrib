@@ -715,6 +715,7 @@ This provides real-time visibility into active queries, helping users monitor da
 | mysql.blocking.blocker.thread_id | The thread_id of the session currently holding the lock this session is waiting on, sourced from performance_schema.data_lock_waits. 0 indicates the session is not currently blocked (thread_id 0 is never assigned by MySQL). | Any Int | - |
 | mysql.events_statements_current.timer_start | Internal, monotonically increasing picosecond counter (not wall-clock time) marking when the current statement started executing. Changes only when a new statement begins on this thread, making it a stable per-execution key for deduplicating a statement's wait-event rows across scrape cycles (MySQL's analogue of query_start on SQL Server). | Any Int | - |
 | mysql.blocking.blocker.session_id | The PROCESSLIST_ID (session id) of the session currently holding the lock this session is waiting on, resolved from BLOCKING_THREAD_ID via performance_schema.threads. 0 indicates the session is not currently blocked. Use this, not mysql.blocking.blocker.thread_id, to cross-reference the blocking session against mysql.session.id elsewhere on the dashboard. | Any Int | - |
+| mysql.session.client_name | The client driver's self-reported identity at connection time (performance_schema.session_connect_attrs, ATTR_NAME='_client_name'), e.g. "MySQL Connector/J" or "libmysql". Empty if the client reported no connect attributes or the connect-attrs feature is disabled server-side. | Any Str | - |
 
 ### db.server.top_query
 

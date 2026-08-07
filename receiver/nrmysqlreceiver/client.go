@@ -343,6 +343,11 @@ type querySample struct {
 	// to cross-reference the blocker against mysql.session.id elsewhere on
 	// the dashboard. 0 means not blocked.
 	blockingSessionID int64
+	// clientProgramName is the client driver's self-reported identity
+	// (session_connect_attrs, ATTR_NAME='_client_name'), e.g. "MySQL
+	// Connector/J" or "libmysql". Empty if the client reported no connect
+	// attributes.
+	clientProgramName string
 }
 
 type topQuery struct {
@@ -1037,6 +1042,8 @@ func (c *mySQLClient) getQuerySamples(limit uint64, supportsProcesslist bool) ([
 				dest = append(dest, &s.statementTimerStart)
 			case "blocking_session_id":
 				dest = append(dest, &s.blockingSessionID)
+			case "client_program_name":
+				dest = append(dest, &s.clientProgramName)
 			default:
 				return nil, fmt.Errorf("unknown column name %q for query samples", col)
 			}
