@@ -333,6 +333,11 @@ type querySample struct {
 	// one on a row lock, sourced from performance_schema.data_lock_waits.
 	// 0 means not blocked (thread_id 0 is never assigned by MySQL).
 	blockingThreadID int64
+	// statementTimerStart is TIMER_START from events_statements_current: an
+	// internal, monotonically increasing picosecond counter (not wall-clock
+	// time) that changes only when a new statement begins on this thread.
+	// Used as a stable per-execution key, MySQL's analogue of query_start.
+	statementTimerStart int64
 }
 
 type topQuery struct {
@@ -1023,6 +1028,8 @@ func (c *mySQLClient) getQuerySamples(limit uint64, supportsProcesslist bool) ([
 				dest = append(dest, &s.traceparent)
 			case "blocking_thread_id":
 				dest = append(dest, &s.blockingThreadID)
+			case "statement_timer_start":
+				dest = append(dest, &s.statementTimerStart)
 			default:
 				return nil, fmt.Errorf("unknown column name %q for query samples", col)
 			}

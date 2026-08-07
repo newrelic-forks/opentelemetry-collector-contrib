@@ -68,6 +68,13 @@
         0
     ) AS wait_time_seconds,
     COALESCE(statement.TIMER_WAIT/1e12, thread.processlist_time, 0) AS statement_timer_wait_seconds,
+    -- Extension: TIMER_START is an internal, monotonically increasing picosecond
+    -- counter (not wall-clock time) that changes only when a new statement begins
+    -- on this thread. Used as a stable per-execution key for dashboards to dedup
+    -- on, MySQL's analogue of query_start on MSSQL. Present unconditionally since
+    -- Performance Schema statement instrumentation was introduced (MySQL 5.6+,
+    -- MariaDB), so no version gate is needed.
+    COALESCE(statement.TIMER_START, 0) AS statement_timer_start,
     -- Extension: Get @traceparent from user_variables_by_thread.
     -- This table is available on MySQL 5.7.3+ and MariaDB 10.5.2+.
     -- Use CONVERT for MySQL 8.0+ which stores user variables as binary (VARBINARY);
