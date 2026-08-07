@@ -738,6 +738,8 @@ This provides insights into query performance and resource usage, helping users 
 | db.query.comment_tags.nr_service_guid | New Relic service GUID extracted from the filtered db.query.comment_tags. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
 | db.query.text.normalized.hash | MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Used for correlation with APM slow query traces. | Any Str | - |
 | db.namespace | The default database/schema for the query. On query samples this is the thread's current database (processlist_db); on top queries it is the digest's SCHEMA_NAME. Empty when no default database was selected. | Any Str | - |
+| mysql.events_statements_summary_by_digest.sum_rows_examined | The number of rows examined by the statement, report in delta value. | Any Int | - |
+| mysql.events_statements_summary_by_digest.sum_rows_sent | The number of rows returned by the statement, report in delta value. | Any Int | - |
 
 ## Resource Attributes
 

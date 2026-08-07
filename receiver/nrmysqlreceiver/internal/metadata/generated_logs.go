@@ -80,7 +80,7 @@ type eventDbServerTopQuery struct {
 	config EventConfig         // event config provided by user.
 }
 
-func (e *eventDbServerTopQuery) recordEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue string, dbQueryTextAttributeValue string, mysqlQueryPlanAttributeValue string, mysqlQueryPlanHashAttributeValue string, mysqlEventsStatementsSummaryByDigestDigestAttributeValue string, mysqlEventsStatementsSummaryByDigestCountStarAttributeValue int64, mysqlEventsStatementsSummaryByDigestSumTimerWaitAttributeValue float64, dbQueryCommentTagsAttributeValue string, dbQueryCommentTagsNrServiceGUIDAttributeValue string, dbQueryTextNormalizedHashAttributeValue string, dbNamespaceAttributeValue string) {
+func (e *eventDbServerTopQuery) recordEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue string, dbQueryTextAttributeValue string, mysqlQueryPlanAttributeValue string, mysqlQueryPlanHashAttributeValue string, mysqlEventsStatementsSummaryByDigestDigestAttributeValue string, mysqlEventsStatementsSummaryByDigestCountStarAttributeValue int64, mysqlEventsStatementsSummaryByDigestSumTimerWaitAttributeValue float64, dbQueryCommentTagsAttributeValue string, dbQueryCommentTagsNrServiceGUIDAttributeValue string, dbQueryTextNormalizedHashAttributeValue string, dbNamespaceAttributeValue string, mysqlEventsStatementsSummaryByDigestSumRowsExaminedAttributeValue int64, mysqlEventsStatementsSummaryByDigestSumRowsSentAttributeValue int64) {
 	if !e.config.Enabled {
 		return
 	}
@@ -103,6 +103,8 @@ func (e *eventDbServerTopQuery) recordEvent(ctx context.Context, timestamp pcomm
 	dp.Attributes().PutStr("db.query.comment_tags.nr_service_guid", dbQueryCommentTagsNrServiceGUIDAttributeValue)
 	dp.Attributes().PutStr("db.query.text.normalized.hash", dbQueryTextNormalizedHashAttributeValue)
 	dp.Attributes().PutStr("db.namespace", dbNamespaceAttributeValue)
+	dp.Attributes().PutInt("mysql.events_statements_summary_by_digest.sum_rows_examined", mysqlEventsStatementsSummaryByDigestSumRowsExaminedAttributeValue)
+	dp.Attributes().PutInt("mysql.events_statements_summary_by_digest.sum_rows_sent", mysqlEventsStatementsSummaryByDigestSumRowsSentAttributeValue)
 
 }
 
@@ -273,6 +275,6 @@ func (lb *LogsBuilder) RecordDbServerQuerySampleEvent(ctx context.Context, times
 }
 
 // RecordDbServerTopQueryEvent adds a log record of db.server.top_query event.
-func (lb *LogsBuilder) RecordDbServerTopQueryEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue AttributeDbSystemName, dbQueryTextAttributeValue string, mysqlQueryPlanAttributeValue string, mysqlQueryPlanHashAttributeValue string, mysqlEventsStatementsSummaryByDigestDigestAttributeValue string, mysqlEventsStatementsSummaryByDigestCountStarAttributeValue int64, mysqlEventsStatementsSummaryByDigestSumTimerWaitAttributeValue float64, dbQueryCommentTagsAttributeValue string, dbQueryCommentTagsNrServiceGUIDAttributeValue string, dbQueryTextNormalizedHashAttributeValue string, dbNamespaceAttributeValue string) {
-	lb.eventDbServerTopQuery.recordEvent(ctx, timestamp, dbSystemNameAttributeValue.String(), dbQueryTextAttributeValue, mysqlQueryPlanAttributeValue, mysqlQueryPlanHashAttributeValue, mysqlEventsStatementsSummaryByDigestDigestAttributeValue, mysqlEventsStatementsSummaryByDigestCountStarAttributeValue, mysqlEventsStatementsSummaryByDigestSumTimerWaitAttributeValue, dbQueryCommentTagsAttributeValue, dbQueryCommentTagsNrServiceGUIDAttributeValue, dbQueryTextNormalizedHashAttributeValue, dbNamespaceAttributeValue)
+func (lb *LogsBuilder) RecordDbServerTopQueryEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue AttributeDbSystemName, dbQueryTextAttributeValue string, mysqlQueryPlanAttributeValue string, mysqlQueryPlanHashAttributeValue string, mysqlEventsStatementsSummaryByDigestDigestAttributeValue string, mysqlEventsStatementsSummaryByDigestCountStarAttributeValue int64, mysqlEventsStatementsSummaryByDigestSumTimerWaitAttributeValue float64, dbQueryCommentTagsAttributeValue string, dbQueryCommentTagsNrServiceGUIDAttributeValue string, dbQueryTextNormalizedHashAttributeValue string, dbNamespaceAttributeValue string, mysqlEventsStatementsSummaryByDigestSumRowsExaminedAttributeValue int64, mysqlEventsStatementsSummaryByDigestSumRowsSentAttributeValue int64) {
+	lb.eventDbServerTopQuery.recordEvent(ctx, timestamp, dbSystemNameAttributeValue.String(), dbQueryTextAttributeValue, mysqlQueryPlanAttributeValue, mysqlQueryPlanHashAttributeValue, mysqlEventsStatementsSummaryByDigestDigestAttributeValue, mysqlEventsStatementsSummaryByDigestCountStarAttributeValue, mysqlEventsStatementsSummaryByDigestSumTimerWaitAttributeValue, dbQueryCommentTagsAttributeValue, dbQueryCommentTagsNrServiceGUIDAttributeValue, dbQueryTextNormalizedHashAttributeValue, dbNamespaceAttributeValue, mysqlEventsStatementsSummaryByDigestSumRowsExaminedAttributeValue, mysqlEventsStatementsSummaryByDigestSumRowsSentAttributeValue)
 }
