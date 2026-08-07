@@ -1376,7 +1376,8 @@ func (c *postgreSQLClient) getQuerySamples(ctx context.Context, limit int64, new
 	return finalAttributes, newestQueryTimestamp, errors.Join(errs...)
 }
 
-func convertMillisecondToSecond(column, value string, logger *zap.Logger) (any, error) {
+// convertToFloat parses value as a float64 without scaling; total_exec_time/total_plan_time are ms per metadata.yaml.
+func convertToFloat(column, value string, logger *zap.Logger) (any, error) {
 	result := float64(0)
 	var err error
 	if value != "" {
@@ -1385,7 +1386,7 @@ func convertMillisecondToSecond(column, value string, logger *zap.Logger) (any, 
 			logger.Error("failed to parse float", zap.String("column", column), zap.String("value", value), zap.Error(err))
 		}
 	}
-	return result / 1000.0, err
+	return result, err
 }
 
 func convertToInt(column, value string, logger *zap.Logger) (any, error) {
@@ -1448,8 +1449,8 @@ func (c *postgreSQLClient) getTopQuery(ctx context.Context, limit int64, allowed
 			sharedBlksWrittenColumnName: convertToInt,
 			tempBlksReadColumnName:      convertToInt,
 			tempBlksWrittenColumnName:   convertToInt,
-			totalExecTimeColumnName:     convertMillisecondToSecond,
-			totalPlanTimeColumnName:     convertMillisecondToSecond,
+			totalExecTimeColumnName:     convertToFloat,
+			totalPlanTimeColumnName:     convertToFloat,
 		}
 		currentAttributes := make(map[string]any)
 
