@@ -161,23 +161,19 @@ controls how the receiver obtains the plan:
 ### `mysql.query_plan` and JSON-shaped log attributes
 
 `mysql.query_plan` holds the raw `EXPLAIN FORMAT=json` plan as a JSON-encoded string. New
-Relic's log ingest auto-detects JSON-shaped string attributes and flattens them into dotted
-sub-attributes (e.g. `mysql.query_plan.query_block.select_id`), **dropping the original flat
-string in the process** — this happens for every plan, not just write-statement ones, since
-`EXPLAIN FORMAT=json` output is always JSON. If you need the complete, unflattened plan text
-to survive ingest, duplicate it under a non-JSON-looking attribute name before it reaches New
-Relic, e.g. via a `transform` processor in the pipeline:
+Relic's log ingest auto-detects a top-level JSON **object** string attribute and flattens it
+into dotted sub-attributes (e.g. `mysql.query_plan.query_block.select_id`), **dropping the
+original flat string in the process** — this happens for every plan, not just write-statement
+ones, since `EXPLAIN FORMAT=json` output is always a JSON object.
 
-```yaml
-processors:
-  transform:
-    log_statements:
-      - context: log
-        statements:
-          # Prefix so ingest doesn't recognize it as JSON; must run before any
-          # attribute-size truncation.
-          - set(log.attributes["mysql.query_plan_raw"], Concat(["RAWPLAN:", log.attributes["mysql.query_plan"]], "")) where log.attributes["mysql.query_plan"] != nil and log.attributes["mysql.query_plan"] != ""
-```
+The receiver handles this itself: `mysql.query_plan` is wrapped in a one-element JSON array
+(`{...}` → `[{...}]`) immediately after obfuscation, before it's written to the plan cache
+(`scraper.go`, `retrieveQueryPlan`). A top-level JSON **array** is not flattened the same way,
+so the wrapped value survives log ingest intact — no pipeline-side `transform` processor or
+duplicate attribute is needed. The wrapped string is still directly parseable JSON; index `[0]`
+to recover the original plan object (e.g. `JSON.parse(value)[0]`). An empty plan (statement not
+explainable, `EXPLAIN` failed, etc.) is left as `""`, never wrapped to `"[]"`, so absence of a
+plan is still distinguishable from an empty array of plans.
 
 ### MySQL Requirements to enable log collection
 
@@ -228,3 +224,80 @@ WHERE NAME = 'events_waits_current';
 Run this statement after each restart, or grant the receiver user `UPDATE` on
 `performance_schema.setup_consumers` so that the receiver can re-enable it automatically on
 reconnect.
+
+### Blocking-session detection
+
+`db.server.query_sample` carries two attributes identifying the session (if any) blocking the
+current one on a row lock:
+
+- `mysql.blocking.blocker.thread_id` — the blocker's `performance_schema.threads.THREAD_ID`, the
+  same ID space as `mysql.threads.thread_id` elsewhere on this event.
+- `mysql.blocking.blocker.session_id` — the blocker's `PROCESSLIST_ID`, the same ID space as
+  `mysql.session.id`. Prefer this one when displaying "blocked by session X" to a user, since
+  `mysql.session.id` (not `mysql.threads.thread_id`) is the connection ID actually visible via
+  `SHOW PROCESSLIST` / `information_schema.PROCESSLIST`.
+
+Both are `0` when the session is not currently blocked — `0` is never a valid MySQL thread ID or
+`PROCESSLIST_ID`, so it's a safe "no blocker" sentinel. **NRQL gotcha:** filter with
+`mysql.blocking.blocker.thread_id > 0`, not `!= 0` — `null != 0` evaluates `TRUE` in NRQL, so a
+`!=` filter on an attribute that might be absent on some rows will silently match everything.
+
+The blocker is resolved via a correlated subquery against `performance_schema.data_lock_waits`
+(MySQL 8.0+), joined back to `performance_schema.threads` for the `PROCESSLIST_ID`. No additional
+grants beyond the standard `SELECT ON performance_schema.*` are required.
+
+### Client program name
+
+`db.server.query_sample` carries `mysql.session.client_name` — the client driver's self-reported
+identity, sourced from `performance_schema.session_connect_attrs` (`ATTR_NAME = '_client_name'`),
+e.g. `"MySQL Connector/J"` or `"libmysql"`. This is MySQL's closest equivalent to SQL Server's
+`client.app.name` / Oracle's `program`.
+
+This is genuinely data-dependent, not just version-gated: it's empty whenever the client driver
+doesn't send connect attributes, which some drivers/configurations don't do by default. Don't
+assume it's populated for every connection — check coverage against your own client mix before
+building a dashboard that depends on it (e.g. faceting sessions by program) as a primary view.
+
+### Additional query-event attributes
+
+A few attributes worth calling out explicitly since they're easy to miss in `metadata.yaml`'s
+flat attribute list:
+
+- `mysql.events_statements_summary_by_digest.sum_rows_examined` /
+  `.sum_rows_sent` (on `db.server.top_query`) — diffed per scrape cycle with the same
+  `cacheAndDiff` primitive already used for `count_star`, so `sum_rows_examined / count_star`
+  gives a meaningful **per-execution average rows examined**, not a raw cumulative total. This is
+  a row *count*, not a page/buffer-fetch count — it is **not** logical reads, and shouldn't be
+  labeled as such in any dashboard that shows it alongside other engines' logical-reads column.
+- `mysql.events_statements_current.timer_start` (on `db.server.query_sample`) — the statement's
+  `TIMER_START` in picoseconds since server boot. This is **not** a wall-clock timestamp — there's
+  no receiver-side correlation with server start time to convert it into one. Don't display this
+  value directly to a user; if you need an approximate "when did this start" signal, use the log
+  record's own `timestamp` instead (when the collector's scrape first observed the execution).
+- `db.query.text.normalized.hash` and `db.query.comment_tags`/`db.query.comment_tags.nr_service_guid`
+  (on both events) — New Relic-specific correlation attributes, not present in the upstream
+  `mysqlreceiver`. `normalized.hash` is an MD5 of the normalized SQL text, matching the field
+  MSSQL/Oracle's OTel receivers emit under the same name — use it (not the native MySQL `digest`)
+  for any cross-engine navigation/join logic in a shared UI. `comment_tags.nr_service_guid` is
+  populated only when `allowed_comment_keys` includes `nr_service_guid` and the query carries a
+  matching SQL comment (typically injected by an APM agent) — expect it to be empty for
+  non-APM-instrumented traffic.
+
+### Timer units
+
+Timer-valued attributes are **not** on a single, uniform unit across this receiver's output —
+the convention differs by telemetry type, and is stable/intentional, not something that has
+changed release to release:
+
+| Telemetry type | Fields | Unit |
+|---|---|---|
+| Log events (`db.server.top_query`, `db.server.query_sample`) | `mysql.events_statements_summary_by_digest.sum_timer_wait`, `mysql.events_statements_current.timer_wait`, `mysql.events_waits_current.timer_wait` | **seconds** (converted from `performance_schema`'s native picoseconds in SQL for `query_sample`, and in Go for `top_query`) |
+| Metrics (`mysql.statement_event.wait.time`, table/index I/O wait, table lock wait) | — | **nanoseconds** (raw `performance_schema` picosecond values divided down to `ns`, per each metric's declared `unit: ns` in `metadata.yaml`) |
+
+Both `sum_timer_wait` and `timer_wait` are the statement's/execution's **total elapsed time**,
+not a wait-only component — `performance_schema`'s `TIMER_WAIT` column name is a general term
+Performance Schema uses for "elapsed time of an instrumented event," inherited from the
+wait-instrument tables where "wait" did mean blocking; at the statement level it means duration.
+`mysql.events_waits_current.timer_wait` is the one field that *is* a genuine, distinct wait/block
+duration (sourced from `performance_schema.events_waits_current`, not the statement timer) — pair
+it with `mysql.wait_type` if you need to show what a session is currently blocked on.
