@@ -2452,6 +2452,11 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 		queryPlanHashVal := hex.EncodeToString([]byte(row[queryPlanHash]))
 		procID := row[storedProcedureID]
 
+		if strings.HasPrefix(row[queryText], "--") {
+			s.logger.Debug(fmt.Sprintf("skipping comment-only SQL statement: %v", row[queryText]))
+			continue
+		}
+
 		queryTextVal := s.retrieveValue(row, queryText, &errs, func(row sqlquery.StringMap, columnName string) (any, error) {
 			statement := row[columnName]
 			obfuscated, err := s.obfuscator.obfuscateSQLString(statement)
@@ -2846,6 +2851,10 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 	for _, row := range rows {
 		queryHashVal := hex.EncodeToString([]byte(row[queryHash]))
 		if queryHashVal == "0000000000000000" {
+			continue
+		}
+		if strings.HasPrefix(row[statementText], "--") {
+			s.logger.Debug(fmt.Sprintf("skipping comment-only SQL statement: %v", row[statementText]))
 			continue
 		}
 		queryPlanHashVal := hex.EncodeToString([]byte(row[queryPlanHash]))
