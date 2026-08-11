@@ -1,10 +1,12 @@
-SELECT
+/* otel-collector-ignore */ SELECT
     COALESCE(sa.datname, '') AS datname,
     COALESCE(sa.usename, '') AS usename,
     COALESCE(sa.client_addr::TEXT, '') AS client_addr,
     COALESCE(sa.client_hostname, '') AS client_hostname,
     COALESCE(sa.client_port::TEXT, '') AS client_port,
     COALESCE(sa.query_start::TEXT, '') AS query_start,
+    COALESCE(sa.backend_start::TEXT, '') AS backend_start,
+    COALESCE(EXTRACT(EPOCH FROM (clock_timestamp() - sa.backend_start))::BIGINT, 0) AS session_duration,
     COALESCE(sa.wait_event_type, '') AS wait_event_type,
     COALESCE(sa.wait_event, '') AS wait_event,
     COALESCE(sa.query_id::TEXT, '') AS query_id,

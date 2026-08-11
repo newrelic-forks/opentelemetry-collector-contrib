@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"regexp"
 	"time"
 
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrpostgresqlreceiver/internal/metadata"
@@ -19,12 +20,16 @@ import (
 
 // Errors for missing required config parameters.
 const (
-	ErrNoUsername          = "invalid config: missing username"
-	ErrNoPassword          = "invalid config: missing password" // #nosec G101 - not hardcoded credentials
-	ErrNotSupported        = "invalid config: field '%s' not supported"
-	ErrTransportsSupported = "invalid config: 'transport' must be 'tcp' or 'unix'"
-	ErrHostPort            = "invalid config: 'endpoint' must be in the form <host>:<port> no matter what 'transport' is configured"
+	ErrNoUsername                 = "invalid config: missing username"
+	ErrNoPassword                 = "invalid config: missing password" // #nosec G101 - not hardcoded credentials
+	ErrNotSupported               = "invalid config: field '%s' not supported"
+	ErrTransportsSupported        = "invalid config: 'transport' must be 'tcp' or 'unix'"
+	ErrHostPort                   = "invalid config: 'endpoint' must be in the form <host>:<port> no matter what 'transport' is configured"
+	ErrInvalidExplainFunctionName = "invalid config: 'top_query_collection.explain_function_name' must be empty or a valid [schema.]function_name identifier"
 )
+
+// explainFunctionNamePattern validates [schema.]function_name before it's quoted and used in SQL.
+var explainFunctionNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$`)
 
 type TopQueryCollection struct {
 	MaxRowsPerQuery        int64         `mapstructure:"max_rows_per_query"`
@@ -33,12 +38,21 @@ type TopQueryCollection struct {
 	QueryPlanCacheSize     int           `mapstructure:"query_plan_cache_size"`
 	QueryPlanCacheTTL      time.Duration `mapstructure:"query_plan_cache_ttl"`
 	CollectionInterval     time.Duration `mapstructure:"collection_interval"`
+	// ExplainFunctionName is the DBA-provisioned SECURITY DEFINER helper used to EXPLAIN
+	// locking/write queries. Empty (default) keeps the existing inline EXPLAIN behavior.
+	ExplainFunctionName string `mapstructure:"explain_function_name"`
+	// ExplainFunctionCacheTTL is how often ExplainFunctionName availability is re-probed per database.
+	ExplainFunctionCacheTTL time.Duration `mapstructure:"explain_function_cache_ttl"`
+	// AllowedCommentKeys are SQL comment keys extracted into db.query.comment_tags.
+	AllowedCommentKeys []string `mapstructure:"allowed_comment_keys"`
 	// prevent unkeyed literal initialization
 	_ struct{}
 }
 
 type QuerySampleCollection struct {
 	MaxRowsPerQuery int64 `mapstructure:"max_rows_per_query"`
+	// AllowedCommentKeys are SQL comment keys extracted into db.query.comment_tags.
+	AllowedCommentKeys []string `mapstructure:"allowed_comment_keys"`
 	// prevent unkeyed literal initialization
 	_ struct{}
 }
@@ -93,6 +107,10 @@ func (cfg *Config) Validate() error {
 		}
 	default:
 		err = multierr.Append(err, errors.New(ErrTransportsSupported))
+	}
+
+	if cfg.ExplainFunctionName != "" && !explainFunctionNamePattern.MatchString(cfg.ExplainFunctionName) {
+		err = multierr.Append(err, errors.New(ErrInvalidExplainFunctionName))
 	}
 
 	return err

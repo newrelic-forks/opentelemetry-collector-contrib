@@ -21,6 +21,8 @@ import (
 	"github.com/google/uuid"
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/hashicorp/golang-lru/v2/expirable"
+	"github.com/lib/pq"
+	"github.com/lib/pq/pqerror"
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon/priorityqueue"
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrpostgresqlreceiver/internal/metadata"
 	"go.opentelemetry.io/collector/config/confignet"
@@ -45,6 +47,12 @@ const (
 // See: https://opentelemetry.io/docs/specs/semconv/registry/attributes/service/
 var otelNamespaceUUID = uuid.MustParse("4d63009a-8d0f-11ee-aad7-4c796ed8e320")
 
+// explainSetupState is the cached outcome of probing the EXPLAIN helper function for a database.
+type explainSetupState struct {
+	available bool
+	err       error
+}
+
 type postgreSQLScraper struct {
 	logger        *zap.Logger
 	config        *Config
@@ -57,6 +65,7 @@ type postgreSQLScraper struct {
 	separateSchemaAttr     bool
 	useOTelSemconv         bool
 	queryPlanCache         *expirable.LRU[string, string]
+	explainFunctionCache   *expirable.LRU[string, explainSetupState]
 	newestQueryTimestamp   float64
 	serviceInstanceID      string
 	lastExecutionTimestamp time.Time
@@ -91,6 +100,7 @@ func newPostgreSQLScraper(
 	clientFactory postgreSQLClientFactory,
 	cache *lru.Cache[string, float64],
 	queryPlanCache *expirable.LRU[string, string],
+	explainFunctionCache *expirable.LRU[string, explainSetupState],
 ) (*postgreSQLScraper, error) {
 	excludes := make(map[string]struct{})
 	for _, db := range config.ExcludeDatabases {
@@ -118,17 +128,18 @@ func newPostgreSQLScraper(
 	}
 	mbConfig := metricsBuilderConfigForFeatureGate(config.MetricsBuilderConfig, useOTelSemconv)
 	return &postgreSQLScraper{
-		logger:             settings.Logger,
-		config:             config,
-		clientFactory:      clientFactory,
-		mb:                 metadata.NewMetricsBuilder(mbConfig, settings),
-		lb:                 metadata.NewLogsBuilder(config.LogsBuilderConfig, settings),
-		excludes:           excludes,
-		cache:              cache,
-		queryPlanCache:     queryPlanCache,
-		separateSchemaAttr: separateSchemaAttr,
-		serviceInstanceID:  serviceInstanceID,
-		useOTelSemconv:     useOTelSemconv,
+		logger:               settings.Logger,
+		config:               config,
+		clientFactory:        clientFactory,
+		mb:                   metadata.NewMetricsBuilder(mbConfig, settings),
+		lb:                   metadata.NewLogsBuilder(config.LogsBuilderConfig, settings),
+		excludes:             excludes,
+		cache:                cache,
+		queryPlanCache:       queryPlanCache,
+		explainFunctionCache: explainFunctionCache,
+		separateSchemaAttr:   separateSchemaAttr,
+		serviceInstanceID:    serviceInstanceID,
+		useOTelSemconv:       useOTelSemconv,
 	}, nil
 }
 
@@ -335,7 +346,7 @@ func attrFloat64(atts map[string]any, key string) float64 {
 func (p *postgreSQLScraper) collectQuerySamples(ctx context.Context, dbClient client, limit int64, mux *errsMux, logger *zap.Logger) {
 	timestamp := pcommon.NewTimestampFromTime(time.Now())
 
-	attributes, newestQueryTimestamp, err := dbClient.getQuerySamples(ctx, limit, p.newestQueryTimestamp, logger)
+	attributes, newestQueryTimestamp, err := dbClient.getQuerySamples(ctx, limit, p.newestQueryTimestamp, p.config.QuerySampleCollection.AllowedCommentKeys, logger)
 	p.newestQueryTimestamp = newestQueryTimestamp
 	if err != nil {
 		mux.addPartial(err)
@@ -349,14 +360,19 @@ func (p *postgreSQLScraper) collectQuerySamples(ctx context.Context, dbClient cl
 				logCtx = ctx
 			}
 		}
-		p.lb.RecordDbServerQuerySampleEvent(logCtx,
+		p.lb.RecordDbServerQuerySampleEvent(
+			logCtx,
 			timestamp,
 			metadata.AttributeDbSystemNamePostgresql,
 			attrString(atts, string(semconv.DBNamespaceKey)),
 			attrString(atts, string(semconv.DBQueryTextKey)),
+			attrString(atts, dbQueryCommentTagsAttributeKey),
+			attrString(atts, dbQueryCommentTagsNrServiceGUIDAttributeKey),
 			attrString(atts, string(semconv.UserNameKey)),
 			attrString(atts, dbAttributePrefix+querySampleColumnState),
 			attrInt64(atts, dbAttributePrefix+querySampleColumnPID),
+			attrString(atts, dbAttributePrefix+querySampleColumnBackendStart),
+			attrInt64(atts, dbAttributePrefix+querySampleColumnSessionDuration),
 			attrString(atts, dbAttributePrefix+querySampleColumnApplicationName),
 			attrString(atts, string(semconv.NetworkPeerAddressKey)),
 			attrInt64(atts, string(semconv.NetworkPeerPortKey)),
@@ -373,8 +389,61 @@ func (p *postgreSQLScraper) collectQuerySamples(ctx context.Context, dbClient cl
 			attrString(atts, dbAttributePrefix+querySampleColumnBlockingLockType),
 			attrString(atts, dbAttributePrefix+querySampleColumnBlockingLockRelation),
 			attrString(atts, dbAttributePrefix+querySampleColumnBlockingTxnStartTime),
+			attrString(atts, dbQueryTextNormalizedHashAttributeKey),
 		)
 	}
+}
+
+// probeExplainFunctionIfNeeded probes and caches EXPLAIN helper function availability per database; only this probe writes to the cache, never a real explainQuery call.
+func (p *postgreSQLScraper) probeExplainFunctionIfNeeded(ctx context.Context, database string, dbClient client) {
+	if p.config.ExplainFunctionName == "" {
+		return
+	}
+
+	if _, ok := p.explainFunctionCache.Get(database); ok {
+		return
+	}
+
+	quoted := quoteExplainFunctionName(p.config.ExplainFunctionName)
+	err := dbClient.probeExplainFunction(ctx, quoted)
+	if err == nil {
+		p.explainFunctionCache.Add(database, explainSetupState{available: true})
+		return
+	}
+
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) {
+		if pqErr.Code == pqerror.UndefinedFunction {
+			p.logger.Warn("EXPLAIN helper function not found, falling back to inline EXPLAIN",
+				zap.String("database", database),
+				zap.String("explain_function_name", p.config.ExplainFunctionName),
+				zap.Error(err))
+		} else {
+			p.logger.Error("EXPLAIN helper function exists but failed, falling back to inline EXPLAIN",
+				zap.String("database", database),
+				zap.String("explain_function_name", p.config.ExplainFunctionName),
+				zap.Error(err))
+		}
+		p.explainFunctionCache.Add(database, explainSetupState{available: false, err: err})
+		return
+	}
+
+	// Connection-level error: cache as unavailable too, so a flaky database is re-probed
+	// at most once per explain_function_cache_ttl, not once per candidate query.
+	p.logger.Warn("failed to probe EXPLAIN helper function, falling back to inline EXPLAIN",
+		zap.String("database", database),
+		zap.Error(err))
+	p.explainFunctionCache.Add(database, explainSetupState{available: false, err: err})
+}
+
+// shouldCacheExplainFailure returns false for permission errors so a later GRANT is retried
+// next scrape, instead of sitting behind query_plan_cache_ttl like other failures.
+func shouldCacheExplainFailure(err error) bool {
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) && pqErr.Code == pqerror.InsufficientPrivilege {
+		return false
+	}
+	return true
 }
 
 func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory postgreSQLClientFactory, limit, topNQuery, maxExplainEachInterval int64, mux *errsMux, logger *zap.Logger, collectionTime time.Time) {
@@ -389,7 +458,7 @@ func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory p
 
 	defer defaultDbClient.Close()
 
-	rows, err := defaultDbClient.getTopQuery(ctx, limit, logger)
+	rows, err := defaultDbClient.getTopQuery(ctx, limit, p.config.TopQueryCollection.AllowedCommentKeys, logger)
 	if err != nil {
 		logger.Error("failed to get top query", zap.Error(err))
 		mux.addPartial(err)
@@ -478,13 +547,20 @@ func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory p
 			database := item.Value[string(semconv.DBNamespaceKey)].(string)
 			dbClient, err := clientFactory.getClient(database)
 			if err == nil {
-				plan, err = dbClient.explainQuery(rawQuery, queryID, logger)
+				explainFunction := ""
+				p.probeExplainFunctionIfNeeded(ctx, database, dbClient)
+				if state, cached := p.explainFunctionCache.Get(database); cached && state.available {
+					explainFunction = quoteExplainFunctionName(p.config.ExplainFunctionName)
+				}
+				plan, err = dbClient.explainQuery(rawQuery, queryID, explainFunction, logger)
 				if err != nil {
 					logger.Error("failed to explain query", zap.String("query", rawQuery), zap.Error(err))
 				}
 				// to avoid flood the error message. there are some internal queries meant to not be
 				// explained. we wait for the cache to expire and report the error again.
-				p.queryPlanCache.Add(queryID+"-plan", plan)
+				if shouldCacheExplainFailure(err) { // permission errors are retried next scrape instead
+					p.queryPlanCache.Add(queryID+"-plan", plan)
+				}
 				err = dbClient.Close()
 				if err != nil {
 					logger.Error("failed to close", zap.Error(err))
@@ -493,12 +569,18 @@ func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory p
 			explained++
 		}
 
+		dbSQLCommentsVal, _ := item.Value[dbQueryCommentTagsAttributeKey].(string)
+		nrServiceGUIDVal, _ := item.Value[dbQueryCommentTagsNrServiceGUIDAttributeKey].(string)
+		normalizedHashVal, _ := item.Value[dbQueryTextNormalizedHashAttributeKey].(string)
+
 		p.lb.RecordDbServerTopQueryEvent(
 			context.Background(),
 			timestamp,
 			metadata.AttributeDbSystemNamePostgresql,
 			item.Value[string(semconv.DBNamespaceKey)].(string),
 			query,
+			dbSQLCommentsVal,
+			nrServiceGUIDVal,
 			item.Value[dbAttributePrefix+callsColumnName].(int64),
 			item.Value[dbAttributePrefix+rowsColumnName].(int64),
 			item.Value[dbAttributePrefix+sharedBlksDirtiedColumnName].(int64),
@@ -512,6 +594,7 @@ func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory p
 			item.Value[dbAttributePrefix+totalExecTimeColumnName].(float64),
 			item.Value[dbAttributePrefix+totalPlanTimeColumnName].(float64),
 			plan,
+			normalizedHashVal,
 		)
 		count++
 	}

@@ -19,15 +19,32 @@ $defs:
   query_sample_collection:
     type: object
     properties:
+      allowed_comment_keys:
+        description: AllowedCommentKeys are SQL comment keys extracted into db.query.comment_tags.
+        type: array
+        items:
+          type: string
       max_rows_per_query:
         type: integer
         x-customType: int64
   top_query_collection:
     type: object
     properties:
+      allowed_comment_keys:
+        description: AllowedCommentKeys are SQL comment keys extracted into db.query.comment_tags.
+        type: array
+        items:
+          type: string
       collection_interval:
         type: string
         format: duration
+      explain_function_cache_ttl:
+        description: ExplainFunctionCacheTTL is how often ExplainFunctionName availability is re-probed per database.
+        type: string
+        format: duration
+      explain_function_name:
+        description: ExplainFunctionName is the DBA-provisioned SECURITY DEFINER helper used to EXPLAIN locking/write queries. Empty (default) keeps the existing inline EXPLAIN behavior.
+        type: string
       max_explain_each_interval:
         type: integer
         x-customType: int64
