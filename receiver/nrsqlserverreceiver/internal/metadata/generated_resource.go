@@ -91,6 +91,13 @@ func (rb *ResourceBuilder) SetSqlserverInstanceName(val string) {
 	}
 }
 
+// SetSqlserverVersion sets provided value as "sqlserver.version" attribute.
+func (rb *ResourceBuilder) SetSqlserverVersion(val string) {
+	if rb.config.SqlserverVersion.Enabled {
+		rb.res.Attributes().PutStr("sqlserver.version", val)
+	}
+}
+
 // Emit returns the built resource and resets the internal builder state.
 func (rb *ResourceBuilder) Emit() pcommon.Resource {
 	rb.config.applyOverrideValues(rb.res)

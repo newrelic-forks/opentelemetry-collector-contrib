@@ -240,6 +240,12 @@ func NewLogsBuilder(lbc LogsBuilderConfig, settings receiver.Settings) *LogsBuil
 	if lbc.ResourceAttributes.SqlserverInstanceName.EventsExclude != nil {
 		lb.resourceAttributeExcludeFilter["sqlserver.instance.name"] = filter.CreateFilter(lbc.ResourceAttributes.SqlserverInstanceName.EventsExclude)
 	}
+	if lbc.ResourceAttributes.SqlserverVersion.EventsInclude != nil {
+		lb.resourceAttributeIncludeFilter["sqlserver.version"] = filter.CreateFilter(lbc.ResourceAttributes.SqlserverVersion.EventsInclude)
+	}
+	if lbc.ResourceAttributes.SqlserverVersion.EventsExclude != nil {
+		lb.resourceAttributeExcludeFilter["sqlserver.version"] = filter.CreateFilter(lbc.ResourceAttributes.SqlserverVersion.EventsExclude)
+	}
 
 	return lb
 }

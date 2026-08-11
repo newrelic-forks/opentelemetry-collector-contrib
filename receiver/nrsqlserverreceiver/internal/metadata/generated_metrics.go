@@ -11055,6 +11055,12 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 	if mbc.ResourceAttributes.SqlserverInstanceName.MetricsExclude != nil {
 		mb.resourceAttributeExcludeFilter["sqlserver.instance.name"] = filter.CreateFilter(mbc.ResourceAttributes.SqlserverInstanceName.MetricsExclude)
 	}
+	if mbc.ResourceAttributes.SqlserverVersion.MetricsInclude != nil {
+		mb.resourceAttributeIncludeFilter["sqlserver.version"] = filter.CreateFilter(mbc.ResourceAttributes.SqlserverVersion.MetricsInclude)
+	}
+	if mbc.ResourceAttributes.SqlserverVersion.MetricsExclude != nil {
+		mb.resourceAttributeExcludeFilter["sqlserver.version"] = filter.CreateFilter(mbc.ResourceAttributes.SqlserverVersion.MetricsExclude)
+	}
 
 	for _, op := range options {
 		op.apply(mb)
