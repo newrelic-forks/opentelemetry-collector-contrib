@@ -7,6 +7,7 @@ package nrsqlserverreceiver // import "github.com/newrelic-forks/opentelemetry-c
 
 import (
 	"context"
+	"net"
 	"time"
 
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver/internal/metadata"
@@ -159,6 +160,9 @@ func (s *sqlServerPCScraper) emitMetricGroup(recorders []curriedRecorder, databa
 	rb.SetServiceName(defaultServiceName)
 	rb.SetServiceNamespace("")
 	rb.SetServiceInstanceID(s.serviceInstanceID)
+	if host, _, err := net.SplitHostPort(s.serviceInstanceID); err == nil {
+		rb.SetSqlserverHostName(host)
+	}
 	if databaseName != "" {
 		rb.SetSqlserverDatabaseName(databaseName)
 	}

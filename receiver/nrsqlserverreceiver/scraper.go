@@ -374,6 +374,7 @@ func (s *sqlServerScraperHelper) setupResourceBuilder(rb *metadata.ResourceBuild
 	}
 
 	rb.SetHostName(hostName)
+	rb.SetSqlserverHostName(hostName)
 	rb.SetServiceInstanceID(s.serviceInstanceID)
 	rb.SetServiceName(defaultServiceName)
 	rb.SetServiceNamespace("")
