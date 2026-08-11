@@ -26,13 +26,40 @@
         -- fallback
         ELSE 'other'
     END AS session_status,
-    IF(wait.thread_id IS NULL,
-        'other',
-        COALESCE(
-            IF(thread.processlist_state = 'User sleep', 'User sleep',
-            IF(wait.event_id = wait.end_event_id, 'CPU', wait.event_name)), 'CPU'
-        )
-    ) AS wait_event,
+    -- Extension: wait_category is the top-level classification from EVENT_NAME's
+    -- second path segment ('io' | 'lock' | 'synch'), MySQL's analogue of Oracle's
+    -- WAIT_CLASS / SQL Server's wait_category. Gated on the exact same conditions
+    -- as session_status above (not just "does a wait row exist") so this only
+    -- reports a real category while session_status = 'waiting'; it reports 'CPU'
+    -- in lockstep with 'running', and 'other' in lockstep with 'other' -- no
+    -- mismatch between the two columns.
+    CASE
+        WHEN wait.thread_id IS NOT NULL AND wait.end_event_id IS NULL THEN
+            CASE
+                WHEN thread.processlist_state = 'User sleep' THEN 'User sleep'
+                ELSE SUBSTRING_INDEX(SUBSTRING_INDEX(wait.event_name, '/', 2), '/', -1)
+            END
+        WHEN statement.thread_id IS NOT NULL
+             AND COALESCE(statement.sql_text, thread.processlist_info) <> '' THEN 'CPU'
+        ELSE 'other'
+    END AS wait_category,
+    -- Extension: wait_event (-> mysql.wait_type) is now everything after the
+    -- category segment of EVENT_NAME (subsystem/component/instrument), e.g.
+    -- 'table/sql/handler', 'mutex/innodb/checkpoint_state' -- MySQL's analogue
+    -- of Oracle's EVENT / SQL Server's wait_type, paired with wait_category.
+    -- Same session_status-aligned gating as wait_category above. Replaces the
+    -- prior raw-full-event_name value (behavior change -- see design doc
+    -- docs/superpowers/specs/2026-08-11-wait-category-breakdown-design.md).
+    CASE
+        WHEN wait.thread_id IS NOT NULL AND wait.end_event_id IS NULL THEN
+            CASE
+                WHEN thread.processlist_state = 'User sleep' THEN 'User sleep'
+                ELSE SUBSTRING(wait.event_name, LENGTH(SUBSTRING_INDEX(wait.event_name, '/', 2)) + 2)
+            END
+        WHEN statement.thread_id IS NOT NULL
+             AND COALESCE(statement.sql_text, thread.processlist_info) <> '' THEN 'CPU'
+        ELSE 'other'
+    END AS wait_event,
     COALESCE(
         -- Tier 1: completed wait event — TIMER_WAIT is populated (exact, picosecond precision)
         wait.timer_wait / 1e12,
