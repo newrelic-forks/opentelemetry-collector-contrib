@@ -45,7 +45,10 @@ resourceLogs:
                   intValue: "17470257762"
               - key: mysql.wait_type
                 value:
-                  stringValue: CPU
+                  stringValue: table/sql/handler
+              - key: mysql.wait_category
+                value:
+                  stringValue: lock
               - key: mysql.session.status
                 value:
                   stringValue: waiting

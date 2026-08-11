@@ -326,6 +326,7 @@ type querySample struct {
 	eventID            int64
 	sessionStatus      string
 	waitEvent          string
+	waitCategory       string
 	waitTime           float64
 	statementTimerWait float64
 	traceparent        string
@@ -1038,6 +1039,8 @@ func (c *mySQLClient) getQuerySamples(limit uint64, supportsProcesslist bool) ([
 				dest = append(dest, &s.sessionStatus)
 			case "wait_event":
 				dest = append(dest, &s.waitEvent)
+			case "wait_category":
+				dest = append(dest, &s.waitCategory)
 			case "wait_time_seconds":
 				dest = append(dest, &s.waitTime)
 			case "statement_timer_wait_seconds":

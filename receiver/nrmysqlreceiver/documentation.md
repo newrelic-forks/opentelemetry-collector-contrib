@@ -700,7 +700,8 @@ This provides real-time visibility into active queries, helping users monitor da
 | mysql.query_plan | The query plan for the statement, if available. | Any Str | - |
 | mysql.query_plan.hash | This attribute is set to the same value as mysql.events_statements_summary_by_digest.digest (query digest) by design. | Any Str | - |
 | mysql.event_id | The thread associated with the event and the thread current event number when the event starts. | Any Int | - |
-| mysql.wait_type | The name of the instrument that produced the event. | Any Str | - |
+| mysql.wait_type | Detailed wait breakdown -- the performance_schema wait event name with its category segment stripped (e.g. 'table/sql/handler', 'mutex/innodb/checkpoint_state'), or 'CPU'/'User sleep'/'other' when not actually waiting. MySQL's analogue of Oracle's EVENT / SQL Server's wait_type. | Any Str | - |
+| mysql.wait_category | Top-level wait classification derived from the second path segment of the performance_schema wait event name ('io', 'lock', 'synch'), or 'CPU'/'User sleep'/'other' when not actually waiting. MySQL's analogue of Oracle's WAIT_CLASS / SQL Server's wait_category. | Any Str | - |
 | mysql.session.status | Simplified session status, either 'waiting', 'running' or 'other'. | Any Str | - |
 | mysql.session.id | The unique identifier for the session associated with the event. | Any Int | - |
 | mysql.events_statements_current.timer_wait | Elapsed time the current statement has been executing, in seconds. | Any Double | - |
