@@ -507,7 +507,7 @@ func TestScrapeQuerySamplesClientProgramName(t *testing.T) {
 
 		val, ok := record.Attributes().Get("mysql.session.client_name")
 		require.True(t, ok, "mysql.session.client_name must be present")
-		assert.Equal(t, "", val.Str())
+		assert.Empty(t, val.Str())
 	})
 }
 

@@ -334,7 +334,7 @@ type querySample struct {
 	// statementTimerStart is TIMER_START from events_statements_current: an
 	// internal, monotonically increasing picosecond counter (not wall-clock
 	// time) that changes only when a new statement begins on this thread.
-	// Used as a stable per-execution key, MySQL's analogue of query_start.
+	// Used as a stable per-execution key, MySQL's analog of query_start.
 	statementTimerStart int64
 	// blockers is the raw "[{\"thread_id\":..,\"session_id\":..,\"trx_started\":..},
 	// ...]" JSON array produced by querySample.tmpl — one entry per
@@ -1128,7 +1128,7 @@ func (c *mySQLClient) explainQuery(digestText, sampleStatement, schema, digest s
 		// A CALL leaves trailing result set(s); drain them so the pooled
 		// connection is returned to a clean state.
 		for rows.NextResultSet() {
-			for rows.Next() { //nolint:revive // draining rows
+			for rows.Next() {
 			}
 		}
 		if plan == "" {

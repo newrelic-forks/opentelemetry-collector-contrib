@@ -4,7 +4,6 @@
 package nrmysqlreceiver
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 	"testing"
@@ -215,7 +214,7 @@ const explainProcProbeQuery = `SELECT 1 FROM information_schema\.ROUTINES WHERE 
 func TestExplainProcedureAvailable_Found(t *testing.T) {
 	c, mock := newExplainProcClient(t)
 	logger := zap.NewNop()
-	ctx := context.Background()
+	ctx := t.Context()
 
 	mock.ExpectQuery(explainProcProbeQuery).
 		WithArgs("myschema").
@@ -237,7 +236,7 @@ func TestExplainProcedureAvailable_Found(t *testing.T) {
 func TestExplainProcedureAvailable_NotFound(t *testing.T) {
 	c, mock := newExplainProcClient(t)
 	logger := zap.NewNop()
-	ctx := context.Background()
+	ctx := t.Context()
 
 	mock.ExpectQuery(explainProcProbeQuery).
 		WithArgs("myschema").
@@ -261,7 +260,7 @@ func TestExplainProcedureAvailable_NotFound(t *testing.T) {
 func TestExplainProcedureAvailable_TransientErrorNotCached(t *testing.T) {
 	c, mock := newExplainProcClient(t)
 	logger := zap.NewNop()
-	ctx := context.Background()
+	ctx := t.Context()
 
 	mock.ExpectQuery(explainProcProbeQuery).
 		WithArgs("myschema").
