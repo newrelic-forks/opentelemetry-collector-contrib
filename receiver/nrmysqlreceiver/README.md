@@ -227,24 +227,38 @@ reconnect.
 
 ### Blocking-session detection
 
-`db.server.query_sample` carries two attributes identifying the session (if any) blocking the
-current one on a row lock:
+`db.server.query_sample` carries two attributes identifying every session currently blocking the
+current one on a row lock — a session can have more than one concurrent InnoDB blocker at once
+(e.g. two transactions each holding a `FOR SHARE` lock on the same row), so this is a list, not a
+single ID:
 
-- `mysql.blocking.blocker.thread_id` — the blocker's `performance_schema.threads.THREAD_ID`, the
-  same ID space as `mysql.threads.thread_id` elsewhere on this event.
-- `mysql.blocking.blocker.session_id` — the blocker's `PROCESSLIST_ID`, the same ID space as
-  `mysql.session.id`. Prefer this one when displaying "blocked by session X" to a user, since
-  `mysql.session.id` (not `mysql.threads.thread_id`) is the connection ID actually visible via
-  `SHOW PROCESSLIST` / `information_schema.PROCESSLIST`.
+- `mysql.blocking.blockers` — a JSON array of `{thread_id, session_id}` tuples, one per concurrent
+  blocker, ordered oldest-blocking-transaction-first (element `[0]` is the most likely root cause).
+  This ordering is enforced by the receiver itself in Go, not by SQL — MySQL's `JSON_ARRAYAGG`
+  element order is unspecified and was confirmed live to not reliably reflect the query's
+  `ORDER BY`. `thread_id` is the blocker's `performance_schema.threads.THREAD_ID` (same ID space as
+  `mysql.threads.thread_id` elsewhere on this event); `session_id` is the blocker's
+  `PROCESSLIST_ID` (same ID space as `mysql.session.id` — the connection ID actually visible via
+  `SHOW PROCESSLIST` / `information_schema.PROCESSLIST`; prefer it over `thread_id` when displaying
+  "blocked by session X" to a user) and is `null` when that blocker's `PROCESSLIST_ID` couldn't be
+  resolved (e.g. it disconnected between reads). `"[]"` when the session is not currently blocked.
+- `mysql.blocking.blocker.count` — the number of concurrent blockers, derived from
+  `mysql.blocking.blockers`'s array length. `0` when the session is not currently blocked. **Use
+  this, not a value from the array, for any NRQL-side filter, facet, or alert threshold** — NRQL has
+  no native JSON array-length function, so `mysql.blocking.blocker.count > 0` is the "is this
+  session blocked" gate.
 
-Both are `0` when the session is not currently blocked — `0` is never a valid MySQL thread ID or
-`PROCESSLIST_ID`, so it's a safe "no blocker" sentinel. **NRQL gotcha:** filter with
-`mysql.blocking.blocker.thread_id > 0`, not `!= 0` — `null != 0` evaluates `TRUE` in NRQL, so a
-`!=` filter on an attribute that might be absent on some rows will silently match everything.
+There are no separate `mysql.blocking.blocker.thread_id`/`.session_id` scalar attributes — an
+earlier iteration of this feature shipped them (sourced from element `[0]`), but they were removed
+as redundant with parsing `mysql.blocking.blockers` directly, which a dashboard/frontend can already
+do for per-row display. Any dashboard widget still filtering on the old
+`mysql.blocking.blocker.thread_id > 0` pattern needs to be rewritten to
+`mysql.blocking.blocker.count > 0`.
 
-The blocker is resolved via a correlated subquery against `performance_schema.data_lock_waits`
-(MySQL 8.0+), joined back to `performance_schema.threads` for the `PROCESSLIST_ID`. No additional
-grants beyond the standard `SELECT ON performance_schema.*` are required.
+Every blocker is resolved via a single correlated subquery against
+`performance_schema.data_lock_waits` (MySQL 8.0+), joined back to `performance_schema.threads` for
+the `PROCESSLIST_ID` and `information_schema.INNODB_TRX` for the ordering. No additional grants
+beyond the standard `SELECT ON performance_schema.*` are required.
 
 ### Client program name
 
