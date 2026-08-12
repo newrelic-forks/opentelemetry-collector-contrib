@@ -1174,12 +1174,21 @@ func (c *mySQLClient) explainProcedureAvailable(ctx context.Context, conn *sql.C
 	err := conn.QueryRowContext(ctx,
 		"SELECT 1 FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA = ? AND ROUTINE_NAME = 'explain_statement' AND ROUTINE_TYPE = 'PROCEDURE' LIMIT 1",
 		schema).Scan(&found)
-	avail := err == nil
-	switch {
-	case err != nil && !errors.Is(err, sql.ErrNoRows):
+
+	// Only cache a definitive result (found, or genuinely absent per
+	// ErrNoRows) — an unrelated/transient probe error (connection blip,
+	// permission hiccup) must NOT be cached as "unavailable", or a single bad
+	// probe would permanently disable explain_mode=procedure for this schema
+	// until the collector restarts, since the probe runs at most once per
+	// cached entry.
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		logger.Warn("unable to probe for explain_statement procedure; falling back to inline EXPLAIN",
 			zap.String("schema", schema), zap.Error(err))
-	case !avail:
+		return false
+	}
+
+	avail := err == nil
+	if !avail {
 		logger.Info("explain_mode=procedure but explain_statement procedure not found in schema; falling back to inline EXPLAIN",
 			zap.String("schema", schema))
 	}

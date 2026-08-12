@@ -4,10 +4,13 @@
 package nrmysqlreceiver
 
 import (
+	"context"
 	"database/sql"
+	"errors"
 	"testing"
 	"time"
 
+	sqlmock "github.com/DATA-DOG/go-sqlmock"
 	// registers the mysql driver for TestFetchDBVersionTimeout
 	_ "github.com/go-sql-driver/mysql"
 	version "github.com/hashicorp/go-version"
@@ -187,6 +190,178 @@ func TestExplainQueryConnFailure(t *testing.T) {
 
 	result := c.explainQuery("SELECT * FROM t", "SELECT * FROM t", "myschema", "digest1", logger)
 	assert.Empty(t, result)
+}
+
+// newExplainProcClient builds a mySQLClient wired to a sqlmock-backed *sql.DB,
+// with explain_mode=procedure and an empty explainProc cache, matching the
+// state newMySQLClient produces.
+func newExplainProcClient(t *testing.T) (*mySQLClient, sqlmock.Sqlmock) {
+	t.Helper()
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = db.Close() })
+	return &mySQLClient{
+		client:      db,
+		explainMode: explainModeProcedure,
+		explainProc: &explainProcCache{available: make(map[string]bool)},
+	}, mock
+}
+
+const explainProcProbeQuery = `SELECT 1 FROM information_schema\.ROUTINES WHERE ROUTINE_SCHEMA = \? AND ROUTINE_NAME = 'explain_statement' AND ROUTINE_TYPE = 'PROCEDURE' LIMIT 1`
+
+// TestExplainProcedureAvailable_Found verifies that a found procedure is
+// reported available and the result is cached — a second call for the same
+// schema must not re-query the database.
+func TestExplainProcedureAvailable_Found(t *testing.T) {
+	c, mock := newExplainProcClient(t)
+	logger := zap.NewNop()
+	ctx := context.Background()
+
+	mock.ExpectQuery(explainProcProbeQuery).
+		WithArgs("myschema").
+		WillReturnRows(sqlmock.NewRows([]string{"1"}).AddRow(1))
+
+	conn, err := c.client.Conn(ctx)
+	require.NoError(t, err)
+	defer conn.Close()
+
+	assert.True(t, c.explainProcedureAvailable(ctx, conn, "myschema", logger))
+	// Second call for the same schema must be served from cache — only one
+	// ExpectQuery was set up, so a second DB hit would fail ExpectationsWereMet.
+	assert.True(t, c.explainProcedureAvailable(ctx, conn, "myschema", logger))
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+// TestExplainProcedureAvailable_NotFound verifies that a genuinely absent
+// procedure (zero rows, sql.ErrNoRows) is reported unavailable and cached.
+func TestExplainProcedureAvailable_NotFound(t *testing.T) {
+	c, mock := newExplainProcClient(t)
+	logger := zap.NewNop()
+	ctx := context.Background()
+
+	mock.ExpectQuery(explainProcProbeQuery).
+		WithArgs("myschema").
+		WillReturnRows(sqlmock.NewRows([]string{"1"})) // no rows -> sql.ErrNoRows
+
+	conn, err := c.client.Conn(ctx)
+	require.NoError(t, err)
+	defer conn.Close()
+
+	assert.False(t, c.explainProcedureAvailable(ctx, conn, "myschema", logger))
+	// Cached: a second call must not re-query (only one expectation was set up).
+	assert.False(t, c.explainProcedureAvailable(ctx, conn, "myschema", logger))
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+// TestExplainProcedureAvailable_TransientErrorNotCached verifies the fix for
+// the bug where any probe error (not just "genuinely not found") was cached
+// as permanently unavailable. A transient/unrelated error must NOT be
+// cached, so a later call for the same schema retries instead of being
+// stuck returning false until the collector restarts.
+func TestExplainProcedureAvailable_TransientErrorNotCached(t *testing.T) {
+	c, mock := newExplainProcClient(t)
+	logger := zap.NewNop()
+	ctx := context.Background()
+
+	mock.ExpectQuery(explainProcProbeQuery).
+		WithArgs("myschema").
+		WillReturnError(errors.New("connection reset by peer"))
+
+	conn, err := c.client.Conn(ctx)
+	require.NoError(t, err)
+	defer conn.Close()
+
+	assert.False(t, c.explainProcedureAvailable(ctx, conn, "myschema", logger),
+		"a transient error must fall back to false for this call")
+
+	// If the transient error had been cached, this second call would be
+	// served from cache (still false) and the queued expectation below would
+	// never be consumed, failing ExpectationsWereMet.
+	mock.ExpectQuery(explainProcProbeQuery).
+		WithArgs("myschema").
+		WillReturnRows(sqlmock.NewRows([]string{"1"}).AddRow(1))
+
+	assert.True(t, c.explainProcedureAvailable(ctx, conn, "myschema", logger),
+		"a later call must re-probe instead of reusing a cached transient failure")
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+// TestExplainQueryProcedureModeSuccess verifies the full explain_mode=procedure
+// path: the probe finds the procedure, the CALL returns a plan, and the
+// trailing result set a CALL leaves behind is drained without error.
+func TestExplainQueryProcedureModeSuccess(t *testing.T) {
+	c, mock := newExplainProcClient(t)
+	logger := zap.NewNop()
+
+	mock.ExpectQuery(explainProcProbeQuery).
+		WithArgs("myschema").
+		WillReturnRows(sqlmock.NewRows([]string{"1"}).AddRow(1))
+	mock.ExpectQuery(`CALL ` + "`myschema`" + `\.explain_statement\(\?\)`).
+		WithArgs("SELECT * FROM t").
+		WillReturnRows(
+			sqlmock.NewRows([]string{"EXPLAIN"}).AddRow(`{"query_block":{}}`),
+			sqlmock.NewRows([]string{"status"}), // trailing result set CALL leaves behind
+		)
+
+	result := c.explainQuery("SELECT * FROM t", "SELECT * FROM t", "myschema", "digest1", logger)
+	assert.Equal(t, `{"query_block":{}}`, result)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+// TestExplainQueryProcedureModeFallsBackWhenUnavailable verifies that when
+// the definer procedure is not found for a schema, explainQuery falls back
+// to inline EXPLAIN instead of failing.
+func TestExplainQueryProcedureModeFallsBackWhenUnavailable(t *testing.T) {
+	c, mock := newExplainProcClient(t)
+	logger := zap.NewNop()
+
+	mock.ExpectQuery(explainProcProbeQuery).
+		WithArgs("myschema").
+		WillReturnRows(sqlmock.NewRows([]string{"1"})) // not found
+	mock.ExpectExec("USE `myschema`").WillReturnResult(sqlmock.NewResult(0, 0))
+	mock.ExpectQuery(`EXPLAIN FORMAT=json SELECT \* FROM t`).
+		WillReturnRows(sqlmock.NewRows([]string{"EXPLAIN"}).AddRow(`{"query_block":{}}`))
+
+	result := c.explainQuery("SELECT * FROM t", "SELECT * FROM t", "myschema", "digest1", logger)
+	assert.Equal(t, `{"query_block":{}}`, result)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+// TestExplainQueryProcedureModeEmptySchemaSkipsProbe verifies that when no
+// schema is available, explainQuery goes straight to inline EXPLAIN without
+// ever probing for the definer procedure (the procedure is created per
+// schema, so there is nothing to probe for without one).
+func TestExplainQueryProcedureModeEmptySchemaSkipsProbe(t *testing.T) {
+	c, mock := newExplainProcClient(t)
+	logger := zap.NewNop()
+
+	// No ExpectQuery for the procedure probe is registered at all — if the
+	// code queried it anyway, ExpectationsWereMet would fail below because
+	// an unexpected query would error out immediately.
+	mock.ExpectQuery(`EXPLAIN FORMAT=json SELECT \* FROM t`).
+		WillReturnRows(sqlmock.NewRows([]string{"EXPLAIN"}).AddRow(`{"query_block":{}}`))
+
+	result := c.explainQuery("SELECT * FROM t", "SELECT * FROM t", "", "digest1", logger)
+	assert.Equal(t, `{"query_block":{}}`, result)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+// TestExplainQueryProcedureModeCallError verifies that an error executing the
+// CALL itself (not the probe) returns "" without panicking.
+func TestExplainQueryProcedureModeCallError(t *testing.T) {
+	c, mock := newExplainProcClient(t)
+	logger := zap.NewNop()
+
+	mock.ExpectQuery(explainProcProbeQuery).
+		WithArgs("myschema").
+		WillReturnRows(sqlmock.NewRows([]string{"1"}).AddRow(1))
+	mock.ExpectQuery(`CALL ` + "`myschema`" + `\.explain_statement\(\?\)`).
+		WithArgs("SELECT * FROM t").
+		WillReturnError(errors.New("procedure execution failed"))
+
+	result := c.explainQuery("SELECT * FROM t", "SELECT * FROM t", "myschema", "digest1", logger)
+	assert.Empty(t, result)
+	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
 // mustParseVersion is a test helper that parses a semver string and fails the test if parsing fails.
