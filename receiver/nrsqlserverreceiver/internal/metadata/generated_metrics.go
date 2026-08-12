@@ -713,6 +713,40 @@ var MapAttributeSqlserverExtentOperationType = map[string]AttributeSqlserverExte
 	"deallocated": AttributeSqlserverExtentOperationTypeDeallocated,
 }
 
+// AttributeSqlserverInputType specifies the value sqlserver.input_type attribute.
+type AttributeSqlserverInputType int
+
+const (
+	_ AttributeSqlserverInputType = iota
+	AttributeSqlserverInputTypeRoot
+	AttributeSqlserverInputTypeLeftInput
+	AttributeSqlserverInputTypeRightInput
+	AttributeSqlserverInputTypeInput
+)
+
+// String returns the string representation of the AttributeSqlserverInputType.
+func (av AttributeSqlserverInputType) String() string {
+	switch av {
+	case AttributeSqlserverInputTypeRoot:
+		return "Root"
+	case AttributeSqlserverInputTypeLeftInput:
+		return "LeftInput"
+	case AttributeSqlserverInputTypeRightInput:
+		return "RightInput"
+	case AttributeSqlserverInputTypeInput:
+		return "Input"
+	}
+	return ""
+}
+
+// MapAttributeSqlserverInputType is a helper map of string to AttributeSqlserverInputType attribute value.
+var MapAttributeSqlserverInputType = map[string]AttributeSqlserverInputType{
+	"Root":       AttributeSqlserverInputTypeRoot,
+	"LeftInput":  AttributeSqlserverInputTypeLeftInput,
+	"RightInput": AttributeSqlserverInputTypeRightInput,
+	"Input":      AttributeSqlserverInputTypeInput,
+}
+
 // AttributeSqlserverLockBlockType specifies the value sqlserver.lock.block.type attribute.
 type AttributeSqlserverLockBlockType int
 

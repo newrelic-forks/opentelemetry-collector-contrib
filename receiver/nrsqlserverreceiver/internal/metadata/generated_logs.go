@@ -17,7 +17,7 @@ type eventDbServerQueryPlan struct {
 	config EventConfig         // event config provided by user.
 }
 
-func (e *eventDbServerQueryPlan) recordEvent(ctx context.Context, timestamp pcommon.Timestamp, sqlserverQueryPlanHashAttributeValue string, sqlserverQueryPlanJSONAttributeValue string) {
+func (e *eventDbServerQueryPlan) recordEvent(ctx context.Context, timestamp pcommon.Timestamp, sqlserverAvgRowSizeAttributeValue string, sqlserverEstimateCPUAttributeValue string, sqlserverEstimateIoAttributeValue string, sqlserverEstimateRowsAttributeValue string, sqlserverEstimatedExecutionModeAttributeValue string, sqlserverEstimatedTotalSubtreeCostAttributeValue string, sqlserverIndexNameAttributeValue string, sqlserverInputTypeAttributeValue string, sqlserverLogicalOpAttributeValue string, sqlserverNodeIDAttributeValue int64, sqlserverParentNodeIDAttributeValue int64, sqlserverPhysicalOpAttributeValue string, sqlserverQueryPlanHashAttributeValue string, sqlserverSchemaNameAttributeValue string, sqlserverTableNameAttributeValue string) {
 	if !e.config.Enabled {
 		return
 	}
@@ -29,8 +29,21 @@ func (e *eventDbServerQueryPlan) recordEvent(ctx context.Context, timestamp pcom
 		dp.SetTraceID(pcommon.TraceID(span.TraceID()))
 		dp.SetSpanID(pcommon.SpanID(span.SpanID()))
 	}
+	dp.Attributes().PutStr("sqlserver.avg_row_size", sqlserverAvgRowSizeAttributeValue)
+	dp.Attributes().PutStr("sqlserver.estimate_cpu", sqlserverEstimateCPUAttributeValue)
+	dp.Attributes().PutStr("sqlserver.estimate_io", sqlserverEstimateIoAttributeValue)
+	dp.Attributes().PutStr("sqlserver.estimate_rows", sqlserverEstimateRowsAttributeValue)
+	dp.Attributes().PutStr("sqlserver.estimated_execution_mode", sqlserverEstimatedExecutionModeAttributeValue)
+	dp.Attributes().PutStr("sqlserver.estimated_total_subtree_cost", sqlserverEstimatedTotalSubtreeCostAttributeValue)
+	dp.Attributes().PutStr("sqlserver.index_name", sqlserverIndexNameAttributeValue)
+	dp.Attributes().PutStr("sqlserver.input_type", sqlserverInputTypeAttributeValue)
+	dp.Attributes().PutStr("sqlserver.logical_op", sqlserverLogicalOpAttributeValue)
+	dp.Attributes().PutInt("sqlserver.node_id", sqlserverNodeIDAttributeValue)
+	dp.Attributes().PutInt("sqlserver.parent_node_id", sqlserverParentNodeIDAttributeValue)
+	dp.Attributes().PutStr("sqlserver.physical_op", sqlserverPhysicalOpAttributeValue)
 	dp.Attributes().PutStr("sqlserver.query_plan_hash", sqlserverQueryPlanHashAttributeValue)
-	dp.Attributes().PutStr("sqlserver.query_plan_json", sqlserverQueryPlanJSONAttributeValue)
+	dp.Attributes().PutStr("sqlserver.schema_name", sqlserverSchemaNameAttributeValue)
+	dp.Attributes().PutStr("sqlserver.table_name", sqlserverTableNameAttributeValue)
 
 }
 
@@ -354,8 +367,8 @@ func (lb *LogsBuilder) Emit(options ...ResourceLogsOption) plog.Logs {
 }
 
 // RecordDbServerQueryPlanEvent adds a log record of db.server.query_plan event.
-func (lb *LogsBuilder) RecordDbServerQueryPlanEvent(ctx context.Context, timestamp pcommon.Timestamp, sqlserverQueryPlanHashAttributeValue string, sqlserverQueryPlanJSONAttributeValue string) {
-	lb.eventDbServerQueryPlan.recordEvent(ctx, timestamp, sqlserverQueryPlanHashAttributeValue, sqlserverQueryPlanJSONAttributeValue)
+func (lb *LogsBuilder) RecordDbServerQueryPlanEvent(ctx context.Context, timestamp pcommon.Timestamp, sqlserverAvgRowSizeAttributeValue string, sqlserverEstimateCPUAttributeValue string, sqlserverEstimateIoAttributeValue string, sqlserverEstimateRowsAttributeValue string, sqlserverEstimatedExecutionModeAttributeValue string, sqlserverEstimatedTotalSubtreeCostAttributeValue string, sqlserverIndexNameAttributeValue string, sqlserverInputTypeAttributeValue AttributeSqlserverInputType, sqlserverLogicalOpAttributeValue string, sqlserverNodeIDAttributeValue int64, sqlserverParentNodeIDAttributeValue int64, sqlserverPhysicalOpAttributeValue string, sqlserverQueryPlanHashAttributeValue string, sqlserverSchemaNameAttributeValue string, sqlserverTableNameAttributeValue string) {
+	lb.eventDbServerQueryPlan.recordEvent(ctx, timestamp, sqlserverAvgRowSizeAttributeValue, sqlserverEstimateCPUAttributeValue, sqlserverEstimateIoAttributeValue, sqlserverEstimateRowsAttributeValue, sqlserverEstimatedExecutionModeAttributeValue, sqlserverEstimatedTotalSubtreeCostAttributeValue, sqlserverIndexNameAttributeValue, sqlserverInputTypeAttributeValue.String(), sqlserverLogicalOpAttributeValue, sqlserverNodeIDAttributeValue, sqlserverParentNodeIDAttributeValue, sqlserverPhysicalOpAttributeValue, sqlserverQueryPlanHashAttributeValue, sqlserverSchemaNameAttributeValue, sqlserverTableNameAttributeValue)
 }
 
 // RecordDbServerQuerySampleEvent adds a log record of db.server.query_sample event.
