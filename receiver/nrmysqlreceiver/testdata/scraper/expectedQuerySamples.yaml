@@ -85,13 +85,7 @@ resourceLogs:
               - key: db.query.text.normalized.hash
                 value:
                   stringValue: 848a6061c056748f461053e1ed9e5642
-              - key: mysql.blocking.blocker.thread_id
-                value:
-                  intValue: "0"
               - key: mysql.events_statements_current.timer_start
-                value:
-                  intValue: "0"
-              - key: mysql.blocking.blocker.session_id
                 value:
                   intValue: "0"
               - key: mysql.session.client_name
@@ -106,7 +100,7 @@ resourceLogs:
             body: {}
             eventName: db.server.query_sample
             spanId: "2222222222222222"
-            timeUnixNano: "1786540219882425000"
+            timeUnixNano: "1786549901690421000"
             traceId: "11111111111111111111111111111111"
         scope:
           name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrmysqlreceiver

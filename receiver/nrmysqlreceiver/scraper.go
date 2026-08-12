@@ -892,7 +892,7 @@ func (m *mySQLScraper) scrapeQuerySamples(_ context.Context, now pcommon.Timesta
 		nrServiceGUID := sqlcomments.ExtractValueForKey(queryCommentTags, "nr_service_guid")
 		_, normalizedQueryHash := sqlnormalizer.NormalizeSQLAndHash(obfuscatedQuery)
 
-		blockersJSON, blockingThreadID, blockingSessionID, blockerCount := m.deriveBlockingInfo(sample.blockers)
+		blockersJSON, blockerCount := m.deriveBlockingCount(sample.blockers)
 
 		m.lb.RecordDbServerQuerySampleEvent(
 			recordCtx,
@@ -922,9 +922,7 @@ func (m *mySQLScraper) scrapeQuerySamples(_ context.Context, now pcommon.Timesta
 			queryCommentTags,
 			nrServiceGUID,
 			normalizedQueryHash,
-			blockingThreadID,
 			sample.statementTimerStart,
-			blockingSessionID,
 			sample.clientProgramName,
 			blockersJSON,
 			blockerCount,
@@ -989,41 +987,27 @@ func getDigestTextHash(digestText string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// blockerInfo is one entry of the mysql.blocking.blockers JSON array — a
-// single concurrent InnoDB row-lock blocker for a query-sample row.
-// SessionID is a pointer because it's null in the JSON when that blocker's
-// PROCESSLIST_ID could not be resolved (e.g. it disconnected between reads).
-type blockerInfo struct {
-	ThreadID  int64  `json:"thread_id"`
-	SessionID *int64 `json:"session_id"`
-}
-
-// deriveBlockingInfo parses the raw blockers JSON produced by querySample.tmpl
-// and returns: the normalized JSON to emit as mysql.blocking.blockers (an
-// empty/missing value normalizes to "[]", matching the SQL COALESCE default),
-// the backward-compatible scalar attributes (mysql.blocking.blocker.thread_id/
-// .session_id, sourced from element [0] — the oldest, most-likely-root-cause
-// blocker — rather than an arbitrary one), and the blocker count. Malformed
-// JSON is treated as "not blocked" rather than propagated, since the value is
-// always either "[]" or receiver-generated JSON from a COALESCE default.
-func (m *mySQLScraper) deriveBlockingInfo(blockersJSON string) (normalizedBlockersJSON string, blockingThreadID, blockingSessionID, blockerCount int64) {
+// deriveBlockingCount parses the raw blockers JSON produced by querySample.tmpl
+// and returns the normalized JSON to emit as mysql.blocking.blockers (an
+// empty/missing value normalizes to "[]", matching the SQL COALESCE default)
+// and the blocker count (mysql.blocking.blocker.count). Individual blocker
+// identity (thread_id/session_id) is intentionally not extracted into scalar
+// attributes here — that would only serve per-row display, which a
+// dashboard/frontend can already get by parsing mysql.blocking.blockers
+// directly; count is kept as a scalar because NRQL has no native JSON
+// array-length function. Malformed JSON is treated as "not blocked" rather
+// than propagated, since the value is always either "[]" or
+// receiver-generated JSON from a COALESCE default.
+func (m *mySQLScraper) deriveBlockingCount(blockersJSON string) (normalizedBlockersJSON string, blockerCount int64) {
 	if blockersJSON == "" {
-		return "[]", 0, 0, 0
+		return "[]", 0
 	}
-	var blockers []blockerInfo
+	var blockers []json.RawMessage
 	if err := json.Unmarshal([]byte(blockersJSON), &blockers); err != nil {
 		m.logger.Warn("Failed to parse mysql.blocking.blockers; treating as not blocked", zap.Error(err))
-		return "[]", 0, 0, 0
+		return "[]", 0
 	}
-	blockerCount = int64(len(blockers))
-	if blockerCount == 0 {
-		return blockersJSON, 0, 0, 0
-	}
-	blockingThreadID = blockers[0].ThreadID
-	if blockers[0].SessionID != nil {
-		blockingSessionID = *blockers[0].SessionID
-	}
-	return blockersJSON, blockingThreadID, blockingSessionID, blockerCount
+	return blockersJSON, int64(len(blockers))
 }
 
 // contextWithTraceparent extracts a W3C TraceContext traceparent from the given

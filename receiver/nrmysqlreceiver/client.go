@@ -338,10 +338,9 @@ type querySample struct {
 	statementTimerStart int64
 	// blockers is the raw "[{\"thread_id\":..,\"session_id\":..}, ...]" JSON
 	// array produced by querySample.tmpl — one entry per concurrent InnoDB
-	// row-lock blocker for this thread, "[]" when not blocked. Parsed by
-	// parseBlockers in scraper.go to derive mysql.blocking.blocker.count and
-	// the backward-compatible mysql.blocking.blocker.thread_id/.session_id
-	// scalars (element [0]).
+	// row-lock blocker for this thread, "[]" when not blocked. Emitted
+	// verbatim as mysql.blocking.blockers; deriveBlockingCount in scraper.go
+	// only reads its length for mysql.blocking.blocker.count.
 	blockers string
 	// clientProgramName is the client driver's self-reported identity
 	// (session_connect_attrs, ATTR_NAME='_client_name'), e.g. "MySQL
