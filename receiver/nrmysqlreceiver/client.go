@@ -331,20 +331,18 @@ type querySample struct {
 	waitTime           float64
 	statementTimerWait float64
 	traceparent        string
-	// blockingThreadID is the thread_id of the session currently blocking this
-	// one on a row lock, sourced from performance_schema.data_lock_waits.
-	// 0 means not blocked (thread_id 0 is never assigned by MySQL).
-	blockingThreadID int64
 	// statementTimerStart is TIMER_START from events_statements_current: an
 	// internal, monotonically increasing picosecond counter (not wall-clock
 	// time) that changes only when a new statement begins on this thread.
 	// Used as a stable per-execution key, MySQL's analogue of query_start.
 	statementTimerStart int64
-	// blockingSessionID is the blocker's PROCESSLIST_ID (not THREAD_ID),
-	// resolved from blockingThreadID via performance_schema.threads. Use this
-	// to cross-reference the blocker against mysql.session.id elsewhere on
-	// the dashboard. 0 means not blocked.
-	blockingSessionID int64
+	// blockers is the raw "[{\"thread_id\":..,\"session_id\":..}, ...]" JSON
+	// array produced by querySample.tmpl — one entry per concurrent InnoDB
+	// row-lock blocker for this thread, "[]" when not blocked. Parsed by
+	// parseBlockers in scraper.go to derive mysql.blocking.blocker.count and
+	// the backward-compatible mysql.blocking.blocker.thread_id/.session_id
+	// scalars (element [0]).
+	blockers string
 	// clientProgramName is the client driver's self-reported identity
 	// (session_connect_attrs, ATTR_NAME='_client_name'), e.g. "MySQL
 	// Connector/J" or "libmysql". Empty if the client reported no connect
@@ -1050,12 +1048,10 @@ func (c *mySQLClient) getQuerySamples(limit uint64, supportsProcesslist bool) ([
 				dest = append(dest, &s.statementTimerWait)
 			case "traceparent":
 				dest = append(dest, &s.traceparent)
-			case "blocking_thread_id":
-				dest = append(dest, &s.blockingThreadID)
+			case "blockers":
+				dest = append(dest, &s.blockers)
 			case "statement_timer_start":
 				dest = append(dest, &s.statementTimerStart)
-			case "blocking_session_id":
-				dest = append(dest, &s.blockingSessionID)
 			case "client_program_name":
 				dest = append(dest, &s.clientProgramName)
 			default:

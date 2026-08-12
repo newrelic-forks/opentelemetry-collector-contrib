@@ -124,33 +124,32 @@
     -- on MySQL 5.7 and MariaDB the value is VARCHAR, so CONVERT is a no-op.
     -- utf8mb4 is used instead of the deprecated utf8 alias.
     COALESCE(CONVERT(uvt.VARIABLE_VALUE USING utf8mb4), '') AS traceparent,
-    -- Extension: blocking_thread_id identifies the session (by thread_id, the
-    -- same ID space as thread.thread_id above) currently holding the lock this
-    -- session is waiting on. A correlated scalar subquery is used instead of a
-    -- LEFT JOIN to avoid row fanout — a thread can in theory be recorded as
-    -- waiting on locks from more than one blocker in data_lock_waits.
+    -- Extension: blockers is a JSON array of {thread_id, session_id} tuples,
+    -- one entry per concurrent InnoDB row-lock blocker for this thread —
+    -- computed via ONE correlated subquery (replacing the two independent
+    -- scalar subqueries this fork previously used for blocking_thread_id and
+    -- blocking_session_id separately). LEFT JOINs mean a blocker that has
+    -- already disconnected still appears in the array (thread_id populated,
+    -- session_id null) instead of silently vanishing. Ordered best-effort by
+    -- the blocking transaction's start time (oldest/most-likely-root-cause
+    -- first, unresolved last) via information_schema.INNODB_TRX — MySQL does
+    -- not formally guarantee a derived table's ORDER BY survives into
+    -- JSON_ARRAYAGG's aggregation order, but this is the standard technique
+    -- for it and holds in practice at this result-set size; treat the
+    -- ordering as best-effort, not authoritative.
     COALESCE(
         (
-            SELECT lw.BLOCKING_THREAD_ID
-            FROM performance_schema.data_lock_waits AS lw
-            WHERE lw.REQUESTING_THREAD_ID = thread.thread_id
-            LIMIT 1
-        ), 0
-    ) AS blocking_thread_id,
-    -- Extension: blocking_session_id resolves the blocker's PROCESSLIST_ID
-    -- (not its thread_id, a different ID space) via performance_schema.threads,
-    -- so a blocked session can be cross-referenced against mysql.session.id
-    -- elsewhere on the dashboard. Same cost profile as blocking_thread_id
-    -- above — the extra join only runs for the rare blocked row.
-    COALESCE(
-        (
-            SELECT bt.PROCESSLIST_ID
-            FROM performance_schema.data_lock_waits AS lw
-            JOIN performance_schema.threads AS bt ON bt.THREAD_ID = lw.BLOCKING_THREAD_ID
-            WHERE lw.REQUESTING_THREAD_ID = thread.thread_id
-            LIMIT 1
-        ), 0
-    ) AS blocking_session_id,
+            SELECT JSON_ARRAYAGG(JSON_OBJECT('thread_id', ordered.thread_id, 'session_id', ordered.session_id))
+            FROM (
+                SELECT lw.BLOCKING_THREAD_ID AS thread_id, bt.PROCESSLIST_ID AS session_id
+                FROM performance_schema.data_lock_waits AS lw
+                LEFT JOIN performance_schema.threads AS bt ON bt.THREAD_ID = lw.BLOCKING_THREAD_ID
+                LEFT JOIN information_schema.INNODB_TRX AS btrx ON btrx.trx_id = lw.BLOCKING_ENGINE_TRANSACTION_ID
+                WHERE lw.REQUESTING_THREAD_ID = thread.thread_id
+                ORDER BY btrx.trx_started IS NULL, btrx.trx_started ASC
+            ) AS ordered
+        ), '[]'
+    ) AS blockers,
     -- Extension: client_program_name is the client driver's self-reported
     -- identity (e.g. "MySQL Connector/J", "libmysql"), joined on
     -- PROCESSLIST_ID (not thread_id — a different ID space) and filtered to

@@ -461,6 +461,98 @@ func TestScrapeQuerySamplesBlockingSessionID(t *testing.T) {
 	})
 }
 
+func TestScrapeQuerySamplesBlockers(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.Username = "otel"
+	cfg.Password = "otel"
+	cfg.AddrConfig = confignet.AddrConfig{Endpoint: "localhost:3306"}
+	cfg.LogsBuilderConfig.Events.DbServerQuerySample.Enabled = true
+
+	t.Run("unblocked session reports an empty blockers array and zero count", func(t *testing.T) {
+		scraper := newMySQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, newCache[int64](100), newTTLCache[string](0, time.Hour*24*365*10))
+		scraper.sqlclient = &mockClient{querySamplesFile: "query_samples_no_traceparent"}
+
+		result, err := scraper.scrapeQuerySampleFunc(t.Context())
+		require.NoError(t, err)
+		record := result.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0)
+
+		blockersVal, ok := record.Attributes().Get("mysql.blocking.blockers")
+		require.True(t, ok, "mysql.blocking.blockers must be present")
+		assert.Equal(t, "[]", blockersVal.Str())
+
+		countVal, ok := record.Attributes().Get("mysql.blocking.blocker.count")
+		require.True(t, ok, "mysql.blocking.blocker.count must be present")
+		assert.Equal(t, int64(0), countVal.Int())
+	})
+
+	t.Run("single blocker reports a one-element array and count 1", func(t *testing.T) {
+		scraper := newMySQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, newCache[int64](100), newTTLCache[string](0, time.Hour*24*365*10))
+		scraper.sqlclient = &mockClient{querySamplesFile: "query_samples_blocked"}
+
+		result, err := scraper.scrapeQuerySampleFunc(t.Context())
+		require.NoError(t, err)
+		record := result.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0)
+
+		blockersVal, ok := record.Attributes().Get("mysql.blocking.blockers")
+		require.True(t, ok, "mysql.blocking.blockers must be present")
+		assert.JSONEq(t, `[{"thread_id":42,"session_id":99}]`, blockersVal.Str())
+
+		countVal, ok := record.Attributes().Get("mysql.blocking.blocker.count")
+		require.True(t, ok, "mysql.blocking.blocker.count must be present")
+		assert.Equal(t, int64(1), countVal.Int())
+	})
+
+	t.Run("multiple concurrent blockers are all preserved, scalars reflect element 0", func(t *testing.T) {
+		scraper := newMySQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, newCache[int64](100), newTTLCache[string](0, time.Hour*24*365*10))
+		scraper.sqlclient = &mockClient{querySamplesFile: "query_samples_multi_blocker"}
+
+		result, err := scraper.scrapeQuerySampleFunc(t.Context())
+		require.NoError(t, err)
+		record := result.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0)
+
+		blockersVal, ok := record.Attributes().Get("mysql.blocking.blockers")
+		require.True(t, ok, "mysql.blocking.blockers must be present")
+		assert.JSONEq(t, `[{"thread_id":42,"session_id":17},{"thread_id":58,"session_id":23}]`, blockersVal.Str())
+
+		countVal, ok := record.Attributes().Get("mysql.blocking.blocker.count")
+		require.True(t, ok, "mysql.blocking.blocker.count must be present")
+		assert.Equal(t, int64(2), countVal.Int())
+
+		threadIDVal, ok := record.Attributes().Get("mysql.blocking.blocker.thread_id")
+		require.True(t, ok)
+		assert.Equal(t, int64(42), threadIDVal.Int(), "scalar attribute must reflect element [0], not an arbitrary blocker")
+
+		sessionIDVal, ok := record.Attributes().Get("mysql.blocking.blocker.session_id")
+		require.True(t, ok)
+		assert.Equal(t, int64(17), sessionIDVal.Int())
+	})
+
+	t.Run("a blocker whose session could not be resolved is preserved, not dropped", func(t *testing.T) {
+		scraper := newMySQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, newCache[int64](100), newTTLCache[string](0, time.Hour*24*365*10))
+		scraper.sqlclient = &mockClient{querySamplesFile: "query_samples_blocker_unresolved"}
+
+		result, err := scraper.scrapeQuerySampleFunc(t.Context())
+		require.NoError(t, err)
+		record := result.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0)
+
+		blockersVal, ok := record.Attributes().Get("mysql.blocking.blockers")
+		require.True(t, ok, "mysql.blocking.blockers must be present")
+		assert.JSONEq(t, `[{"thread_id":42,"session_id":null}]`, blockersVal.Str(), "the unresolved blocker must remain visible, not silently dropped")
+
+		countVal, ok := record.Attributes().Get("mysql.blocking.blocker.count")
+		require.True(t, ok, "mysql.blocking.blocker.count must be present")
+		assert.Equal(t, int64(1), countVal.Int())
+
+		threadIDVal, ok := record.Attributes().Get("mysql.blocking.blocker.thread_id")
+		require.True(t, ok)
+		assert.Equal(t, int64(42), threadIDVal.Int())
+
+		sessionIDVal, ok := record.Attributes().Get("mysql.blocking.blocker.session_id")
+		require.True(t, ok)
+		assert.Equal(t, int64(0), sessionIDVal.Int(), "falls back to the existing 0 sentinel, same as the unblocked case")
+	})
+}
+
 func TestScrapeQuerySamplesClientProgramName(t *testing.T) {
 	cfg := createDefaultConfig().(*Config)
 	cfg.Username = "otel"
@@ -964,13 +1056,10 @@ func (c *mockClient) getQuerySamples(uint64, bool) ([]querySample, error) {
 			s.traceparent = text[16]
 		}
 		if len(text) > 17 {
-			s.blockingThreadID, _ = parseInt(text[17])
+			s.blockers = text[17]
 		}
 		if len(text) > 18 {
 			s.statementTimerStart, _ = parseInt(text[18])
-		}
-		if len(text) > 19 {
-			s.blockingSessionID, _ = parseInt(text[19])
 		}
 		if len(text) > 20 {
 			s.clientProgramName = text[20]

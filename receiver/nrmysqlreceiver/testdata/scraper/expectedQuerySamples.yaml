@@ -97,10 +97,16 @@ resourceLogs:
               - key: mysql.session.client_name
                 value:
                   stringValue: ""
+              - key: mysql.blocking.blockers
+                value:
+                  stringValue: '[]'
+              - key: mysql.blocking.blocker.count
+                value:
+                  intValue: "0"
             body: {}
             eventName: db.server.query_sample
             spanId: "2222222222222222"
-            timeUnixNano: "1785950907390210000"
+            timeUnixNano: "1786540219882425000"
             traceId: "11111111111111111111111111111111"
         scope:
           name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrmysqlreceiver

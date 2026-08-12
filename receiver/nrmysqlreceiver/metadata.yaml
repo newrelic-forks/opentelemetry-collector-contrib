@@ -167,12 +167,18 @@ attributes:
     type: string
     enum: [waits, write_requests, writes, fsyncs]
     requirement_level: recommended
+  mysql.blocking.blocker.count:
+    description: The number of concurrent InnoDB row-lock blockers currently holding a lock this session is waiting on. 0 indicates the session is not currently blocked. Derived from mysql.blocking.blockers.
+    type: int
   mysql.blocking.blocker.session_id:
-    description: The PROCESSLIST_ID (session id) of the session currently holding the lock this session is waiting on, resolved from BLOCKING_THREAD_ID via performance_schema.threads. 0 indicates the session is not currently blocked. Use this, not mysql.blocking.blocker.thread_id, to cross-reference the blocking session against mysql.session.id elsewhere on the dashboard.
+    description: The PROCESSLIST_ID (session id) of the session currently holding the lock this session is waiting on, resolved from BLOCKING_THREAD_ID via performance_schema.threads. 0 indicates the session is not currently blocked, or that the blocker could not be resolved (see mysql.blocking.blockers for the unresolved-vs-unblocked distinction). Reflects the oldest of multiple concurrent blockers, not an arbitrary one. Use this, not mysql.blocking.blocker.thread_id, to cross-reference the blocking session against mysql.session.id elsewhere on the dashboard.
     type: int
   mysql.blocking.blocker.thread_id:
-    description: The thread_id of the session currently holding the lock this session is waiting on, sourced from performance_schema.data_lock_waits. 0 indicates the session is not currently blocked (thread_id 0 is never assigned by MySQL).
+    description: The thread_id of the session currently holding the lock this session is waiting on, sourced from performance_schema.data_lock_waits. 0 indicates the session is not currently blocked. Reflects the oldest of multiple concurrent blockers, not an arbitrary one — see mysql.blocking.blockers for the complete list.
     type: int
+  mysql.blocking.blockers:
+    description: A JSON array of {thread_id, session_id} tuples, one per concurrent InnoDB row-lock blocker for this session, ordered best-effort by blocking-transaction start time (oldest/most-likely-root-cause first). session_id is null when that blocker's PROCESSLIST_ID could not be resolved (e.g. it disconnected between reads). "[]" when not blocked. mysql.blocking.blocker.thread_id/.session_id are derived from element [0] of this array.
+    type: string
   mysql.event_id:
     description: The thread associated with the event and the thread current event number when the event starts.
     type: int
@@ -369,6 +375,8 @@ events:
       - mysql.events_statements_current.timer_start
       - mysql.blocking.blocker.session_id
       - mysql.session.client_name
+      - mysql.blocking.blockers
+      - mysql.blocking.blocker.count
 
   db.server.top_query:
     enabled: false
