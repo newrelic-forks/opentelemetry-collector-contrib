@@ -49,6 +49,9 @@ resourceLogs:
               - key: mysql.wait_event
                 value:
                   stringValue: table/sql/handler
+              - key: mysql.wait_type
+                value:
+                  stringValue: wait/lock/table/sql/handler
               - key: mysql.session.status
                 value:
                   stringValue: waiting

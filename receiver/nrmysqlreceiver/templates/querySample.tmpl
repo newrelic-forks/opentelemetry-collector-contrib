@@ -26,6 +26,18 @@
         -- fallback
         ELSE 'other'
     END AS session_status,
+    -- mysql.wait_type: kept verbatim from upstream mysqlreceiver (same IF/COALESCE
+    -- expression, same alias) so this fork doesn't drop an attribute the base
+    -- receiver already ships. Reports the raw, unprocessed event_name (no
+    -- category-stripping) -- distinct from the wait_event_type/wait_event
+    -- extensions below, which are this fork's own two-level breakdown.
+    IF(wait.thread_id IS NULL,
+        'other',
+        COALESCE(
+            IF(thread.processlist_state = 'User sleep', 'User sleep',
+            IF(wait.event_id = wait.end_event_id, 'CPU', wait.event_name)), 'CPU'
+        )
+    ) AS wait_type,
     -- Extension: wait_event_type is the top-level classification from EVENT_NAME's
     -- second path segment ('io' | 'lock' | 'synch'), MySQL's analogue of Oracle's
     -- WAIT_CLASS / SQL Server's wait_category. Gated on the exact same conditions
@@ -53,8 +65,6 @@
     -- 'table/sql/handler', 'mutex/innodb/checkpoint_state' -- MySQL's analogue
     -- of Oracle's EVENT / SQL Server's wait_type, paired with wait_event_type.
     -- Same session_status-aligned gating and NULL-safety as wait_event_type above.
-    -- Replaces the prior mysql.wait_type value (attribute renamed, not
-    -- repurposed in place -- mysql.wait_type is no longer emitted).
     CASE
         WHEN wait.thread_id IS NOT NULL AND wait.end_event_id IS NULL THEN
             COALESCE(

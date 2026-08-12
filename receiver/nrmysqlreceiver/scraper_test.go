@@ -978,6 +978,9 @@ func (c *mockClient) getQuerySamples(uint64, bool) ([]querySample, error) {
 		if len(text) > 21 {
 			s.waitEventType = text[21]
 		}
+		if len(text) > 22 {
+			s.waitType = text[22]
+		}
 
 		samples = append(samples, s)
 	}
