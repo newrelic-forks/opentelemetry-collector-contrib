@@ -43,12 +43,12 @@ resourceLogs:
               - key: mysql.event_id
                 value:
                   intValue: "17470257762"
-              - key: mysql.wait_type
-                value:
-                  stringValue: table/sql/handler
-              - key: mysql.wait_category
+              - key: mysql.wait_event_type
                 value:
                   stringValue: lock
+              - key: mysql.wait_event
+                value:
+                  stringValue: table/sql/handler
               - key: mysql.session.status
                 value:
                   stringValue: waiting

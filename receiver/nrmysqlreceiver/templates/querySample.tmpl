@@ -26,36 +26,42 @@
         -- fallback
         ELSE 'other'
     END AS session_status,
-    -- Extension: wait_category is the top-level classification from EVENT_NAME's
+    -- Extension: wait_event_type is the top-level classification from EVENT_NAME's
     -- second path segment ('io' | 'lock' | 'synch'), MySQL's analogue of Oracle's
     -- WAIT_CLASS / SQL Server's wait_category. Gated on the exact same conditions
     -- as session_status above (not just "does a wait row exist") so this only
     -- reports a real category while session_status = 'waiting'; it reports 'CPU'
     -- in lockstep with 'running', and 'other' in lockstep with 'other' -- no
-    -- mismatch between the two columns.
+    -- mismatch between the two columns. A NULL wait.event_name on a genuinely
+    -- waiting row (which the WHERE clause does not rule out) is guarded by the
+    -- outer COALESCE so this column is never NULL -- SUBSTRING_INDEX(NULL, ...)
+    -- returns NULL, which would otherwise fail the Go string Scan and drop the
+    -- entire row's worth of samples.
     CASE
         WHEN wait.thread_id IS NOT NULL AND wait.end_event_id IS NULL THEN
-            CASE
-                WHEN thread.processlist_state = 'User sleep' THEN 'User sleep'
-                ELSE SUBSTRING_INDEX(SUBSTRING_INDEX(wait.event_name, '/', 2), '/', -1)
-            END
+            COALESCE(
+                IF(thread.processlist_state = 'User sleep', 'User sleep',
+                   SUBSTRING_INDEX(SUBSTRING_INDEX(wait.event_name, '/', 2), '/', -1)),
+                'other'
+            )
         WHEN statement.thread_id IS NOT NULL
              AND COALESCE(statement.sql_text, thread.processlist_info) <> '' THEN 'CPU'
         ELSE 'other'
-    END AS wait_category,
-    -- Extension: wait_event (-> mysql.wait_type) is now everything after the
+    END AS wait_event_type,
+    -- Extension: wait_event (-> mysql.wait_event) is everything after the
     -- category segment of EVENT_NAME (subsystem/component/instrument), e.g.
     -- 'table/sql/handler', 'mutex/innodb/checkpoint_state' -- MySQL's analogue
-    -- of Oracle's EVENT / SQL Server's wait_type, paired with wait_category.
-    -- Same session_status-aligned gating as wait_category above. Replaces the
-    -- prior raw-full-event_name value (behavior change -- see design doc
-    -- docs/superpowers/specs/2026-08-11-wait-category-breakdown-design.md).
+    -- of Oracle's EVENT / SQL Server's wait_type, paired with wait_event_type.
+    -- Same session_status-aligned gating and NULL-safety as wait_event_type above.
+    -- Replaces the prior mysql.wait_type value (attribute renamed, not
+    -- repurposed in place -- mysql.wait_type is no longer emitted).
     CASE
         WHEN wait.thread_id IS NOT NULL AND wait.end_event_id IS NULL THEN
-            CASE
-                WHEN thread.processlist_state = 'User sleep' THEN 'User sleep'
-                ELSE SUBSTRING(wait.event_name, LENGTH(SUBSTRING_INDEX(wait.event_name, '/', 2)) + 2)
-            END
+            COALESCE(
+                IF(thread.processlist_state = 'User sleep', 'User sleep',
+                   SUBSTRING(wait.event_name, LENGTH(SUBSTRING_INDEX(wait.event_name, '/', 2)) + 2)),
+                'other'
+            )
         WHEN statement.thread_id IS NOT NULL
              AND COALESCE(statement.sql_text, thread.processlist_info) <> '' THEN 'CPU'
         ELSE 'other'

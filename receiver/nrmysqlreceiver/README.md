@@ -300,4 +300,4 @@ Performance Schema uses for "elapsed time of an instrumented event," inherited f
 wait-instrument tables where "wait" did mean blocking; at the statement level it means duration.
 `mysql.events_waits_current.timer_wait` is the one field that *is* a genuine, distinct wait/block
 duration (sourced from `performance_schema.events_waits_current`, not the statement timer) — pair
-it with `mysql.wait_type` if you need to show what a session is currently blocked on.
+it with `mysql.wait_event` (and `mysql.wait_event_type`) if you need to show what a session is currently blocked on.

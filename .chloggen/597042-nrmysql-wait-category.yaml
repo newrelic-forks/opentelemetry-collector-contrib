@@ -2,18 +2,19 @@ change_type: breaking
 
 component: receiver/nrmysql
 
-note: Add `mysql.wait_category` and repurpose `mysql.wait_type` on the `db.server.query_sample` event to give MySQL a two-level wait breakdown (category + detailed type) analogous to the SQL Server and Oracle receivers.
+note: Add `mysql.wait_event_type` and `mysql.wait_event` on the `db.server.query_sample` event to give MySQL a two-level wait breakdown (category + detailed type) analogous to the SQL Server and Oracle receivers.
 
 issues: [597042]
 
 subtext: |
   Tracked internally as NR-597042.
 
-  `mysql.wait_type` changes meaning: it now reliably reports `CPU` exactly when
-  `mysql.session.status` is `running` (previously inconsistent), and reports the
-  wait instrument path with its category segment stripped (e.g.
-  `table/sql/handler`) instead of the full raw `performance_schema` event name
-  when waiting. `mysql.wait_category` is new (`io`/`lock`/`synch`/`CPU`/`User
-  sleep`/`other`).
+  `mysql.wait_type` is removed and replaced by two new attributes:
+  `mysql.wait_event_type` reports the top-level wait classification
+  (`io`/`lock`/`synch`/`CPU`/`User sleep`/`other`), reliably reporting `CPU`
+  exactly when `mysql.session.status` is `running` (previously inconsistent).
+  `mysql.wait_event` reports the detailed wait breakdown -- the wait instrument
+  path with its category segment stripped (e.g. `table/sql/handler`) instead
+  of the full raw `performance_schema` event name when waiting.
 
 change_logs: [user]
