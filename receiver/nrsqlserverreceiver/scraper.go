@@ -2517,7 +2517,11 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 		}
 
 		queryPlanVal := s.retrieveValue(row, queryPlan, &errs, func(row sqlquery.StringMap, columnName string) (any, error) {
-			return s.obfuscator.obfuscateXMLPlan(row[columnName], s.logger, queryPlanHashVal)
+			obfuscatedXML, err := s.obfuscator.obfuscateXMLPlan(row[columnName], s.logger, queryPlanHashVal)
+			if err != nil || obfuscatedXML == "" {
+				return obfuscatedXML, err
+			}
+			return xmlPlanToJSON(obfuscatedXML)
 		})
 
 		rowsReturnedVal := s.retrieveValue(row, rowsReturned, &errs, retrieveInt)
@@ -2570,7 +2574,6 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 			logicalWritesVal.(int64),
 			physicalReadsVal.(int64),
 			queryHashVal,
-			queryPlanVal.(string),
 			queryPlanHashVal,
 			rowsReturnedVal.(int64),
 			totalElapsedTimeVal,
@@ -2587,6 +2590,14 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 			nrServiceGUIDVal,
 			dbQueryTextNormalizedHashVal,
 		)
+		if planJSON := queryPlanVal.(string); planJSON != "" {
+			s.lb.RecordDbServerQueryPlanEvent(
+				context.Background(),
+				timestamp,
+				queryPlanHashVal,
+				planJSON,
+			)
+		}
 	}
 	return resources, errors.Join(errs...)
 }
