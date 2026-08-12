@@ -124,24 +124,31 @@
     -- on MySQL 5.7 and MariaDB the value is VARCHAR, so CONVERT is a no-op.
     -- utf8mb4 is used instead of the deprecated utf8 alias.
     COALESCE(CONVERT(uvt.VARIABLE_VALUE USING utf8mb4), '') AS traceparent,
-    -- Extension: blockers is a JSON array of {thread_id, session_id} tuples,
-    -- one entry per concurrent InnoDB row-lock blocker for this thread —
-    -- computed via ONE correlated subquery (replacing the two independent
-    -- scalar subqueries this fork previously used for blocking_thread_id and
-    -- blocking_session_id separately). LEFT JOINs mean a blocker that has
-    -- already disconnected still appears in the array (thread_id populated,
-    -- session_id null) instead of silently vanishing. Ordered best-effort by
-    -- the blocking transaction's start time (oldest/most-likely-root-cause
-    -- first, unresolved last) via information_schema.INNODB_TRX — MySQL does
-    -- not formally guarantee a derived table's ORDER BY survives into
-    -- JSON_ARRAYAGG's aggregation order, but this is the standard technique
-    -- for it and holds in practice at this result-set size; treat the
-    -- ordering as best-effort, not authoritative.
+    -- Extension: blockers is a JSON array of {thread_id, session_id,
+    -- trx_started} tuples, one entry per concurrent InnoDB row-lock blocker
+    -- for this thread — computed via ONE correlated subquery (replacing the
+    -- two independent scalar subqueries this fork previously used for
+    -- blocking_thread_id and blocking_session_id separately). LEFT JOINs
+    -- mean a blocker that has already disconnected still appears in the
+    -- array (thread_id populated, session_id null) instead of silently
+    -- vanishing.
+    --
+    -- trx_started (UNIX_TIMESTAMP of the blocking transaction's start time,
+    -- null if information_schema.INNODB_TRX has no matching row) exists
+    -- purely so the receiver (deriveBlockingCount, scraper.go) can sort the
+    -- parsed array oldest-first in Go before emission and strip this field
+    -- back out. The ORDER BY below is kept as a harmless, sometimes-helpful
+    -- hint, but is NOT what guarantees final ordering: MySQL's own docs
+    -- describe JSON_ARRAYAGG's element order as unspecified, and this was
+    -- verified live against MySQL 8.0.46 to NOT reliably preserve this
+    -- ORDER BY — the aggregated array came back in the opposite order from
+    -- the sorted derived table feeding it. Do not rely on SQL-side ordering
+    -- here; the Go-side sort is authoritative.
     COALESCE(
         (
-            SELECT JSON_ARRAYAGG(JSON_OBJECT('thread_id', ordered.thread_id, 'session_id', ordered.session_id))
+            SELECT JSON_ARRAYAGG(JSON_OBJECT('thread_id', ordered.thread_id, 'session_id', ordered.session_id, 'trx_started', ordered.trx_started))
             FROM (
-                SELECT lw.BLOCKING_THREAD_ID AS thread_id, bt.PROCESSLIST_ID AS session_id
+                SELECT lw.BLOCKING_THREAD_ID AS thread_id, bt.PROCESSLIST_ID AS session_id, UNIX_TIMESTAMP(btrx.trx_started) AS trx_started
                 FROM performance_schema.data_lock_waits AS lw
                 LEFT JOIN performance_schema.threads AS bt ON bt.THREAD_ID = lw.BLOCKING_THREAD_ID
                 LEFT JOIN information_schema.INNODB_TRX AS btrx ON btrx.trx_id = lw.BLOCKING_ENGINE_TRANSACTION_ID

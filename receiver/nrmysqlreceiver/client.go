@@ -336,11 +336,13 @@ type querySample struct {
 	// time) that changes only when a new statement begins on this thread.
 	// Used as a stable per-execution key, MySQL's analogue of query_start.
 	statementTimerStart int64
-	// blockers is the raw "[{\"thread_id\":..,\"session_id\":..}, ...]" JSON
-	// array produced by querySample.tmpl — one entry per concurrent InnoDB
-	// row-lock blocker for this thread, "[]" when not blocked. Emitted
-	// verbatim as mysql.blocking.blockers; deriveBlockingCount in scraper.go
-	// only reads its length for mysql.blocking.blocker.count.
+	// blockers is the raw "[{\"thread_id\":..,\"session_id\":..,\"trx_started\":..},
+	// ...]" JSON array produced by querySample.tmpl — one entry per
+	// concurrent InnoDB row-lock blocker for this thread, "[]" when not
+	// blocked. NOT emitted verbatim: deriveBlockingCount in scraper.go
+	// re-sorts it oldest-transaction-first (trx_started is sort-only and
+	// stripped before emission) and reads its length for
+	// mysql.blocking.blocker.count.
 	blockers string
 	// clientProgramName is the client driver's self-reported identity
 	// (session_connect_attrs, ATTR_NAME='_client_name'), e.g. "MySQL

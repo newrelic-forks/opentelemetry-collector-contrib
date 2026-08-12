@@ -987,27 +987,87 @@ func getDigestTextHash(digestText string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// deriveBlockingCount parses the raw blockers JSON produced by querySample.tmpl
-// and returns the normalized JSON to emit as mysql.blocking.blockers (an
-// empty/missing value normalizes to "[]", matching the SQL COALESCE default)
-// and the blocker count (mysql.blocking.blocker.count). Individual blocker
-// identity (thread_id/session_id) is intentionally not extracted into scalar
-// attributes here — that would only serve per-row display, which a
-// dashboard/frontend can already get by parsing mysql.blocking.blockers
-// directly; count is kept as a scalar because NRQL has no native JSON
-// array-length function. Malformed JSON is treated as "not blocked" rather
-// than propagated, since the value is always either "[]" or
-// receiver-generated JSON from a COALESCE default.
+// blockerJSONEntry is one element of the raw blockers JSON produced by
+// querySample.tmpl, as read off the wire. TrxStarted (unix seconds, from
+// UNIX_TIMESTAMP(btrx.trx_started)) exists only so deriveBlockingCount can
+// sort deterministically in Go — see the note below on why the SQL-side
+// ORDER BY cannot be trusted. It is nil when that blocker's transaction
+// couldn't be resolved (btrx LEFT JOIN miss) — sorted last, since an unknown
+// age can't be shown to be older than a known one. SessionID is nil on a
+// separate, independent LEFT JOIN miss (the blocker's PROCESSLIST_ID) and is
+// unrelated to TrxStarted being nil.
+type blockerJSONEntry struct {
+	ThreadID   int64  `json:"thread_id"`
+	SessionID  *int64 `json:"session_id"`
+	TrxStarted *int64 `json:"trx_started"`
+}
+
+// blockerOutputEntry is one element of the emitted mysql.blocking.blockers
+// JSON array — the same tuple as blockerJSONEntry minus TrxStarted, which is
+// sort-only metadata and never part of the documented, customer-facing
+// attribute shape.
+type blockerOutputEntry struct {
+	ThreadID  int64  `json:"thread_id"`
+	SessionID *int64 `json:"session_id"`
+}
+
+// deriveBlockingCount parses the raw blockers JSON produced by querySample.tmpl,
+// re-sorts it oldest-transaction-first, and returns the normalized JSON to
+// emit as mysql.blocking.blockers (an empty/missing value normalizes to "[]",
+// matching the SQL COALESCE default) and the blocker count
+// (mysql.blocking.blocker.count).
+//
+// The re-sort is load-bearing, not defensive: MySQL's own documentation
+// describes JSON_ARRAYAGG's element order as unspecified, and this was
+// empirically confirmed live against MySQL 8.0.46 — the same query, run
+// directly, returned its aggregated array in the *opposite* order from the
+// ORDER BY-sorted derived table feeding it (newest blocker first, oldest
+// last), reproduced twice independently. The SQL template's ORDER BY is kept
+// as a harmless, occasionally-helpful hint, but this function is the only
+// place the oldest/most-likely-root-cause-first guarantee documented on
+// mysql.blocking.blockers is actually enforced.
+//
+// Individual blocker identity (thread_id/session_id) is intentionally not
+// extracted into scalar attributes here — that would only serve per-row
+// display, which a dashboard/frontend can already get by parsing
+// mysql.blocking.blockers directly; count is kept as a scalar because NRQL
+// has no native JSON array-length function. Malformed JSON is treated as
+// "not blocked" rather than propagated, since the value is always either
+// "[]" or receiver-generated JSON from a COALESCE default.
 func (m *mySQLScraper) deriveBlockingCount(blockersJSON string) (normalizedBlockersJSON string, blockerCount int64) {
 	if blockersJSON == "" {
 		return "[]", 0
 	}
-	var blockers []json.RawMessage
+	var blockers []blockerJSONEntry
 	if err := json.Unmarshal([]byte(blockersJSON), &blockers); err != nil {
 		m.logger.Warn("Failed to parse mysql.blocking.blockers; treating as not blocked", zap.Error(err))
 		return "[]", 0
 	}
-	return blockersJSON, int64(len(blockers))
+	if len(blockers) == 0 {
+		return "[]", 0
+	}
+
+	sort.SliceStable(blockers, func(i, j int) bool {
+		a, b := blockers[i].TrxStarted, blockers[j].TrxStarted
+		if a == nil {
+			return false // nil never sorts before anything, including another nil
+		}
+		if b == nil {
+			return true // non-nil always sorts before nil
+		}
+		return *a < *b
+	})
+
+	output := make([]blockerOutputEntry, len(blockers))
+	for i, b := range blockers {
+		output[i] = blockerOutputEntry{ThreadID: b.ThreadID, SessionID: b.SessionID}
+	}
+	normalized, err := json.Marshal(output)
+	if err != nil {
+		m.logger.Warn("Failed to re-marshal mysql.blocking.blockers; treating as not blocked", zap.Error(err))
+		return "[]", 0
+	}
+	return string(normalized), int64(len(blockers))
 }
 
 // contextWithTraceparent extracts a W3C TraceContext traceparent from the given

@@ -426,7 +426,20 @@ func TestScrapeQuerySamplesBlockers(t *testing.T) {
 		assert.Equal(t, int64(1), countVal.Int())
 	})
 
-	t.Run("multiple concurrent blockers are all preserved in the array and counted", func(t *testing.T) {
+	t.Run("multiple concurrent blockers are sorted oldest-first regardless of the raw JSON_ARRAYAGG order, unresolved age sorts last", func(t *testing.T) {
+		// query_samples_multi_blocker.txt deliberately encodes the blockers
+		// column in scrambled order (newest first, then a resolved blocker
+		// with unknown transaction age, then the oldest) with a trx_started
+		// (unix-seconds) tiebreaker on each entry -- reproducing what live
+		// MySQL 8.0.46 was empirically observed to return from
+		// JSON_ARRAYAGG(... ORDER BY trx_started) (see docs/mysql-receiver
+		// verification notes): JSON_ARRAYAGG's element order is not
+		// guaranteed by MySQL and does not reliably reflect the SQL-side
+		// ORDER BY. The receiver must not trust that order and instead
+		// re-sorts by trx_started itself (oldest/most-likely-root-cause
+		// first, unresolved trx_started last) before emitting the array --
+		// so this test's expected output is intentionally NOT the same
+		// order as the fixture's raw JSON.
 		scraper := newMySQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, newCache[int64](100), newTTLCache[string](0, time.Hour*24*365*10))
 		scraper.sqlclient = &mockClient{querySamplesFile: "query_samples_multi_blocker"}
 
@@ -436,11 +449,12 @@ func TestScrapeQuerySamplesBlockers(t *testing.T) {
 
 		blockersVal, ok := record.Attributes().Get("mysql.blocking.blockers")
 		require.True(t, ok, "mysql.blocking.blockers must be present")
-		assert.JSONEq(t, `[{"thread_id":42,"session_id":17},{"thread_id":58,"session_id":23}]`, blockersVal.Str())
+		assert.JSONEq(t, `[{"thread_id":42,"session_id":17},{"thread_id":58,"session_id":23},{"thread_id":99,"session_id":77}]`, blockersVal.Str(),
+			"expected oldest (trx_started 100) first, then trx_started 200, then the unresolved-age blocker last -- not the fixture's raw order")
 
 		countVal, ok := record.Attributes().Get("mysql.blocking.blocker.count")
 		require.True(t, ok, "mysql.blocking.blocker.count must be present")
-		assert.Equal(t, int64(2), countVal.Int())
+		assert.Equal(t, int64(3), countVal.Int())
 	})
 
 	t.Run("a blocker whose session could not be resolved is preserved, not dropped", func(t *testing.T) {
