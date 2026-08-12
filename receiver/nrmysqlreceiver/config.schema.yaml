@@ -2,6 +2,10 @@ $defs:
   query_sample_collection:
     type: object
     properties:
+      allowed_comment_keys:
+        type: array
+        items:
+          type: string
       max_rows_per_query:
         type: integer
         x-customType: uint64
@@ -18,6 +22,10 @@ $defs:
   top_query_collection:
     type: object
     properties:
+      allowed_comment_keys:
+        type: array
+        items:
+          type: string
       collection_interval:
         type: string
         format: duration
@@ -40,6 +48,9 @@ properties:
   allow_native_passwords:
     type: boolean
   database:
+    type: string
+  explain_mode:
+    description: 'ExplainMode selects how execution plans are retrieved: "inline" (default, direct EXPLAIN on the monitoring connection) or "procedure" (CALL the <schema>.explain_statement SQL SECURITY DEFINER procedure, so write statements can be explained without granting DML to the monitoring user).'
     type: string
   password:
     $ref: go.opentelemetry.io/collector/config/configopaque.string

@@ -296,7 +296,7 @@ func TestExplainQueryProcedureModeSuccess(t *testing.T) {
 	mock.ExpectQuery(explainProcProbeQuery).
 		WithArgs("myschema").
 		WillReturnRows(sqlmock.NewRows([]string{"1"}).AddRow(1))
-	mock.ExpectQuery(`CALL ` + "`myschema`" + `\.explain_statement\(\?\)`).
+	mock.ExpectQuery(`CALL `+"`myschema`"+`\.explain_statement\(\?\)`).
 		WithArgs("SELECT * FROM t").
 		WillReturnRows(
 			sqlmock.NewRows([]string{"EXPLAIN"}).AddRow(`{"query_block":{}}`),
