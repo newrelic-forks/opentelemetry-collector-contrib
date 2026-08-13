@@ -124,36 +124,28 @@
     -- on MySQL 5.7 and MariaDB the value is VARCHAR, so CONVERT is a no-op.
     -- utf8mb4 is used instead of the deprecated utf8 alias.
     COALESCE(CONVERT(uvt.VARIABLE_VALUE USING utf8mb4), '') AS traceparent,
-    -- Extension: blockers is a JSON array of {thread_id, session_id,
-    -- trx_started} tuples, one entry per concurrent InnoDB row-lock blocker
-    -- for this thread — computed via ONE correlated subquery (replacing the
-    -- two independent scalar subqueries this fork previously used for
-    -- blocking_thread_id and blocking_session_id separately). LEFT JOINs
-    -- mean a blocker that has already disconnected still appears in the
-    -- array (thread_id populated, session_id null) instead of silently
-    -- vanishing.
-    --
-    -- trx_started (UNIX_TIMESTAMP of the blocking transaction's start time,
-    -- null if information_schema.INNODB_TRX has no matching row) exists
-    -- purely so the receiver (deriveBlockingCount, scraper.go) can sort the
-    -- parsed array oldest-first in Go before emission and strip this field
-    -- back out. The ORDER BY below is kept as a harmless, sometimes-helpful
-    -- hint, but is NOT what guarantees final ordering: MySQL's own docs
-    -- describe JSON_ARRAYAGG's element order as unspecified, and this was
-    -- verified live against MySQL 8.0.46 to NOT reliably preserve this
-    -- ORDER BY — the aggregated array came back in the opposite order from
-    -- the sorted derived table feeding it. Do not rely on SQL-side ordering
-    -- here; the Go-side sort is authoritative.
+    -- Extension: blockers is a JSON array of {thread_id, session_id} tuples,
+    -- one entry per concurrent InnoDB row-lock blocker for this thread.
+    -- LEFT JOIN means a blocker that has already disconnected still appears
+    -- in the array (thread_id populated, session_id null) instead of
+    -- silently vanishing. Unordered -- an earlier version joined
+    -- information_schema.INNODB_TRX to sort oldest-transaction-first, but
+    -- that requires the global PROCESS privilege, and MySQL checks
+    -- privileges on every referenced table at prepare time regardless of
+    -- whether a row is actually needed -- so the entire query_sample query
+    -- failed outright the moment a real block existed for a monitoring user
+    -- without PROCESS. Dropped in favor of privilege-cheap, always-available
+    -- (if unordered) blocker identification. See
+    -- docs/mysql-receiver/blocking-blockers-ordering-spec-removed-2026-08-14.md
+    -- for the full spec if this needs to come back.
     COALESCE(
         (
-            SELECT JSON_ARRAYAGG(JSON_OBJECT('thread_id', ordered.thread_id, 'session_id', ordered.session_id, 'trx_started', ordered.trx_started))
+            SELECT JSON_ARRAYAGG(JSON_OBJECT('thread_id', ordered.thread_id, 'session_id', ordered.session_id))
             FROM (
-                SELECT lw.BLOCKING_THREAD_ID AS thread_id, bt.PROCESSLIST_ID AS session_id, UNIX_TIMESTAMP(btrx.trx_started) AS trx_started
+                SELECT lw.BLOCKING_THREAD_ID AS thread_id, bt.PROCESSLIST_ID AS session_id
                 FROM performance_schema.data_lock_waits AS lw
                 LEFT JOIN performance_schema.threads AS bt ON bt.THREAD_ID = lw.BLOCKING_THREAD_ID
-                LEFT JOIN information_schema.INNODB_TRX AS btrx ON btrx.trx_id = lw.BLOCKING_ENGINE_TRANSACTION_ID
                 WHERE lw.REQUESTING_THREAD_ID = thread.thread_id
-                ORDER BY btrx.trx_started IS NULL, btrx.trx_started ASC
             ) AS ordered
         ), '[]'
     ) AS blockers,

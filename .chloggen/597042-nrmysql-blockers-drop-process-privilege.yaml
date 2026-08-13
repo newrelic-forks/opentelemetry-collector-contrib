@@ -1,0 +1,28 @@
+change_type: breaking
+
+component: receiver/nrmysql
+
+note: Drop the `PROCESS` privilege requirement for `mysql.blocking.blockers`/`mysql.blocking.blocker.count` by removing the best-effort oldest-blocker-first ordering.
+
+issues: [597042]
+
+subtext: |
+  Tracked internally as NR-597042.
+
+  `mysql.blocking.blockers` was ordered oldest-transaction-first via a join
+  to `information_schema.INNODB_TRX`, which requires the global `PROCESS`
+  privilege. Because MySQL checks privileges on every table a query
+  references at prepare time regardless of whether a row is actually needed,
+  a monitoring user without `PROCESS` had the *entire* `db.server.query_sample`
+  collection query fail outright the moment a real blocked session existed --
+  not a degraded result, a total loss for that scrape cycle, and precisely
+  during the incident when the data mattered most.
+
+  The ordering is now removed. `mysql.blocking.blockers` (thread_id/session_id
+  pairs) and `mysql.blocking.blocker.count` are unchanged in shape and no
+  longer require `PROCESS` -- `SELECT ON performance_schema.*` is sufficient.
+  The only change is that array order is no longer guaranteed to be
+  oldest-transaction-first; it's whatever the underlying
+  `performance_schema.data_lock_waits` read returns.
+
+change_logs: [user]
