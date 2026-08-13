@@ -1916,6 +1916,46 @@ func TestShouldCacheExplainFailure(t *testing.T) {
 	}
 }
 
+func TestIsExplainPermissionError(t *testing.T) {
+	testCases := []struct {
+		name         string
+		err          error
+		isPermission bool
+	}{
+		{
+			name:         "nil error is not a permission error",
+			err:          nil,
+			isPermission: false,
+		},
+		{
+			name:         "insufficient_privilege is a permission error",
+			err:          &pq.Error{Code: pqerror.InsufficientPrivilege, Message: "permission denied for table orders"},
+			isPermission: true,
+		},
+		{
+			name:         "undefined_table is not a permission error",
+			err:          &pq.Error{Code: pqerror.Code("42P01"), Message: "relation \"orders\" does not exist"},
+			isPermission: false,
+		},
+		{
+			name:         "connection-level non-pq error is not a permission error",
+			err:          errors.New("dial tcp: connection refused"),
+			isPermission: false,
+		},
+		{
+			name:         "wrapped insufficient_privilege is still detected through errors.As",
+			err:          fmt.Errorf("failed to explain statement: %w", &pq.Error{Code: pqerror.InsufficientPrivilege, Message: "permission denied"}),
+			isPermission: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.isPermission, isExplainPermissionError(tc.err))
+		})
+	}
+}
+
 func TestExplainQueryInlinePermissionDeniedIsNotCachedAcrossScrapes(t *testing.T) {
 	// End-to-end proof: an InsufficientPrivilege failure from explainQueryInline, combined with
 	// shouldCacheExplainFailure at the collectTopQuery call site, means a DBA's GRANT takes effect

@@ -439,11 +439,14 @@ func (p *postgreSQLScraper) probeExplainFunctionIfNeeded(ctx context.Context, da
 // shouldCacheExplainFailure returns false for permission errors so a later GRANT is retried
 // next scrape, instead of sitting behind query_plan_cache_ttl like other failures.
 func shouldCacheExplainFailure(err error) bool {
+	return !isExplainPermissionError(err)
+}
+
+// isExplainPermissionError reports whether err is a permission-denied EXPLAIN failure —
+// the expected, DBA-fixable case, e.g. no explain_function_name for a write/locking query.
+func isExplainPermissionError(err error) bool {
 	var pqErr *pq.Error
-	if errors.As(err, &pqErr) && pqErr.Code == pqerror.InsufficientPrivilege {
-		return false
-	}
-	return true
+	return errors.As(err, &pqErr) && pqErr.Code == pqerror.InsufficientPrivilege
 }
 
 func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory postgreSQLClientFactory, limit, topNQuery, maxExplainEachInterval int64, mux *errsMux, logger *zap.Logger, collectionTime time.Time) {
@@ -554,7 +557,16 @@ func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory p
 				}
 				plan, err = dbClient.explainQuery(rawQuery, queryID, explainFunction, logger)
 				if err != nil {
-					logger.Error("failed to explain query", zap.String("query", rawQuery), zap.Error(err))
+					// Log once per query_plan_cache_ttl, not every scrape, since permission
+					// errors retry forever until a grant changes.
+					if _, alreadyLogged := p.queryPlanCache.Get(queryID + "-explain-log"); !alreadyLogged {
+						if isExplainPermissionError(err) {
+							logger.Warn("failed to explain query: permission denied", zap.String("query", rawQuery), zap.Error(err))
+						} else {
+							logger.Error("failed to explain query", zap.String("query", rawQuery), zap.Error(err))
+						}
+						p.queryPlanCache.Add(queryID+"-explain-log", "")
+					}
 				}
 				// to avoid flood the error message. there are some internal queries meant to not be
 				// explained. we wait for the cache to expire and report the error again.

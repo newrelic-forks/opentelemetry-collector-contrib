@@ -271,6 +271,10 @@ receiver logs once per `explain_function_cache_ttl` per database and falls back 
 EXPLAIN — no error, no missing metrics, just no function-based plan until the function is fixed
 and the next probe runs.
 
+This covers only the function's own availability. If a specific query still can't be explained
+(e.g. a locking/write query with no `explain_function_name` set), that's logged once per
+`query_plan_cache_ttl` — `Warn` for permission errors, `Error` otherwise — not every scrape.
+
 **Two independent cache clocks.** `query_plan_cache_ttl` (1h) caches a *query's* plan;
 `explain_function_cache_ttl` (5m) caches a *database's* function availability. Since they're
 separate caches, a query can keep showing a stale plan-availability outcome for up to an hour
