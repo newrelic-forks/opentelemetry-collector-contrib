@@ -45,6 +45,7 @@ func TestFactory(t *testing.T) {
 						MaxQuerySampleCount: 1000,
 						TopQueryCount:       250,
 						CollectionInterval:  time.Minute,
+						PlanCacheTTL:        time.Hour,
 					},
 					QuerySample: QuerySample{
 						MaxRowsPerQuery: 100,

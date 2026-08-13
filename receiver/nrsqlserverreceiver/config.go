@@ -29,6 +29,11 @@ type TopQueryCollection struct {
 	MaxQuerySampleCount uint          `mapstructure:"max_query_sample_count"`
 	TopQueryCount       uint          `mapstructure:"top_query_count"`
 	CollectionInterval  time.Duration `mapstructure:"collection_interval"`
+	// PlanCacheTTL controls how long a query_plan_hash is suppressed after first
+	// emission. Within this window db.server.query_plan rows are not re-emitted,
+	// reducing volume. After expiry the plan is re-emitted. 0 disables dedup.
+	// Defaults to 1 hour.
+	PlanCacheTTL time.Duration `mapstructure:"plan_cache_ttl"`
 }
 
 // Config defines configuration for a sqlserver receiver.
