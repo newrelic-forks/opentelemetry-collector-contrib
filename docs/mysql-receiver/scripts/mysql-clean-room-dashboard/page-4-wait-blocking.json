@@ -14,7 +14,7 @@
       "visualization": {"id": "viz.bar"},
       "rawConfiguration": {
         "nrqlQueries": [
-          {"accountId": 754495, "query": "FROM Log SELECT count(*) WHERE `event.name` = 'db.server.query_sample' AND `db.system.name` = 'mysql' AND `mysql.instance.endpoint` = {{endpoint}} AND `mysql.session.status` = 'waiting' FACET `mysql.wait_event_type`"}
+          {"accountId": 754495, "query": "FROM Log SELECT count(*) WHERE `event.name` = 'db.server.query_sample' AND `db.system.name` = 'mysql' AND `mysql.session.status` = 'waiting' FACET `mysql.wait_event_type`, `mysql.instance.endpoint`"}
         ]
       }
     },
@@ -24,7 +24,7 @@
       "visualization": {"id": "viz.table"},
       "rawConfiguration": {
         "nrqlQueries": [
-          {"accountId": 754495, "query": "FROM Log SELECT count(*) AS 'Occurrences', average(`mysql.events_waits_current.timer_wait`) AS 'Avg wait (s)' WHERE `event.name` = 'db.server.query_sample' AND `db.system.name` = 'mysql' AND `mysql.instance.endpoint` = {{endpoint}} AND `mysql.session.status` = 'waiting' FACET `mysql.wait_event_type`, `mysql.wait_event` LIMIT 50"}
+          {"accountId": 754495, "query": "FROM Log SELECT count(*) AS 'Occurrences', average(`mysql.events_waits_current.timer_wait`) AS 'Avg wait (s)' WHERE `event.name` = 'db.server.query_sample' AND `db.system.name` = 'mysql' AND `mysql.session.status` = 'waiting' FACET `mysql.wait_event_type`, `mysql.wait_event`, `mysql.instance.endpoint` LIMIT 50"}
         ]
       }
     },
@@ -36,97 +36,97 @@
     },
     {
       "title": "Sessions currently blocked",
-      "layout": {"column": 1, "row": 10, "width": 3, "height": 3},
-      "visualization": {"id": "viz.billboard"},
+      "layout": {"column": 1, "row": 10, "width": 12, "height": 4},
+      "visualization": {"id": "viz.table"},
       "rawConfiguration": {
         "nrqlQueries": [
-          {"accountId": 754495, "query": "FROM Log SELECT uniqueCount(tuple(`mysql.threads.thread_id`, `mysql.session.id`)) WHERE `event.name` = 'db.server.query_sample' AND `db.system.name` = 'mysql' AND `mysql.instance.endpoint` = {{endpoint}} AND `mysql.blocking.blocker.count` > 0"}
+          {"accountId": 754495, "query": "FROM Log SELECT uniqueCount(tuple(`mysql.threads.thread_id`, `mysql.session.id`)) WHERE `event.name` = 'db.server.query_sample' AND `db.system.name` = 'mysql' AND `mysql.blocking.blocker.count` > 0 FACET `mysql.instance.endpoint`"}
         ]
       }
     },
     {
       "title": "Blocked session detail",
-      "layout": {"column": 1, "row": 13, "width": 12, "height": 4},
+      "layout": {"column": 1, "row": 14, "width": 12, "height": 4},
       "visualization": {"id": "viz.table"},
       "rawConfiguration": {
         "nrqlQueries": [
-          {"accountId": 754495, "query": "FROM Log SELECT latest(`mysql.blocking.blockers`) AS 'Blocked by (sessions)', latest(`user.name`) AS 'DB user', latest(`db.namespace`) AS 'Database', latest(`db.query.text`) AS 'Waiting query', latest(`mysql.events_statements_current.timer_wait`) AS 'Elapsed (s)' WHERE `event.name` = 'db.server.query_sample' AND `db.system.name` = 'mysql' AND `mysql.instance.endpoint` = {{endpoint}} AND `mysql.blocking.blocker.count` > 0 FACET `mysql.threads.thread_id` AS 'Thread', `mysql.session.id` AS 'Session' LIMIT 100"}
+          {"accountId": 754495, "query": "FROM Log SELECT latest(`mysql.blocking.blockers`) AS 'Blocked by (sessions)', latest(`user.name`) AS 'DB user', latest(`db.namespace`) AS 'Database', latest(`db.query.text`) AS 'Waiting query', latest(`mysql.events_statements_current.timer_wait`) AS 'Elapsed (s)' WHERE `event.name` = 'db.server.query_sample' AND `db.system.name` = 'mysql' AND `mysql.blocking.blocker.count` > 0 FACET `mysql.threads.thread_id` AS 'Thread', `mysql.session.id` AS 'Session', `mysql.instance.endpoint` LIMIT 100"}
         ]
       }
     },
     {
       "title": "Blocked session count trend",
-      "layout": {"column": 1, "row": 17, "width": 4, "height": 3},
+      "layout": {"column": 1, "row": 18, "width": 4, "height": 3},
       "visualization": {"id": "viz.line"},
       "rawConfiguration": {
         "nrqlQueries": [
-          {"accountId": 754495, "query": "FROM Log SELECT uniqueCount(tuple(`mysql.threads.thread_id`, `mysql.session.id`)) WHERE `event.name` = 'db.server.query_sample' AND `db.system.name` = 'mysql' AND `mysql.instance.endpoint` = {{endpoint}} AND `mysql.blocking.blocker.count` > 0 TIMESERIES"}
+          {"accountId": 754495, "query": "FROM Log SELECT uniqueCount(tuple(`mysql.threads.thread_id`, `mysql.session.id`)) WHERE `event.name` = 'db.server.query_sample' AND `db.system.name` = 'mysql' AND `mysql.blocking.blocker.count` > 0 FACET `mysql.instance.endpoint` TIMESERIES"}
         ]
       }
     },
     {
       "title": "",
-      "layout": {"column": 1, "row": 20, "width": 12, "height": 1},
+      "layout": {"column": 1, "row": 21, "width": 12, "height": 1},
       "visualization": {"id": "viz.markdown"},
       "rawConfiguration": {"text": "### InnoDB & Table-Level Locking (metrics)"}
     },
     {
       "title": "Table locks — immediate vs. waited",
-      "layout": {"column": 1, "row": 21, "width": 4, "height": 3},
+      "layout": {"column": 1, "row": 22, "width": 4, "height": 3},
       "visualization": {"id": "viz.line"},
       "rawConfiguration": {
         "nrqlQueries": [
-          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.locks`) WHERE `metricName` = 'mysql.locks' AND `mysql.instance.endpoint` = {{endpoint}} FACET kind TIMESERIES"}
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.locks`) WHERE `metricName` = 'mysql.locks' FACET kind, `mysql.instance.endpoint` TIMESERIES"}
         ]
       }
     },
     {
       "title": "Row locks — waits vs. time",
-      "layout": {"column": 5, "row": 21, "width": 4, "height": 3},
+      "layout": {"column": 5, "row": 22, "width": 4, "height": 3},
       "visualization": {"id": "viz.line"},
       "rawConfiguration": {
         "nrqlQueries": [
-          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.row_locks`) WHERE `metricName` = 'mysql.row_locks' AND `mysql.instance.endpoint` = {{endpoint}} FACET kind TIMESERIES"}
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.row_locks`) WHERE `metricName` = 'mysql.row_locks' FACET kind, `mysql.instance.endpoint` TIMESERIES"}
         ]
       }
     },
     {
       "title": "Top tables by read lock wait time",
-      "layout": {"column": 1, "row": 24, "width": 12, "height": 4},
+      "layout": {"column": 1, "row": 25, "width": 12, "height": 4},
       "visualization": {"id": "viz.table"},
       "rawConfiguration": {
         "nrqlQueries": [
-          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.table.lock_wait.read.time`) WHERE `metricName` = 'mysql.table.lock_wait.read.time' AND `mysql.instance.endpoint` = {{endpoint}} FACET schema, table LIMIT 25"}
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.table.lock_wait.read.time`) WHERE `metricName` = 'mysql.table.lock_wait.read.time' FACET schema, table, `mysql.instance.endpoint` LIMIT 25"}
         ]
       }
     },
     {
       "title": "Top tables by write lock wait time",
-      "layout": {"column": 1, "row": 28, "width": 12, "height": 4},
+      "layout": {"column": 1, "row": 29, "width": 12, "height": 4},
       "visualization": {"id": "viz.table"},
       "rawConfiguration": {
         "nrqlQueries": [
-          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.table.lock_wait.write.time`) WHERE `metricName` = 'mysql.table.lock_wait.write.time' AND `mysql.instance.endpoint` = {{endpoint}} FACET schema, table LIMIT 25"}
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.table.lock_wait.write.time`) WHERE `metricName` = 'mysql.table.lock_wait.write.time' FACET schema, table, `mysql.instance.endpoint` LIMIT 25"}
         ]
       }
     },
     {
       "title": "Top tables by read lock wait count",
-      "layout": {"column": 1, "row": 32, "width": 12, "height": 4},
+      "layout": {"column": 1, "row": 33, "width": 12, "height": 4},
       "visualization": {"id": "viz.table"},
       "rawConfiguration": {
         "nrqlQueries": [
-          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.table.lock_wait.read.count`) WHERE `metricName` = 'mysql.table.lock_wait.read.count' AND `mysql.instance.endpoint` = {{endpoint}} FACET schema, table LIMIT 25"}
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.table.lock_wait.read.count`) WHERE `metricName` = 'mysql.table.lock_wait.read.count' FACET schema, table, `mysql.instance.endpoint` LIMIT 25"}
         ]
       }
     },
     {
       "title": "Top tables by write lock wait count",
-      "layout": {"column": 1, "row": 36, "width": 12, "height": 4},
+      "layout": {"column": 1, "row": 37, "width": 12, "height": 4},
       "visualization": {"id": "viz.table"},
       "rawConfiguration": {
         "nrqlQueries": [
-          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.table.lock_wait.write.count`) WHERE `metricName` = 'mysql.table.lock_wait.write.count' AND `mysql.instance.endpoint` = {{endpoint}} FACET schema, table LIMIT 25"}
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.table.lock_wait.write.count`) WHERE `metricName` = 'mysql.table.lock_wait.write.count' FACET schema, table, `mysql.instance.endpoint` LIMIT 25"}
         ]
       }
     }
