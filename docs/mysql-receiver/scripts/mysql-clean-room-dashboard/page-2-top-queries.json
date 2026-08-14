@@ -1,0 +1,84 @@
+{
+  "name": "Query Performance (Top Queries)",
+  "description": "",
+  "widgets": [
+    {
+      "title": "",
+      "layout": {"column": 1, "row": 1, "width": 12, "height": 1},
+      "visualization": {"id": "viz.markdown"},
+      "rawConfiguration": {"text": "## Query Performance (Top Queries)\nAggregated view from db.server.top_query — disabled by default upstream; enabled in this test lab's receiver config."}
+    },
+    {
+      "title": "Top queries by total wait time",
+      "layout": {"column": 1, "row": 2, "width": 12, "height": 4},
+      "visualization": {"id": "viz.table"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Log SELECT latest(`db.query.text`) AS 'Query', filter(sum(`mysql.events_statements_summary_by_digest.count_star`), WHERE `mysql.events_statements_summary_by_digest.count_star` >= 0) AS 'Executions (delta)', filter(sum(`mysql.events_statements_summary_by_digest.sum_timer_wait`), WHERE `mysql.events_statements_summary_by_digest.sum_timer_wait` >= 0) AS 'Total wait (s, delta)' WHERE `event.name` = 'db.server.top_query' AND `db.system.name` = 'mysql' AND `mysql.instance.endpoint` = {{endpoint}} FACET `mysql.events_statements_summary_by_digest.digest` AS 'Digest' LIMIT 25"}
+        ]
+      }
+    },
+    {
+      "title": "Top 10 queries by total wait time",
+      "layout": {"column": 1, "row": 6, "width": 4, "height": 3},
+      "visualization": {"id": "viz.bar"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Log SELECT sum(`mysql.events_statements_summary_by_digest.sum_timer_wait`) WHERE `event.name` = 'db.server.top_query' AND `db.system.name` = 'mysql' AND `mysql.instance.endpoint` = {{endpoint}} FACET `mysql.events_statements_summary_by_digest.digest` LIMIT 10"}
+        ]
+      }
+    },
+    {
+      "title": "",
+      "layout": {"column": 1, "row": 9, "width": 12, "height": 1},
+      "visualization": {"id": "viz.markdown"},
+      "rawConfiguration": {"text": "### Query Efficiency — Rows Examined vs. Sent"}
+    },
+    {
+      "title": "Rows examined vs. sent by query",
+      "layout": {"column": 1, "row": 10, "width": 12, "height": 4},
+      "visualization": {"id": "viz.table"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Log SELECT sum(`mysql.events_statements_summary_by_digest.sum_rows_examined`) AS 'Rows examined', sum(`mysql.events_statements_summary_by_digest.sum_rows_sent`) AS 'Rows sent', latest(`db.query.text`) AS 'Query' WHERE `event.name` = 'db.server.top_query' AND `db.system.name` = 'mysql' AND `mysql.instance.endpoint` = {{endpoint}} FACET `mysql.events_statements_summary_by_digest.digest` AS 'Digest' LIMIT 25"}
+        ]
+      }
+    },
+    {
+      "title": "Worst selectivity (rows examined per row sent)",
+      "layout": {"column": 1, "row": 14, "width": 4, "height": 3},
+      "visualization": {"id": "viz.bar"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Log SELECT sum(`mysql.events_statements_summary_by_digest.sum_rows_examined`)/sum(`mysql.events_statements_summary_by_digest.sum_rows_sent`) AS 'Rows examined per row sent' WHERE `event.name` = 'db.server.top_query' AND `db.system.name` = 'mysql' AND `mysql.instance.endpoint` = {{endpoint}} AND `mysql.events_statements_summary_by_digest.sum_rows_sent` > 0 FACET `mysql.events_statements_summary_by_digest.digest` LIMIT 10"}
+        ]
+      }
+    },
+    {
+      "title": "",
+      "layout": {"column": 1, "row": 17, "width": 12, "height": 1},
+      "visualization": {"id": "viz.markdown"},
+      "rawConfiguration": {"text": "### Digest Metrics Correlation\nmysql.statement_event.* metrics are disabled by default upstream; enabled in this test lab."}
+    },
+    {
+      "title": "Statement event counts by digest (metric)",
+      "layout": {"column": 1, "row": 18, "width": 12, "height": 4},
+      "visualization": {"id": "viz.table"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.statement_event.count`) WHERE `metricName` = 'mysql.statement_event.count' AND `mysql.instance.endpoint` = {{endpoint}} FACET digest_text AS 'Query text', event_state LIMIT 25"}
+        ]
+      }
+    },
+    {
+      "title": "Statement event wait time by digest (metric)",
+      "layout": {"column": 1, "row": 22, "width": 4, "height": 3},
+      "visualization": {"id": "viz.line"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.statement_event.wait.time`) WHERE `metricName` = 'mysql.statement_event.wait.time' AND `mysql.instance.endpoint` = {{endpoint}} FACET digest_text TIMESERIES LIMIT 10"}
+        ]
+      }
+    }
+  ]
+}
