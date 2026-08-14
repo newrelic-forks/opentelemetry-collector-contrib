@@ -1,0 +1,64 @@
+{
+  "name": "Execution Plans",
+  "description": "",
+  "widgets": [
+    {
+      "title": "",
+      "layout": {"column": 1, "row": 1, "width": 12, "height": 1},
+      "visualization": {"id": "viz.markdown"},
+      "rawConfiguration": {"text": "## Execution Plans\nFilter by a specific query using the queryHash variable above (bound to db.query.text.normalized.hash)."}
+    },
+    {
+      "title": "Query text + plan (query samples)",
+      "layout": {"column": 1, "row": 2, "width": 12, "height": 4},
+      "visualization": {"id": "viz.table"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Log SELECT latest(`db.query.text`) AS 'Query', latest(`mysql.query_plan`) AS 'Execution plan (raw EXPLAIN JSON)' WHERE `event.name` = 'db.server.query_sample' AND `db.system.name` = 'mysql' AND `mysql.instance.endpoint` = {{endpoint}} AND `db.query.text.normalized.hash` = {{queryHash}} LIMIT 1"}
+        ]
+      }
+    },
+    {
+      "title": "Query text + plan (top queries)",
+      "layout": {"column": 1, "row": 6, "width": 12, "height": 4},
+      "visualization": {"id": "viz.table"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Log SELECT latest(`db.query.text`) AS 'Query', latest(`mysql.query_plan`) AS 'Execution plan (raw EXPLAIN JSON)' WHERE `event.name` = 'db.server.top_query' AND `db.system.name` = 'mysql' AND `mysql.instance.endpoint` = {{endpoint}} AND `db.query.text.normalized.hash` = {{queryHash}} LIMIT 1"}
+        ]
+      }
+    },
+    {
+      "title": "",
+      "layout": {"column": 1, "row": 10, "width": 12, "height": 1},
+      "visualization": {"id": "viz.markdown"},
+      "rawConfiguration": {"text": "**Note:** mysql.query_plan.hash is set to the same value as the query digest by design — it is not an independently computed structural plan fingerprint. Two executions of the same digest with a different actual execution plan (e.g. after an index change) still report the same mysql.query_plan.hash."}
+    },
+    {
+      "title": "",
+      "layout": {"column": 1, "row": 11, "width": 12, "height": 1},
+      "visualization": {"id": "viz.markdown"},
+      "rawConfiguration": {"text": "### Plan Availability & Coverage"}
+    },
+    {
+      "title": "Query samples with a plan (%)",
+      "layout": {"column": 1, "row": 12, "width": 3, "height": 3},
+      "visualization": {"id": "viz.billboard"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Log SELECT filter(count(*), WHERE `mysql.query_plan` IS NOT NULL AND `mysql.query_plan` != '') / count(*) * 100 WHERE `event.name` = 'db.server.query_sample' AND `db.system.name` = 'mysql' AND `mysql.instance.endpoint` = {{endpoint}}"}
+        ]
+      }
+    },
+    {
+      "title": "Top queries with a plan (%)",
+      "layout": {"column": 4, "row": 12, "width": 3, "height": 3},
+      "visualization": {"id": "viz.billboard"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Log SELECT filter(count(*), WHERE `mysql.query_plan` IS NOT NULL AND `mysql.query_plan` != '') / count(*) * 100 WHERE `event.name` = 'db.server.top_query' AND `db.system.name` = 'mysql' AND `mysql.instance.endpoint` = {{endpoint}}"}
+        ]
+      }
+    }
+  ]
+}
