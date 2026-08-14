@@ -9,8 +9,68 @@
       "rawConfiguration": {"text": "## Overview & Instance Health\nAt-a-glance status of every MySQL instance, broken out by `mysql.instance.endpoint`."}
     },
     {
+      "title": "Monitored instances",
+      "layout": {"column": 1, "row": 2, "width": 3, "height": 3},
+      "visualization": {"id": "viz.billboard"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT uniqueCount(`mysql.instance.endpoint`) WHERE `metricName` = 'mysql.uptime'"}
+        ]
+      }
+    },
+    {
+      "title": "Total active connections",
+      "layout": {"column": 4, "row": 2, "width": 3, "height": 3},
+      "visualization": {"id": "viz.billboard"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT sum(`mysql.threads`) WHERE `metricName` = 'mysql.threads' AND kind = 'connected'"}
+        ]
+      }
+    },
+    {
+      "title": "Total threads running",
+      "layout": {"column": 7, "row": 2, "width": 3, "height": 3},
+      "visualization": {"id": "viz.billboard"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT sum(`mysql.threads`) WHERE `metricName` = 'mysql.threads' AND kind = 'running'"}
+        ]
+      }
+    },
+    {
+      "title": "Total queries/min (all instances)",
+      "layout": {"column": 10, "row": 2, "width": 3, "height": 3},
+      "visualization": {"id": "viz.billboard"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT rate(sum(`mysql.query.count`), 1 minute) WHERE `metricName` = 'mysql.query.count'"}
+        ]
+      }
+    },
+    {
+      "title": "Total slow queries (cumulative)",
+      "layout": {"column": 1, "row": 5, "width": 3, "height": 3},
+      "visualization": {"id": "viz.billboard"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT sum(`mysql.query.slow.count`) WHERE `metricName` = 'mysql.query.slow.count'"}
+        ]
+      }
+    },
+    {
+      "title": "Total buffer pool usage (bytes)",
+      "layout": {"column": 4, "row": 5, "width": 3, "height": 3},
+      "visualization": {"id": "viz.billboard"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT sum(`mysql.buffer_pool.usage`) WHERE `metricName` = 'mysql.buffer_pool.usage'"}
+        ]
+      }
+    },
+    {
       "title": "Uptime (s)",
-      "layout": {"column": 1, "row": 2, "width": 12, "height": 4},
+      "layout": {"column": 1, "row": 8, "width": 12, "height": 4},
       "visualization": {"id": "viz.table"},
       "rawConfiguration": {
         "nrqlQueries": [
@@ -20,7 +80,7 @@
     },
     {
       "title": "Active connections",
-      "layout": {"column": 1, "row": 6, "width": 12, "height": 4},
+      "layout": {"column": 1, "row": 12, "width": 12, "height": 4},
       "visualization": {"id": "viz.table"},
       "rawConfiguration": {
         "nrqlQueries": [
@@ -30,7 +90,7 @@
     },
     {
       "title": "Threads running",
-      "layout": {"column": 1, "row": 10, "width": 12, "height": 4},
+      "layout": {"column": 1, "row": 16, "width": 12, "height": 4},
       "visualization": {"id": "viz.table"},
       "rawConfiguration": {
         "nrqlQueries": [
@@ -40,7 +100,7 @@
     },
     {
       "title": "Queries/min",
-      "layout": {"column": 1, "row": 14, "width": 12, "height": 4},
+      "layout": {"column": 1, "row": 20, "width": 12, "height": 4},
       "visualization": {"id": "viz.table"},
       "rawConfiguration": {
         "nrqlQueries": [
@@ -50,7 +110,7 @@
     },
     {
       "title": "Slow queries (cumulative)",
-      "layout": {"column": 1, "row": 18, "width": 12, "height": 4},
+      "layout": {"column": 1, "row": 24, "width": 12, "height": 4},
       "visualization": {"id": "viz.table"},
       "rawConfiguration": {
         "nrqlQueries": [
@@ -60,7 +120,7 @@
     },
     {
       "title": "Buffer pool usage (bytes)",
-      "layout": {"column": 1, "row": 22, "width": 12, "height": 4},
+      "layout": {"column": 1, "row": 28, "width": 12, "height": 4},
       "visualization": {"id": "viz.table"},
       "rawConfiguration": {
         "nrqlQueries": [
@@ -70,13 +130,13 @@
     },
     {
       "title": "",
-      "layout": {"column": 1, "row": 26, "width": 12, "height": 1},
+      "layout": {"column": 1, "row": 32, "width": 12, "height": 1},
       "visualization": {"id": "viz.markdown"},
       "rawConfiguration": {"text": "### Connections & Threads"}
     },
     {
       "title": "Threads by kind",
-      "layout": {"column": 1, "row": 27, "width": 4, "height": 3},
+      "layout": {"column": 1, "row": 33, "width": 4, "height": 3},
       "visualization": {"id": "viz.line"},
       "rawConfiguration": {
         "nrqlQueries": [
@@ -86,7 +146,7 @@
     },
     {
       "title": "Connection errors by type",
-      "layout": {"column": 5, "row": 27, "width": 4, "height": 3},
+      "layout": {"column": 5, "row": 33, "width": 4, "height": 3},
       "visualization": {"id": "viz.line"},
       "rawConfiguration": {
         "nrqlQueries": [
@@ -96,7 +156,7 @@
     },
     {
       "title": "Max used connections",
-      "layout": {"column": 1, "row": 30, "width": 12, "height": 4},
+      "layout": {"column": 1, "row": 36, "width": 12, "height": 4},
       "visualization": {"id": "viz.table"},
       "rawConfiguration": {
         "nrqlQueries": [
@@ -106,7 +166,7 @@
     },
     {
       "title": "X-Protocol connections (expected empty — X-Plugin not in use)",
-      "layout": {"column": 1, "row": 34, "width": 12, "height": 4},
+      "layout": {"column": 1, "row": 40, "width": 12, "height": 4},
       "visualization": {"id": "viz.table"},
       "rawConfiguration": {
         "nrqlQueries": [
@@ -116,13 +176,13 @@
     },
     {
       "title": "",
-      "layout": {"column": 1, "row": 38, "width": 12, "height": 1},
+      "layout": {"column": 1, "row": 44, "width": 12, "height": 1},
       "visualization": {"id": "viz.markdown"},
       "rawConfiguration": {"text": "### Command Mix & Throughput"}
     },
     {
       "title": "Command mix",
-      "layout": {"column": 1, "row": 39, "width": 4, "height": 3},
+      "layout": {"column": 1, "row": 45, "width": 4, "height": 3},
       "visualization": {"id": "viz.bar"},
       "rawConfiguration": {
         "nrqlQueries": [
@@ -132,7 +192,7 @@
     },
     {
       "title": "Query count vs. client-issued query count",
-      "layout": {"column": 5, "row": 39, "width": 4, "height": 3},
+      "layout": {"column": 5, "row": 45, "width": 4, "height": 3},
       "visualization": {"id": "viz.line"},
       "rawConfiguration": {
         "nrqlQueries": [
@@ -142,7 +202,7 @@
     },
     {
       "title": "Handlers by type",
-      "layout": {"column": 9, "row": 39, "width": 4, "height": 3},
+      "layout": {"column": 9, "row": 45, "width": 4, "height": 3},
       "visualization": {"id": "viz.bar"},
       "rawConfiguration": {
         "nrqlQueries": [
@@ -152,7 +212,7 @@
     },
     {
       "title": "Joins requiring full scans",
-      "layout": {"column": 1, "row": 42, "width": 4, "height": 3},
+      "layout": {"column": 1, "row": 48, "width": 4, "height": 3},
       "visualization": {"id": "viz.bar"},
       "rawConfiguration": {
         "nrqlQueries": [
@@ -162,7 +222,7 @@
     },
     {
       "title": "Sorts by type",
-      "layout": {"column": 5, "row": 42, "width": 4, "height": 3},
+      "layout": {"column": 5, "row": 48, "width": 4, "height": 3},
       "visualization": {"id": "viz.bar"},
       "rawConfiguration": {
         "nrqlQueries": [
@@ -172,7 +232,7 @@
     },
     {
       "title": "Prepared statement commands",
-      "layout": {"column": 9, "row": 42, "width": 4, "height": 3},
+      "layout": {"column": 9, "row": 48, "width": 4, "height": 3},
       "visualization": {"id": "viz.bar"},
       "rawConfiguration": {
         "nrqlQueries": [
@@ -182,7 +242,7 @@
     },
     {
       "title": "Network I/O (bytes sent/received)",
-      "layout": {"column": 1, "row": 45, "width": 4, "height": 3},
+      "layout": {"column": 1, "row": 51, "width": 4, "height": 3},
       "visualization": {"id": "viz.line"},
       "rawConfiguration": {
         "nrqlQueries": [
@@ -192,13 +252,13 @@
     },
     {
       "title": "",
-      "layout": {"column": 1, "row": 48, "width": 12, "height": 1},
+      "layout": {"column": 1, "row": 54, "width": 12, "height": 1},
       "visualization": {"id": "viz.markdown"},
       "rawConfiguration": {"text": "### Replication Health\nOnly populated if this instance is configured as a replica — expected empty in this test lab (both instances are standalone)."}
     },
     {
       "title": "Seconds behind source",
-      "layout": {"column": 1, "row": 49, "width": 12, "height": 4},
+      "layout": {"column": 1, "row": 55, "width": 12, "height": 4},
       "visualization": {"id": "viz.table"},
       "rawConfiguration": {
         "nrqlQueries": [
@@ -208,7 +268,7 @@
     },
     {
       "title": "SQL delay (s)",
-      "layout": {"column": 1, "row": 53, "width": 12, "height": 4},
+      "layout": {"column": 1, "row": 59, "width": 12, "height": 4},
       "visualization": {"id": "viz.table"},
       "rawConfiguration": {
         "nrqlQueries": [
