@@ -1,0 +1,250 @@
+{
+  "name": "Storage Engine & Capacity",
+  "description": "",
+  "widgets": [
+    {
+      "title": "",
+      "layout": {"column": 1, "row": 1, "width": 12, "height": 1},
+      "visualization": {"id": "viz.markdown"},
+      "rawConfiguration": {"text": "## Storage Engine & Capacity"}
+    },
+    {
+      "title": "Buffer pool usage (bytes) by status",
+      "layout": {"column": 1, "row": 2, "width": 4, "height": 3},
+      "visualization": {"id": "viz.line"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.buffer_pool.usage`) WHERE `metricName` = 'mysql.buffer_pool.usage' AND `mysql.instance.endpoint` = {{endpoint}} FACET status TIMESERIES"}
+        ]
+      }
+    },
+    {
+      "title": "Buffer pool limit (bytes)",
+      "layout": {"column": 1, "row": 5, "width": 3, "height": 3},
+      "visualization": {"id": "viz.billboard"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.buffer_pool.limit`) WHERE `metricName` = 'mysql.buffer_pool.limit' AND `mysql.instance.endpoint` = {{endpoint}}"}
+        ]
+      }
+    },
+    {
+      "title": "Buffer pool operations",
+      "layout": {"column": 1, "row": 8, "width": 4, "height": 3},
+      "visualization": {"id": "viz.bar"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.buffer_pool.operations`) WHERE `metricName` = 'mysql.buffer_pool.operations' AND `mysql.instance.endpoint` = {{endpoint}} FACET operation"}
+        ]
+      }
+    },
+    {
+      "title": "Buffer pool pages by kind",
+      "layout": {"column": 1, "row": 11, "width": 4, "height": 3},
+      "visualization": {"id": "viz.line"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.buffer_pool.pages`) WHERE `metricName` = 'mysql.buffer_pool.pages' AND `mysql.instance.endpoint` = {{endpoint}} FACET kind TIMESERIES"}
+        ]
+      }
+    },
+    {
+      "title": "Buffer pool page flushes (cumulative)",
+      "layout": {"column": 1, "row": 14, "width": 3, "height": 3},
+      "visualization": {"id": "viz.billboard"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.buffer_pool.page_flushes`) WHERE `metricName` = 'mysql.buffer_pool.page_flushes' AND `mysql.instance.endpoint` = {{endpoint}}"}
+        ]
+      }
+    },
+    {
+      "title": "Buffer pool data pages",
+      "layout": {"column": 4, "row": 14, "width": 3, "height": 3},
+      "visualization": {"id": "viz.billboard"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.buffer_pool.data_pages`) WHERE `metricName` = 'mysql.buffer_pool.data_pages' AND `mysql.instance.endpoint` = {{endpoint}} FACET status"}
+        ]
+      }
+    },
+    {
+      "title": "InnoDB page size (bytes)",
+      "layout": {"column": 7, "row": 14, "width": 3, "height": 3},
+      "visualization": {"id": "viz.billboard"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.page_size`) WHERE `metricName` = 'mysql.page_size' AND `mysql.instance.endpoint` = {{endpoint}}"}
+        ]
+      }
+    },
+    {
+      "title": "",
+      "layout": {"column": 1, "row": 17, "width": 12, "height": 1},
+      "visualization": {"id": "viz.markdown"},
+      "rawConfiguration": {"text": "### Data/Page Operations & I/O Waits"}
+    },
+    {
+      "title": "InnoDB operations",
+      "layout": {"column": 1, "row": 18, "width": 4, "height": 3},
+      "visualization": {"id": "viz.bar"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.operations`) WHERE `metricName` = 'mysql.operations' AND `mysql.instance.endpoint` = {{endpoint}} FACET operation"}
+        ]
+      }
+    },
+    {
+      "title": "InnoDB page operations",
+      "layout": {"column": 5, "row": 18, "width": 4, "height": 3},
+      "visualization": {"id": "viz.bar"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.page_operations`) WHERE `metricName` = 'mysql.page_operations' AND `mysql.instance.endpoint` = {{endpoint}} FACET operation"}
+        ]
+      }
+    },
+    {
+      "title": "InnoDB row operations",
+      "layout": {"column": 9, "row": 18, "width": 4, "height": 3},
+      "visualization": {"id": "viz.bar"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.row_operations`) WHERE `metricName` = 'mysql.row_operations' AND `mysql.instance.endpoint` = {{endpoint}} FACET operation"}
+        ]
+      }
+    },
+    {
+      "title": "Double-write buffer activity",
+      "layout": {"column": 1, "row": 21, "width": 4, "height": 3},
+      "visualization": {"id": "viz.bar"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.double_writes`) WHERE `metricName` = 'mysql.double_writes' AND `mysql.instance.endpoint` = {{endpoint}} FACET kind"}
+        ]
+      }
+    },
+    {
+      "title": "InnoDB log operations",
+      "layout": {"column": 5, "row": 21, "width": 4, "height": 3},
+      "visualization": {"id": "viz.bar"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.log_operations`) WHERE `metricName` = 'mysql.log_operations' AND `mysql.instance.endpoint` = {{endpoint}} FACET operation"}
+        ]
+      }
+    },
+    {
+      "title": "Top tables by I/O wait time",
+      "layout": {"column": 1, "row": 24, "width": 12, "height": 4},
+      "visualization": {"id": "viz.table"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.table.io.wait.time`) WHERE `metricName` = 'mysql.table.io.wait.time' AND `mysql.instance.endpoint` = {{endpoint}} FACET schema, table, operation LIMIT 25"}
+        ]
+      }
+    },
+    {
+      "title": "Top indexes by I/O wait time",
+      "layout": {"column": 1, "row": 28, "width": 12, "height": 4},
+      "visualization": {"id": "viz.table"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.index.io.wait.time`) WHERE `metricName` = 'mysql.index.io.wait.time' AND `mysql.instance.endpoint` = {{endpoint}} FACET schema, table, index, operation LIMIT 25"}
+        ]
+      }
+    },
+    {
+      "title": "Top tables by I/O wait count",
+      "layout": {"column": 1, "row": 32, "width": 12, "height": 4},
+      "visualization": {"id": "viz.table"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.table.io.wait.count`) WHERE `metricName` = 'mysql.table.io.wait.count' AND `mysql.instance.endpoint` = {{endpoint}} FACET schema, table, operation LIMIT 25"}
+        ]
+      }
+    },
+    {
+      "title": "Top indexes by I/O wait count",
+      "layout": {"column": 1, "row": 36, "width": 12, "height": 4},
+      "visualization": {"id": "viz.table"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.index.io.wait.count`) WHERE `metricName` = 'mysql.index.io.wait.count' AND `mysql.instance.endpoint` = {{endpoint}} FACET schema, table, index, operation LIMIT 25"}
+        ]
+      }
+    },
+    {
+      "title": "",
+      "layout": {"column": 1, "row": 40, "width": 12, "height": 1},
+      "visualization": {"id": "viz.markdown"},
+      "rawConfiguration": {"text": "### Caches & Temp Resources"}
+    },
+    {
+      "title": "Table open cache hit/miss/overflow",
+      "layout": {"column": 1, "row": 41, "width": 4, "height": 3},
+      "visualization": {"id": "viz.line"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.table_open_cache`) WHERE `metricName` = 'mysql.table_open_cache' AND `mysql.instance.endpoint` = {{endpoint}} FACET status TIMESERIES"}
+        ]
+      }
+    },
+    {
+      "title": "Temp resources created",
+      "layout": {"column": 5, "row": 41, "width": 4, "height": 3},
+      "visualization": {"id": "viz.bar"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.tmp_resources`) WHERE `metricName` = 'mysql.tmp_resources' AND `mysql.instance.endpoint` = {{endpoint}} FACET resource"}
+        ]
+      }
+    },
+    {
+      "title": "Opened resources (cumulative)",
+      "layout": {"column": 1, "row": 44, "width": 3, "height": 3},
+      "visualization": {"id": "viz.billboard"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.opened_resources`) WHERE `metricName` = 'mysql.opened_resources' AND `mysql.instance.endpoint` = {{endpoint}} FACET kind"}
+        ]
+      }
+    },
+    {
+      "title": "",
+      "layout": {"column": 1, "row": 47, "width": 12, "height": 1},
+      "visualization": {"id": "viz.markdown"},
+      "rawConfiguration": {"text": "### Table & Schema Volume"}
+    },
+    {
+      "title": "Largest tables by size",
+      "layout": {"column": 1, "row": 48, "width": 12, "height": 4},
+      "visualization": {"id": "viz.table"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.table.size`) WHERE `metricName` = 'mysql.table.size' AND `mysql.instance.endpoint` = {{endpoint}} FACET schema, table, kind LIMIT 25"}
+        ]
+      }
+    },
+    {
+      "title": "Row counts by table",
+      "layout": {"column": 1, "row": 52, "width": 12, "height": 4},
+      "visualization": {"id": "viz.table"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.table.rows`) WHERE `metricName` = 'mysql.table.rows' AND `mysql.instance.endpoint` = {{endpoint}} FACET schema, table LIMIT 25"}
+        ]
+      }
+    },
+    {
+      "title": "Average row length by table",
+      "layout": {"column": 1, "row": 56, "width": 12, "height": 4},
+      "visualization": {"id": "viz.table"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.table.average_row_length`) WHERE `metricName` = 'mysql.table.average_row_length' AND `mysql.instance.endpoint` = {{endpoint}} FACET schema, table LIMIT 25"}
+        ]
+      }
+    }
+  ]
+}
