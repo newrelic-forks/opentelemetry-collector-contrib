@@ -6,7 +6,7 @@
       "title": "",
       "layout": {"column": 1, "row": 1, "width": 12, "height": 1},
       "visualization": {"id": "viz.markdown"},
-      "rawConfiguration": {"text": "## Execution Plans\nFilter by a specific query using the queryHash variable above (bound to db.query.text.normalized.hash)."}
+      "rawConfiguration": {"text": "## Execution Plans\nQuery text and execution plan for the top 25 distinct queries, broken out by `mysql.instance.endpoint`."}
     },
     {
       "title": "Query text + plan (query samples)",
@@ -14,7 +14,7 @@
       "visualization": {"id": "viz.table"},
       "rawConfiguration": {
         "nrqlQueries": [
-          {"accountId": 754495, "query": "FROM Log SELECT latest(`db.query.text`) AS 'Query', latest(`mysql.query_plan`) AS 'Execution plan (raw EXPLAIN JSON)' WHERE `event.name` = 'db.server.query_sample' AND `db.system.name` = 'mysql' AND `mysql.instance.endpoint` = {{endpoint}} AND `db.query.text.normalized.hash` = {{queryHash}} LIMIT 1"}
+          {"accountId": 754495, "query": "FROM Log SELECT latest(`db.query.text`) AS 'Query', latest(`mysql.query_plan`) AS 'Execution plan (raw EXPLAIN JSON)' WHERE `event.name` = 'db.server.query_sample' AND `db.system.name` = 'mysql' FACET `db.query.text.normalized.hash`, `mysql.instance.endpoint` LIMIT 25"}
         ]
       }
     },
@@ -24,7 +24,7 @@
       "visualization": {"id": "viz.table"},
       "rawConfiguration": {
         "nrqlQueries": [
-          {"accountId": 754495, "query": "FROM Log SELECT latest(`db.query.text`) AS 'Query', latest(`mysql.query_plan`) AS 'Execution plan (raw EXPLAIN JSON)' WHERE `event.name` = 'db.server.top_query' AND `db.system.name` = 'mysql' AND `mysql.instance.endpoint` = {{endpoint}} AND `db.query.text.normalized.hash` = {{queryHash}} LIMIT 1"}
+          {"accountId": 754495, "query": "FROM Log SELECT latest(`db.query.text`) AS 'Query', latest(`mysql.query_plan`) AS 'Execution plan (raw EXPLAIN JSON)' WHERE `event.name` = 'db.server.top_query' AND `db.system.name` = 'mysql' FACET `db.query.text.normalized.hash`, `mysql.instance.endpoint` LIMIT 25"}
         ]
       }
     },
@@ -42,21 +42,21 @@
     },
     {
       "title": "Query samples with a plan (%)",
-      "layout": {"column": 1, "row": 12, "width": 3, "height": 3},
-      "visualization": {"id": "viz.billboard"},
+      "layout": {"column": 1, "row": 12, "width": 12, "height": 4},
+      "visualization": {"id": "viz.table"},
       "rawConfiguration": {
         "nrqlQueries": [
-          {"accountId": 754495, "query": "FROM Log SELECT filter(count(*), WHERE `mysql.query_plan` IS NOT NULL AND `mysql.query_plan` != '') / count(*) * 100 WHERE `event.name` = 'db.server.query_sample' AND `db.system.name` = 'mysql' AND `mysql.instance.endpoint` = {{endpoint}}"}
+          {"accountId": 754495, "query": "FROM Log SELECT filter(count(*), WHERE `mysql.query_plan` IS NOT NULL AND `mysql.query_plan` != '') / count(*) * 100 AS 'With a plan (%)' WHERE `event.name` = 'db.server.query_sample' AND `db.system.name` = 'mysql' FACET `mysql.instance.endpoint`"}
         ]
       }
     },
     {
       "title": "Top queries with a plan (%)",
-      "layout": {"column": 4, "row": 12, "width": 3, "height": 3},
-      "visualization": {"id": "viz.billboard"},
+      "layout": {"column": 1, "row": 16, "width": 12, "height": 4},
+      "visualization": {"id": "viz.table"},
       "rawConfiguration": {
         "nrqlQueries": [
-          {"accountId": 754495, "query": "FROM Log SELECT filter(count(*), WHERE `mysql.query_plan` IS NOT NULL AND `mysql.query_plan` != '') / count(*) * 100 WHERE `event.name` = 'db.server.top_query' AND `db.system.name` = 'mysql' AND `mysql.instance.endpoint` = {{endpoint}}"}
+          {"accountId": 754495, "query": "FROM Log SELECT filter(count(*), WHERE `mysql.query_plan` IS NOT NULL AND `mysql.query_plan` != '') / count(*) * 100 AS 'With a plan (%)' WHERE `event.name` = 'db.server.top_query' AND `db.system.name` = 'mysql' FACET `mysql.instance.endpoint`"}
         ]
       }
     }
