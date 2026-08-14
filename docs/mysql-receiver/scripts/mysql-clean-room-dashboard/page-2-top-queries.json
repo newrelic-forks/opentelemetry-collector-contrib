@@ -14,7 +14,7 @@
       "visualization": {"id": "viz.table"},
       "rawConfiguration": {
         "nrqlQueries": [
-          {"accountId": 754495, "query": "FROM Log SELECT latest(`db.query.text`) AS 'Query', filter(sum(`mysql.events_statements_summary_by_digest.count_star`), WHERE `mysql.events_statements_summary_by_digest.count_star` >= 0) AS 'Executions (delta)', filter(sum(`mysql.events_statements_summary_by_digest.sum_timer_wait`), WHERE `mysql.events_statements_summary_by_digest.sum_timer_wait` >= 0) AS 'Total wait (s, delta)' WHERE `event.name` = 'db.server.top_query' AND `db.system.name` = 'mysql' AND `mysql.instance.endpoint` = {{endpoint}} FACET `mysql.events_statements_summary_by_digest.digest` AS 'Digest' LIMIT 25"}
+          {"accountId": 754495, "query": "FROM Log SELECT latest(`db.query.text`) AS 'Query', filter(sum(`mysql.events_statements_summary_by_digest.count_star`), WHERE `mysql.events_statements_summary_by_digest.count_star` >= 0) AS 'Executions (delta)', filter(sum(`mysql.events_statements_summary_by_digest.sum_timer_wait`), WHERE `mysql.events_statements_summary_by_digest.sum_timer_wait` >= 0) AS 'Total wait (s, delta)' WHERE `event.name` = 'db.server.top_query' AND `db.system.name` = 'mysql' FACET `mysql.events_statements_summary_by_digest.digest` AS 'Digest', mysql.instance.endpoint LIMIT 25"}
         ]
       }
     },
@@ -24,7 +24,7 @@
       "visualization": {"id": "viz.bar"},
       "rawConfiguration": {
         "nrqlQueries": [
-          {"accountId": 754495, "query": "FROM Log SELECT sum(`mysql.events_statements_summary_by_digest.sum_timer_wait`) WHERE `event.name` = 'db.server.top_query' AND `db.system.name` = 'mysql' AND `mysql.instance.endpoint` = {{endpoint}} FACET `mysql.events_statements_summary_by_digest.digest` LIMIT 10"}
+          {"accountId": 754495, "query": "FROM Log SELECT sum(`mysql.events_statements_summary_by_digest.sum_timer_wait`) WHERE `event.name` = 'db.server.top_query' AND `db.system.name` = 'mysql' FACET `mysql.events_statements_summary_by_digest.digest`, mysql.instance.endpoint LIMIT 10"}
         ]
       }
     },
@@ -40,7 +40,7 @@
       "visualization": {"id": "viz.table"},
       "rawConfiguration": {
         "nrqlQueries": [
-          {"accountId": 754495, "query": "FROM Log SELECT sum(`mysql.events_statements_summary_by_digest.sum_rows_examined`) AS 'Rows examined', sum(`mysql.events_statements_summary_by_digest.sum_rows_sent`) AS 'Rows sent', latest(`db.query.text`) AS 'Query' WHERE `event.name` = 'db.server.top_query' AND `db.system.name` = 'mysql' AND `mysql.instance.endpoint` = {{endpoint}} FACET `mysql.events_statements_summary_by_digest.digest` AS 'Digest' LIMIT 25"}
+          {"accountId": 754495, "query": "FROM Log SELECT sum(`mysql.events_statements_summary_by_digest.sum_rows_examined`) AS 'Rows examined', sum(`mysql.events_statements_summary_by_digest.sum_rows_sent`) AS 'Rows sent', latest(`db.query.text`) AS 'Query' WHERE `event.name` = 'db.server.top_query' AND `db.system.name` = 'mysql' FACET `mysql.events_statements_summary_by_digest.digest` AS 'Digest', mysql.instance.endpoint LIMIT 25"}
         ]
       }
     },
@@ -50,7 +50,7 @@
       "visualization": {"id": "viz.bar"},
       "rawConfiguration": {
         "nrqlQueries": [
-          {"accountId": 754495, "query": "FROM Log SELECT sum(`mysql.events_statements_summary_by_digest.sum_rows_examined`)/sum(`mysql.events_statements_summary_by_digest.sum_rows_sent`) AS 'Rows examined per row sent' WHERE `event.name` = 'db.server.top_query' AND `db.system.name` = 'mysql' AND `mysql.instance.endpoint` = {{endpoint}} AND `mysql.events_statements_summary_by_digest.sum_rows_sent` > 0 FACET `mysql.events_statements_summary_by_digest.digest` LIMIT 10"}
+          {"accountId": 754495, "query": "FROM Log SELECT sum(`mysql.events_statements_summary_by_digest.sum_rows_examined`)/sum(`mysql.events_statements_summary_by_digest.sum_rows_sent`) AS 'Rows examined per row sent' WHERE `event.name` = 'db.server.top_query' AND `db.system.name` = 'mysql' AND `mysql.events_statements_summary_by_digest.sum_rows_sent` > 0 FACET `mysql.events_statements_summary_by_digest.digest`, mysql.instance.endpoint LIMIT 10"}
         ]
       }
     },
@@ -66,7 +66,7 @@
       "visualization": {"id": "viz.table"},
       "rawConfiguration": {
         "nrqlQueries": [
-          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.statement_event.count`) WHERE `metricName` = 'mysql.statement_event.count' AND `mysql.instance.endpoint` = {{endpoint}} FACET digest_text AS 'Query text', event_state LIMIT 25"}
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.statement_event.count`) WHERE `metricName` = 'mysql.statement_event.count' FACET digest_text AS 'Query text', event_state, mysql.instance.endpoint LIMIT 25"}
         ]
       }
     },
@@ -76,7 +76,7 @@
       "visualization": {"id": "viz.line"},
       "rawConfiguration": {
         "nrqlQueries": [
-          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.statement_event.wait.time`) WHERE `metricName` = 'mysql.statement_event.wait.time' AND `mysql.instance.endpoint` = {{endpoint}} FACET digest_text TIMESERIES LIMIT 10"}
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.statement_event.wait.time`) WHERE `metricName` = 'mysql.statement_event.wait.time' FACET digest_text, mysql.instance.endpoint TIMESERIES LIMIT 10"}
         ]
       }
     }
