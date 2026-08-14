@@ -17,7 +17,7 @@
 - **Never modify** the two existing dashboards (`NzU0NDk1fFZJWnxEQVNIQk9BUkR8ZGE6MTE3OTczMw`, `NzU0NDk1fFZJWnxEQVNIQk9BUkR8ZGE6MTE4MDI2OA`). Read-only reference only, for NRQL syntax mechanics, never for attribute content.
 - Every widget's NRQL is derived from `receiver/nrmysqlreceiver/metadata.yaml` / `client.go` / `scraper.go` / `templates/*.tmpl` directly — not copied from the Confluence spec, not copied from `docs/mysql-receiver/*.md`, not copied from the two existing dashboards.
 - Dashboard title: `MySQL Query Performance Monitoring — nrmysqlreceiver (clean-room)`.
-- Two dashboard-wide variables: `{{endpoint}}` → `mysql.instance.endpoint` (global), `{{queryHash}}` → `db.query.text.normalized.hash` (Page 5 only, per NerdGraph's per-widget variable scoping — see Task 8).
+- ~~Two dashboard-wide variables: `{{endpoint}}` → `mysql.instance.endpoint` (global), `{{queryHash}}` → `db.query.text.normalized.hash` (Page 5 only, per NerdGraph's per-widget variable scoping — see Task 8).~~ **Superseded by Part 2 below**, per user feedback after reviewing the live dashboard: both variables are removed; every widget that filtered by one now uses FACET-based breakdown instead. See Part 2's Global Constraints.
 - Confirmed live (via `db-test-lab-nrmysql/collectors/configs/receivers/mysql.yaml`): two MySQL instances monitored (`nrmysql`, `nrmysql/db2`), all 48 metrics enabled, both log events enabled, `resource/mysql` processor adds `server.address`/`server.port` to **both** the `metrics/mysql` and `logs/mysql` pipelines — so `mysql.instance.endpoint` (receiver-native) is expected to resolve on `Log` records the same as on `Metric` records. Neither instance is configured as a replica and X-Plugin (`mysqlx_*`) is not in use — replication and mysqlx widgets are expected to return empty by design, not a bug.
 
 ## Widget JSON shape (used by every page task)
@@ -697,3 +697,263 @@ EOF
 - [ ] **Step 5: Final report to the user**
 
 State the dashboard's GUID, its `https://staging.onenr.io/...` URL (from Task 9 Step 3), the page/widget counts confirmed live (Task 9 Step 2), and a one-line pointer to the gap-analysis doc.
+
+---
+
+## Part 2: Post-launch rework — remove variables, fix layout
+
+**Trigger:** user reviewed the live dashboard (Tasks 1-10 delivered it) and asked for two changes: (1) remove the `{{endpoint}}` and `{{queryHash}}` dashboard variables, using FACET-based widgets to show the filtering breakdown instead; (2) fix the widget layout across all 6 pages — the per-type row-packing algorithm from Part 1 left large unused gaps whenever adjacent widgets differed in type (e.g. a lone billboard on its own row after a row of charts that had 4 unused columns to spare).
+
+### Part 2 Global Constraints (supersede Part 1's for these items; everything else in Part 1's Global Constraints — account, credentials, "code is truth," never touch the two pre-existing dashboards — still applies)
+
+**Variable removal → FACET rule:**
+- Every widget currently containing `` `mysql.instance.endpoint` = {{endpoint}} `` (or ``AND `mysql.instance.endpoint` = {{endpoint}}``) must have that WHERE clause removed entirely.
+  - If the widget already has a `FACET ...` clause: add `mysql.instance.endpoint` as an additional facet dimension (e.g. `FACET kind` → `FACET kind, mysql.instance.endpoint`).
+  - If the widget has no `FACET` clause at all (most billboards): add `FACET mysql.instance.endpoint`.
+    - Validate live how the widget's existing visualization renders a faceted result. `viz.billboard` often cannot render more than one facet value sensibly (it may show only one arbitrarily, or error). If validation shows the billboard doesn't render the facet breakdown usefully, change that widget's `visualization.id` to `viz.table` instead (a two-column table: instance, value) and note the viz-type change in your report. If it does render acceptably as a faceted billboard (some NerdGraph versions show small-multiples), keep it as a billboard.
+- Page 5 (Execution Plans) widgets 2/3 currently filter `` AND `db.query.text.normalized.hash` = {{queryHash}} `` with `LIMIT 1` to show one query's plan. Remove that filter and the `LIMIT 1`; instead add `FACET db.query.text.normalized.hash` (or the digest attribute already used elsewhere on that page) with `LIMIT 25`, so the table shows many queries' plans at once — consistent with how other pages already present "top N" breakdowns.
+- The `endpoint` and `queryHash` variable definitions in `assemble-and-create.sh`'s `variables` array (Task 8/17) are deleted entirely — the dashboard has zero template variables after this rework.
+
+**Layout algorithm v2 (replaces Part 1's algorithm):**
+
+12-column grid, same as before, but packed by width regardless of visualization type within a "section" (the run of widgets between one markdown header and the next, or from the page's first widget/last markdown to the next markdown/table/end of page). Maintain `row` and `col` cursors, and `rowHeight` (the height of whatever's currently occupying the row, 0 if the row is empty):
+
+1. **Markdown widget** (always width 12, height 1): if `col > 1` (something's already in this row), advance `row += rowHeight`, reset `col = 1`. Place at `(col=1, row)`, width 12, height 1. Then `row += 1`, `col = 1`, `rowHeight = 0` (markdown always fully occupies its row and the next widget starts fresh).
+2. **Table widget** (always width 12, height 4): same rule — if `col > 1`, advance `row += rowHeight` and reset `col = 1` first. Place at `(col=1, row)`, width 12, height 4. Then `row += 4`, `col = 1`, `rowHeight = 0`.
+3. **Billboard/line/bar/pie widget** (billboard width 3 height 3; line/bar/pie width 4 height 3 — all share height 3): if `col + width - 1 > 12` (doesn't fit in remaining row space) OR `rowHeight` is currently 4 or 1 (the row was started by a table/markdown, can't pack into it), advance `row += rowHeight` (or `+= 3` if `rowHeight` was 0, i.e. first widget on a fresh row) and reset `col = 1`. Place at `(col, row)` with its own width/height. Then `col += width`, `rowHeight = 3`.
+
+Worked example (mixed billboard+chart packing that Part 1's algorithm got wrong): a section with two `line` widgets (width 4 each) followed by one `billboard` (width 3) — v1 put the billboard on its own fresh row (9 columns wasted); v2 packs it into the same row at column 9 (4+4+3=11 ≤ 12), wasting only 1 column.
+
+This is a mechanical, deterministic algorithm — apply it in one pass per page, in the widgets' existing order (do not reorder widgets; only recompute their `layout` blocks and add/adjust FACET clauses).
+
+**Redeploy mechanism:** the live dashboard already exists (GUID `NzU0NDk1fFZJWnxEQVNIQk9BUkR8ZGE6MTE4MDQ5NA`). Task 17 handles replacing it — either update in place or delete-and-recreate, whichever proves to work live (see Task 17). Tasks 11-16 only touch the local `page-*.json` files; they do not talk to the live API themselves except for widget-level NRQL validation (same live-validation discipline as Part 1: substitute `{{endpoint}}`/`{{queryHash}}` are GONE now, so validate the new FACET-based queries directly, no substitution needed).
+
+---
+
+### Task 11: Rework Page 1 (Overview & Instance Health) — remove variables, fix layout
+
+**Files:**
+- Modify: `docs/mysql-receiver/scripts/mysql-clean-room-dashboard/page-1-overview.json`
+
+**Interfaces:**
+- Consumes: `lib.sh`'s `nrgraphql()` (Task 1) for live validation of the new FACET-based queries.
+- Produces: an updated `page-1-overview.json` (same 22 widgets, no `{{endpoint}}` anywhere, FACET-based instead, re-laid-out per Layout algorithm v2), consumed by Task 17's redeploy.
+
+- [ ] **Step 1: Apply the variable-removal → FACET rule to every widget** (per Part 2 Global Constraints). This page has no `{{queryHash}}` usage, only `{{endpoint}}` — every one of the 18 real widgets needs its `` `mysql.instance.endpoint` = {{endpoint}} `` clause removed and `mysql.instance.endpoint` added to its FACET (or a new `FACET mysql.instance.endpoint` added if it had none).
+
+- [ ] **Step 2: Validate every modified widget's new query live** via `nrgraphql` (no endpoint substitution needed anymore — the query no longer references any variable). Confirm no `errors`, confirm the facet breakdown actually returns multiple instance rows (the account has 5 live MySQL endpoints per Task 1's findings) where data exists. For widgets that were billboards with no prior FACET (Uptime, Active connections, Threads running, Queries/min, Slow queries, Buffer pool usage, Max used connections, Buffer pool page flushes, Seconds behind source, SQL delay — check the file for the exact list), validate live whether `viz.billboard` renders the faceted result sensibly; if not, switch to `viz.table` per the Global Constraints rule and note it.
+
+- [ ] **Step 3: Recompute every widget's `layout` block using Layout algorithm v2**, applied to the widgets in their existing order. Do not change widget order, titles, or which widgets exist — only `layout` coordinates and (per Steps 1-2) query text and possibly `visualization.id`.
+
+- [ ] **Step 4: Confirm valid JSON and exactly 22 widgets** (`jq '.widgets | length' page-1-overview.json` → 22).
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add docs/mysql-receiver/scripts/mysql-clean-room-dashboard/page-1-overview.json
+git commit -m "$(cat <<'EOF'
+fix: [docs/mysql-receiver] rework page 1 — remove endpoint variable, fix layout packing
+
+Assisted-by: Claude Sonnet 5
+EOF
+)"
+```
+
+---
+
+### Task 12: Rework Page 2 (Query Performance — Top Queries) — remove variables, fix layout
+
+**Files:**
+- Modify: `docs/mysql-receiver/scripts/mysql-clean-room-dashboard/page-2-top-queries.json`
+
+**Interfaces:**
+- Consumes: `lib.sh`'s `nrgraphql()`.
+- Produces: updated `page-2-top-queries.json` (same 9 widgets), consumed by Task 17.
+
+- [ ] **Step 1: Apply the variable-removal → FACET rule** to every one of the 6 real widgets (all currently use `{{endpoint}}`; none use `{{queryHash}}` on this page). All 6 already have an existing `FACET` clause (on digest or digest_text) — add `mysql.instance.endpoint` to each.
+
+- [ ] **Step 2: Validate every modified widget's new query live** via `nrgraphql`.
+
+- [ ] **Step 3: Recompute every widget's `layout` block using Layout algorithm v2**, same order as today.
+
+- [ ] **Step 4: Confirm valid JSON and exactly 9 widgets.**
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add docs/mysql-receiver/scripts/mysql-clean-room-dashboard/page-2-top-queries.json
+git commit -m "$(cat <<'EOF'
+fix: [docs/mysql-receiver] rework page 2 — remove endpoint variable, fix layout packing
+
+Assisted-by: Claude Sonnet 5
+EOF
+)"
+```
+
+---
+
+### Task 13: Rework Page 3 (Live Sessions & Query Samples) — remove variables, fix layout
+
+**Files:**
+- Modify: `docs/mysql-receiver/scripts/mysql-clean-room-dashboard/page-3-live-sessions.json`
+
+**Interfaces:**
+- Consumes: `lib.sh`'s `nrgraphql()`.
+- Produces: updated `page-3-live-sessions.json` (same 8 widgets), consumed by Task 17.
+
+- [ ] **Step 1: Apply the variable-removal → FACET rule** to every one of the 5 real widgets. Widgets already faceted (session status, client driver, APM-correlated sessions) get `mysql.instance.endpoint` added to their FACET list. The "Currently running queries" table (faceted on `mysql.event_id`) also gets it added.
+
+- [ ] **Step 2: Validate every modified widget's new query live** via `nrgraphql`.
+
+- [ ] **Step 3: Recompute every widget's `layout` block using Layout algorithm v2.**
+
+- [ ] **Step 4: Confirm valid JSON and exactly 8 widgets.**
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add docs/mysql-receiver/scripts/mysql-clean-room-dashboard/page-3-live-sessions.json
+git commit -m "$(cat <<'EOF'
+fix: [docs/mysql-receiver] rework page 3 — remove endpoint variable, fix layout packing
+
+Assisted-by: Claude Sonnet 5
+EOF
+)"
+```
+
+---
+
+### Task 14: Rework Page 4 (Wait & Blocking Analysis) — remove variables, fix layout
+
+**Files:**
+- Modify: `docs/mysql-receiver/scripts/mysql-clean-room-dashboard/page-4-wait-blocking.json`
+
+**Interfaces:**
+- Consumes: `lib.sh`'s `nrgraphql()`.
+- Produces: updated `page-4-wait-blocking.json` (same 14 widgets), consumed by Task 17.
+
+- [ ] **Step 1: Apply the variable-removal → FACET rule** to every one of the 11 real widgets (mix of `Log` and `Metric` sources — the rule is the same regardless of source). The "Sessions currently blocked" billboard has no existing FACET — validate live whether it renders sensibly as a faceted billboard or needs `viz.table`.
+
+- [ ] **Step 2: Validate every modified widget's new query live** via `nrgraphql`.
+
+- [ ] **Step 3: Recompute every widget's `layout` block using Layout algorithm v2.**
+
+- [ ] **Step 4: Confirm valid JSON and exactly 14 widgets.**
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add docs/mysql-receiver/scripts/mysql-clean-room-dashboard/page-4-wait-blocking.json
+git commit -m "$(cat <<'EOF'
+fix: [docs/mysql-receiver] rework page 4 — remove endpoint variable, fix layout packing
+
+Assisted-by: Claude Sonnet 5
+EOF
+)"
+```
+
+---
+
+### Task 15: Rework Page 5 (Execution Plans) — remove BOTH variables, fix layout
+
+**Files:**
+- Modify: `docs/mysql-receiver/scripts/mysql-clean-room-dashboard/page-5-execution-plans.json`
+
+**Interfaces:**
+- Consumes: `lib.sh`'s `nrgraphql()`.
+- Produces: updated `page-5-execution-plans.json` (same 7 widgets), consumed by Task 17.
+
+This is the only page using `{{queryHash}}`, in addition to `{{endpoint}}` — both must be removed.
+
+- [ ] **Step 1: Rework widgets 2/3** ("Query text + plan" for query samples / top queries): remove `` AND `db.query.text.normalized.hash` = {{queryHash}} `` and `LIMIT 1`; add `FACET db.query.text.normalized.hash` (or `mysql.events_statements_current.digest` / the digest attribute already available on that event — pick whichever the widget already references elsewhere) with `LIMIT 25`, so the table shows many queries' plans. Also apply the `{{endpoint}}` → FACET rule to these two widgets (add `mysql.instance.endpoint` to the same FACET list).
+
+- [ ] **Step 2: Rework widgets 6/7** ("Query samples with a plan (%)" / "Top queries with a plan (%)" billboards): apply the `{{endpoint}}` → FACET rule (no existing FACET on these — validate live whether a faceted billboard renders sensibly, else switch to `viz.table`).
+
+- [ ] **Step 3: Validate every modified widget's new query live** via `nrgraphql`.
+
+- [ ] **Step 4: Recompute every widget's `layout` block using Layout algorithm v2.**
+
+- [ ] **Step 5: Confirm valid JSON and exactly 7 widgets.**
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add docs/mysql-receiver/scripts/mysql-clean-room-dashboard/page-5-execution-plans.json
+git commit -m "$(cat <<'EOF'
+fix: [docs/mysql-receiver] rework page 5 — remove both variables, fix layout packing
+
+Assisted-by: Claude Sonnet 5
+EOF
+)"
+```
+
+---
+
+### Task 16: Rework Page 6 (Storage Engine & Capacity) — remove variables, fix layout
+
+**Files:**
+- Modify: `docs/mysql-receiver/scripts/mysql-clean-room-dashboard/page-6-storage-capacity.json`
+
+**Interfaces:**
+- Consumes: `lib.sh`'s `nrgraphql()`.
+- Produces: updated `page-6-storage-capacity.json` (same 26 widgets — the largest page), consumed by Task 17.
+
+- [ ] **Step 1: Apply the variable-removal → FACET rule** to every one of the 22 real widgets. Several billboards have no existing FACET (Buffer pool limit, Buffer pool page flushes, Buffer pool data pages, InnoDB page size, Opened resources) — validate live whether each renders sensibly as a faceted billboard or needs `viz.table`. The 7 "Top N" table widgets (already faceted by schema/table/index) just get `mysql.instance.endpoint` appended to their existing FACET list.
+
+- [ ] **Step 2: Validate every modified widget's new query live** via `nrgraphql` — this page is the largest, don't skip any of the 22.
+
+- [ ] **Step 3: Recompute every widget's `layout` block using Layout algorithm v2.**
+
+- [ ] **Step 4: Confirm valid JSON and exactly 26 widgets.**
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add docs/mysql-receiver/scripts/mysql-clean-room-dashboard/page-6-storage-capacity.json
+git commit -m "$(cat <<'EOF'
+fix: [docs/mysql-receiver] rework page 6 — remove endpoint variable, fix layout packing
+
+Assisted-by: Claude Sonnet 5
+EOF
+)"
+```
+
+---
+
+### Task 17: Redeploy the reworked dashboard and re-verify
+
+**Files:**
+- Modify: `docs/mysql-receiver/scripts/mysql-clean-room-dashboard/assemble-and-create.sh`
+- Modify (if needed): `docs/mysql-receiver/scripts/mysql-clean-room-dashboard/verify.sh`
+
+**Interfaces:**
+- Consumes: `lib.sh` (Task 1), all six reworked `page-*.json` files (Tasks 11-16), the existing `dashboard-guid.txt` (Task 8's original GUID, `NzU0NDk1fFZJWnxEQVNIQk9BUkR8ZGE6MTE4MDQ5NA`).
+- Produces: the live dashboard updated to the reworked version (same GUID if updated in place, or a new GUID if delete+recreate proves necessary).
+
+- [ ] **Step 1: Remove the `variables` array entirely** from `assemble-and-create.sh`'s Python heredoc — the `dashboard` dict should no longer have an `endpoint`/`queryHash` `variables` key at all (or set it to `[]` if the NerdGraph schema requires the key present).
+
+- [ ] **Step 2: Try updating the live dashboard in place first.** NerdGraph has a `dashboardUpdate(guid: ID!, dashboard: DashboardInput!)` mutation (distinct from `dashboardUpdateWidgetsInPage`, which is the one that historically hit `FORBIDDEN_OPERATION` on this account per `project_mysql_dashboard_write_api_blocked` — that history does NOT necessarily apply to this different, dashboard-level mutation). Try:
+```json
+{"query": "mutation($guid: EntityGuid!, $dashboard: DashboardInput!) { dashboardUpdate(guid: $guid, dashboard: $dashboard) { entityResult { guid name } errors { description type } } }", "variables": {"guid": "<GUID from dashboard-guid.txt>", "dashboard": <the same assembled dashboard object, minus variables>}}
+```
+  via `nrgraphql`. If this succeeds (non-null guid, no errors), the GUID and URL stay the same — done, skip to Step 4.
+
+- [ ] **Step 3: If Step 2 hits a permissions error (`FORBIDDEN_OPERATION` or similar) or any other hard failure**, fall back to delete-and-recreate: run `dashboardDelete(guid: ...)` for the current GUID, then rerun the (now-variable-free) `assemble-and-create.sh` fresh — this exact `dashboardCreate` path already proved to work without permission issues in Task 8. Overwrite `dashboard-guid.txt` with the new GUID. Note in your report that the GUID changed and why.
+
+- [ ] **Step 4: Re-run `verify.sh`** against whichever GUID is now current. Confirm 6 pages, same widget counts as before (22, 9, 8, 14, 7, 26 — the rework didn't add/remove widgets, only their queries/layout), and confirm the dashboard's `variables` are now empty (query the entity for a `variables` field if the schema exposes one via the same entity query, or note that the payload sent had none).
+
+- [ ] **Step 5: Derive the (possibly-changed) human-facing URL** the same way Task 9 did (NerdGraph entity `permalink` field, not a guessed domain).
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add docs/mysql-receiver/scripts/mysql-clean-room-dashboard/assemble-and-create.sh docs/mysql-receiver/scripts/mysql-clean-room-dashboard/verify.sh
+git commit -m "$(cat <<'EOF'
+fix: [docs/mysql-receiver] redeploy dashboard without variables after layout/facet rework
+
+Assisted-by: Claude Sonnet 5
+EOF
+)"
+```
+
+- [ ] **Step 7: Final report to the user** — confirm the GUID (same or new, and why), the URL, that all 6 pages/widget counts are unchanged, that no dashboard variables remain, and a one-line summary of the layout fix (tighter packing, no more large gaps).
