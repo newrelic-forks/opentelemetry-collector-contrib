@@ -124,7 +124,7 @@
       "visualization": {"id": "viz.table"},
       "rawConfiguration": {
         "nrqlQueries": [
-          {"accountId": 754495, "query": "FROM Metric SELECT sum(`mysql.buffer_pool.usage`) WHERE `metricName` = 'mysql.buffer_pool.usage' FACET mysql.instance.endpoint"}
+          {"accountId": 754495, "query": "FROM (FROM Metric SELECT latest(`mysql.buffer_pool.usage`) AS 'v' WHERE `metricName` = 'mysql.buffer_pool.usage' FACET mysql.instance.endpoint, status) SELECT sum(v) FACET mysql.instance.endpoint"}
         ]
       }
     },
