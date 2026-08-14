@@ -50,3 +50,6 @@ internal/tools/testresults/*
 go.work*
 
 /result
+
+# Claude skill local config (personal repo paths, not for committing)
+.claude/oracle-sync.local
