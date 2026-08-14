@@ -137,7 +137,36 @@ func isExplainableQuery(query string) bool {
 	}
 
 	_, ok := explainableStatements[strings.ToUpper(firstWord)]
-	return ok
+	if !ok {
+		return false
+	}
+
+	return !hasEmbeddedStatementSeparator(trimmed)
+}
+
+// hasEmbeddedStatementSeparator reports whether query contains a ';' that terminates a
+// statement before the end of the string, ignoring a single optional trailing ';' (which
+// PREPARE's own "AS <query>;" wrapping already tolerates) and any ';' inside a single-quoted
+// string literal (two consecutive single quotes is the standard SQL-escaped quote). This
+// stops a second statement from being smuggled into the simple-query PREPARE/EXPLAIN path
+// via query text that only passes the leading-keyword whitelist check.
+func hasEmbeddedStatementSeparator(query string) bool {
+	body := strings.TrimRight(query, " \t\n")
+	body = strings.TrimSuffix(body, ";")
+
+	inString := false
+	for i := 0; i < len(body); i++ {
+		switch {
+		case body[i] == '\'' && inString && i+1 < len(body) && body[i+1] == '\'':
+			// Escaped quote ('') inside a string literal: skip both characters.
+			i++
+		case body[i] == '\'':
+			inString = !inString
+		case body[i] == ';' && !inString:
+			return true
+		}
+	}
+	return false
 }
 
 // quoteExplainFunctionName double-quotes each segment of a validated [schema.]name.
@@ -1353,7 +1382,7 @@ func (c *postgreSQLClient) getQuerySamples(ctx context.Context, limit int64, new
 
 		obfuscated, err := obfuscateSQL(row[querySampleColumnQuery])
 		if err != nil {
-			logger.Warn("failed to obfuscate query", zap.String("query", row[querySampleColumnQuery]))
+			logger.Warn("failed to obfuscate query", zap.String("queryID", row[querySampleColumnQueryID]))
 			obfuscated = ""
 		}
 		_, normalizedHashVal := sqlnormalizer.NormalizeSQLAndHash(obfuscated)
@@ -1478,7 +1507,7 @@ func (c *postgreSQLClient) getTopQuery(ctx context.Context, limit int64, allowed
 				// Raw query is already stored separately for EXPLAIN
 				val, err = obfuscateSQL(row[col])
 				if err != nil {
-					logger.Error("failed to obfuscate query", zap.String("query", row[col]))
+					logger.Error("failed to obfuscate query", zap.String("queryID", row[queryidColumnName]))
 					val = ""
 				}
 			default:

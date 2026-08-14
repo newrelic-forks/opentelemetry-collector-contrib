@@ -1362,6 +1362,13 @@ func TestIsExplainableQuery(t *testing.T) {
 		{name: "empty query", query: "", expected: false},
 		{name: "only whitespace", query: "   ", expected: false},
 		{name: "only comment", query: "-- just a comment", expected: false},
+
+		// Multi-statement smuggling (single-statement guard)
+		{name: "second statement smuggled after semicolon", query: "SELECT * FROM users; DROP TABLE users", expected: false},
+		{name: "second statement smuggled with trailing semicolon", query: "SELECT * FROM users; DROP TABLE users;", expected: false},
+		{name: "legitimate trailing semicolon", query: "SELECT * FROM users;", expected: true},
+		{name: "semicolon inside string literal", query: "UPDATE users SET note = 'a; b' WHERE id = 1", expected: true},
+		{name: "escaped quote with semicolon inside string literal", query: "UPDATE users SET note = 'it''s; done' WHERE id = 1", expected: true},
 	}
 
 	for _, tc := range testCases {

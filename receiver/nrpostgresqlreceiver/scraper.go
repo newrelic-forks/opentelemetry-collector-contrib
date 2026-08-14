@@ -561,9 +561,9 @@ func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory p
 					// errors retry forever until a grant changes.
 					if _, alreadyLogged := p.queryPlanCache.Get(queryID + "-explain-log"); !alreadyLogged {
 						if isExplainPermissionError(err) {
-							logger.Warn("failed to explain query: permission denied", zap.String("query", rawQuery), zap.Error(err))
+							logger.Warn("failed to explain query: permission denied", zap.String("queryID", queryID), zap.Error(err))
 						} else {
-							logger.Error("failed to explain query", zap.String("query", rawQuery), zap.Error(err))
+							logger.Error("failed to explain query", zap.String("queryID", queryID), zap.Error(err))
 						}
 						p.queryPlanCache.Add(queryID+"-explain-log", "")
 					}
