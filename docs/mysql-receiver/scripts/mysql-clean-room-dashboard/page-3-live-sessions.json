@@ -1,0 +1,74 @@
+{
+  "name": "Live Sessions & Query Samples",
+  "description": "",
+  "widgets": [
+    {
+      "title": "",
+      "layout": {"column": 1, "row": 1, "width": 12, "height": 1},
+      "visualization": {"id": "viz.markdown"},
+      "rawConfiguration": {"text": "## Live Sessions & Query Samples\nReal-time snapshot from db.server.query_sample, refreshed on the metrics collection_interval."}
+    },
+    {
+      "title": "Currently running queries",
+      "layout": {"column": 1, "row": 2, "width": 12, "height": 4},
+      "visualization": {"id": "viz.table"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Log SELECT latest(`mysql.threads.thread_id`) AS 'Thread', latest(`mysql.session.id`) AS 'Session', latest(`user.name`) AS 'DB user', latest(`db.namespace`) AS 'Database', latest(`db.query.text`) AS 'Query', latest(`mysql.threads.processlist_state`) AS 'State', latest(`mysql.events_statements_current.timer_wait`) AS 'Elapsed (s)' WHERE `event.name` = 'db.server.query_sample' AND `db.system.name` = 'mysql' AND `mysql.instance.endpoint` = {{endpoint}} FACET `mysql.event_id` LIMIT 100"}
+        ]
+      }
+    },
+    {
+      "title": "",
+      "layout": {"column": 1, "row": 6, "width": 12, "height": 1},
+      "visualization": {"id": "viz.markdown"},
+      "rawConfiguration": {"text": "### Session Status Breakdown"}
+    },
+    {
+      "title": "Sessions by status",
+      "layout": {"column": 1, "row": 7, "width": 4, "height": 3},
+      "visualization": {"id": "viz.pie"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Log SELECT uniqueCount(tuple(`mysql.threads.thread_id`, `mysql.session.id`)) WHERE `event.name` = 'db.server.query_sample' AND `db.system.name` = 'mysql' AND `mysql.instance.endpoint` = {{endpoint}} FACET `mysql.session.status`"}
+        ]
+      }
+    },
+    {
+      "title": "Session status trend",
+      "layout": {"column": 5, "row": 7, "width": 4, "height": 3},
+      "visualization": {"id": "viz.line"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Log SELECT uniqueCount(tuple(`mysql.threads.thread_id`, `mysql.session.id`)) WHERE `event.name` = 'db.server.query_sample' AND `db.system.name` = 'mysql' AND `mysql.instance.endpoint` = {{endpoint}} FACET `mysql.session.status` TIMESERIES"}
+        ]
+      }
+    },
+    {
+      "title": "",
+      "layout": {"column": 1, "row": 10, "width": 12, "height": 1},
+      "visualization": {"id": "viz.markdown"},
+      "rawConfiguration": {"text": "### Client & Driver Identity"}
+    },
+    {
+      "title": "Connections by client driver",
+      "layout": {"column": 1, "row": 11, "width": 12, "height": 4},
+      "visualization": {"id": "viz.table"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Log SELECT uniqueCount(tuple(`mysql.threads.thread_id`, `mysql.session.id`)) AS 'Sessions' WHERE `event.name` = 'db.server.query_sample' AND `db.system.name` = 'mysql' AND `mysql.instance.endpoint` = {{endpoint}} FACET `mysql.session.client_name`, `client.address` LIMIT 50"}
+        ]
+      }
+    },
+    {
+      "title": "APM-correlated sessions",
+      "layout": {"column": 1, "row": 15, "width": 12, "height": 4},
+      "visualization": {"id": "viz.table"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Log SELECT latest(`db.query.text`) AS 'Query', latest(`db.query.comment_tags.nr_service_guid`) AS 'APM service GUID' WHERE `event.name` = 'db.server.query_sample' AND `db.system.name` = 'mysql' AND `mysql.instance.endpoint` = {{endpoint}} AND `db.query.comment_tags.nr_service_guid` IS NOT NULL AND `db.query.comment_tags.nr_service_guid` != '' FACET `mysql.event_id` LIMIT 50"}
+        ]
+      }
+    }
+  ]
+}
