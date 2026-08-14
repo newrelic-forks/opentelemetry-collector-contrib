@@ -24,7 +24,7 @@
       "visualization": {"id": "viz.billboard"},
       "rawConfiguration": {
         "nrqlQueries": [
-          {"accountId": 754495, "query": "FROM Metric SELECT sum(`mysql.threads`) WHERE `metricName` = 'mysql.threads' AND kind = 'connected'"}
+          {"accountId": 754495, "query": "FROM (FROM Metric SELECT latest(`mysql.threads`) AS 'v' WHERE `metricName` = 'mysql.threads' AND kind = 'connected' FACET mysql.instance.endpoint) SELECT sum(v)"}
         ]
       }
     },
@@ -34,7 +34,7 @@
       "visualization": {"id": "viz.billboard"},
       "rawConfiguration": {
         "nrqlQueries": [
-          {"accountId": 754495, "query": "FROM Metric SELECT sum(`mysql.threads`) WHERE `metricName` = 'mysql.threads' AND kind = 'running'"}
+          {"accountId": 754495, "query": "FROM (FROM Metric SELECT latest(`mysql.threads`) AS 'v' WHERE `metricName` = 'mysql.threads' AND kind = 'running' FACET mysql.instance.endpoint) SELECT sum(v)"}
         ]
       }
     },
@@ -54,7 +54,7 @@
       "visualization": {"id": "viz.billboard"},
       "rawConfiguration": {
         "nrqlQueries": [
-          {"accountId": 754495, "query": "FROM Metric SELECT sum(`mysql.query.slow.count`) WHERE `metricName` = 'mysql.query.slow.count'"}
+          {"accountId": 754495, "query": "FROM (FROM Metric SELECT latest(`mysql.query.slow.count`) AS 'v' WHERE `metricName` = 'mysql.query.slow.count' FACET mysql.instance.endpoint) SELECT sum(v)"}
         ]
       }
     },
@@ -64,7 +64,7 @@
       "visualization": {"id": "viz.billboard"},
       "rawConfiguration": {
         "nrqlQueries": [
-          {"accountId": 754495, "query": "FROM Metric SELECT sum(`mysql.buffer_pool.usage`) WHERE `metricName` = 'mysql.buffer_pool.usage'"}
+          {"accountId": 754495, "query": "FROM (FROM Metric SELECT latest(`mysql.buffer_pool.usage`) AS 'v' WHERE `metricName` = 'mysql.buffer_pool.usage' FACET mysql.instance.endpoint, status) SELECT sum(v)"}
         ]
       }
     },
