@@ -2452,8 +2452,9 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 		queryPlanHashVal := hex.EncodeToString([]byte(row[queryPlanHash]))
 		procID := row[storedProcedureID]
 
-		if strings.HasPrefix(row[queryText], "--") {
-			s.logger.Debug(fmt.Sprintf("skipping comment-only SQL statement: %v", row[queryText]))
+		trimmedQueryText := strings.TrimSpace(row[queryText])
+		if trimmedQueryText == "" || strings.HasPrefix(trimmedQueryText, "--") {
+			s.logger.Debug(fmt.Sprintf("skipping empty or comment-only SQL statement: %v", row[queryText]))
 			continue
 		}
 
@@ -2461,12 +2462,16 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 			statement := row[columnName]
 			obfuscated, err := s.obfuscator.obfuscateSQLString(statement)
 			if err != nil {
-				s.logger.Error(fmt.Sprintf("failed to obfuscate SQL statement: %v", statement))
+				s.logger.Error(fmt.Sprintf("failed to obfuscate SQL statement, skipping event: %v, error: %v", statement, err))
 				return "", nil
 			}
 
 			return obfuscated, nil
 		})
+
+		if queryTextVal.(string) == "" {
+			continue
+		}
 
 		databaseNameVal := row[databaseName]
 
@@ -2853,8 +2858,9 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 		if queryHashVal == "0000000000000000" {
 			continue
 		}
-		if strings.HasPrefix(row[statementText], "--") {
-			s.logger.Debug(fmt.Sprintf("skipping comment-only SQL statement: %v", row[statementText]))
+		trimmedStatementText := strings.TrimSpace(row[statementText])
+		if row[command] != "IDLE_BLOCKER" && (trimmedStatementText == "" || strings.HasPrefix(trimmedStatementText, "--")) {
+			s.logger.Debug(fmt.Sprintf("skipping empty or comment-only SQL statement: %v", row[statementText]))
 			continue
 		}
 		queryPlanHashVal := hex.EncodeToString([]byte(row[queryPlanHash]))
@@ -2865,11 +2871,19 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 			statement := row[columnName]
 			obfuscated, err := s.obfuscator.obfuscateSQLString(statement)
 			if err != nil {
-				s.logger.Error(fmt.Sprintf("failed to obfuscate SQL statement: %v", statement))
+				s.logger.Error(fmt.Sprintf("failed to obfuscate SQL statement, skipping event: %v, error: %v", statement, err))
 				return "", nil
 			}
 			return obfuscated, nil
 		}).(string)
+
+		if queryTextVal == "" {
+			trimmedStatement := strings.TrimSpace(row[statementText])
+			idleBlockerEmptyOrComment := row[command] == "IDLE_BLOCKER" && (trimmedStatement == "" || strings.HasPrefix(trimmedStatement, "--"))
+			if !idleBlockerEmptyOrComment {
+				continue
+			}
+		}
 
 		var fullQueryTextVal, dbSQLCommentsVal, nrServiceGUIDVal, dbQueryTextNormalizedHashVal string
 		if s.config.CollectFullQueryText {
