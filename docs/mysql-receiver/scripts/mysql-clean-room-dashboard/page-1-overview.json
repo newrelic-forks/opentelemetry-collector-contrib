@@ -1,0 +1,210 @@
+{
+  "name": "Overview & Instance Health",
+  "description": "",
+  "widgets": [
+    {
+      "title": "",
+      "layout": {"column": 1, "row": 1, "width": 12, "height": 1},
+      "visualization": {"id": "viz.markdown"},
+      "rawConfiguration": {"text": "## Overview & Instance Health\nAt-a-glance status of the MySQL instance selected via the endpoint variable above."}
+    },
+    {
+      "title": "Uptime (s)",
+      "layout": {"column": 1, "row": 2, "width": 3, "height": 3},
+      "visualization": {"id": "viz.billboard"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.uptime`) WHERE `metricName` = 'mysql.uptime' AND `mysql.instance.endpoint` = {{endpoint}}"}
+        ]
+      }
+    },
+    {
+      "title": "Active connections",
+      "layout": {"column": 4, "row": 2, "width": 3, "height": 3},
+      "visualization": {"id": "viz.billboard"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.threads`) WHERE `metricName` = 'mysql.threads' AND kind = 'connected' AND `mysql.instance.endpoint` = {{endpoint}}"}
+        ]
+      }
+    },
+    {
+      "title": "Threads running",
+      "layout": {"column": 7, "row": 2, "width": 3, "height": 3},
+      "visualization": {"id": "viz.billboard"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.threads`) WHERE `metricName` = 'mysql.threads' AND kind = 'running' AND `mysql.instance.endpoint` = {{endpoint}}"}
+        ]
+      }
+    },
+    {
+      "title": "Queries/min",
+      "layout": {"column": 10, "row": 2, "width": 3, "height": 3},
+      "visualization": {"id": "viz.billboard"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT rate(sum(`mysql.query.count`), 1 minute) WHERE `metricName` = 'mysql.query.count' AND `mysql.instance.endpoint` = {{endpoint}}"}
+        ]
+      }
+    },
+    {
+      "title": "Slow queries (cumulative)",
+      "layout": {"column": 1, "row": 5, "width": 3, "height": 3},
+      "visualization": {"id": "viz.billboard"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.query.slow.count`) WHERE `metricName` = 'mysql.query.slow.count' AND `mysql.instance.endpoint` = {{endpoint}}"}
+        ]
+      }
+    },
+    {
+      "title": "Buffer pool usage (bytes)",
+      "layout": {"column": 4, "row": 5, "width": 3, "height": 3},
+      "visualization": {"id": "viz.billboard"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT sum(`mysql.buffer_pool.usage`) WHERE `metricName` = 'mysql.buffer_pool.usage' AND `mysql.instance.endpoint` = {{endpoint}}"}
+        ]
+      }
+    },
+    {
+      "title": "",
+      "layout": {"column": 1, "row": 8, "width": 12, "height": 1},
+      "visualization": {"id": "viz.markdown"},
+      "rawConfiguration": {"text": "### Connections & Threads"}
+    },
+    {
+      "title": "Threads by kind",
+      "layout": {"column": 1, "row": 9, "width": 4, "height": 3},
+      "visualization": {"id": "viz.line"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.threads`) WHERE `metricName` = 'mysql.threads' AND `mysql.instance.endpoint` = {{endpoint}} FACET kind TIMESERIES"}
+        ]
+      }
+    },
+    {
+      "title": "Connection errors by type",
+      "layout": {"column": 5, "row": 9, "width": 4, "height": 3},
+      "visualization": {"id": "viz.line"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.connection.errors`) WHERE `metricName` = 'mysql.connection.errors' AND `mysql.instance.endpoint` = {{endpoint}} FACET error TIMESERIES"}
+        ]
+      }
+    },
+    {
+      "title": "Max used connections",
+      "layout": {"column": 1, "row": 12, "width": 3, "height": 3},
+      "visualization": {"id": "viz.billboard"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.max_used_connections`) WHERE `metricName` = 'mysql.max_used_connections' AND `mysql.instance.endpoint` = {{endpoint}}"}
+        ]
+      }
+    },
+    {
+      "title": "X-Protocol connections (expected empty — X-Plugin not in use)",
+      "layout": {"column": 1, "row": 15, "width": 12, "height": 4},
+      "visualization": {"id": "viz.table"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.mysqlx_connections`) AS 'Connections' WHERE `metricName` = 'mysql.mysqlx_connections' AND `mysql.instance.endpoint` = {{endpoint}} FACET status"}
+        ]
+      }
+    },
+    {
+      "title": "",
+      "layout": {"column": 1, "row": 19, "width": 12, "height": 1},
+      "visualization": {"id": "viz.markdown"},
+      "rawConfiguration": {"text": "### Command Mix & Throughput"}
+    },
+    {
+      "title": "Command mix",
+      "layout": {"column": 1, "row": 20, "width": 4, "height": 3},
+      "visualization": {"id": "viz.bar"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.commands`) WHERE `metricName` = 'mysql.commands' AND `mysql.instance.endpoint` = {{endpoint}} FACET command"}
+        ]
+      }
+    },
+    {
+      "title": "Query count vs. client-issued query count",
+      "layout": {"column": 5, "row": 20, "width": 4, "height": 3},
+      "visualization": {"id": "viz.line"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT rate(sum(`mysql.query.count`), 1 minute) AS 'Total queries/min', rate(sum(`mysql.query.client.count`), 1 minute) AS 'Client queries/min' WHERE (`metricName` = 'mysql.query.count' OR `metricName` = 'mysql.query.client.count') AND `mysql.instance.endpoint` = {{endpoint}} TIMESERIES"}
+        ]
+      }
+    },
+    {
+      "title": "Handlers by type",
+      "layout": {"column": 9, "row": 20, "width": 4, "height": 3},
+      "visualization": {"id": "viz.bar"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.handlers`) WHERE `metricName` = 'mysql.handlers' AND `mysql.instance.endpoint` = {{endpoint}} FACET kind"}
+        ]
+      }
+    },
+    {
+      "title": "Joins requiring full scans",
+      "layout": {"column": 1, "row": 23, "width": 4, "height": 3},
+      "visualization": {"id": "viz.bar"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.joins`) WHERE `metricName` = 'mysql.joins' AND `mysql.instance.endpoint` = {{endpoint}} FACET kind"}
+        ]
+      }
+    },
+    {
+      "title": "Sorts by type",
+      "layout": {"column": 5, "row": 23, "width": 4, "height": 3},
+      "visualization": {"id": "viz.bar"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.sorts`) WHERE `metricName` = 'mysql.sorts' AND `mysql.instance.endpoint` = {{endpoint}} FACET kind"}
+        ]
+      }
+    },
+    {
+      "title": "Prepared statement commands",
+      "layout": {"column": 9, "row": 23, "width": 4, "height": 3},
+      "visualization": {"id": "viz.bar"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.prepared_statements`) WHERE `metricName` = 'mysql.prepared_statements' AND `mysql.instance.endpoint` = {{endpoint}} FACET command"}
+        ]
+      }
+    },
+    {
+      "title": "",
+      "layout": {"column": 1, "row": 26, "width": 12, "height": 1},
+      "visualization": {"id": "viz.markdown"},
+      "rawConfiguration": {"text": "### Replication Health\nOnly populated if this instance is configured as a replica — expected empty in this test lab (both instances are standalone)."}
+    },
+    {
+      "title": "Seconds behind source",
+      "layout": {"column": 1, "row": 27, "width": 3, "height": 3},
+      "visualization": {"id": "viz.billboard"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.replica.time_behind_source`) WHERE `metricName` = 'mysql.replica.time_behind_source' AND `mysql.instance.endpoint` = {{endpoint}}"}
+        ]
+      }
+    },
+    {
+      "title": "SQL delay (s)",
+      "layout": {"column": 4, "row": 27, "width": 3, "height": 3},
+      "visualization": {"id": "viz.billboard"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT latest(`mysql.replica.sql_delay`) WHERE `metricName` = 'mysql.replica.sql_delay' AND `mysql.instance.endpoint` = {{endpoint}}"}
+        ]
+      }
+    }
+  ]
+}
