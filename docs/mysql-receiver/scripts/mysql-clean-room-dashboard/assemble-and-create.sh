@@ -3,10 +3,6 @@ set -euo pipefail
 cd "$(dirname "$0")"
 source ./lib.sh
 
-# Two dashboard-wide variables: {{endpoint}} applied to every page (empty
-# isMultiSelection list = global), {{queryHash}} applies only where the
-# widget itself references it (NerdGraph scopes variables by usage, not by
-# an explicit page list).
 DASHBOARD_NAME="MySQL Query Performance Monitoring — nrmysqlreceiver (clean-room)"
 
 python3 - "$DASHBOARD_NAME" <<'PYEOF' > /tmp/dashboard-create.json
@@ -29,30 +25,7 @@ dashboard = {
     "name": name,
     "permissions": "PUBLIC_READ_WRITE",
     "pages": pages,
-    "variables": [
-        {
-            "name": "endpoint",
-            "title": "MySQL Instance Endpoint",
-            "type": "STRING",
-            "isMultiSelection": False,
-            "replacementStrategy": "DEFAULT",
-            "nrqlQuery": {
-                "accountIds": [754495],
-                "query": "FROM Metric SELECT uniques(`mysql.instance.endpoint`) SINCE 1 day ago",
-            },
-        },
-        {
-            "name": "queryHash",
-            "title": "Query Hash (db.query.text.normalized.hash)",
-            "type": "STRING",
-            "isMultiSelection": False,
-            "replacementStrategy": "DEFAULT",
-            "nrqlQuery": {
-                "accountIds": [754495],
-                "query": "FROM Log SELECT uniques(`db.query.text.normalized.hash`) WHERE `event.name` = 'db.server.query_sample' SINCE 1 day ago",
-            },
-        },
-    ],
+    "variables": [],
 }
 
 mutation = {
