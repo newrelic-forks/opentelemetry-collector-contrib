@@ -14,7 +14,7 @@
       "visualization": {"id": "viz.table"},
       "rawConfiguration": {
         "nrqlQueries": [
-          {"accountId": 754495, "query": "FROM Log SELECT latest(`mysql.threads.thread_id`) AS 'Thread', latest(`mysql.session.id`) AS 'Session', latest(`user.name`) AS 'DB user', latest(`db.namespace`) AS 'Database', latest(`db.query.text`) AS 'Query', latest(`mysql.threads.processlist_state`) AS 'State', latest(`mysql.events_statements_current.timer_wait`) AS 'Elapsed (s)' WHERE `event.name` = 'db.server.query_sample' AND `db.system.name` = 'mysql' AND `mysql.instance.endpoint` = {{endpoint}} FACET `mysql.event_id` LIMIT 100"}
+          {"accountId": 754495, "query": "FROM Log SELECT latest(`mysql.threads.thread_id`) AS 'Thread', latest(`mysql.session.id`) AS 'Session', latest(`user.name`) AS 'DB user', latest(`db.namespace`) AS 'Database', latest(`db.query.text`) AS 'Query', latest(`mysql.threads.processlist_state`) AS 'State', latest(`mysql.events_statements_current.timer_wait`) AS 'Elapsed (s)' WHERE `event.name` = 'db.server.query_sample' AND `db.system.name` = 'mysql' FACET `mysql.event_id`, `mysql.instance.endpoint` LIMIT 100"}
         ]
       }
     },
@@ -30,7 +30,7 @@
       "visualization": {"id": "viz.pie"},
       "rawConfiguration": {
         "nrqlQueries": [
-          {"accountId": 754495, "query": "FROM Log SELECT uniqueCount(tuple(`mysql.threads.thread_id`, `mysql.session.id`)) WHERE `event.name` = 'db.server.query_sample' AND `db.system.name` = 'mysql' AND `mysql.instance.endpoint` = {{endpoint}} FACET `mysql.session.status`"}
+          {"accountId": 754495, "query": "FROM Log SELECT uniqueCount(tuple(`mysql.threads.thread_id`, `mysql.session.id`)) WHERE `event.name` = 'db.server.query_sample' AND `db.system.name` = 'mysql' FACET `mysql.session.status`, `mysql.instance.endpoint`"}
         ]
       }
     },
@@ -40,7 +40,7 @@
       "visualization": {"id": "viz.line"},
       "rawConfiguration": {
         "nrqlQueries": [
-          {"accountId": 754495, "query": "FROM Log SELECT uniqueCount(tuple(`mysql.threads.thread_id`, `mysql.session.id`)) WHERE `event.name` = 'db.server.query_sample' AND `db.system.name` = 'mysql' AND `mysql.instance.endpoint` = {{endpoint}} FACET `mysql.session.status` TIMESERIES"}
+          {"accountId": 754495, "query": "FROM Log SELECT uniqueCount(tuple(`mysql.threads.thread_id`, `mysql.session.id`)) WHERE `event.name` = 'db.server.query_sample' AND `db.system.name` = 'mysql' FACET `mysql.session.status`, `mysql.instance.endpoint` TIMESERIES"}
         ]
       }
     },
@@ -56,7 +56,7 @@
       "visualization": {"id": "viz.table"},
       "rawConfiguration": {
         "nrqlQueries": [
-          {"accountId": 754495, "query": "FROM Log SELECT uniqueCount(tuple(`mysql.threads.thread_id`, `mysql.session.id`)) AS 'Sessions' WHERE `event.name` = 'db.server.query_sample' AND `db.system.name` = 'mysql' AND `mysql.instance.endpoint` = {{endpoint}} FACET `mysql.session.client_name`, `client.address` LIMIT 50"}
+          {"accountId": 754495, "query": "FROM Log SELECT uniqueCount(tuple(`mysql.threads.thread_id`, `mysql.session.id`)) AS 'Sessions' WHERE `event.name` = 'db.server.query_sample' AND `db.system.name` = 'mysql' FACET `mysql.session.client_name`, `client.address`, `mysql.instance.endpoint` LIMIT 50"}
         ]
       }
     },
@@ -66,7 +66,7 @@
       "visualization": {"id": "viz.table"},
       "rawConfiguration": {
         "nrqlQueries": [
-          {"accountId": 754495, "query": "FROM Log SELECT latest(`db.query.text`) AS 'Query', latest(`db.query.comment_tags.nr_service_guid`) AS 'APM service GUID' WHERE `event.name` = 'db.server.query_sample' AND `db.system.name` = 'mysql' AND `mysql.instance.endpoint` = {{endpoint}} AND `db.query.comment_tags.nr_service_guid` IS NOT NULL AND `db.query.comment_tags.nr_service_guid` != '' FACET `mysql.event_id` LIMIT 50"}
+          {"accountId": 754495, "query": "FROM Log SELECT latest(`db.query.text`) AS 'Query', latest(`db.query.comment_tags.nr_service_guid`) AS 'APM service GUID' WHERE `event.name` = 'db.server.query_sample' AND `db.system.name` = 'mysql' AND `db.query.comment_tags.nr_service_guid` IS NOT NULL AND `db.query.comment_tags.nr_service_guid` != '' FACET `mysql.event_id`, `mysql.instance.endpoint` LIMIT 50"}
         ]
       }
     }
