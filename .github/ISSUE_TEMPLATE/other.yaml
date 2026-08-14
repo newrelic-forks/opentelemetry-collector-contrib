@@ -322,6 +322,7 @@ body:
       - receiver/namedpipe
       - receiver/netflow
       - receiver/nginx
+      - receiver/nrmysql
       - receiver/nroracledb
       - receiver/nrpostgresql
       - receiver/nrsqlserver
