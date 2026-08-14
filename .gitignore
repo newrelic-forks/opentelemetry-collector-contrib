@@ -50,3 +50,4 @@ internal/tools/testresults/*
 go.work*
 
 /result
+docs/mysql-receiver/scripts/mysql-clean-room-dashboard/dashboard-guid.txt
