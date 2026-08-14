@@ -181,14 +181,24 @@
       }
     },
     {
+      "title": "Network I/O (bytes sent/received)",
+      "layout": {"column": 1, "row": 45, "width": 4, "height": 3},
+      "visualization": {"id": "viz.line"},
+      "rawConfiguration": {
+        "nrqlQueries": [
+          {"accountId": 754495, "query": "FROM Metric SELECT rate(sum(`mysql.client.network.io`), 1 minute) WHERE `metricName` = 'mysql.client.network.io' FACET kind, mysql.instance.endpoint TIMESERIES"}
+        ]
+      }
+    },
+    {
       "title": "",
-      "layout": {"column": 1, "row": 45, "width": 12, "height": 1},
+      "layout": {"column": 1, "row": 48, "width": 12, "height": 1},
       "visualization": {"id": "viz.markdown"},
       "rawConfiguration": {"text": "### Replication Health\nOnly populated if this instance is configured as a replica — expected empty in this test lab (both instances are standalone)."}
     },
     {
       "title": "Seconds behind source",
-      "layout": {"column": 1, "row": 46, "width": 12, "height": 4},
+      "layout": {"column": 1, "row": 49, "width": 12, "height": 4},
       "visualization": {"id": "viz.table"},
       "rawConfiguration": {
         "nrqlQueries": [
@@ -198,7 +208,7 @@
     },
     {
       "title": "SQL delay (s)",
-      "layout": {"column": 1, "row": 50, "width": 12, "height": 4},
+      "layout": {"column": 1, "row": 53, "width": 12, "height": 4},
       "visualization": {"id": "viz.table"},
       "rawConfiguration": {
         "nrqlQueries": [
