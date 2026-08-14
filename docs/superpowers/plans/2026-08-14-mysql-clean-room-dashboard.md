@@ -957,3 +957,63 @@ EOF
 ```
 
 - [ ] **Step 7: Final report to the user** — confirm the GUID (same or new, and why), the URL, that all 6 pages/widget counts are unchanged, that no dashboard variables remain, and a one-line summary of the layout fix (tighter packing, no more large gaps).
+
+---
+
+## Part 3: Restore aggregate KPI billboards (UX follow-up)
+
+**Trigger:** final Part 2 review flagged that all 17 billboards converted to tables, leaving zero at-a-glance KPI tiles. User asked for best judgment on customer experience. Decision: add a SMALL set of unfaceted (aggregate-across-all-instances) billboards to Page 1's top, in ADDITION to the existing faceted tables — not replacing them. Gives a fast top-line health check plus the detailed per-instance breakdown when needed.
+
+### Task 18: Add aggregate KPI billboards to Page 1
+
+**Files:**
+- Modify: `docs/mysql-receiver/scripts/mysql-clean-room-dashboard/page-1-overview.json`
+
+**Interfaces:**
+- Consumes: `lib.sh`'s `nrgraphql()` (Task 1).
+- Produces: updated `page-1-overview.json` (23 existing widgets + 6 new billboards = 29 widgets), consumed by Task 19's redeploy.
+
+- [ ] **Step 1: Add 6 new billboard widgets** at the TOP of the page, immediately after the page's opening markdown header (before the existing "At a Glance" table conversions), each with NO facet (aggregate across all instances — the whole point is a fleet-wide top-line number, distinct from the detailed per-instance tables already on this page):
+
+| Title | Query |
+|---|---|
+| Monitored instances | `` FROM Metric SELECT uniqueCount(`mysql.instance.endpoint`) WHERE `metricName` = 'mysql.uptime' `` |
+| Total active connections | `` FROM Metric SELECT sum(`mysql.threads`) WHERE `metricName` = 'mysql.threads' AND kind = 'connected' `` |
+| Total threads running | `` FROM Metric SELECT sum(`mysql.threads`) WHERE `metricName` = 'mysql.threads' AND kind = 'running' `` |
+| Total queries/min (all instances) | `` FROM Metric SELECT rate(sum(`mysql.query.count`), 1 minute) WHERE `metricName` = 'mysql.query.count' `` |
+| Total slow queries (cumulative) | `` FROM Metric SELECT sum(`mysql.query.slow.count`) WHERE `metricName` = 'mysql.query.slow.count' `` |
+| Total buffer pool usage (bytes) | `` FROM Metric SELECT sum(`mysql.buffer_pool.usage`) WHERE `metricName` = 'mysql.buffer_pool.usage' `` |
+
+Validate each live via `nrgraphql` (no `{{endpoint}}` substitution needed — these are intentionally unfaceted/aggregate, not per-instance). Each is `viz.billboard`, width 3, height 3.
+
+- [ ] **Step 2: Recompute the WHOLE page's layout using Layout algorithm v2** (defined in Part 2 Global Constraints above) — the 6 new billboards go right after the opening markdown, packing 4-per-row before the existing widgets, which all shift down accordingly. Do not change the order or content of any of the 23 existing widgets — only insert the 6 new ones after the header and re-run the layout pass over the resulting 29-widget sequence.
+
+- [ ] **Step 3: Confirm valid JSON and exactly 29 widgets** (`jq '.widgets | length'` → 29).
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add docs/mysql-receiver/scripts/mysql-clean-room-dashboard/page-1-overview.json
+git commit -m "$(cat <<'EOF'
+feat: [docs/mysql-receiver] add aggregate KPI billboards to page 1
+
+Assisted-by: Claude Sonnet 5
+EOF
+)"
+```
+
+### Task 19: Redeploy with new KPI billboards, re-verify
+
+**Files:**
+- None (uses existing `assemble-and-create.sh`/ad-hoc `dashboardUpdate` mechanism from Task 17).
+
+**Interfaces:**
+- Consumes: `lib.sh` (Task 1), all six current `page-*.json` files (page-1 now updated by Task 18), `dashboard-guid.txt`.
+
+- [ ] **Step 1: Redeploy via `dashboardUpdate`** (same mutation shape Task 17 used successfully — update in place, GUID unchanged). Assemble the dashboard payload from the 6 current page files (still zero `variables`) and push it.
+
+- [ ] **Step 2: Re-run `verify.sh`.** Expected counts now: Overview & Instance Health=**29**, Query Performance (Top Queries)=9, Live Sessions & Query Samples=8, Wait & Blocking Analysis=14, Execution Plans=7, Storage Engine & Capacity=26. **Total = 93.**
+
+- [ ] **Step 3: Confirm the 6 new billboards render as real scalars** (not faceted/broken) by checking their values in the entity query response.
+
+- [ ] **Step 4: Final report** — confirm GUID/URL unchanged, new total widget count (93), and that the 6 new billboards are visible alongside the existing detailed tables.
