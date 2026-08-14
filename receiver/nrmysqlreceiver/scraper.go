@@ -15,6 +15,7 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -68,7 +69,7 @@ func newMySQLScraper(
 	cache *lru.Cache[string, int64],
 	queryPlanCache *expirable.LRU[string, string],
 ) *mySQLScraper {
-	seed := resolveServiceInstanceSeed(config.Endpoint, settings.Logger)
+	seed := resolveServiceInstanceSeed(config.AddrConfig.Endpoint, settings.Logger)
 	serviceInstanceID := uuid.NewSHA1(otelUUIDv5Namespace, []byte(seed)).String()
 	return &mySQLScraper{
 		logger:                 settings.Logger,
@@ -131,18 +132,21 @@ func (m *mySQLScraper) start(_ context.Context, _ component.Host) error {
 // capability flags and an end-of-life warning for MySQL <8.
 func (m *mySQLScraper) logDetectedVersion(dbVer dbVersion) {
 	if dbVer.version == nil {
-		m.logger.Warn("database version could not be detected at startup; receiver will use MySQL <8/MariaDB fallback behavior for its entire lifetime",
+		m.logger.Warn(
+			"database version could not be detected at startup; receiver will use MySQL <8/MariaDB fallback behavior for its entire lifetime",
 			zap.Bool("supports_query_sample_text", false),
 		)
 		return
 	}
-	m.logger.Info("detected database version",
+	m.logger.Info(
+		"detected database version",
 		zap.String("product", dbVer.productString()),
 		zap.String("version", dbVer.version.String()),
 		zap.Bool("supports_query_sample_text", dbVer.supportsQuerySampleText()),
 	)
 	if dbVer.product == dbProductMySQL && dbVer.version.Segments()[0] < 8 {
-		m.logger.Warn("detected MySQL version is past end-of-life and may not be supported by this receiver in a future release",
+		m.logger.Warn(
+			"detected MySQL version is past end-of-life and may not be supported by this receiver in a future release",
 			zap.String("version", dbVer.version.String()),
 		)
 	}
@@ -214,7 +218,7 @@ func (m *mySQLScraper) emitLogs(errs *scrapererror.ScrapeErrors) (plog.Logs, err
 }
 
 func (m *mySQLScraper) setResourceAttributes(rb *metadata.ResourceBuilder) {
-	rb.SetMysqlInstanceEndpoint(m.config.Endpoint)
+	rb.SetMysqlInstanceEndpoint(m.config.AddrConfig.Endpoint)
 	rb.SetServiceInstanceID(m.serviceInstanceID)
 	rb.SetServiceName(defaultServiceName)
 	rb.SetServiceNamespace("")
@@ -264,6 +268,7 @@ func (m *mySQLScraper) scrapeGlobalStats(now pcommon.Timestamp, errs *scrapererr
 
 	m.recordDataPages(now, globalStats, errs)
 	m.recordDataUsage(now, globalStats, errs)
+	m.recordReplicaOpenTempTables(now, globalStats, errs)
 
 	for k, v := range globalStats {
 		switch k {
@@ -449,6 +454,20 @@ func (m *mySQLScraper) scrapeGlobalStats(now pcommon.Timestamp, errs *scrapererr
 		case "Innodb_os_log_fsyncs":
 			addPartialIfError(errs, m.mb.RecordMysqlLogOperationsDataPoint(now, v, metadata.AttributeLogOperationsFsyncs))
 
+		// innodb.data_file.io
+		case "Innodb_data_read":
+			addPartialIfError(errs, m.mb.RecordMysqlInnodbDataFileIoDataPoint(now, v, metadata.AttributeDiskIoDirectionRead))
+		case "Innodb_data_written":
+			addPartialIfError(errs, m.mb.RecordMysqlInnodbDataFileIoDataPoint(now, v, metadata.AttributeDiskIoDirectionWrite))
+
+		// innodb.operation.pending
+		case "Innodb_data_pending_fsyncs":
+			addPartialIfError(errs, m.mb.RecordMysqlInnodbOperationPendingDataPoint(now, v, metadata.AttributeOperationsFsyncs))
+		case "Innodb_data_pending_reads":
+			addPartialIfError(errs, m.mb.RecordMysqlInnodbOperationPendingDataPoint(now, v, metadata.AttributeOperationsReads))
+		case "Innodb_data_pending_writes":
+			addPartialIfError(errs, m.mb.RecordMysqlInnodbOperationPendingDataPoint(now, v, metadata.AttributeOperationsWrites))
+
 		// operations
 		case "Innodb_data_fsyncs":
 			addPartialIfError(errs, m.mb.RecordMysqlOperationsDataPoint(now, v, metadata.AttributeOperationsFsyncs))
@@ -529,6 +548,10 @@ func (m *mySQLScraper) scrapeGlobalStats(now pcommon.Timestamp, errs *scrapererr
 		case "Sort_scan":
 			addPartialIfError(errs, m.mb.RecordMysqlSortsDataPoint(now, v, metadata.AttributeSortsScan))
 
+		// slow launch threads
+		case "Slow_launch_threads":
+			addPartialIfError(errs, m.mb.RecordMysqlThreadSlowLaunchDataPoint(now, v))
+
 		// threads
 		case "Threads_cached":
 			addPartialIfError(errs, m.mb.RecordMysqlThreadsDataPoint(now, v, metadata.AttributeThreadsCached))
@@ -538,6 +561,12 @@ func (m *mySQLScraper) scrapeGlobalStats(now pcommon.Timestamp, errs *scrapererr
 			addPartialIfError(errs, m.mb.RecordMysqlThreadsDataPoint(now, v, metadata.AttributeThreadsCreated))
 		case "Threads_running":
 			addPartialIfError(errs, m.mb.RecordMysqlThreadsDataPoint(now, v, metadata.AttributeThreadsRunning))
+
+		// open resources
+		case "Open_files":
+			addPartialIfError(errs, m.mb.RecordMysqlFileOpenDataPoint(now, v))
+		case "Open_tables":
+			addPartialIfError(errs, m.mb.RecordMysqlTableOpenDataPoint(now, v))
 
 		// opened resources
 		case "Opened_files":
@@ -735,7 +764,16 @@ func (m *mySQLScraper) scrapeReplicaStatusStats(now pcommon.Timestamp) {
 		}
 
 		m.mb.RecordMysqlReplicaSQLDelayDataPoint(now, s.sqlDelay)
+		m.mb.RecordMysqlReplicaThreadRunningDataPoint(now, replicaThreadRunningValue(s.replicaIORunning), metadata.AttributeMysqlReplicaThreadTypeIo, s.channelName)
+		m.mb.RecordMysqlReplicaThreadRunningDataPoint(now, replicaThreadRunningValue(s.replicaSQLRunning), metadata.AttributeMysqlReplicaThreadTypeSQL, s.channelName)
 	}
+}
+
+func replicaThreadRunningValue(status string) int64 {
+	if strings.EqualFold(status, "yes") {
+		return 1
+	}
+	return 0
 }
 
 func (m *mySQLScraper) scrapeTopQueries(now pcommon.Timestamp, errs *scrapererror.ScrapeErrors) {
@@ -1086,6 +1124,26 @@ func (m *mySQLScraper) recordDataUsage(now pcommon.Timestamp, globalStats map[st
 		return
 	}
 	m.mb.RecordMysqlBufferPoolUsageDataPoint(now, data-dirty, metadata.AttributeBufferPoolDataClean)
+}
+
+func (m *mySQLScraper) recordReplicaOpenTempTables(now pcommon.Timestamp, globalStats map[string]string, errs *scrapererror.ScrapeErrors) {
+	if !m.config.MetricsBuilderConfig.Metrics.MysqlReplicaTempTableOpen.Enabled {
+		return
+	}
+	for _, key := range []string{"Replica_open_temp_tables", "Slave_open_temp_tables"} {
+		v, ok := globalStats[key]
+		if !ok {
+			continue
+		}
+		val, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			m.logger.Warn("Replica open temporary tables global status is not an integer", zap.String("key", key), zap.String("value", v), zap.Error(err))
+			errs.AddPartial(1, err)
+			return
+		}
+		m.mb.RecordMysqlReplicaTempTableOpenDataPoint(now, val)
+		return
+	}
 }
 
 // parseInt converts string to int64.

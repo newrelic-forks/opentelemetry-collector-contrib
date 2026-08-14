@@ -128,8 +128,9 @@ var queryResponses = map[string][]metricRow{
 		{"RESOURCE_NAME": "processes", "CURRENT_UTILIZATION": "3", "MAX_UTILIZATION": "10", "INITIAL_ALLOCATION": "100", "LIMIT_VALUE": "100"},
 		{"RESOURCE_NAME": "locks", "CURRENT_UTILIZATION": "3", "MAX_UTILIZATION": "10", "INITIAL_ALLOCATION": "-1", "LIMIT_VALUE": "-1"},
 	},
-	tablespaceUsageSQL:  {{"TABLESPACE_NAME": "SYS", "USED_SPACE": "111288", "TABLESPACE_SIZE": "3518587", "BLOCK_SIZE": "8192"}},
-	dataDictHitRatioSQL: {{"DATA_DICTIONARY_HIT_RATIO": "98.75"}},
+	tablespaceUsageSQL:        {{"TABLESPACE_NAME": "SYS", "USED_SPACE": "111288", "TABLESPACE_SIZE": "3518587", "BLOCK_SIZE": "8192", "STATUS": "ONLINE"}},
+	tablespaceUsageWithMaxSQL: {{"TABLESPACE_NAME": "SYS", "USED_SPACE": "111288", "TABLESPACE_SIZE": "3518587", "BLOCK_SIZE": "8192", "STATUS": "ONLINE", "MAX_BYTES": "1073741824"}},
+	dataDictHitRatioSQL:       {{"DATA_DICTIONARY_HIT_RATIO": "98.75"}},
 	osStatSQL: {
 		{"STAT_NAME": "NUM_CPUS", "VALUE": "8"},
 		{"STAT_NAME": "LOAD", "VALUE": "1.5"},
@@ -221,10 +222,11 @@ var queryCDBResponses = map[string][]metricRow{
 		{"RESOURCE_NAME": "processes", "CURRENT_UTILIZATION": "3", "MAX_UTILIZATION": "10", "INITIAL_ALLOCATION": "100", "LIMIT_VALUE": "100"},
 		{"RESOURCE_NAME": "locks", "CURRENT_UTILIZATION": "3", "MAX_UTILIZATION": "10", "INITIAL_ALLOCATION": "-1", "LIMIT_VALUE": "-1"},
 	},
-	tablespaceUsageCDBSQL: {{"PDB_NAME": "PDB1", "TABLESPACE_NAME": "USERS", "USED_SPACE": "111288", "TABLESPACE_SIZE": "3518587", "BLOCK_SIZE": "8192"}},
-	dataDictHitRatioSQL:   {{"DATA_DICTIONARY_HIT_RATIO": "98.75"}},
-	recycleBinSizeSQL:     {{"RECYCLE_BIN_SIZE_BYTES": "13107200"}},
-	storageUsageSQL:       {{"USED_DB_SIZE": "5368709120", "ALLOCATED_DB_SIZE": "10737418240"}},
+	tablespaceUsageCDBSQL:        {{"PDB_NAME": "PDB1", "TABLESPACE_NAME": "USERS", "USED_SPACE": "111288", "TABLESPACE_SIZE": "3518587", "BLOCK_SIZE": "8192", "STATUS": "ONLINE"}},
+	tablespaceUsageCDBWithMaxSQL: {{"PDB_NAME": "PDB1", "TABLESPACE_NAME": "USERS", "USED_SPACE": "111288", "TABLESPACE_SIZE": "3518587", "BLOCK_SIZE": "8192", "STATUS": "READ ONLY", "MAX_BYTES": "2147483648"}},
+	dataDictHitRatioSQL:          {{"DATA_DICTIONARY_HIT_RATIO": "98.75"}},
+	recycleBinSizeSQL:            {{"RECYCLE_BIN_SIZE_BYTES": "13107200"}},
+	storageUsageSQL:              {{"USED_DB_SIZE": "5368709120", "ALLOCATED_DB_SIZE": "10737418240"}},
 }
 
 var cacheValue = map[string]int64{
@@ -377,6 +379,95 @@ func TestScraper_Scrape(t *testing.T) {
 	}
 }
 
+// TestScraper_ScrapeTablespaceHealthMetrics covers the 3 new opt-in tablespace metrics.
+func TestScraper_ScrapeTablespaceHealthMetrics(t *testing.T) {
+	const floatDelta = 0.0001
+
+	cfg := metadata.NewDefaultMetricsBuilderConfig()
+	cfg.Metrics.OracledbTablespaceUtilization.Enabled = true
+	cfg.Metrics.OracledbTablespaceStatus.Enabled = true
+	cfg.Metrics.OracledbTablespaceLimit.Enabled = true
+
+	scrpr := oracleScraper{
+		logger: zap.NewNop(),
+		mb:     metadata.NewMetricsBuilder(cfg, receivertest.NewNopSettings(metadata.Type)),
+		dbProviderFunc: func() (*sql.DB, error) {
+			return nil, nil
+		},
+		clientProviderFunc: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+			return &fakeDbClient{Responses: [][]metricRow{queryResponses[s]}}
+		},
+		id:                   component.ID{},
+		metricsBuilderConfig: cfg,
+	}
+
+	err := scrpr.start(t.Context(), componenttest.NewNopHost())
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, scrpr.shutdown(t.Context())) }()
+
+	m, err := scrpr.scrape(t.Context())
+	require.NoError(t, err)
+
+	metrics := m.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
+
+	found := map[string]bool{}
+	for i := 0; i < metrics.Len(); i++ {
+		metric := metrics.At(i)
+		switch metric.Name() {
+		case "oracledb.tablespace.utilization":
+			found["utilization"] = true
+			assert.InDelta(t, 111288.0/3518587.0, metric.Gauge().DataPoints().At(0).DoubleValue(), floatDelta)
+		case "oracledb.tablespace.status":
+			found["status"] = true
+			assert.False(t, metric.Sum().IsMonotonic(), "oracledb.tablespace.status must be a non-monotonic sum (UpDownCounter)")
+			dp := metric.Sum().DataPoints().At(0)
+			assert.Equal(t, int64(1), dp.IntValue())
+			stateAttr, ok := dp.Attributes().Get("oracledb.tablespace.state")
+			require.True(t, ok)
+			assert.Equal(t, "online", stateAttr.Str())
+		case "oracledb.tablespace.limit":
+			found["limit"] = true
+			assert.Equal(t, int64(1073741824), metric.Gauge().DataPoints().At(0).IntValue())
+		}
+	}
+	assert.True(t, found["utilization"] && found["status"] && found["limit"],
+		"expected all 3 tablespace health metrics to be present, got: %v", found)
+}
+
+// TestScraper_ScrapeTablespaceHealthMetrics_BadMaxBytes verifies an unparseable MAX_BYTES produces a partial scrape error.
+func TestScraper_ScrapeTablespaceHealthMetrics_BadMaxBytes(t *testing.T) {
+	cfg := metadata.NewDefaultMetricsBuilderConfig()
+	cfg.Metrics.OracledbTablespaceLimit.Enabled = true
+
+	scrpr := oracleScraper{
+		logger: zap.NewNop(),
+		mb:     metadata.NewMetricsBuilder(cfg, receivertest.NewNopSettings(metadata.Type)),
+		dbProviderFunc: func() (*sql.DB, error) {
+			return nil, nil
+		},
+		clientProviderFunc: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+			if s == tablespaceUsageWithMaxSQL {
+				return &fakeDbClient{Responses: [][]metricRow{
+					{
+						{"TABLESPACE_NAME": "SYS", "TABLESPACE_SIZE": "1024", "USED_SPACE": "111288", "BLOCK_SIZE": "8192", "STATUS": "ONLINE", "MAX_BYTES": "not-a-number"},
+					},
+				}}
+			}
+			return &fakeDbClient{Responses: [][]metricRow{queryResponses[s]}}
+		},
+		id:                   component.ID{},
+		metricsBuilderConfig: cfg,
+	}
+
+	err := scrpr.start(t.Context(), componenttest.NewNopHost())
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, scrpr.shutdown(t.Context())) }()
+
+	_, err = scrpr.scrape(t.Context())
+	require.True(t, scrapererror.IsPartialScrapeError(err))
+	require.EqualError(t, err, `failed to parse int64 for OracledbTablespaceLimit, value was not-a-number: strconv.ParseInt: parsing "not-a-number": invalid syntax`)
+}
+
 // TestScraper_ScrapeCDBRoot verifies that when the scraper is in CDB-root mode (isCDBRoot=true)
 // it uses the CDB-aware SQL variants and propagates the oracle.db.pdb attribute on tablespace metrics.
 func TestScraper_ScrapeCDBRoot(t *testing.T) {
@@ -433,6 +524,161 @@ func TestScraper_ScrapeCDBRoot(t *testing.T) {
 	}
 }
 
+// TestScraper_ScrapeCDBRoot_TablespaceHealthMetrics verifies the 3 new metrics carry oracle.db.pdb on a CDB-root scrape.
+func TestScraper_ScrapeCDBRoot_TablespaceHealthMetrics(t *testing.T) {
+	const floatDelta = 0.0001
+
+	cfg := metadata.NewDefaultMetricsBuilderConfig()
+	cfg.Metrics.OracledbTablespaceUtilization.Enabled = true
+	cfg.Metrics.OracledbTablespaceStatus.Enabled = true
+	cfg.Metrics.OracledbTablespaceLimit.Enabled = true
+	cfg.Metrics.OracledbTablespaceUtilization.EnabledAttributes = append(
+		cfg.Metrics.OracledbTablespaceUtilization.EnabledAttributes,
+		metadata.OracledbTablespaceUtilizationMetricAttributeKeyOracleDbPdb,
+	)
+	cfg.Metrics.OracledbTablespaceStatus.EnabledAttributes = append(
+		cfg.Metrics.OracledbTablespaceStatus.EnabledAttributes,
+		metadata.OracledbTablespaceStatusMetricAttributeKeyOracleDbPdb,
+	)
+	cfg.Metrics.OracledbTablespaceLimit.EnabledAttributes = append(
+		cfg.Metrics.OracledbTablespaceLimit.EnabledAttributes,
+		metadata.OracledbTablespaceLimitMetricAttributeKeyOracleDbPdb,
+	)
+
+	scrpr := oracleScraper{
+		logger: zap.NewNop(),
+		mb:     metadata.NewMetricsBuilder(cfg, receivertest.NewNopSettings(metadata.Type)),
+		dbProviderFunc: func() (*sql.DB, error) {
+			return nil, nil
+		},
+		clientProviderFunc: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+			return &fakeDbClient{Responses: [][]metricRow{queryCDBResponses[s]}}
+		},
+		id:                   component.ID{},
+		metricsBuilderConfig: cfg,
+		instanceInfo:         oracleInstanceInfo{isCDB: true, connectedToPDB: false},
+	}
+
+	err := scrpr.start(t.Context(), componenttest.NewNopHost())
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, scrpr.shutdown(t.Context())) }()
+	require.True(t, scrpr.isCDBRoot)
+
+	m, err := scrpr.scrape(t.Context())
+	require.NoError(t, err)
+
+	metrics := m.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
+
+	checked := map[string]bool{}
+	for i := 0; i < metrics.Len(); i++ {
+		metric := metrics.At(i)
+		switch metric.Name() {
+		case "oracledb.tablespace.utilization":
+			dp := metric.Gauge().DataPoints().At(0)
+			pdbAttr, ok := dp.Attributes().Get("oracle.db.pdb")
+			assert.True(t, ok, "expected oracle.db.pdb on oracledb.tablespace.utilization")
+			assert.Equal(t, "PDB1", pdbAttr.Str())
+			assert.InDelta(t, 111288.0/3518587.0, dp.DoubleValue(), floatDelta)
+			checked["utilization"] = true
+		case "oracledb.tablespace.status":
+			dp := metric.Sum().DataPoints().At(0)
+			pdbAttr, ok := dp.Attributes().Get("oracle.db.pdb")
+			assert.True(t, ok, "expected oracle.db.pdb on oracledb.tablespace.status")
+			assert.Equal(t, "PDB1", pdbAttr.Str())
+			stateAttr, ok := dp.Attributes().Get("oracledb.tablespace.state")
+			assert.True(t, ok)
+			assert.Equal(t, "read only", stateAttr.Str())
+			checked["status"] = true
+		case "oracledb.tablespace.limit":
+			dp := metric.Gauge().DataPoints().At(0)
+			pdbAttr, ok := dp.Attributes().Get("oracle.db.pdb")
+			assert.True(t, ok, "expected oracle.db.pdb on oracledb.tablespace.limit")
+			assert.Equal(t, "PDB1", pdbAttr.Str())
+			assert.Equal(t, int64(2147483648), dp.IntValue())
+			checked["limit"] = true
+		}
+	}
+	assert.True(t, checked["utilization"] && checked["status"] && checked["limit"],
+		"expected all 3 tablespace health metrics to be present, got: %v", checked)
+}
+
+// TestScraper_ScrapeConnectedToPDB_TablespaceHealthMetrics verifies oracle.db.pdb is set from
+// instanceInfo.pdbName when connected directly to a PDB (a third mode distinct from non-CDB and CDB-root).
+func TestScraper_ScrapeConnectedToPDB_TablespaceHealthMetrics(t *testing.T) {
+	const floatDelta = 0.0001
+
+	cfg := metadata.NewDefaultMetricsBuilderConfig()
+	cfg.Metrics.OracledbTablespaceUtilization.Enabled = true
+	cfg.Metrics.OracledbTablespaceStatus.Enabled = true
+	cfg.Metrics.OracledbTablespaceLimit.Enabled = true
+	cfg.Metrics.OracledbTablespaceUtilization.EnabledAttributes = append(
+		cfg.Metrics.OracledbTablespaceUtilization.EnabledAttributes,
+		metadata.OracledbTablespaceUtilizationMetricAttributeKeyOracleDbPdb,
+	)
+	cfg.Metrics.OracledbTablespaceStatus.EnabledAttributes = append(
+		cfg.Metrics.OracledbTablespaceStatus.EnabledAttributes,
+		metadata.OracledbTablespaceStatusMetricAttributeKeyOracleDbPdb,
+	)
+	cfg.Metrics.OracledbTablespaceLimit.EnabledAttributes = append(
+		cfg.Metrics.OracledbTablespaceLimit.EnabledAttributes,
+		metadata.OracledbTablespaceLimitMetricAttributeKeyOracleDbPdb,
+	)
+
+	scrpr := oracleScraper{
+		logger: zap.NewNop(),
+		mb:     metadata.NewMetricsBuilder(cfg, receivertest.NewNopSettings(metadata.Type)),
+		dbProviderFunc: func() (*sql.DB, error) {
+			return nil, nil
+		},
+		clientProviderFunc: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+			return &fakeDbClient{Responses: [][]metricRow{queryResponses[s]}}
+		},
+		id:                   component.ID{},
+		metricsBuilderConfig: cfg,
+		// Simulate a direct-PDB connection: isCDB=true, connectedToPDB=true.
+		instanceInfo: oracleInstanceInfo{isCDB: true, connectedToPDB: true, pdbName: "PDB1"},
+	}
+
+	err := scrpr.start(t.Context(), componenttest.NewNopHost())
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, scrpr.shutdown(t.Context())) }()
+	require.False(t, scrpr.isCDBRoot, "a direct-PDB connection must not use CDB-root queries")
+
+	m, err := scrpr.scrape(t.Context())
+	require.NoError(t, err)
+
+	metrics := m.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
+
+	checked := map[string]bool{}
+	for i := 0; i < metrics.Len(); i++ {
+		metric := metrics.At(i)
+		switch metric.Name() {
+		case "oracledb.tablespace.utilization":
+			dp := metric.Gauge().DataPoints().At(0)
+			pdbAttr, ok := dp.Attributes().Get("oracle.db.pdb")
+			assert.True(t, ok, "expected oracle.db.pdb on oracledb.tablespace.utilization")
+			assert.Equal(t, "PDB1", pdbAttr.Str())
+			assert.InDelta(t, 111288.0/3518587.0, dp.DoubleValue(), floatDelta)
+			checked["utilization"] = true
+		case "oracledb.tablespace.status":
+			dp := metric.Sum().DataPoints().At(0)
+			pdbAttr, ok := dp.Attributes().Get("oracle.db.pdb")
+			assert.True(t, ok, "expected oracle.db.pdb on oracledb.tablespace.status")
+			assert.Equal(t, "PDB1", pdbAttr.Str())
+			checked["status"] = true
+		case "oracledb.tablespace.limit":
+			dp := metric.Gauge().DataPoints().At(0)
+			pdbAttr, ok := dp.Attributes().Get("oracle.db.pdb")
+			assert.True(t, ok, "expected oracle.db.pdb on oracledb.tablespace.limit")
+			assert.Equal(t, "PDB1", pdbAttr.Str())
+			assert.Equal(t, int64(1073741824), dp.IntValue())
+			checked["limit"] = true
+		}
+	}
+	assert.True(t, checked["utilization"] && checked["status"] && checked["limit"],
+		"expected all 3 tablespace health metrics to be present, got: %v", checked)
+}
+
 // TestScraper_ScrapeCDBRoot_NewPdbMetrics checks the nine #49068 metrics carry oracle.db.pdb on a CDB-root scrape.
 func TestScraper_ScrapeCDBRoot_NewPdbMetrics(t *testing.T) {
 	const floatDelta = 0.001
@@ -450,85 +696,107 @@ func TestScraper_ScrapeCDBRoot_NewPdbMetrics(t *testing.T) {
 
 	cfg.Metrics.OracledbSessionWaits.EnabledAttributes = append(
 		cfg.Metrics.OracledbSessionWaits.EnabledAttributes,
-		metadata.OracledbSessionWaitsMetricAttributeKeyOracleDbPdb)
+		metadata.OracledbSessionWaitsMetricAttributeKeyOracleDbPdb,
+	)
 	cfg.Metrics.OracledbSessionWaitTime.EnabledAttributes = append(
 		cfg.Metrics.OracledbSessionWaitTime.EnabledAttributes,
-		metadata.OracledbSessionWaitTimeMetricAttributeKeyOracleDbPdb)
+		metadata.OracledbSessionWaitTimeMetricAttributeKeyOracleDbPdb,
+	)
 	cfg.Metrics.OracledbSessionStoredProcedureMemory.EnabledAttributes = append(
 		cfg.Metrics.OracledbSessionStoredProcedureMemory.EnabledAttributes,
-		metadata.OracledbSessionStoredProcedureMemoryMetricAttributeKeyOracleDbPdb)
+		metadata.OracledbSessionStoredProcedureMemoryMetricAttributeKeyOracleDbPdb,
+	)
 	cfg.Metrics.OracledbLockTime.EnabledAttributes = append(
 		cfg.Metrics.OracledbLockTime.EnabledAttributes,
-		metadata.OracledbLockTimeMetricAttributeKeyOracleDbPdb)
+		metadata.OracledbLockTimeMetricAttributeKeyOracleDbPdb,
+	)
 	cfg.Metrics.OracledbTransactionRollbacks.EnabledAttributes = append(
 		cfg.Metrics.OracledbTransactionRollbacks.EnabledAttributes,
-		metadata.OracledbTransactionRollbacksMetricAttributeKeyOracleDbPdb)
+		metadata.OracledbTransactionRollbacksMetricAttributeKeyOracleDbPdb,
+	)
 	cfg.Metrics.OracledbSessionAverage.EnabledAttributes = append(
 		cfg.Metrics.OracledbSessionAverage.EnabledAttributes,
-		metadata.OracledbSessionAverageMetricAttributeKeyOracleDbPdb)
+		metadata.OracledbSessionAverageMetricAttributeKeyOracleDbPdb,
+	)
 	cfg.Metrics.OracledbCPUUsageRate.EnabledAttributes = append(
 		cfg.Metrics.OracledbCPUUsageRate.EnabledAttributes,
-		metadata.OracledbCPUUsageRateMetricAttributeKeyOracleDbPdb)
+		metadata.OracledbCPUUsageRateMetricAttributeKeyOracleDbPdb,
+	)
 	cfg.Metrics.OracledbCursorCacheUtilization.EnabledAttributes = append(
 		cfg.Metrics.OracledbCursorCacheUtilization.EnabledAttributes,
-		metadata.OracledbCursorCacheUtilizationMetricAttributeKeyOracleDbPdb)
+		metadata.OracledbCursorCacheUtilizationMetricAttributeKeyOracleDbPdb,
+	)
 	cfg.Metrics.OracledbTransactionResponseTime.EnabledAttributes = append(
 		cfg.Metrics.OracledbTransactionResponseTime.EnabledAttributes,
-		metadata.OracledbTransactionResponseTimeMetricAttributeKeyOracleDbPdb)
+		metadata.OracledbTransactionResponseTimeMetricAttributeKeyOracleDbPdb,
+	)
 
 	// Per-PDB V$SYSMETRIC rate metrics.
 	cfg.Metrics.OracledbBufferCacheBlockChangesRate.Enabled = true
 	cfg.Metrics.OracledbBufferCacheBlockChangesRate.EnabledAttributes = append(
 		cfg.Metrics.OracledbBufferCacheBlockChangesRate.EnabledAttributes,
-		metadata.OracledbBufferCacheBlockChangesRateMetricAttributeKeyOracleDbPdb)
+		metadata.OracledbBufferCacheBlockChangesRateMetricAttributeKeyOracleDbPdb,
+	)
 	cfg.Metrics.OracledbLogicalReadsRate.Enabled = true
 	cfg.Metrics.OracledbLogicalReadsRate.EnabledAttributes = append(
 		cfg.Metrics.OracledbLogicalReadsRate.EnabledAttributes,
-		metadata.OracledbLogicalReadsRateMetricAttributeKeyOracleDbPdb)
+		metadata.OracledbLogicalReadsRateMetricAttributeKeyOracleDbPdb,
+	)
 	cfg.Metrics.OracledbPhysicalIoTransferredRate.Enabled = true
 	cfg.Metrics.OracledbPhysicalIoTransferredRate.EnabledAttributes = append(
 		cfg.Metrics.OracledbPhysicalIoTransferredRate.EnabledAttributes,
-		metadata.OracledbPhysicalIoTransferredRateMetricAttributeKeyOracleDbPdb)
+		metadata.OracledbPhysicalIoTransferredRateMetricAttributeKeyOracleDbPdb,
+	)
 	cfg.Metrics.OracledbPhysicalIoRequestsRate.Enabled = true
 	cfg.Metrics.OracledbPhysicalIoRequestsRate.EnabledAttributes = append(
 		cfg.Metrics.OracledbPhysicalIoRequestsRate.EnabledAttributes,
-		metadata.OracledbPhysicalIoRequestsRateMetricAttributeKeyOracleDbPdb)
+		metadata.OracledbPhysicalIoRequestsRateMetricAttributeKeyOracleDbPdb,
+	)
 	cfg.Metrics.OracledbPhysicalOperationsRate.Enabled = true
 	cfg.Metrics.OracledbPhysicalOperationsRate.EnabledAttributes = append(
 		cfg.Metrics.OracledbPhysicalOperationsRate.EnabledAttributes,
-		metadata.OracledbPhysicalOperationsRateMetricAttributeKeyOracleDbPdb)
+		metadata.OracledbPhysicalOperationsRateMetricAttributeKeyOracleDbPdb,
+	)
 	cfg.Metrics.OracledbRedoSizeRate.Enabled = true
 	cfg.Metrics.OracledbRedoSizeRate.EnabledAttributes = append(
 		cfg.Metrics.OracledbRedoSizeRate.EnabledAttributes,
-		metadata.OracledbRedoSizeRateMetricAttributeKeyOracleDbPdb)
+		metadata.OracledbRedoSizeRateMetricAttributeKeyOracleDbPdb,
+	)
 	cfg.Metrics.OracledbEnqueueDeadlocksRate.Enabled = true
 	cfg.Metrics.OracledbEnqueueDeadlocksRate.EnabledAttributes = append(
 		cfg.Metrics.OracledbEnqueueDeadlocksRate.EnabledAttributes,
-		metadata.OracledbEnqueueDeadlocksRateMetricAttributeKeyOracleDbPdb)
+		metadata.OracledbEnqueueDeadlocksRateMetricAttributeKeyOracleDbPdb,
+	)
 	cfg.Metrics.OracledbEnqueueTimeoutsRate.Enabled = true
 	cfg.Metrics.OracledbEnqueueTimeoutsRate.EnabledAttributes = append(
 		cfg.Metrics.OracledbEnqueueTimeoutsRate.EnabledAttributes,
-		metadata.OracledbEnqueueTimeoutsRateMetricAttributeKeyOracleDbPdb)
+		metadata.OracledbEnqueueTimeoutsRateMetricAttributeKeyOracleDbPdb,
+	)
 	cfg.Metrics.OracledbExecutionsRate.Enabled = true
 	cfg.Metrics.OracledbExecutionsRate.EnabledAttributes = append(
 		cfg.Metrics.OracledbExecutionsRate.EnabledAttributes,
-		metadata.OracledbExecutionsRateMetricAttributeKeyOracleDbPdb)
+		metadata.OracledbExecutionsRateMetricAttributeKeyOracleDbPdb,
+	)
 	cfg.Metrics.OracledbHardParsesRate.Enabled = true
 	cfg.Metrics.OracledbHardParsesRate.EnabledAttributes = append(
 		cfg.Metrics.OracledbHardParsesRate.EnabledAttributes,
-		metadata.OracledbHardParsesRateMetricAttributeKeyOracleDbPdb)
+		metadata.OracledbHardParsesRateMetricAttributeKeyOracleDbPdb,
+	)
 	cfg.Metrics.OracledbLogonsRate.Enabled = true
 	cfg.Metrics.OracledbLogonsRate.EnabledAttributes = append(
 		cfg.Metrics.OracledbLogonsRate.EnabledAttributes,
-		metadata.OracledbLogonsRateMetricAttributeKeyOracleDbPdb)
+		metadata.OracledbLogonsRateMetricAttributeKeyOracleDbPdb,
+	)
 	cfg.Metrics.OracledbCursorOpenRate.Enabled = true
 	cfg.Metrics.OracledbCursorOpenRate.EnabledAttributes = append(
 		cfg.Metrics.OracledbCursorOpenRate.EnabledAttributes,
-		metadata.OracledbCursorOpenRateMetricAttributeKeyOracleDbPdb)
+		metadata.OracledbCursorOpenRateMetricAttributeKeyOracleDbPdb,
+	)
 	cfg.Metrics.OracledbTransactionsRate.Enabled = true
 	cfg.Metrics.OracledbTransactionsRate.EnabledAttributes = append(
 		cfg.Metrics.OracledbTransactionsRate.EnabledAttributes,
-		metadata.OracledbTransactionsRateMetricAttributeKeyOracleDbPdb)
+		metadata.OracledbTransactionsRateMetricAttributeKeyOracleDbPdb,
+	)
 
 	scrpr := oracleScraper{
 		logger: zap.NewNop(),
@@ -1401,27 +1669,33 @@ var sessionEventQueryResponses = map[string][]metricRow{
 	sessionEventQuery: {
 		{
 			"SID": "100", "SERIAL#": "12345", "EVENT": "db file sequential read", "WAIT_CLASS": "User I/O",
-			"TOTAL_WAITS": "1500", "TOTAL_TIME_WAITED_SECS": "25.5", "DB_NAMESPACE": "ORCL",
+			"TOTAL_WAITS": "1500", "TOTAL_TIMEOUTS": "12", "TOTAL_TIME_WAITED_SECS": "25.5", "DB_NAMESPACE": "ORCL",
 		},
 		{
 			"SID": "101", "SERIAL#": "12346", "EVENT": "log file sync", "WAIT_CLASS": "Commit",
-			"TOTAL_WAITS": "800", "TOTAL_TIME_WAITED_SECS": "12.3", "DB_NAMESPACE": "ORCL",
+			"TOTAL_WAITS": "800", "TOTAL_TIMEOUTS": "5", "TOTAL_TIME_WAITED_SECS": "12.3", "DB_NAMESPACE": "ORCL",
 		},
 		{
 			"SID": "102", "SERIAL#": "12347", "EVENT": "buffer busy waits", "WAIT_CLASS": "Concurrency",
-			"TOTAL_WAITS": "50", "TOTAL_TIME_WAITED_SECS": "1.5",
+			"TOTAL_WAITS": "50", "TOTAL_TIMEOUTS": "0", "TOTAL_TIME_WAITED_SECS": "1.5",
 		},
 	},
 	"invalidSessionEventQuery": {
 		{
 			"SID": "100", "SERIAL#": "12345", "EVENT": "db file sequential read", "WAIT_CLASS": "User I/O",
-			"TOTAL_WAITS": "invalid", "TOTAL_TIME_WAITED_SECS": "25.5",
+			"TOTAL_WAITS": "invalid", "TOTAL_TIMEOUTS": "12", "TOTAL_TIME_WAITED_SECS": "25.5",
+		},
+	},
+	"invalidTimeoutsSessionEventQuery": {
+		{
+			"SID": "100", "SERIAL#": "12345", "EVENT": "db file sequential read", "WAIT_CLASS": "User I/O",
+			"TOTAL_WAITS": "1500", "TOTAL_TIMEOUTS": "invalid", "TOTAL_TIME_WAITED_SECS": "25.5",
 		},
 	},
 	"invalidTimeSessionEventQuery": {
 		{
 			"SID": "100", "SERIAL#": "12345", "EVENT": "db file sequential read", "WAIT_CLASS": "User I/O",
-			"TOTAL_WAITS": "1500", "TOTAL_TIME_WAITED_SECS": "invalid",
+			"TOTAL_WAITS": "1500", "TOTAL_TIMEOUTS": "12", "TOTAL_TIME_WAITED_SECS": "invalid",
 		},
 	},
 }
@@ -1664,6 +1938,15 @@ func TestSessionWaitEventsQuery(t *testing.T) {
 				}}
 			},
 			errWanted: `failed to parse int64 for oracledb.wait.count, value was invalid: strconv.ParseInt: parsing "invalid": invalid syntax`,
+		},
+		{
+			name: "bad wait.timeouts data",
+			dbclientFn: func(_ *sql.DB, _ string, _ *zap.Logger) dbClient {
+				return &fakeDbClient{Responses: [][]metricRow{
+					sessionEventQueryResponses["invalidTimeoutsSessionEventQuery"],
+				}}
+			},
+			errWanted: `failed to parse int64 for oracledb.wait.timeouts, value was invalid: strconv.ParseInt: parsing "invalid": invalid syntax`,
 		},
 		{
 			name: "bad wait.duration data",

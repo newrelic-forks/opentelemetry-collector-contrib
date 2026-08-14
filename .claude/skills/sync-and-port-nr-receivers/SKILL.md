@@ -1,6 +1,6 @@
 ---
 name: sync-and-port-nr-receivers
-description: "Use when syncing the newrelic-forks contrib repo with upstream and porting new upstream receiver changes into the nr-prefixed forks (nroracledbreceiver, nrsqlserverreceiver, nrpostgresqlreceiver, and — once it exists — nrmysqlreceiver). Covers merging origin/main, aligning collector deps, computing the base→fork parity delta, porting additively (handling attribute collisions and shared-metric drift), regenerating, and running all gates. Does NOT cut a release — see [[release-nr-receivers]] for tagging/publishing on the bi-weekly cadence, which runs every cycle regardless of whether this skill found anything to port."
+description: "Use when syncing the newrelic-forks contrib repo with upstream and porting new upstream receiver changes into the nr-prefixed forks (nroracledbreceiver, nrsqlserverreceiver, nrpostgresqlreceiver, nrmysqlreceiver). Covers branching from pre-release, merging origin/main, aligning collector deps, computing the base→fork parity delta, porting additively (handling attribute collisions and shared-metric drift), regenerating, and running all gates. Does NOT cut a release — see [[release-nr-receivers]] for tagging/publishing on the bi-weekly cadence, which runs every cycle regardless of whether this skill found anything to port."
 ---
 
 # Sync & Port NR-Prefixed Receivers
@@ -12,10 +12,11 @@ release-nr-receivers every cycle regardless, even when this skill was a no-op �
 fixed 2-week schedule and needs a new fork tag every time, changes or not.
 
 Keeps the `nr`-prefixed forks (`receiver/nroracledbreceiver`, `receiver/nrsqlserverreceiver`,
-`receiver/nrpostgresqlreceiver`, and — once it exists — `receiver/nrmysqlreceiver`) in sync with
-their upstream base receivers (`receiver/oracledbreceiver`, `receiver/sqlserverreceiver`,
-`receiver/postgresqlreceiver`, `receiver/mysqlreceiver`) after each upstream release. Runs on the
-`pre-release` branch of `github.com/newrelic-forks/opentelemetry-collector-contrib`.
+`receiver/nrpostgresqlreceiver`, `receiver/nrmysqlreceiver`) in sync with their upstream base
+receivers (`receiver/oracledbreceiver`, `receiver/sqlserverreceiver`, `receiver/postgresqlreceiver`,
+`receiver/mysqlreceiver`) after each upstream release. Work happens on a branch cut FROM
+`pre-release` on `github.com/newrelic-forks/opentelemetry-collector-contrib` — never directly on
+`pre-release` itself (see "Mandatory branching + PR process" below).
 
 Fork↔base pairs (add new pairs here as new `nr`-prefixed forks are created — do not hardcode the
 pair count elsewhere in this skill):
@@ -25,10 +26,26 @@ pair count elsewhere in this skill):
 | `receiver/nroracledbreceiver` | `receiver/oracledbreceiver` | `oracledb` | has `templates/*.tmpl` SQL templates |
 | `receiver/nrsqlserverreceiver` | `receiver/sqlserverreceiver` | `sqlserver` | has `concurrent_scraper.go`; `TestSetupQueries` metric-count guard |
 | `receiver/nrpostgresqlreceiver` | `receiver/postgresqlreceiver` | `postgresql` | no `templates/`; queries mostly inline in `client.go`/`scraper.go` |
-| `receiver/nrmysqlreceiver` (not yet created) | `receiver/mysqlreceiver` | `mysql` | placeholder — when the fork is created, add its query-source layout here and treat it identically to the pairs above |
+| `receiver/nrmysqlreceiver` | `receiver/mysqlreceiver` | `mysql` | no `templates/`; queries mostly inline in `client.go`/`scraper.go`; has `explain_mode` fork-specific field |
 
 The parity target is the **computed diff between each fork and its base**, never a specific PR
 number. A PR is just the concrete instance of "what's currently missing." Always recompute.
+
+## Mandatory branching + PR process (per NR-Prefixed Receiver Sync & Release Process doc)
+
+- **Never work directly on `pre-release`.** Always create a new branch FROM `pre-release` before
+  doing anything — including Phase 1's `git merge`. Naming convention: `sync-release/v<TARGET_VERSION>`
+  (e.g. `sync-release/v0.158.0`). `<TARGET_VERSION>` is the `contrib-base` version in the repo root's
+  `versions.yaml` (matches the pseudo-version base's `go.opentelemetry.io/collector/*` deps just moved
+  to during Phase 1 step 5 — read it off any base receiver's go.mod, e.g.
+  `grep 'collector/pdata ' receiver/sqlserverreceiver/go.mod`, and cross-check against `versions.yaml`).
+- Complete Phase 1 (Sync & Port) and draft the changelog (that's [[release-nr-receivers]]'s Part 2) on
+  this branch, then open a PR against `pre-release`. Post the PR link in `#data-integrations-team` for
+  team review — required before merging or pushing tags.
+- If you're resuming work already sitting on a misnamed branch (e.g. you started before confirming the
+  target version), `git branch -m <old> sync-release/v<TARGET_VERSION>` renames in place — safe as long
+  as nothing has been pushed/PR'd yet, since it's a pure local relabel that doesn't touch the working
+  tree or history.
 
 ## Environment quirks (this repo/host)
 
@@ -59,9 +76,10 @@ number. A PR is just the concrete instance of "what's currently missing." Always
    CI's `check-collector-module-version` fails, as in PR #205). The merge bumps the BASE receivers'
    `go.opentelemetry.io/collector/*` deps to a new pseudo-version; every nr/internal module must
    follow: `internal/nrcommon`, `internal/nrsqlquery`, `receiver/nroracledbreceiver`,
-   `receiver/nrsqlserverreceiver`, `receiver/nrpostgresqlreceiver` (and `receiver/nrmysqlreceiver`
-   once it exists — the module count here is NOT fixed at 4; re-derive it by listing the actual
-   `nr`-prefixed receiver dirs plus the shared `internal/nr*` modules each time).
+   `receiver/nrsqlserverreceiver`, `receiver/nrpostgresqlreceiver`, `receiver/nrmysqlreceiver` (6
+   modules as of the fork↔base table above — this count is NOT fixed; re-derive it by listing the
+   actual `nr`-prefixed receiver dirs plus the shared `internal/nr*` modules each time, since new
+   forks get added).
    - Find the new pseudo-version from a base receiver: `grep 'collector/pdata ' receiver/sqlserverreceiver/go.mod`.
    - For each nr module, `go mod edit -C <mod> -require=<path>@<newver>` for every `collector/*` require
      still on the old pseudo-version (`v1.62.1-<new>` for v1.* modules, `v0.156.1-<new>` for v0.* — match
@@ -174,6 +192,25 @@ base's dispatch shape, so copy logic VERBATIM (including value scaling and `meta
 - Note: metrics added as `enabled: false` won't appear in default-config goldens unless the test enables
   them. A golden shift on a DEFAULT run usually means a shared-metric change (new attribute), not the new
   opt-in metrics — confirm the real cause before regenerating.
+- **`config.schema.yaml` is hand-maintained, not generated — `make generate` will NOT fix it if it's stale,
+  and mdatagen happily accepts a stale one without erroring** (this has been missed before; it caused a
+  real, silent gap in the 2026-08 sync). Whenever a Config struct field's embedding style changes (e.g. the
+  upstream #49973-style "un-embed locally defined config structs" refactor: anonymous embed →
+  named field), the corresponding `config.schema.yaml` must move in lockstep:
+  - A field that's still anonymously embedded is referenced from the top-level `allOf:` list
+    (`- $ref: top_query_collection`).
+  - A field that's a named struct (`TopQueryCollection TopQueryCollection`) must instead appear as a
+    `properties:` entry (`top_query_collection: { $ref: top_query_collection }`), and the corresponding
+    `allOf:` line must be deleted — leaving both is wrong (mdatagen won't complain, but the schema no
+    longer matches the actual Go struct shape).
+  - Diff `config.schema.yaml` against base the same way you diff `metadata.yaml` — after ANY Config
+    struct change (un-embed refactor, new field addition), run
+    `diff receiver/<fork>/config.schema.yaml receiver/<base>/config.schema.yaml` and classify each
+    block the same way as metadata (base-only → port, fork-only → leave, e.g. `db_auth`/`explain_mode`
+    are legitimately fork- or base-only depending on direction).
+  - This is easy to miss because `config.go`'s change compiles and passes tests fine either way — the
+    schema is a separate, silent source of truth for documentation/validation tooling, not enforced by
+    the Go build.
 - **No changelog for the forks.** The base receivers require a `.chloggen/*.yaml` entry per change, but
   the `nr`-prefixed forks do NOT use `.chloggen` and have no `CHANGELOG.md` (prior ports like #49068 added
   none, and CI does not changelog-check the fork modules). Do not add a fork changelog entry; the base
@@ -226,8 +263,8 @@ promptly, same as code, rather than letting them sit as long-lived uncommitted s
 After porting, prove that EVERY metric and attribute present in the base receiver on `origin/main` now
 exists in the fork. This is the final acceptance gate — run it for EVERY pair in the fork↔base table
 above that exists in the repo today (`nroracledb`↔`oracledb`, `nrsqlserver`↔`sqlserver`,
-`nrpostgresql`↔`postgresql`, and `nrmysql`↔`mysql` once that fork exists), against the WORKING TREE
-(your uncommitted port), not committed refs. Both commands below must print nothing, per pair.
+`nrpostgresql`↔`postgresql`, `nrmysql`↔`mysql`), against the WORKING TREE (your uncommitted port),
+not committed refs. Both commands below must print nothing, per pair.
 
 ```
 # 1. Every base metric is in the fork (metrics: section only). Empty output = complete.
@@ -275,14 +312,21 @@ done
 - **README parity** (see Phase 2's README section above): re-run `diff receiver/<fork>/README.md
   receiver/<base>/README.md` and confirm every base-only block has been either ported or explicitly
   logged as a to-port item. This is part of the mandatory acceptance gate, not optional polish.
+- **`config.schema.yaml` parity** (see Phase 2's note above — easy to miss since `make generate` doesn't
+  catch it): re-run `diff receiver/<fork>/config.schema.yaml receiver/<base>/config.schema.yaml` per pair.
+  Base-only `properties:`/`allOf:` entries mean the fork's schema hasn't caught up with a Config struct
+  change (most commonly the embed→named-field un-embed refactor) — port them. Fork-only entries
+  (`db_auth` absent on a fork that hasn't adopted it yet, `explain_mode`, etc.) are expected divergence.
 
 ## Output
 
 Report: sync result (behind/ahead, conflict-free, dep-alignment), the parity delta per receiver pair
 (to-port list + known-divergence list), files changed, gate results, and a per-phase commit message.
-Cover every pair from the fork↔base table (skip any whose fork doesn't exist yet, e.g. `nrmysql`
-pre-creation). Flag that published fork tags now predate the port (a follow-up patch tag may be
-warranted) — do not auto-tag.
+Cover every pair from the fork↔base table (skip any whose fork doesn't exist yet — check by listing
+`receiver/nr*receiver` dirs, since new forks get added over time). Flag that published fork tags now
+predate the port (a follow-up patch tag may be warranted) — do not auto-tag. Remind the user of the
+mandatory PR step: open the PR against `pre-release` from the `sync-release/v<TARGET_VERSION>` branch
+and post the link in `#data-integrations-team` before merging or tagging.
 
 ## Worked example (2026-07 sync)
 

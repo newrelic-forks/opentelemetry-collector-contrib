@@ -246,8 +246,10 @@ func TestEventsScraper(t *testing.T) {
 					Logger: zap.Must(zap.NewProduction()),
 				},
 			}
-			scrapers := setupSQLServerLogsScrapers(settings, cfg)
+			scrapers, provider := setupSQLServerLogsScrapers(settings, cfg)
 			assert.Len(t, scrapers, 1)
+			// The receiver owns the shared pool; close it once the test is done.
+			defer func() { assert.NoError(t, provider.close()) }()
 			scraper := scrapers[0]
 			assert.NoError(t, scraper.Start(t.Context(), componenttest.NewNopHost()))
 			defer func() {

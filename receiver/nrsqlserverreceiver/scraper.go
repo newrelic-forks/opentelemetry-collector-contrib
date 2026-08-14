@@ -103,6 +103,9 @@ func (s *sqlServerScraperHelper) ID() component.ID {
 }
 
 func (s *sqlServerScraperHelper) Start(context.Context, component.Host) error {
+	// The connection pool is owned by the receiver and shared across all
+	// scrapers. Fetch the shared pool (opened once by the provider) rather than
+	// opening a new one here.
 	var err error
 	s.db, err = s.dbProviderFunc()
 	if err != nil {
@@ -346,10 +349,9 @@ func isThreeNumericSegments(s string) bool {
 	return isDigits(s[:firstSep]) && isDigits(s[firstSep+1:secondSep]) && isDigits(s[secondSep+1:])
 }
 
-func (s *sqlServerScraperHelper) Shutdown(context.Context) error {
-	if s.db != nil {
-		return s.db.Close()
-	}
+func (*sqlServerScraperHelper) Shutdown(context.Context) error {
+	// The connection pool is owned and closed by the receiver, not the scraper,
+	// so that a single shared pool's lifecycle is not tied to any one scraper.
 	return nil
 }
 
@@ -1670,7 +1672,8 @@ func (s *sqlServerScraperHelper) recordOSMemoryMetrics(ctx context.Context) erro
 	for _, row := range rows {
 		rb := s.setupResourceBuilder(s.mb.NewResourceBuilder(), row)
 
-		errs = append(errs,
+		errs = append(
+			errs,
 			s.mb.RecordSqlserverOsMemoryUsageDataPoint(now, row[totalBytes], metadata.AttributeMemoryStateTotal),
 			s.mb.RecordSqlserverOsMemoryUsageDataPoint(now, row[availableBytes], metadata.AttributeMemoryStateAvailable),
 		)
@@ -1907,7 +1910,8 @@ func (s *sqlServerScraperHelper) recordThreadPoolMetrics(ctx context.Context) er
 	for _, row := range rows {
 		rb := s.setupResourceBuilder(s.mb.NewResourceBuilder(), row)
 
-		errs = append(errs,
+		errs = append(
+			errs,
 			s.mb.RecordSqlserverThreadPoolWorkersCountDataPoint(now, row[workersRunning], metadata.AttributeWorkerStateRunning),
 			s.mb.RecordSqlserverThreadPoolWorkersCountDataPoint(now, row[workersSuspendedOrSleeping], metadata.AttributeWorkerStateSuspendedOrSleeping),
 			s.mb.RecordSqlserverThreadPoolWorkersMaxDataPoint(now, row[workersMax]),
@@ -1958,7 +1962,8 @@ func (s *sqlServerScraperHelper) recordTempDBMetrics(ctx context.Context) error 
 	for i, row := range rows {
 		rb := s.setupResourceBuilder(s.mb.NewResourceBuilder(), row)
 
-		errs = append(errs,
+		errs = append(
+			errs,
 			s.mb.RecordSqlserverTempdbSpaceUsageDataPoint(now, row[bytesUserObjects], metadata.AttributeTempdbSpaceKindUserObjects),
 			s.mb.RecordSqlserverTempdbSpaceUsageDataPoint(now, row[bytesInternalObjects], metadata.AttributeTempdbSpaceKindInternalObjects),
 			s.mb.RecordSqlserverTempdbSpaceUsageDataPoint(now, row[bytesVersionStore], metadata.AttributeTempdbSpaceKindVersionStore),
@@ -2066,7 +2071,8 @@ func (s *sqlServerScraperHelper) recordFailoverClusterAGMetrics(ctx context.Cont
 		if !ok {
 			ct = metadata.AttributeAgClusterTypeUnknown
 		}
-		errs = append(errs,
+		errs = append(
+			errs,
 			s.mb.RecordSqlserverFailoverClusterAgClusterTypeDataPoint(now, "1", row[agName], ct),
 			s.mb.RecordSqlserverFailoverClusterAgFailureConditionLevelDataPoint(now, row[failureConditionLevel], row[agName]),
 			s.mb.RecordSqlserverFailoverClusterAgHealthCheckTimeoutDataPoint(now, row[healthCheckTimeout], row[agName]),
@@ -2109,7 +2115,8 @@ func (s *sqlServerScraperHelper) recordFailoverClusterReplicaMetrics(ctx context
 			sh = metadata.AttributeReplicaSyncHealthUnknown
 		}
 
-		errs = append(errs,
+		errs = append(
+			errs,
 			s.mb.RecordSqlserverFailoverClusterReplicaRoleDataPoint(now, "1", row[agName], row[replicaServerName], r),
 			s.mb.RecordSqlserverFailoverClusterReplicaSynchronizationHealthDataPoint(now, "1", row[agName], row[replicaServerName], sh),
 		)
@@ -2144,7 +2151,8 @@ func (s *sqlServerScraperHelper) recordFailoverClusterReplicaDatabaseMetrics(ctx
 		rb := s.setupResourceBuilder(s.mb.NewResourceBuilder(), row)
 		rb.SetSqlserverDatabaseName(row[databaseName])
 
-		errs = append(errs,
+		errs = append(
+			errs,
 			s.mb.RecordSqlserverFailoverClusterReplicaDatabaseQueueSizeDataPoint(now, row[logSendQueueBytes], row[agName], row[replicaServerName], row[databaseName], metadata.AttributeReplicaQueueKindLogSend),
 			s.mb.RecordSqlserverFailoverClusterReplicaDatabaseQueueSizeDataPoint(now, row[redoQueueBytes], row[agName], row[replicaServerName], row[databaseName], metadata.AttributeReplicaQueueKindRedo),
 		)
@@ -2234,7 +2242,8 @@ func (s *sqlServerScraperHelper) recordIndexPhysicalMetrics(ctx context.Context)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("row %d: failed to parse %s: %w", i, pageCountKey, err))
 		} else {
-			errs = append(errs,
+			errs = append(
+				errs,
 				s.mb.RecordSqlserverIndexPageCountDataPoint(now, row[pageCountKey], row[databaseNameKey], indexID.(int64), row[objectNameKey], row[schemaNameKey]),
 				s.mb.RecordSqlserverIndexSizeDataPoint(now, strconv.FormatInt(pageCount.(int64)*sqlServerPageSizeBy, 10), row[databaseNameKey], indexID.(int64), row[objectNameKey], row[schemaNameKey]),
 			)
@@ -2247,7 +2256,8 @@ func (s *sqlServerScraperHelper) recordIndexPhysicalMetrics(ctx context.Context)
 			s.mb.RecordSqlserverIndexPageUtilizationDataPoint(now, val.(float64), row[databaseNameKey], indexID.(int64), row[objectNameKey], row[schemaNameKey])
 		}
 
-		errs = append(errs,
+		errs = append(
+			errs,
 			s.mb.RecordSqlserverIndexRecordCountDataPoint(now, row[recordCountKey], row[databaseNameKey], indexID.(int64), row[objectNameKey], row[schemaNameKey]),
 		)
 
@@ -2406,7 +2416,7 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 	rows, err := s.client.QueryRows(
 		ctx,
 		sql.Named("lookbackTime", -int(s.config.EffectiveLookbackTime().Seconds())),
-		sql.Named("maxSampleCount", s.config.MaxQuerySampleCount),
+		sql.Named("maxSampleCount", s.config.TopQueryCollection.MaxQuerySampleCount),
 	)
 	if err != nil {
 		if !errors.Is(err, sqlquery.ErrNullValueWarning) {
@@ -2437,7 +2447,7 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 	}
 	// sort the rows based on the totalElapsedTimeDiffs in descending order,
 	// only report first T(T=topQueryCount) rows.
-	rows = sortRows(rows, totalElapsedTimeDiffsMicrosecond, s.config.TopQueryCount)
+	rows = sortRows(rows, totalElapsedTimeDiffsMicrosecond, s.config.TopQueryCollection.TopQueryCount)
 
 	// sort the totalElapsedTimeDiffs in descending order as well
 	sort.Slice(totalElapsedTimeDiffsMicrosecond, func(i, j int) bool { return totalElapsedTimeDiffsMicrosecond[i] > totalElapsedTimeDiffsMicrosecond[j] })
@@ -2771,7 +2781,7 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 
 	rows, err := s.client.QueryRows(
 		ctx,
-		sql.Named("top", s.config.MaxRowsPerQuery),
+		sql.Named("top", s.config.QuerySample.MaxRowsPerQuery),
 	)
 	resources := pcommon.NewResource()
 	if err != nil {
@@ -2817,7 +2827,7 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 
 		idleRows, idleErr := idleBlockingClient.QueryRows(
 			ctx,
-			sql.Named("top", s.config.MaxRowsPerQuery),
+			sql.Named("top", s.config.QuerySample.MaxRowsPerQuery),
 		)
 		if idleErr != nil {
 			s.logger.Warn("problems encountered getting idle blocker log rows", zap.Error(idleErr))
