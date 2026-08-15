@@ -8,7 +8,7 @@ name: "Upstream release watcher"
 on:
   workflow_dispatch:
   schedule:
-    - cron: "17 8 * * *" # Run daily at 08:17 UTC.
+    - cron: "27 3 * * *" # Run daily at 03:27 UTC (~08:57 AM IST).
 
 permissions:
   contents: read
