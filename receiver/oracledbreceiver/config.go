@@ -51,6 +51,13 @@ type SessionWaitEvent struct {
 	_ struct{}
 }
 
+type WaitChain struct {
+	MaxRowsPerQuery uint64 `mapstructure:"max_rows_per_query"`
+
+	// prevent unkeyed literal initialization
+	_ struct{}
+}
+
 type Config struct {
 	DataSource                     string `mapstructure:"datasource"`
 	Endpoint                       string `mapstructure:"endpoint"`
@@ -64,6 +71,7 @@ type Config struct {
 	TopQueryCollection `mapstructure:"top_query_collection"`
 	QuerySample        `mapstructure:"query_sample_collection"`
 	SessionWaitEvent   `mapstructure:"session_wait_event_collection"`
+	WaitChain          `mapstructure:"wait_chain_collection"`
 }
 
 func (c Config) Validate() error {

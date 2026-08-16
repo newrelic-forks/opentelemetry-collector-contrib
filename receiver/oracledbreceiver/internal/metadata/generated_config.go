@@ -2868,6 +2868,7 @@ type EventsConfig struct {
 	DbServerQuerySample       EventConfig `mapstructure:"db.server.query_sample"`
 	DbServerSessionWaitSample EventConfig `mapstructure:"db.server.session.wait_sample"`
 	DbServerTopQuery          EventConfig `mapstructure:"db.server.top_query"`
+	DbServerWaitChain         EventConfig `mapstructure:"db.server.wait_chain"`
 }
 
 func DefaultEventsConfig() EventsConfig {
@@ -2879,6 +2880,9 @@ func DefaultEventsConfig() EventsConfig {
 			Enabled: false,
 		},
 		DbServerTopQuery: EventConfig{
+			Enabled: false,
+		},
+		DbServerWaitChain: EventConfig{
 			Enabled: false,
 		},
 	}

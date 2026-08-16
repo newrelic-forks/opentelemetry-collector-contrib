@@ -50,6 +50,9 @@ func createDefaultConfig() component.Config {
 		SessionWaitEvent: SessionWaitEvent{
 			MaxRowsPerQuery: 100,
 		},
+		WaitChain: WaitChain{
+			MaxRowsPerQuery: 100,
+		},
 		TopQueryCollection: TopQueryCollection{
 			MaxQuerySampleCount: 1000,
 			TopQueryCount:       200,
@@ -127,7 +130,7 @@ func createLogsReceiverFunc(sqlOpenerFunc sqlOpenerFunc, clientProviderFunc clie
 
 		mp, err := newLogsScraper(logsBuilder, sqlCfg.LogsBuilderConfig, sqlCfg.ControllerConfig, settings.Logger, func() (*sql.DB, error) {
 			return sqlOpenerFunc(getDataSource(*sqlCfg))
-		}, clientProviderFunc, instanceName, metricCache, sqlCfg.TopQueryCollection, sqlCfg.QuerySample, sqlCfg.SessionWaitEvent, hostName)
+		}, clientProviderFunc, instanceName, metricCache, sqlCfg.TopQueryCollection, sqlCfg.QuerySample, sqlCfg.SessionWaitEvent, sqlCfg.WaitChain, hostName)
 		if err != nil {
 			return nil, err
 		}
