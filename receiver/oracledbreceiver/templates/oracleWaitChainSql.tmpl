@@ -1,0 +1,36 @@
+/* otel-collector */ SELECT
+    CAST(SYS_CONTEXT('USERENV', 'DB_NAME') AS VARCHAR2(8))                     AS DB_NAME,
+    CAST(NVL(C.PDB_NAME, SYS_CONTEXT('USERENV', 'CON_NAME')) AS VARCHAR2(8))   AS PDB_NAME,
+    TO_NUMBER(SYS_CONTEXT('USERENV', 'INSTANCE'))                              AS INST,
+    C.CHAIN_ID,
+    C.CHAIN_IS_CYCLE,
+    C.SID                                                                      AS SID,
+    C.SESS_SERIAL#                                                             AS SERIAL,
+    C.IN_WAIT,
+    C.WAIT_EVENT_TEXT                                                          AS WAIT_EVENT,
+    C.IN_WAIT_SECS                                                             AS SECONDS_IN_WAIT,
+    C.NUM_WAITERS,
+    C.ROW_WAIT_OBJ#                                                            AS LOCKED_OBJECT_ID,
+    C.BLOCKER_INSTANCE                                                         AS BLOCKING_INSTANCE,
+    C.BLOCKER_SID                                                              AS BLOCKING_SID,
+    C.BLOCKER_SESS_SERIAL#                                                     AS BLOCKING_SERIAL,
+    CAST(C.BLOCKER_PDB_NAME AS VARCHAR2(8))                                   AS BLOCKING_PDB_NAME,
+    CASE
+        WHEN C.BLOCKER_IS_VALID = 'FALSE' OR C.BLOCKER_SID IS NULL THEN 'Y'
+        ELSE 'N'
+    END                                                                        AS IS_ROOT_BLOCKER,
+    CASE
+        WHEN C.BLOCKER_IS_VALID = 'FALSE' OR C.BLOCKER_INSTANCE IS NULL THEN 'ROOT_BLOCKER'
+        WHEN C.BLOCKER_INSTANCE = TO_NUMBER(SYS_CONTEXT('USERENV', 'INSTANCE')) THEN 'LOCAL'
+        ELSE 'REMOTE_RAC_NODE'
+    END                                                                        AS BLOCKING_SCOPE
+FROM
+    V$WAIT_CHAINS C
+WHERE
+    (C.BLOCKER_IS_VALID = 'TRUE' OR C.BLOCKER_SID IS NOT NULL OR C.NUM_WAITERS > 0 OR C.CHAIN_IS_CYCLE = 'TRUE')
+    AND (
+        C.INSTANCE = TO_NUMBER(SYS_CONTEXT('USERENV', 'INSTANCE'))
+        OR C.BLOCKER_INSTANCE = TO_NUMBER(SYS_CONTEXT('USERENV', 'INSTANCE'))
+        OR SYS_CONTEXT('USERENV', 'INSTANCE') IS NULL
+    )
+FETCH FIRST :1 ROWS ONLY
