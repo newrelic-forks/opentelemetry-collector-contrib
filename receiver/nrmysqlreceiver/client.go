@@ -382,8 +382,8 @@ func newMySQLClient(conf *Config) (client, error) {
 	driverConf := mysql.Config{
 		User:                 conf.Username,
 		Passwd:               string(conf.Password),
-		Net:                  string(conf.Transport),
-		Addr:                 conf.Endpoint,
+		Net:                  string(conf.AddrConfig.Transport),
+		Addr:                 conf.AddrConfig.Endpoint,
 		DBName:               conf.Database,
 		AllowNativePasswords: conf.AllowNativePasswords,
 		TLS:                  tls,
@@ -1062,22 +1062,32 @@ func (c *mySQLClient) getQuerySamples(limit uint64, supportsProcesslist bool) ([
 			return nil, err
 		}
 
-		// pl.HOST from performance_schema.processlist uses "host:port" for IPv4 and
-		// "[::1]:port" for IPv6, both parseable by net.SplitHostPort. When processlist
-		// is not joined (supportsProcesslist=false), processlistHost is a bare hostname
-		// from thread.processlist_host and SplitHostPort will return an error — in that
-		// case we leave processlistHost as-is and clientPort as 0.
-		if host, portStr, splitErr := net.SplitHostPort(s.processlistHost); splitErr == nil {
-			if port, parseErr := strconv.ParseUint(portStr, 10, 64); parseErr == nil {
-				s.processlistHost = host
-				s.clientPort = port
-			}
-		}
+		s.processlistHost, s.clientPort = splitClientHostPort(s.processlistHost)
 
 		samples = append(samples, s)
 	}
 
 	return samples, nil
+}
+
+// splitClientHostPort splits a "host:port" (or "[::1]:port") address, as
+// found in pl.HOST from performance_schema.processlist, into host and port.
+// The port is bounded to 16 bits since TCP ports never exceed 65535 -- a
+// wider bound would let an out-of-range value overflow when narrowed to
+// int64 downstream. When processlist is not joined (supportsProcesslist=
+// false), clientHostPort is a bare hostname from thread.processlist_host and
+// SplitHostPort returns an error -- in that case the input is returned as-is
+// with port 0.
+func splitClientHostPort(clientHostPort string) (host string, port uint64) {
+	h, portStr, splitErr := net.SplitHostPort(clientHostPort)
+	if splitErr != nil {
+		return clientHostPort, 0
+	}
+	p, parseErr := strconv.ParseUint(portStr, 10, 16)
+	if parseErr != nil {
+		return clientHostPort, 0
+	}
+	return h, p
 }
 
 func (c *mySQLClient) explainQuery(digestText, sampleStatement, schema, digest string, logger *zap.Logger) string {

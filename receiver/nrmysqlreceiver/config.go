@@ -36,18 +36,18 @@ const (
 )
 
 type Config struct {
-	scraperhelper.ControllerConfig `mapstructure:",squash"`
-	Username                       string              `mapstructure:"username,omitempty"`
-	Password                       configopaque.String `mapstructure:"password,omitempty"`
-	Database                       string              `mapstructure:"database,omitempty"`
-	AllowNativePasswords           bool                `mapstructure:"allow_native_passwords,omitempty"`
-	confignet.AddrConfig           `mapstructure:",squash"`
-	TLS                            configtls.ClientConfig        `mapstructure:"tls,omitempty"`
-	MetricsBuilderConfig           metadata.MetricsBuilderConfig `mapstructure:",squash"`
-	LogsBuilderConfig              metadata.LogsBuilderConfig    `mapstructure:",squash"`
-	StatementEvents                StatementEventsConfig         `mapstructure:"statement_events"`
-	TopQueryCollection             TopQueryCollection            `mapstructure:"top_query_collection"`
-	QuerySampleCollection          QuerySampleCollection         `mapstructure:"query_sample_collection"`
+	ControllerConfig      scraperhelper.ControllerConfig `mapstructure:",squash"`
+	Username              string                         `mapstructure:"username,omitempty"`
+	Password              configopaque.String            `mapstructure:"password,omitempty"`
+	Database              string                         `mapstructure:"database,omitempty"`
+	AllowNativePasswords  bool                           `mapstructure:"allow_native_passwords,omitempty"`
+	AddrConfig            confignet.AddrConfig           `mapstructure:",squash"`
+	TLS                   configtls.ClientConfig         `mapstructure:"tls,omitempty"`
+	MetricsBuilderConfig  metadata.MetricsBuilderConfig  `mapstructure:",squash"`
+	LogsBuilderConfig     metadata.LogsBuilderConfig     `mapstructure:",squash"`
+	StatementEvents       StatementEventsConfig          `mapstructure:"statement_events"`
+	TopQueryCollection    TopQueryCollection             `mapstructure:"top_query_collection"`
+	QuerySampleCollection QuerySampleCollection          `mapstructure:"query_sample_collection"`
 	// ExplainMode selects how execution plans are retrieved: "inline" (default,
 	// direct EXPLAIN on the monitoring connection) or "procedure" (CALL the
 	// <schema>.explain_statement SQL SECURITY DEFINER procedure, so write

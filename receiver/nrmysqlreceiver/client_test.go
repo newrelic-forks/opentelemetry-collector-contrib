@@ -618,3 +618,50 @@ func TestDBVersionHelperMethods(t *testing.T) {
 		assert.Equal(t, "mysql", dbVersion{}.systemName())
 	})
 }
+
+func TestSplitClientHostPort(t *testing.T) {
+	tests := []struct {
+		name         string
+		input        string
+		expectedHost string
+		expectedPort uint64
+	}{
+		{
+			name:         "IPv4 host and port",
+			input:        "10.0.0.5:54321",
+			expectedHost: "10.0.0.5",
+			expectedPort: 54321,
+		},
+		{
+			name:         "IPv6 host and port",
+			input:        "[::1]:3306",
+			expectedHost: "::1",
+			expectedPort: 3306,
+		},
+		{
+			name:         "bare hostname without port is returned as-is",
+			input:        "some-hostname",
+			expectedHost: "some-hostname",
+			expectedPort: 0,
+		},
+		{
+			name:         "port above the 16-bit TCP port range is rejected, not overflowed",
+			input:        "10.0.0.5:18446744073709551615",
+			expectedHost: "10.0.0.5:18446744073709551615",
+			expectedPort: 0,
+		},
+		{
+			name:         "port above 65535 but within 64 bits is rejected",
+			input:        "10.0.0.5:70000",
+			expectedHost: "10.0.0.5:70000",
+			expectedPort: 0,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			host, port := splitClientHostPort(tt.input)
+			assert.Equal(t, tt.expectedHost, host)
+			assert.Equal(t, tt.expectedPort, port)
+		})
+	}
+}

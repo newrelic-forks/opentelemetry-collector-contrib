@@ -70,12 +70,17 @@ it is still a legitimate release; do not skip it because "nothing changed."
    - Confirm `git status --short <mod>` is clean (no uncommitted changes to tag around — if there
      are, that's the user's call whether to commit first; don't assume).
    - Tag `HEAD` at the target version: `git tag internal/nrcommon/vX.Y.Z HEAD` (same for nrsqlquery).
-2. For each nr-prefixed receiver (`receiver/nrsqlserverreceiver`, `receiver/nroracledbreceiver`,
-   `receiver/nrpostgresqlreceiver`, and any future ones — re-derive this list from the directory
-   listing, don't hardcode a count):
-   - `go mod edit -C <receiver> -require=.../internal/nrcommon@vX.Y.Z` (and `nrsqlquery` if the
-     receiver depends on it — check with `grep nrsqlquery <receiver>/go.mod` first, not every
-     receiver does, e.g. `nroracledbreceiver` doesn't).
+2. For EVERY nr-prefixed receiver directory (`receiver/nrsqlserverreceiver`,
+   `receiver/nroracledbreceiver`, `receiver/nrpostgresqlreceiver`, `receiver/nrmysqlreceiver`, and any
+   future ones — re-derive this list from `ls receiver/ | grep '^nr'` every cycle, don't hardcode a
+   count or copy the list from a previous run of this skill). This applies even to a receiver that has
+   never been tagged before (e.g. `nrpostgresqlreceiver`/`nrmysqlreceiver` as of the v0.158.0 cycle) —
+   "no prior tag" is not a reason to skip the dependency bump; every nr-prefixed receiver gets its
+   internal-module deps bumped to this cycle's target version, every cycle, regardless of tag history:
+   - `go mod edit -C <receiver> -require=.../internal/nrcommon@vX.Y.Z` — mandatory for every receiver,
+     no exceptions; every nr-prefixed receiver depends on `nrcommon`.
+   - Also bump `nrsqlquery` if the receiver depends on it — check with `grep nrsqlquery
+     <receiver>/go.mod` first, not every receiver does (e.g. `nroracledbreceiver` doesn't).
    - Check the base receiver's own `pkg/*` deps for the SAME versioned (not pseudo-versioned)
      contrib packages the fork also depends on — `pkg/golden`, `pkg/pdatatest`,
      `pkg/winperfcounters` (sqlserver only), and any others: `grep 'opentelemetry-collector-contrib/pkg/'
