@@ -7,8 +7,8 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/microsoft/go-mssqldb v1.9.6
-	github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon v0.157.1
-	github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrsqlquery v0.157.1
+	github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon v0.158.0
+	github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrsqlquery v0.158.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/golden v0.158.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatatest v0.158.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/winperfcounters v0.158.0
@@ -18,7 +18,6 @@ require (
 	go.opentelemetry.io/collector/component/componenttest v0.158.1-0.20260813201048-a4a8565f65e7
 	go.opentelemetry.io/collector/config/configopaque v1.64.1-0.20260813201048-a4a8565f65e7
 	go.opentelemetry.io/collector/confmap v1.64.1-0.20260813201048-a4a8565f65e7
-	go.opentelemetry.io/collector/confmap/xconfmap v0.158.1-0.20260813201048-a4a8565f65e7
 	go.opentelemetry.io/collector/consumer v1.64.1-0.20260813201048-a4a8565f65e7
 	go.opentelemetry.io/collector/consumer/consumertest v0.158.1-0.20260813201048-a4a8565f65e7
 	go.opentelemetry.io/collector/featuregate v1.64.1-0.20260813201048-a4a8565f65e7

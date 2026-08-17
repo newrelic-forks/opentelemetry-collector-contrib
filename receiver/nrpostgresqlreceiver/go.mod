@@ -9,8 +9,8 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/lib/pq v1.12.3
-	github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon v0.157.1
-	github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrsqlquery v0.157.1
+	github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon v0.158.0
+	github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrsqlquery v0.158.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/golden v0.158.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatatest v0.158.0
 	github.com/stretchr/testify v1.11.1
