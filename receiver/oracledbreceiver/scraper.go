@@ -1850,9 +1850,12 @@ func (s *oracleScraper) collectWaitChains(ctx context.Context, logs plog.Logs) e
 		scrapeErrors = append(scrapeErrors, fmt.Errorf("error executing %s: %w", waitChainQuery, err))
 	}
 
+	s.logger.Debug("collectWaitChains: query returned", zap.Int("row_count", len(rows)))
+
 	rb := s.setupResourceBuilder(s.lb.NewResourceBuilder())
 
-	for _, row := range rows {
+	for i, row := range rows {
+		s.logger.Debug("collectWaitChains: processing row", zap.Int("index", i), zap.Any("row", row))
 		chainIDVal, err := strconv.ParseInt(row[chainID], 10, 64)
 		if err != nil {
 			scrapeErrors = append(scrapeErrors, fmt.Errorf("failed to parse int64 for oracledb.chain_id, value was %s: %w", row[chainID], err))
