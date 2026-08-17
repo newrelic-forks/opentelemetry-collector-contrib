@@ -249,6 +249,8 @@ var (
 	oracleQueryPlanDataSQL string
 	//go:embed templates/oracleSessionEventSql.tmpl
 	sessionEventQuery string
+	//go:embed templates/oracleWaitChainSql.tmpl
+	waitChainQuery string
 )
 
 // sgaComponentNames maps V$SGAINFO.NAME values to the snake_case enum keys
@@ -281,6 +283,7 @@ type oracleScraper struct {
 	oraclePlanDataClient       dbClient
 	samplesQueryClient         dbClient
 	sessionEventClient         dbClient
+	waitChainClient            dbClient
 	dataDictHitRatioClient     dbClient
 	osStatClient               dbClient
 	recycleBinSizeClient       dbClient
@@ -305,6 +308,7 @@ type oracleScraper struct {
 	obfuscator                 *obfuscator
 	querySampleCfg             QuerySample
 	sessionWaitEventCfg        SessionWaitEvent
+	waitChainCfg               WaitChain
 	serviceInstanceID          string
 	lastExecutionTimestamp     time.Time
 	// instanceInfo holds Oracle deployment metadata detected once at start().
@@ -330,7 +334,7 @@ func newScraper(metricsBuilder *metadata.MetricsBuilder, metricsBuilderConfig me
 
 func newLogsScraper(logsBuilder *metadata.LogsBuilder, logsBuilderConfig metadata.LogsBuilderConfig, scrapeCfg scraperhelper.ControllerConfig,
 	logger *zap.Logger, providerFunc dbProviderFunc, clientProviderFunc clientProviderFunc, instanceName string, metricCache *lru.Cache[string, map[string]int64],
-	topQueryCollectCfg TopQueryCollection, querySampleCfg QuerySample, sessionWaitEventCfg SessionWaitEvent, hostName string,
+	topQueryCollectCfg TopQueryCollection, querySampleCfg QuerySample, sessionWaitEventCfg SessionWaitEvent, waitChainCfg WaitChain, hostName string,
 ) (scraper.Logs, error) {
 	s := &oracleScraper{
 		lb:                  logsBuilder,
@@ -344,6 +348,7 @@ func newLogsScraper(logsBuilder *metadata.LogsBuilder, logsBuilderConfig metadat
 		topQueryCollectCfg:  topQueryCollectCfg,
 		querySampleCfg:      querySampleCfg,
 		sessionWaitEventCfg: sessionWaitEventCfg,
+		waitChainCfg:        waitChainCfg,
 		hostName:            hostName,
 		obfuscator:          newObfuscator(),
 		serviceInstanceID:   getInstanceID(instanceName, logger),
@@ -377,6 +382,7 @@ func (s *oracleScraper) start(ctx context.Context, _ component.Host) error {
 	s.tablespaceUsageClient = s.clientProviderFunc(s.db, tablespaceUsageSQL, s.logger)
 	s.samplesQueryClient = s.clientProviderFunc(s.db, samplesQuery, s.logger)
 	s.sessionEventClient = s.clientProviderFunc(s.db, sessionEventQuery, s.logger)
+	s.waitChainClient = s.clientProviderFunc(s.db, waitChainQuery, s.logger)
 	s.dataDictHitRatioClient = s.clientProviderFunc(s.db, dataDictHitRatioSQL, s.logger)
 	s.osStatClient = s.clientProviderFunc(s.db, osStatSQL, s.logger)
 	s.recycleBinSizeClient = s.clientProviderFunc(s.db, recycleBinSizeSQL, s.logger)
@@ -1400,6 +1406,13 @@ func (s *oracleScraper) scrapeLogs(ctx context.Context) (plog.Logs, error) {
 		}
 	}
 
+	if s.logsBuilderConfig.Events.DbServerWaitChain.Enabled {
+		waitChainErrors := s.collectWaitChains(ctx, logs)
+		if waitChainErrors != nil {
+			scrapeErrors = append(scrapeErrors, waitChainErrors)
+		}
+	}
+
 	return logs, errors.Join(scrapeErrors...)
 }
 
@@ -1803,6 +1816,65 @@ func (s *oracleScraper) collectSessionWaitEvents(ctx context.Context, logs plog.
 		}
 
 		s.lb.RecordDbServerSessionWaitSampleEvent(ctx, timestamp, row[sid], row[serial], row[event], row[waitClass], totalWaitsVal, totalTimeWaitedSecsVal, row[dbNamespaceAttr])
+	}
+
+	s.lb.Emit(metadata.WithLogsResource(rb.Emit())).ResourceLogs().MoveAndAppendTo(logs.ResourceLogs())
+
+	return errors.Join(scrapeErrors...)
+}
+
+func (s *oracleScraper) collectWaitChains(ctx context.Context, logs plog.Logs) error {
+	const dbName = "DB_NAME"
+	const chainID = "CHAIN_ID"
+	const chainIsCycle = "CHAIN_IS_CYCLE"
+	const sid = "SID"
+	const serial = "SERIAL"
+	const inWait = "IN_WAIT"
+	const waitEvent = "WAIT_EVENT"
+	const secondsInWait = "SECONDS_IN_WAIT"
+	const numWaiters = "NUM_WAITERS"
+	const lockedObjectID = "LOCKED_OBJECT_ID"
+	const blockingInstance = "BLOCKING_INSTANCE"
+	const blockingSID = "BLOCKING_SID"
+	const blockingSerial = "BLOCKING_SERIAL"
+	const blockingPDBName = "BLOCKING_PDB_NAME"
+	const isRootBlocker = "IS_ROOT_BLOCKER"
+	const blockingScope = "BLOCKING_SCOPE"
+
+	var scrapeErrors []error
+
+	timestamp := pcommon.NewTimestampFromTime(time.Now())
+
+	rows, err := s.waitChainClient.metricRows(ctx, s.waitChainCfg.MaxRowsPerQuery)
+	if err != nil {
+		scrapeErrors = append(scrapeErrors, fmt.Errorf("error executing %s: %w", waitChainQuery, err))
+	}
+
+	rb := s.setupResourceBuilder(s.lb.NewResourceBuilder())
+
+	for _, row := range rows {
+		chainIDVal, err := strconv.ParseInt(row[chainID], 10, 64)
+		if err != nil {
+			scrapeErrors = append(scrapeErrors, fmt.Errorf("failed to parse int64 for oracledb.chain_id, value was %s: %w", row[chainID], err))
+			continue
+		}
+
+		secondsInWaitVal, err := strconv.ParseInt(row[secondsInWait], 10, 64)
+		if err != nil {
+			scrapeErrors = append(scrapeErrors, fmt.Errorf("failed to parse int64 for oracledb.blocking.wait_duration, value was %s: %w", row[secondsInWait], err))
+			continue
+		}
+
+		numWaitersVal, err := strconv.ParseInt(row[numWaiters], 10, 64)
+		if err != nil {
+			scrapeErrors = append(scrapeErrors, fmt.Errorf("failed to parse int64 for oracledb.num_waiters, value was %s: %w", row[numWaiters], err))
+			continue
+		}
+
+		s.lb.RecordDbServerWaitChainEvent(ctx, timestamp, row[dbName], row[sid], row[serial], row[waitEvent],
+			chainIDVal, row[chainIsCycle], row[inWait], secondsInWaitVal, numWaitersVal, row[lockedObjectID],
+			row[blockingInstance], row[blockingSID], row[blockingSerial], row[blockingPDBName],
+			row[isRootBlocker], row[blockingScope])
 	}
 
 	s.lb.Emit(metadata.WithLogsResource(rb.Emit())).ResourceLogs().MoveAndAppendTo(logs.ResourceLogs())
