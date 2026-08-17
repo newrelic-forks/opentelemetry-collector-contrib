@@ -17,9 +17,7 @@ including confirmation of which breaking changes from [CHANGELOG.md](./CHANGELOG
   `postgresql.database.locks` is now collected per configured database via a dedicated
   `getSharedRelationLocks` query for shared catalogs plus a database-scoped `getDatabaseLocks`
   query, and the lock count switched from `COUNT(pid)` to `COUNT(*)` so locks held by prepared
-  transactions (NULL `pid`) are counted. **Not yet ported** — the fork's `getDatabaseLocks` in
-  `client.go` still runs the old unscoped, `COUNT(pid)`-based query with no `getSharedRelationLocks`
-  counterpart. Needs `sync-and-port-nr-receivers` before this behavior lands in the fork.
+  transactions (NULL `pid`) are counted. Also adds an opt-in `db.namespace` attribute. Ported.
 
 ### 🚩 New components 🚩
 
