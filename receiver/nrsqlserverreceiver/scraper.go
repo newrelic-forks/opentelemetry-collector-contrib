@@ -2519,9 +2519,9 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 		queryPlanVal := s.retrieveValue(row, queryPlan, &errs, func(row sqlquery.StringMap, columnName string) (any, error) {
 			obfuscatedXML, err := s.obfuscator.obfuscateXMLPlan(row[columnName], s.logger, queryPlanHashVal)
 			if err != nil || obfuscatedXML == "" {
-				return obfuscatedXML, err
+				return []planFlatNode{}, err
 			}
-			return xmlPlanToJSON(obfuscatedXML)
+			return xmlPlanToNodes(obfuscatedXML)
 		})
 
 		rowsReturnedVal := s.retrieveValue(row, rowsReturned, &errs, retrieveInt)
@@ -2590,13 +2590,28 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 			nrServiceGUIDVal,
 			dbQueryTextNormalizedHashVal,
 		)
-		if planJSON := queryPlanVal.(string); planJSON != "" {
-			s.lb.RecordDbServerQueryPlanEvent(
-				context.Background(),
-				timestamp,
-				queryPlanHashVal,
-				planJSON,
-			)
+		if planNodes, ok := queryPlanVal.([]planFlatNode); ok {
+			for _, node := range planNodes {
+				s.lb.RecordDbServerQueryPlanEvent(
+					context.Background(),
+					timestamp,
+					node.AvgRowSize,
+					node.EstimateCPU,
+					node.EstimateIO,
+					node.EstimateRows,
+					node.EstimatedExecutionMode,
+					node.EstimatedTotalSubtreeCost,
+					node.Index,
+					inputTypeAttr(node.InputType),
+					node.LogicalOp,
+					int64(node.NodeID),
+					int64(node.ParentID),
+					node.PhysicalOp,
+					queryPlanHashVal,
+					node.Schema,
+					node.Table,
+				)
+			}
 		}
 	}
 	return resources, errors.Join(errs...)
