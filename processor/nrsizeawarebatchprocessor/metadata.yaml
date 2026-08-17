@@ -1,0 +1,16 @@
+type: nrsizeawarebatch
+display_name: NR Size-Aware Batch Processor
+description: >
+  Splits incoming log batches into sub-batches whose gzip-compressed proto size
+  stays below a configurable threshold, preventing HTTP 413 from downstream
+  OTLP exporters. Optionally restricts splitting to specific event types so
+  only large events (e.g. db.server.query_plan) are processed; all other events
+  pass through unchanged.
+
+status:
+  class: processor
+  stability:
+    development: [logs]
+  distributions: []
+  codeowners:
+    active: []

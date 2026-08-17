@@ -17,7 +17,6 @@ import (
 	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
-	"github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon/plancache"
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon/priorityqueue"
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon/sqlcomments"
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon/sqlnormalizer"
@@ -56,7 +55,6 @@ type sqlServerScraperHelper struct {
 	mb                     *metadata.MetricsBuilder
 	lb                     *metadata.LogsBuilder
 	cache                  *lru.Cache[string, int64]
-	planCache              *plancache.Cache
 	lastExecutionTimestamp time.Time
 	obfuscator             *obfuscator
 	serviceInstanceID      string
@@ -94,7 +92,6 @@ func newSQLServerScraper(id component.ID,
 		mb:                     metadata.NewMetricsBuilder(cfg.MetricsBuilderConfig, params),
 		lb:                     metadata.NewLogsBuilder(cfg.LogsBuilderConfig, params),
 		cache:                  cache,
-		planCache:              plancache.New(cfg.PlanCacheTTL),
 		lastExecutionTimestamp: time.Unix(0, 0),
 		obfuscator:             newObfuscator(),
 		serviceInstanceID:      serviceInstanceID,
@@ -350,7 +347,6 @@ func isThreeNumericSegments(s string) bool {
 }
 
 func (s *sqlServerScraperHelper) Shutdown(context.Context) error {
-	s.planCache.Stop()
 	if s.db != nil {
 		return s.db.Close()
 	}
@@ -2521,9 +2517,6 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 		}
 
 		queryPlanVal := s.retrieveValue(row, queryPlan, &errs, func(row sqlquery.StringMap, columnName string) (any, error) {
-			if !s.planCache.ShouldEmit(queryPlanHashVal) {
-				return []planFlatNode{}, nil
-			}
 			obfuscatedXML, err := s.obfuscator.obfuscateXMLPlan(row[columnName], s.logger, queryPlanHashVal)
 			if err != nil || obfuscatedXML == "" {
 				return []planFlatNode{}, err
