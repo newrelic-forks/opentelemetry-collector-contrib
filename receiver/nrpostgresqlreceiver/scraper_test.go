@@ -83,11 +83,11 @@ func TestMetricsBuilderConfigForFeatureGate(t *testing.T) {
 	assert.Empty(t, legacyConfig.Metrics.PostgresqlTupReturned.EnabledAttributes)
 	assert.Empty(t, legacyConfig.Metrics.PostgresqlTupUpdated.EnabledAttributes)
 	assert.Equal(t, []metadata.PostgresqlBlocksReadMetricAttributeKey{metadata.PostgresqlBlocksReadMetricAttributeKeySource}, legacyConfig.Metrics.PostgresqlBlocksRead.EnabledAttributes)
+	assert.Equal(t, []metadata.PostgresqlDatabaseLocksMetricAttributeKey{metadata.PostgresqlDatabaseLocksMetricAttributeKeyRelation, metadata.PostgresqlDatabaseLocksMetricAttributeKeyMode, metadata.PostgresqlDatabaseLocksMetricAttributeKeyLockType}, legacyConfig.Metrics.PostgresqlDatabaseLocks.EnabledAttributes)
 	assert.Equal(t, []metadata.PostgresqlFunctionCallsMetricAttributeKey{metadata.PostgresqlFunctionCallsMetricAttributeKeyFunction}, legacyConfig.Metrics.PostgresqlFunctionCalls.EnabledAttributes)
 	assert.Equal(t, []metadata.PostgresqlOperationsMetricAttributeKey{metadata.PostgresqlOperationsMetricAttributeKeyOperation}, legacyConfig.Metrics.PostgresqlOperations.EnabledAttributes)
 	assert.Equal(t, []metadata.PostgresqlQueryConflictsMetricAttributeKey{metadata.PostgresqlQueryConflictsMetricAttributeKeyPostgresqlConflictType}, legacyConfig.Metrics.PostgresqlQueryConflicts.EnabledAttributes)
 	assert.Equal(t, []metadata.PostgresqlRowsMetricAttributeKey{metadata.PostgresqlRowsMetricAttributeKeyState}, legacyConfig.Metrics.PostgresqlRows.EnabledAttributes)
-	assert.Equal(t, cfg.Metrics.PostgresqlDatabaseLocks.EnabledAttributes, legacyConfig.Metrics.PostgresqlDatabaseLocks.EnabledAttributes)
 	assert.Equal(t, cfg.Metrics.PostgresqlReplicationDataDelay.EnabledAttributes, legacyConfig.Metrics.PostgresqlReplicationDataDelay.EnabledAttributes)
 	assert.Equal(t, cfg.Metrics.PostgresqlWalDelay.EnabledAttributes, legacyConfig.Metrics.PostgresqlWalDelay.EnabledAttributes)
 	assert.Equal(t, cfg.Metrics.PostgresqlWalLag.EnabledAttributes, legacyConfig.Metrics.PostgresqlWalLag.EnabledAttributes)
@@ -2465,6 +2465,11 @@ func (m *mockClient) getDatabaseLocks(ctx context.Context) ([]databaseLocks, err
 	return args.Get(0).([]databaseLocks), args.Error(1)
 }
 
+func (m *mockClient) getSharedRelationLocks(ctx context.Context) ([]databaseLocks, error) {
+	args := m.Called(ctx)
+	return args.Get(0).([]databaseLocks), args.Error(1)
+}
+
 func (m *mockClient) getBackends(_ context.Context, databases []string) (map[databaseName]int64, error) {
 	args := m.Called(databases)
 	return args.Get(0).(map[databaseName]int64), args.Error(1)
@@ -2617,34 +2622,14 @@ func (m *mockClient) initMocks(database, schema string, databases []string, inde
 		}, nil)
 		m.On("getMaxConnections", mock.Anything).Return(int64(100), nil)
 		m.On("getLatestWalAgeSeconds", mock.Anything).Return(int64(3600), nil)
-		m.On("getDatabaseLocks", mock.Anything).Return([]databaseLocks{
+		m.On("getSharedRelationLocks", mock.Anything).Return([]databaseLocks{
 			{
-				relation: "pg_locks",
+				relation: "pg_database",
 				mode:     "AccessShareLock",
 				lockType: "relation",
-				locks:    3600,
-			},
-			{
-				relation: "pg_class",
-				mode:     "AccessShareLock",
-				lockType: "relation",
-				locks:    5600,
+				locks:    2,
 			},
 		}, nil)
-		m.On("getDatabaseLocks", mock.Anything).Return([]databaseLocks{
-			{
-				relation: "abd_table",
-				mode:     "ExplicitLock",
-				lockType: "relation",
-				locks:    1600,
-			},
-			{
-				relation: "pg_class",
-				mode:     "AccessShareLock",
-				lockType: "relation",
-				locks:    5600,
-			},
-		}, errors.New("some error"))
 		m.On("getReplicationStats", mock.Anything).Return([]replicationStats{
 			{
 				clientAddr:   "unix",
@@ -2772,6 +2757,21 @@ func (m *mockClient) initMocks(database, schema string, databases []string, inde
 			},
 		}
 		m.On("getFunctionStats", mock.Anything, database).Return(functionStats, nil)
+
+		m.On("getDatabaseLocks", mock.Anything).Return([]databaseLocks{
+			{
+				relation: "pg_locks",
+				mode:     "AccessShareLock",
+				lockType: "relation",
+				locks:    int64(index + 3600),
+			},
+			{
+				relation: "pg_class",
+				mode:     "AccessShareLock",
+				lockType: "relation",
+				locks:    int64(index + 5600),
+			},
+		}, nil)
 
 		vectorSearchStats := []vectorSearchStat{
 			{
