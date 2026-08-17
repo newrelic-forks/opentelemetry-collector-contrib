@@ -2877,12 +2877,8 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 			return obfuscated, nil
 		}).(string)
 
-		if queryTextVal == "" {
-			trimmedStatement := strings.TrimSpace(row[statementText])
-			idleBlockerEmptyOrComment := row[command] == "IDLE_BLOCKER" && (trimmedStatement == "" || strings.HasPrefix(trimmedStatement, "--"))
-			if !idleBlockerEmptyOrComment {
-				continue
-			}
+		if queryTextVal == "" && row[command] != "IDLE_BLOCKER" {
+			continue
 		}
 
 		var fullQueryTextVal, dbSQLCommentsVal, nrServiceGUIDVal, dbQueryTextNormalizedHashVal string
