@@ -8,6 +8,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -2590,26 +2591,16 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 			nrServiceGUIDVal,
 			dbQueryTextNormalizedHashVal,
 		)
-		if planNodes, ok := queryPlanVal.([]planFlatNode); ok {
-			for _, node := range planNodes {
+		if planNodes, ok := queryPlanVal.([]planFlatNode); ok && len(planNodes) > 0 {
+			planJSON, jsonErr := json.Marshal(planNodes)
+			if jsonErr != nil {
+				s.logger.Error("failed to marshal execution plan nodes", zap.Error(jsonErr))
+			} else {
 				s.lb.RecordDbServerQueryPlanEvent(
 					context.Background(),
 					timestamp,
-					node.AvgRowSize,
-					node.EstimateCPU,
-					node.EstimateIO,
-					node.EstimateRows,
-					node.EstimatedExecutionMode,
-					node.EstimatedTotalSubtreeCost,
-					node.Index,
-					inputTypeAttr(node.InputType),
-					node.LogicalOp,
-					int64(node.NodeID),
-					int64(node.ParentID),
-					node.PhysicalOp,
+					string(planJSON),
 					queryPlanHashVal,
-					node.Schema,
-					node.Table,
 				)
 			}
 		}

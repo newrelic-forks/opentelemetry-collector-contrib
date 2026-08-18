@@ -1715,27 +1715,14 @@ events:
 
 ### db.server.query_plan
 
-one record per plan operator node; join to db.server.top_query on sqlserver.query_plan_hash
+one record per query containing the full execution plan as a JSON array; join to db.server.top_query on sqlserver.query_plan_hash
 
 #### Attributes
 
 | Name | Description | Values | Semantic Convention |
 | ---- | ----------- | ------ | ------------------- |
-| sqlserver.avg_row_size | Average size in bytes of the rows output by a plan operator. | Any Str | - |
-| sqlserver.estimate_cpu | Estimated CPU cost of a plan operator. | Any Str | - |
-| sqlserver.estimate_io | Estimated I/O cost of a plan operator. | Any Str | - |
-| sqlserver.estimate_rows | Estimated number of rows output by a plan operator. | Any Str | - |
-| sqlserver.estimated_execution_mode | Estimated execution mode for a plan operator (Row or Batch). | Any Str | - |
-| sqlserver.estimated_total_subtree_cost | Estimated total cost of the subtree rooted at a plan operator. | Any Str | - |
-| sqlserver.index_name | Index name referenced by a plan operator's Object element. | Any Str | - |
-| sqlserver.input_type | Position of a plan node relative to its parent operator (Root, LeftInput, RightInput, or Input). | Str: ``Root``, ``LeftInput``, ``RightInput``, ``Input`` | - |
-| sqlserver.logical_op | Logical operator name for a plan node (e.g. Inner Join, Filter). | Any Str | - |
-| sqlserver.node_id | Sequential identifier of a plan operator node within the execution plan. | Any Int | - |
-| sqlserver.parent_node_id | Identifier of the parent plan operator node (-1 for the root node). | Any Int | - |
-| sqlserver.physical_op | Physical operator name for a plan node (e.g. Hash Match, Index Scan). | Any Str | - |
+| sqlserver.query_plan | Execution plan for the query as a JSON array of operator nodes. Each element represents one RelOp operator; tree structure is encoded via node_id and parent_id fields within each object. | Any Str | - |
 | sqlserver.query_plan_hash | Binary hash value calculated on the query execution plan and used to identify similar query execution plans, reported in the HEX format. | Any Str | - |
-| sqlserver.schema_name | Schema name referenced by a plan operator's Object element. | Any Str | - |
-| sqlserver.table_name | Table name referenced by a plan operator's Object element. | Any Str | - |
 
 ### db.server.query_sample
 

@@ -6,8 +6,6 @@ package nrsqlserverreceiver // import "github.com/newrelic-forks/opentelemetry-c
 import (
 	"encoding/json"
 	"encoding/xml"
-
-	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver/internal/metadata"
 )
 
 // planFlatNode is one operator node in the flat JSON array emitted for a SQL Server execution plan.
@@ -262,16 +260,3 @@ func walkSingle(op *xmlOpChildren, nodes *[]planFlatNode, counter *int, parentID
 	}
 }
 
-// inputTypeAttr converts the InputType string to the generated enum value.
-func inputTypeAttr(s string) metadata.AttributeSqlserverInputType {
-	switch s {
-	case "LeftInput":
-		return metadata.AttributeSqlserverInputTypeLeftInput
-	case "RightInput":
-		return metadata.AttributeSqlserverInputTypeRightInput
-	case "Input":
-		return metadata.AttributeSqlserverInputTypeInput
-	default:
-		return metadata.AttributeSqlserverInputTypeRoot
-	}
-}
