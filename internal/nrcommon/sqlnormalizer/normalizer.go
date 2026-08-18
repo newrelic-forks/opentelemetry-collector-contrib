@@ -1,0 +1,602 @@
+// Copyright The OpenTelemetry Authors
+// SPDX-License-Identifier: Apache-2.0
+
+// Package sqlnormalizer provides SQL normalization and MD5 hashing for APM-to-database query correlation.
+//
+// This package implements the exact same normalization logic as New Relic's Java APM agent
+// (SqlStatementNormalizer.java), ensuring that both APM and database receivers generate
+// identical MD5 hashes for the same SQL queries.
+//
+// Reference implementation:
+// - apm-trace-consumer: SqlStatementNormalizer.java
+// - apm-trace-consumer: SqlHashUtil.java
+package sqlnormalizer // import "github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon/sqlnormalizer"
+
+import (
+	"crypto/md5" // #nosec G501 -- MD5 required for hash compatibility with the New Relic Java APM agent, not for security.
+	"encoding/hex"
+	"strings"
+)
+
+// sqlNormalizerState holds state during SQL normalization.
+// This matches the SqlNormalizerState inner class in the Java reference implementation.
+type sqlNormalizerState struct {
+	sql    string
+	length int
+	idx    int
+}
+
+// newSQLNormalizerState creates a new state machine for SQL normalization.
+func newSQLNormalizerState(sql string) *sqlNormalizerState {
+	return &sqlNormalizerState{
+		sql:    sql,
+		length: len(sql),
+		idx:    0,
+	}
+}
+
+// hasMore returns true if there are more characters to process.
+func (s *sqlNormalizerState) hasMore() bool {
+	return s.idx < s.length
+}
+
+// hasNext returns true if there is at least one more character after current.
+func (s *sqlNormalizerState) hasNext() bool {
+	return s.idx+1 < s.length
+}
+
+// current returns the current character.
+func (s *sqlNormalizerState) current() byte {
+	return s.sql[s.idx]
+}
+
+// peek returns the next character without advancing.
+func (s *sqlNormalizerState) peek() byte {
+	return s.sql[s.idx+1]
+}
+
+// advance moves to the next character.
+func (s *sqlNormalizerState) advance() {
+	s.idx++
+}
+
+// advanceBy2 moves forward by two characters.
+func (s *sqlNormalizerState) advanceBy2() {
+	s.idx += 2
+}
+
+// isIdentifierChar checks if a character is valid in an identifier.
+func isIdentifierChar(c byte) bool {
+	return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
+}
+
+// isNumericLiteral checks if current position is a numeric literal.
+// Matches Java implementation logic.
+func isNumericLiteral(state *sqlNormalizerState) bool {
+	c := state.current()
+
+	// Check for digit, minus, plus, or decimal point
+	if (c < '0' || c > '9') && c != '-' && c != '+' && c != '.' {
+		return false
+	}
+
+	// Make sure it's not part of an identifier
+	if state.idx > 0 {
+		prev := state.sql[state.idx-1]
+		// If preceded by letter, underscore, or backtick, it's part of identifier
+		if (prev >= 'A' && prev <= 'Z') || prev == '_' || prev == '`' {
+			return false
+		}
+	}
+
+	// Look ahead to confirm it's a complete number
+	savedIdx := state.idx
+
+	// Handle optional sign
+	if c == '-' || c == '+' {
+		state.advance()
+		if !state.hasMore() {
+			state.idx = savedIdx
+			return false
+		}
+		c = state.current()
+	}
+
+	// Numbers starting with decimal point
+	if c == '.' {
+		state.advance()
+		if !state.hasMore() || state.current() < '0' || state.current() > '9' {
+			state.idx = savedIdx
+			return false
+		}
+		// Looks like an actual decimal number
+		state.idx = savedIdx
+		return true
+	}
+
+	// Must have at least one digit before optional decimal point
+	if c < '0' || c > '9' {
+		state.idx = savedIdx
+		return false
+	}
+
+	state.idx = savedIdx
+	return true
+}
+
+// skipNumericLiteral skips over a numeric literal.
+
+func skipNumericLiteral(state *sqlNormalizerState) {
+	// + or - sign
+	c := state.current()
+	if c == '-' || c == '+' {
+		state.advance()
+	}
+
+	// Skip any digits
+	for state.hasMore() && (state.current() >= '0' && state.current() <= '9') {
+		state.advance()
+	}
+
+	// Decimal point
+	if state.hasMore() && state.current() == '.' {
+		state.advance()
+		for state.hasMore() && (state.current() >= '0' && state.current() <= '9') {
+			state.advance()
+		}
+	}
+
+	// Scientific notation (1E10, 1E-5)
+	if state.hasMore() && state.current() == 'E' {
+		state.advance()
+		if state.hasMore() && (state.current() == '+' || state.current() == '-') {
+			state.advance()
+		}
+		for state.hasMore() && (state.current() >= '0' && state.current() <= '9') {
+			state.advance()
+		}
+	}
+}
+
+// skipStringLiteral skips over a string literal, handling escaped quotes.
+
+func skipStringLiteral(state *sqlNormalizerState) {
+	state.advance() // Skip the opening quote
+
+	for state.hasMore() {
+		c := state.current()
+
+		switch c {
+		case '\'':
+			// Check for escaped quote ''
+			if !state.hasNext() || state.peek() != '\'' {
+				state.advance() // Skip closing quote
+				return
+			}
+			state.advanceBy2() // Skip both quotes
+		case '\\':
+			// Handle backslash escaping (MySQL, PostgreSQL)
+			state.advance()
+			if state.hasMore() {
+				state.advance()
+			}
+		default:
+			state.advance()
+		}
+	}
+}
+
+// isPlaceholder checks if current position is a parameter placeholder.
+// Supports: ? (JDBC), :name/:1 (Oracle), $1 (PostgreSQL), @name (SQL Server), %(name)s (Python)
+
+func isPlaceholder(state *sqlNormalizerState) bool {
+	c := state.current()
+
+	// JDBC style: ?
+	if c == '?' {
+		return true
+	}
+
+	// PostgreSQL style: $1, $2...
+	if c == '$' && state.hasNext() && (state.peek() >= '0' && state.peek() <= '9') {
+		return true
+	}
+
+	// Oracle/Python style: :name or :1
+	if c == ':' && state.hasNext() && isIdentifierChar(state.peek()) {
+		return true
+	}
+
+	// SQL Server style: @name or @p1
+	if c == '@' && state.hasNext() && isIdentifierChar(state.peek()) {
+		return true
+	}
+
+	// Python style: %(name)s
+	if c == '%' && state.hasNext() && state.peek() == '(' {
+		return true
+	}
+
+	return false
+}
+
+// skipPlaceholder skips over any type of prepared statement placeholder.
+
+func skipPlaceholder(state *sqlNormalizerState) {
+	c := state.current()
+
+	switch {
+	case c == '?':
+		// JDBC placeholder
+		state.advance()
+	case c == '$':
+		// PostgreSQL: $1, $2...
+		state.advance() // Skip $
+		for state.hasMore() && (state.current() >= '0' && state.current() <= '9') {
+			state.advance()
+		}
+	case c == ':' || c == '@':
+		// Oracle/Python/SQL Server: :NAME, @NAME
+		state.advance() // Skip : or @
+		for state.hasMore() && isIdentifierChar(state.current()) {
+			state.advance()
+		}
+	case c == '%' && state.hasNext() && state.peek() == '(':
+		// Python: %(NAME)S
+		state.advanceBy2() // Skip %(
+		for state.hasMore() && state.current() != ')' {
+			state.advance()
+		}
+		if state.hasMore() {
+			state.advance() // Skip )
+		}
+		if state.hasMore() && state.current() == 'S' {
+			state.advance() // Skip S (uppercased)
+		}
+	}
+}
+
+// NormalizeSQL normalizes a SQL statement based on New Relic Java agent rules.
+//
+// Normalization rules:
+// - Converts to uppercase
+// - Normalizes all parameter placeholders to '?'
+// - Replaces string and numeric literals with '?'
+// - Replaces comments (/* */, --, #) with '?'
+// - Strips ALL whitespace
+// - Normalizes IN clauses: IN (1,2,3) → IN (?)
+//
+// This function implements the exact same algorithm as SqlStatementNormalizer.normalizeSql()
+// in the apm-trace-consumer repository with stripWhitespace=true.
+func NormalizeSQL(sql string) string {
+	if sql == "" {
+		return ""
+	}
+
+	// Phase 1: Convert to uppercase (matches Java: sql.toUpperCase(Locale.ROOT))
+	sql = strings.ToUpper(sql)
+
+	// Phase 2: Normalize parameters and literals
+	sql = normalizeParametersAndLiterals(sql)
+
+	// Phase 3: Remove comments and strip all whitespace (stripWhitespace=true)
+	return removeCommentsAndNormalizeWhitespace(sql)
+}
+
+// isPrecededByIn checks if the result is preceded by "IN".
+// Handles whitespace between "IN" and the current position.
+
+func isPrecededByIn(result *strings.Builder) bool {
+	str := result.String()
+	if len(str) < 2 {
+		return false
+	}
+
+	// Scan backwards, skipping whitespace
+	idx := len(str) - 1
+	for idx >= 0 && (str[idx] == ' ' || str[idx] == '\t' || str[idx] == '\n' || str[idx] == '\r') {
+		idx--
+	}
+
+	// Check if we have at least "IN" (2 characters)
+	if idx < 1 {
+		return false
+	}
+
+	// Check for "IN" - scanning backwards we see 'N' first, then 'I'
+	if str[idx] == 'N' && str[idx-1] == 'I' {
+		// Make sure "IN" is a complete token, not part of a larger word like "WITHIN"
+		return idx < 2 || !isIdentifierChar(str[idx-2])
+	}
+
+	return false
+}
+
+// tryNormalizeInClause tries to normalize an IN clause like IN (1,2,3) or IN (?,?,?) to IN (?).
+// If it's not a simple IN clause, returns the opening paren as-is.
+
+func tryNormalizeInClause(state *sqlNormalizerState) string {
+	// Save position in case we need to backtrack
+	saveIdx := state.idx
+
+	state.advance() // Opening (
+
+	itemCount := 0
+	allParametersOrLiterals := true
+	foundNonWhitespace := false
+
+	// Scan the contents of the parentheses
+	for state.hasMore() && state.current() != ')' {
+		c := state.current()
+
+		switch {
+		case c == ' ' || c == '\t' || c == '\n' || c == '\r':
+			state.advance()
+		case c == ',':
+			state.advance()
+		case isPlaceholder(state):
+			foundNonWhitespace = true
+			itemCount++
+			skipPlaceholder(state)
+		case isNumericLiteral(state):
+			foundNonWhitespace = true
+			itemCount++
+			skipNumericLiteral(state)
+		case c == '\'':
+			foundNonWhitespace = true
+			itemCount++
+			skipStringLiteral(state)
+		default:
+			// Not a list, bail
+			allParametersOrLiterals = false
+		}
+		if !allParametersOrLiterals {
+			break
+		}
+	}
+
+	// Check if we found a closing paren and have multiple items
+	if allParametersOrLiterals && foundNonWhitespace && itemCount > 1 &&
+		state.hasMore() && state.current() == ')' {
+		state.advance() // Skip closing )
+		return "(?)"
+	}
+
+	// Not a normalizable IN clause, restore position
+	state.idx = saveIdx
+	state.advance()
+	return "("
+}
+
+// normalizeParametersAndLiterals normalizes all parameter placeholders and literals.
+// This is phase 1 of the normalization process.
+// Matches Java: normalizeParametersAndLiterals()
+func normalizeParametersAndLiterals(sql string) string {
+	if sql == "" {
+		return ""
+	}
+
+	var result strings.Builder
+	result.Grow(len(sql))
+	state := newSQLNormalizerState(sql)
+
+	for state.hasMore() {
+		current := state.current()
+
+		switch {
+		case current == '\'':
+			// Replace string literals with ?
+			skipStringLiteral(state)
+			result.WriteByte('?')
+		case current == '(':
+			// Check for IN clause with multiple values/placeholders
+			if isPrecededByIn(&result) {
+				inClause := tryNormalizeInClause(state)
+				result.WriteString(inClause)
+			} else {
+				result.WriteByte('(')
+				state.advance()
+			}
+		case isNumericLiteral(state):
+			// Numeric literals
+			skipNumericLiteral(state)
+			result.WriteByte('?')
+		case isPlaceholder(state):
+			// Any placeholder type --> ?
+			skipPlaceholder(state)
+			result.WriteByte('?')
+		default:
+			// Just append anything else
+			result.WriteByte(current)
+			state.advance()
+		}
+	}
+
+	return result.String()
+}
+
+// isMultilineCommentStart checks if current position is start of /* comment.
+
+func isMultilineCommentStart(state *sqlNormalizerState) bool {
+	return state.current() == '/' && state.hasNext() && state.peek() == '*'
+}
+
+// isSingleLineCommentStart checks if current position is start of -- comment.
+
+func isSingleLineCommentStart(state *sqlNormalizerState) bool {
+	return state.current() == '-' && state.hasNext() && state.peek() == '-'
+}
+
+// isHashCommentStart checks if current position starts a MySQL-style # comment.
+//
+// '#' is only treated as a comment when it begins a token (start of input or
+// preceded by whitespace). Otherwise it is considered part of an identifier, so
+// Oracle data-dictionary columns such as obj#, type#, con#, and ts# are
+// preserved rather than swallowed as a comment.
+
+func isHashCommentStart(state *sqlNormalizerState) bool {
+	if state.current() != '#' {
+		return false
+	}
+	if state.idx == 0 {
+		return true
+	}
+	prev := state.sql[state.idx-1]
+	return prev == ' ' || prev == '\t' || prev == '\n' || prev == '\r'
+}
+
+// skipMultilineComment skips over /* */ comment.
+
+func skipMultilineComment(state *sqlNormalizerState) {
+	state.advanceBy2() // Skip /*
+
+	for state.idx < state.length-1 {
+		if state.current() == '*' && state.peek() == '/' {
+			state.advanceBy2() // Skip */
+			return
+		}
+		state.advance()
+	}
+
+	// Handle unclosed comment
+	if state.hasMore() {
+		state.advance()
+	}
+}
+
+// skipToEndOfLine skips to end of line for -- and # comments.
+
+func skipToEndOfLine(state *sqlNormalizerState) {
+	// Skip until newline. The terminating newline itself is left in place;
+	// it is stripped as whitespace by the main loop.
+	for state.hasMore() && state.current() != '\n' && state.current() != '\r' {
+		state.advance()
+	}
+}
+
+// processStringLiteral handles string literal in comment removal phase.
+// This is defensive code - literals should already be replaced in phase 1.
+
+func processStringLiteral(result *strings.Builder, state *sqlNormalizerState) {
+	result.WriteByte(state.current())
+	state.advance()
+
+	for state.hasMore() {
+		c := state.current()
+		result.WriteByte(c)
+
+		if c == '\'' {
+			// Escaped quote '' check
+			if !state.hasNext() || state.peek() != '\'' {
+				state.advance()
+				break
+			}
+			result.WriteByte('\'')
+			state.advanceBy2()
+		} else {
+			state.advance()
+		}
+	}
+}
+
+// removeCommentsAndNormalizeWhitespace replaces comments with '?' and removes all whitespace.
+// This is phase 2 of the normalization process.
+// Matches Java: removeCommentsAndStripWhitespace()
+func removeCommentsAndNormalizeWhitespace(sql string) string {
+	var result strings.Builder
+	result.Grow(len(sql))
+	state := newSQLNormalizerState(sql)
+
+	for state.hasMore() {
+		current := state.current()
+
+		switch {
+		case current == '\'':
+			// String literals (defensive - should already be replaced in phase 1)
+			processStringLiteral(&result, state)
+		case isMultilineCommentStart(state):
+			// Multi-line comment /* */
+			// Always replace comments with ? (matches NR APM agent behavior for both prefix and inline)
+			skipMultilineComment(state)
+			result.WriteByte('?')
+		case isSingleLineCommentStart(state):
+			// Single-line comment --
+			// Always replace comments with ? (matches NR APM agent behavior for both prefix and inline)
+			state.advanceBy2() // Skip --
+			skipToEndOfLine(state)
+			result.WriteByte('?')
+		case isHashCommentStart(state):
+			// Hash comment (only when # starts a token; otherwise it is part of an
+			// identifier such as Oracle's obj#, type#, con#, ts#)
+			// Always replace comments with ? (matches NR APM agent behavior for both prefix and inline)
+			state.advance() // Skip #
+			skipToEndOfLine(state)
+			result.WriteByte('?')
+		case current == ' ' || current == '\t' || current == '\n' || current == '\r':
+			// stripWhitespace=true: just skip all whitespace (matches Java line 397-398)
+			state.advance()
+		default:
+			// Regular character: just append (matches Java line 403-405)
+			result.WriteByte(current)
+			state.advance()
+		}
+	}
+
+	// Matches Java line 412: trim() at the end
+	return strings.TrimSpace(result.String())
+}
+
+// GenerateMD5Hash generates an MD5 hash of the normalized SQL.
+// Returns lowercase hex string (32 characters).
+//
+// This matches the behavior of SqlHashUtil.md5HashValueFor() in apm-trace-consumer.
+//
+// Security note: MD5 is used for SQL fingerprinting/identification, not cryptographic security.
+// This is an acceptable use case despite MD5's known collision vulnerabilities.
+//
+// Parameters:
+//
+//	normalizedSQL: The normalized SQL query text
+//
+// Returns:
+//
+//	Lowercase hex string of MD5 hash (32 characters)
+func GenerateMD5Hash(normalizedSQL string) string {
+	// #nosec G401 - MD5 is used for SQL fingerprinting, not cryptographic security
+	hash := md5.Sum([]byte(normalizedSQL))
+	return hex.EncodeToString(hash[:])
+}
+
+// NormalizeSQLAndHash normalizes a SQL statement and returns both the normalized SQL and its MD5 hash.
+//
+// This is the primary entry point for APM-to-database query correlation.
+// It combines NormalizeSQL and GenerateMD5Hash in a single call.
+//
+// See NormalizeSQL for detailed normalization rules.
+//
+// Parameters:
+//
+//	sql: The raw SQL query text
+//
+// Returns:
+//
+//	normalizedSQL: The normalized SQL query text
+//	md5Hash: Lowercase hex string of MD5 hash (32 characters)
+//
+// Example:
+//
+//	input := "SELECT * FROM users WHERE id = 123 AND name = 'John'"
+//	normalized, hash := NormalizeSQLAndHash(input)
+//	// normalized: "SELECT*FROMUSERSWHEREID=?ANDNAME=?"
+//	// hash: "e78f13a21009ebcb6fdef9e996a24c9d"
+func NormalizeSQLAndHash(sql string) (normalizedSQL, md5Hash string) {
+	normalizedSQL = NormalizeSQL(sql)
+	// Matches Java SqlHashUtil.normalizeAndHash: empty input (or input that
+	// normalizes to empty) yields an empty hash rather than the MD5 of "".
+	if normalizedSQL == "" {
+		return "", ""
+	}
+	md5Hash = GenerateMD5Hash(normalizedSQL)
+
+	return normalizedSQL, md5Hash
+}

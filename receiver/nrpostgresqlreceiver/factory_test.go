@@ -1,0 +1,108 @@
+// Copyright The OpenTelemetry Authors
+// SPDX-License-Identifier: Apache-2.0
+
+package nrpostgresqlreceiver
+
+import (
+	"testing"
+	"time"
+
+	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrpostgresqlreceiver/internal/metadata"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/collector/component"
+	"go.opentelemetry.io/collector/component/componenttest"
+	"go.opentelemetry.io/collector/confmap"
+	"go.opentelemetry.io/collector/consumer/consumertest"
+	"go.opentelemetry.io/collector/receiver/receivertest"
+	"go.opentelemetry.io/collector/scraper/scraperhelper"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/config/configdbauth"
+)
+
+func TestType(t *testing.T) {
+	factory := NewFactory()
+	ft := factory.Type()
+	require.Equal(t, metadata.Type, ft)
+}
+
+func TestValidConfig(t *testing.T) {
+	factory := NewFactory()
+	cfg := factory.CreateDefaultConfig().(*Config)
+	cfg.Username = "otel"
+	cfg.Password = "otel"
+	require.NoError(t, confmap.Validate(cfg))
+}
+
+func TestCreateMetrics(t *testing.T) {
+	factory := NewFactory()
+	metricsReceiver, err := factory.CreateMetrics(
+		t.Context(),
+		receivertest.NewNopSettings(metadata.Type),
+		&Config{
+			ControllerConfig: scraperhelper.ControllerConfig{
+				CollectionInterval: 10 * time.Second,
+				InitialDelay:       time.Second,
+			},
+			Username: "otel",
+			Password: "otel",
+		},
+		consumertest.NewNop(),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, metricsReceiver)
+}
+
+func TestCreateMetricsResolvesDBAuthAtStart(t *testing.T) {
+	factory := NewFactory()
+	cfg := factory.CreateDefaultConfig().(*Config)
+	cfg.Username = "otel"
+	cfg.DBAuth = configdbauth.ID(component.MustNewID("aws_iam_dbauth"))
+
+	metricsReceiver, err := factory.CreateMetrics(
+		t.Context(),
+		receivertest.NewNopSettings(metadata.Type),
+		cfg,
+		consumertest.NewNop(),
+	)
+	require.NoError(t, err)
+
+	err = metricsReceiver.Start(t.Context(), componenttest.NewNopHost())
+	require.ErrorContains(t, err, "requested credential provider is not present")
+}
+
+type extensionsHost map[component.ID]component.Component
+
+func (h extensionsHost) GetExtensions() map[component.ID]component.Component {
+	return h
+}
+
+func TestCreateMetricsStartsWithDBAuthProvider(t *testing.T) {
+	factory := NewFactory()
+	cfg := factory.CreateDefaultConfig().(*Config)
+	cfg.Username = "otel"
+	cfg.DBAuth = configdbauth.ID(component.MustNewID("aws_iam_dbauth"))
+	cfg.ControllerConfig.InitialDelay = time.Hour
+
+	metricsReceiver, err := factory.CreateMetrics(
+		t.Context(),
+		receivertest.NewNopSettings(metadata.Type),
+		cfg,
+		consumertest.NewNop(),
+	)
+	require.NoError(t, err)
+
+	require.NoError(t, metricsReceiver.Start(t.Context(), extensionsHost(credExtMap())))
+	require.NoError(t, metricsReceiver.Shutdown(t.Context()))
+}
+
+func TestCreateDefaultConfig(t *testing.T) {
+	defaultCfg := createDefaultConfig().(*Config)
+	assert.Equal(t, int64(1000), defaultCfg.TopQueryCollection.MaxRowsPerQuery)
+	assert.Equal(t, int64(200), defaultCfg.TopQueryCollection.TopNQuery)
+	assert.Equal(t, int64(1000), defaultCfg.TopQueryCollection.MaxExplainEachInterval)
+	assert.Equal(t, 1000, defaultCfg.TopQueryCollection.QueryPlanCacheSize)
+	assert.Equal(t, time.Hour, defaultCfg.TopQueryCollection.QueryPlanCacheTTL)
+
+	assert.Equal(t, int64(1000), defaultCfg.QuerySampleCollection.MaxRowsPerQuery)
+}

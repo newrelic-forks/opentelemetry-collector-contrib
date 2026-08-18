@@ -1,0 +1,1911 @@
+$defs:
+  attribute_ag_cluster_type:
+    description: AttributeAgClusterType specifies the value ag.cluster_type attribute.
+    type: integer
+  attribute_allocation_page_type:
+    description: AttributeAllocationPageType specifies the value allocation.page_type attribute.
+    type: integer
+  attribute_cache_state:
+    description: AttributeCacheState specifies the value cache.state attribute.
+    type: integer
+  attribute_cursor_state:
+    description: AttributeCursorState specifies the value cursor.state attribute.
+    type: integer
+  attribute_database_status:
+    description: AttributeDatabaseStatus specifies the value database.status attribute.
+    type: integer
+  attribute_direction:
+    description: AttributeDirection specifies the value direction attribute.
+    type: integer
+  attribute_memory_pool:
+    description: AttributeMemoryPool specifies the value memory.pool attribute.
+    type: integer
+  attribute_memory_state:
+    description: AttributeMemoryState specifies the value memory.state attribute.
+    type: integer
+  attribute_page_file_state:
+    description: AttributePageFileState specifies the value page_file.state attribute.
+    type: integer
+  attribute_page_operations:
+    description: AttributePageOperations specifies the value page.operations attribute.
+    type: integer
+  attribute_page_pool:
+    description: AttributePagePool specifies the value page.pool attribute.
+    type: integer
+  attribute_process_status:
+    description: AttributeProcessStatus specifies the value process.status attribute.
+    type: integer
+  attribute_replica_direction:
+    description: AttributeReplicaDirection specifies the value replica.direction attribute.
+    type: integer
+  attribute_replica_queue_kind:
+    description: AttributeReplicaQueueKind specifies the value replica.queue_kind attribute.
+    type: integer
+  attribute_replica_role:
+    description: AttributeReplicaRole specifies the value replica.role attribute.
+    type: integer
+  attribute_replica_sync_health:
+    description: AttributeReplicaSyncHealth specifies the value replica.sync_health attribute.
+    type: integer
+  attribute_request_state:
+    description: AttributeRequestState specifies the value request.state attribute.
+    type: integer
+  attribute_sqlserver_access_scan_type:
+    description: AttributeSqlserverAccessScanType specifies the value sqlserver.access.scan.type attribute.
+    type: integer
+  attribute_sqlserver_availability_group_queue_type:
+    description: AttributeSqlserverAvailabilityGroupQueueType specifies the value sqlserver.availability_group.queue.type attribute.
+    type: integer
+  attribute_sqlserver_error_category:
+    description: AttributeSqlserverErrorCategory specifies the value sqlserver.error.category attribute.
+    type: integer
+  attribute_sqlserver_extent_operation_type:
+    description: AttributeSqlserverExtentOperationType specifies the value sqlserver.extent.operation.type attribute.
+    type: integer
+  attribute_sqlserver_lock_block_type:
+    description: AttributeSqlserverLockBlockType specifies the value sqlserver.lock.block.type attribute.
+    type: integer
+  attribute_sqlserver_lock_timeout_type:
+    description: AttributeSqlserverLockTimeoutType specifies the value sqlserver.lock.timeout.type attribute.
+    type: integer
+  attribute_sqlserver_page_allocation_type:
+    description: AttributeSqlserverPageAllocationType specifies the value sqlserver.page.allocation.type attribute.
+    type: integer
+  attribute_sqlserver_page_compression_type:
+    description: AttributeSqlserverPageCompressionType specifies the value sqlserver.page.compression.type attribute.
+    type: integer
+  attribute_sqlserver_parameterization_result:
+    description: AttributeSqlserverParameterizationResult specifies the value sqlserver.parameterization.result attribute.
+    type: integer
+  attribute_sqlserver_plan_guidance_result:
+    description: AttributeSqlserverPlanGuidanceResult specifies the value sqlserver.plan.guidance.result attribute.
+    type: integer
+  attribute_table_state:
+    description: AttributeTableState specifies the value table.state attribute.
+    type: integer
+  attribute_table_status:
+    description: AttributeTableStatus specifies the value table.status attribute.
+    type: integer
+  attribute_task_result:
+    description: AttributeTaskResult specifies the value task.result attribute.
+    type: integer
+  attribute_task_state:
+    description: AttributeTaskState specifies the value task.state attribute.
+    type: integer
+  attribute_tempdb_space_kind:
+    description: AttributeTempdbSpaceKind specifies the value tempdb.space_kind attribute.
+    type: integer
+  attribute_tempdb_state:
+    description: AttributeTempdbState specifies the value tempdb.state attribute.
+    type: integer
+  attribute_transition_direction:
+    description: AttributeTransitionDirection specifies the value transition.direction attribute.
+    type: integer
+  attribute_worker_state:
+    description: AttributeWorkerState specifies the value worker.state attribute.
+    type: integer
+  attribute_workload_group_name:
+    description: AttributeWorkloadGroupName specifies the value workload_group.name attribute.
+    type: integer
+  event_config:
+    description: EventConfig provides common config for a particular event.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  events_config:
+    description: EventsConfig provides config for nrsqlserver events.
+    type: object
+    properties:
+      db.server.query_sample:
+        $ref: event_config
+      db.server.top_query:
+        $ref: event_config
+  host_name_resource_attribute_config:
+    description: HostNameResourceAttributeConfig provides config for the host.name resource attribute.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+      events_exclude:
+        description: 'Experimental: EventsExclude defines a list of filters for attribute values. If the list is not empty, events with matching resource attribute values will not be emitted. EventsInclude has higher priority than EventsExclude.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      events_include:
+        description: 'Experimental: EventsInclude defines a list of filters for attribute values. If the list is not empty, only events with matching resource attribute values will be emitted.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      metrics_exclude:
+        description: 'Experimental: MetricsExclude defines a list of filters for attribute values. If the list is not empty, metrics with matching resource attribute values will not be emitted. MetricsInclude has higher priority than MetricsExclude.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      metrics_include:
+        description: 'Experimental: MetricsInclude defines a list of filters for attribute values. If the list is not empty, only metrics with matching resource attribute values will be emitted.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      override_value:
+        description: OverrideValue allows users to override the value of this resource attribute.
+        x-pointer: true
+        type: string
+  logs_builder_config:
+    description: LogsBuilderConfig is a configuration for nrsqlserver logs builder.
+    type: object
+    properties:
+      events:
+        $ref: events_config
+      resource_attributes:
+        $ref: resource_attributes_config
+  metrics_builder_config:
+    description: MetricsBuilderConfig is a configuration for nrsqlserver metrics builder.
+    type: object
+    properties:
+      metrics:
+        $ref: metrics_config
+      resource_attributes:
+        $ref: resource_attributes_config
+  metrics_config:
+    description: MetricsConfig provides config for nrsqlserver metrics.
+    type: object
+    properties:
+      sqlserver.access.scan.rate:
+        $ref: sqlserver_access_scan_rate_metric_config
+      sqlserver.attention.rate:
+        $ref: sqlserver_attention_rate_metric_config
+      sqlserver.availability_group.database_replica.queue.rate:
+        $ref: sqlserver_availability_group_database_replica_queue_rate_metric_config
+      sqlserver.availability_group.database_replica.queue.size:
+        $ref: sqlserver_availability_group_database_replica_queue_size_metric_config
+      sqlserver.availability_group.database_replica.secondary_lag:
+        $ref: sqlserver_availability_group_database_replica_secondary_lag_metric_config
+      sqlserver.batch.compilation.utilization:
+        $ref: sqlserver_batch_compilation_utilization_metric_config
+      sqlserver.batch.page_split.utilization:
+        $ref: sqlserver_batch_page_split_utilization_metric_config
+      sqlserver.batch.request.rate:
+        $ref: sqlserver_batch_request_rate_metric_config
+      sqlserver.batch.sql_compilation.rate:
+        $ref: sqlserver_batch_sql_compilation_rate_metric_config
+      sqlserver.batch.sql_recompilation.rate:
+        $ref: sqlserver_batch_sql_recompilation_rate_metric_config
+      sqlserver.clr.execution.time:
+        $ref: sqlserver_clr_execution_time_metric_config
+      sqlserver.computer.uptime:
+        $ref: sqlserver_computer_uptime_metric_config
+      sqlserver.connection.reset.rate:
+        $ref: sqlserver_connection_reset_rate_metric_config
+      sqlserver.cpu.count:
+        $ref: sqlserver_cpu_count_metric_config
+      sqlserver.cursor.count:
+        $ref: sqlserver_cursor_count_metric_config
+      sqlserver.cursor.memory.usage:
+        $ref: sqlserver_cursor_memory_usage_metric_config
+      sqlserver.cursor.plan.count:
+        $ref: sqlserver_cursor_plan_count_metric_config
+      sqlserver.cursor.request.rate:
+        $ref: sqlserver_cursor_request_rate_metric_config
+      sqlserver.database.backup_or_restore.rate:
+        $ref: sqlserver_database_backup_or_restore_rate_metric_config
+      sqlserver.database.count:
+        $ref: sqlserver_database_count_metric_config
+      sqlserver.database.execution.errors:
+        $ref: sqlserver_database_execution_errors_metric_config
+      sqlserver.database.file.size:
+        $ref: sqlserver_database_file_size_metric_config
+      sqlserver.database.full_scan.rate:
+        $ref: sqlserver_database_full_scan_rate_metric_config
+      sqlserver.database.io:
+        $ref: sqlserver_database_io_metric_config
+      sqlserver.database.latency:
+        $ref: sqlserver_database_latency_metric_config
+      sqlserver.database.operations:
+        $ref: sqlserver_database_operations_metric_config
+      sqlserver.database.page_file.size:
+        $ref: sqlserver_database_page_file_size_metric_config
+      sqlserver.database.tempdb.space:
+        $ref: sqlserver_database_tempdb_space_metric_config
+      sqlserver.database.tempdb.version_store.size:
+        $ref: sqlserver_database_tempdb_version_store_size_metric_config
+      sqlserver.database.transactions.active:
+        $ref: sqlserver_database_transactions_active_metric_config
+      sqlserver.deadlock.rate:
+        $ref: sqlserver_deadlock_rate_metric_config
+      sqlserver.error.rate:
+        $ref: sqlserver_error_rate_metric_config
+      sqlserver.extent.operation.rate:
+        $ref: sqlserver_extent_operation_rate_metric_config
+      sqlserver.failover_cluster.ag.cluster_type:
+        $ref: sqlserver_failover_cluster_ag_cluster_type_metric_config
+      sqlserver.failover_cluster.ag.failure_condition_level:
+        $ref: sqlserver_failover_cluster_ag_failure_condition_level_metric_config
+      sqlserver.failover_cluster.ag.health_check_timeout:
+        $ref: sqlserver_failover_cluster_ag_health_check_timeout_metric_config
+      sqlserver.failover_cluster.ag.required_sync_secondaries:
+        $ref: sqlserver_failover_cluster_ag_required_sync_secondaries_metric_config
+      sqlserver.failover_cluster.replica.database.queue_size:
+        $ref: sqlserver_failover_cluster_replica_database_queue_size_metric_config
+      sqlserver.failover_cluster.replica.database.redo.rate:
+        $ref: sqlserver_failover_cluster_replica_database_redo_rate_metric_config
+      sqlserver.failover_cluster.replica.flow_control_time:
+        $ref: sqlserver_failover_cluster_replica_flow_control_time_metric_config
+      sqlserver.failover_cluster.replica.role:
+        $ref: sqlserver_failover_cluster_replica_role_metric_config
+      sqlserver.failover_cluster.replica.synchronization_health:
+        $ref: sqlserver_failover_cluster_replica_synchronization_health_metric_config
+      sqlserver.ghost_record.skipped.rate:
+        $ref: sqlserver_ghost_record_skipped_rate_metric_config
+      sqlserver.index.fragmentation:
+        $ref: sqlserver_index_fragmentation_metric_config
+      sqlserver.index.page.count:
+        $ref: sqlserver_index_page_count_metric_config
+      sqlserver.index.page.utilization:
+        $ref: sqlserver_index_page_utilization_metric_config
+      sqlserver.index.record.count:
+        $ref: sqlserver_index_record_count_metric_config
+      sqlserver.index.search.rate:
+        $ref: sqlserver_index_search_rate_metric_config
+      sqlserver.index.size:
+        $ref: sqlserver_index_size_metric_config
+      sqlserver.latch.superlatch.count:
+        $ref: sqlserver_latch_superlatch_count_metric_config
+      sqlserver.latch.superlatch.transition.rate:
+        $ref: sqlserver_latch_superlatch_transition_rate_metric_config
+      sqlserver.latch.wait.rate:
+        $ref: sqlserver_latch_wait_rate_metric_config
+      sqlserver.latch.wait_time.avg:
+        $ref: sqlserver_latch_wait_time_avg_metric_config
+      sqlserver.latch.wait_time.total:
+        $ref: sqlserver_latch_wait_time_total_metric_config
+      sqlserver.lock.block.count:
+        $ref: sqlserver_lock_block_count_metric_config
+      sqlserver.lock.escalation.rate:
+        $ref: sqlserver_lock_escalation_rate_metric_config
+      sqlserver.lock.memory:
+        $ref: sqlserver_lock_memory_metric_config
+      sqlserver.lock.request.rate:
+        $ref: sqlserver_lock_request_rate_metric_config
+      sqlserver.lock.timeout.rate:
+        $ref: sqlserver_lock_timeout_rate_metric_config
+      sqlserver.lock.wait.count:
+        $ref: sqlserver_lock_wait_count_metric_config
+      sqlserver.lock.wait.rate:
+        $ref: sqlserver_lock_wait_rate_metric_config
+      sqlserver.lock.wait_time.avg:
+        $ref: sqlserver_lock_wait_time_avg_metric_config
+      sqlserver.lock.wait_time.total:
+        $ref: sqlserver_lock_wait_time_total_metric_config
+      sqlserver.login.rate:
+        $ref: sqlserver_login_rate_metric_config
+      sqlserver.logout.rate:
+        $ref: sqlserver_logout_rate_metric_config
+      sqlserver.memory.area:
+        $ref: sqlserver_memory_area_metric_config
+      sqlserver.memory.cache.object.count:
+        $ref: sqlserver_memory_cache_object_count_metric_config
+      sqlserver.memory.grants.pending.count:
+        $ref: sqlserver_memory_grants_pending_count_metric_config
+      sqlserver.memory.page.count:
+        $ref: sqlserver_memory_page_count_metric_config
+      sqlserver.memory.usage:
+        $ref: sqlserver_memory_usage_metric_config
+      sqlserver.os.disk.size:
+        $ref: sqlserver_os_disk_size_metric_config
+      sqlserver.os.memory.usage:
+        $ref: sqlserver_os_memory_usage_metric_config
+      sqlserver.os.memory.utilization:
+        $ref: sqlserver_os_memory_utilization_metric_config
+      sqlserver.os.scheduler.runnable_tasks.count:
+        $ref: sqlserver_os_scheduler_runnable_tasks_count_metric_config
+      sqlserver.os.wait.duration:
+        $ref: sqlserver_os_wait_duration_metric_config
+      sqlserver.os.wait.tasks.count:
+        $ref: sqlserver_os_wait_tasks_count_metric_config
+      sqlserver.page.allocation.rate:
+        $ref: sqlserver_page_allocation_rate_metric_config
+      sqlserver.page.buffer_cache.free_list.stalls.rate:
+        $ref: sqlserver_page_buffer_cache_free_list_stalls_rate_metric_config
+      sqlserver.page.buffer_cache.hit_ratio:
+        $ref: sqlserver_page_buffer_cache_hit_ratio_metric_config
+      sqlserver.page.checkpoint.flush.rate:
+        $ref: sqlserver_page_checkpoint_flush_rate_metric_config
+      sqlserver.page.compression.rate:
+        $ref: sqlserver_page_compression_rate_metric_config
+      sqlserver.page.lazy_write.rate:
+        $ref: sqlserver_page_lazy_write_rate_metric_config
+      sqlserver.page.life_expectancy:
+        $ref: sqlserver_page_life_expectancy_metric_config
+      sqlserver.page.lookup.rate:
+        $ref: sqlserver_page_lookup_rate_metric_config
+      sqlserver.page.operation.rate:
+        $ref: sqlserver_page_operation_rate_metric_config
+      sqlserver.page.read_ahead.rate:
+        $ref: sqlserver_page_read_ahead_rate_metric_config
+      sqlserver.page.split.rate:
+        $ref: sqlserver_page_split_rate_metric_config
+      sqlserver.parameterization.rate:
+        $ref: sqlserver_parameterization_rate_metric_config
+      sqlserver.plan.execution.rate:
+        $ref: sqlserver_plan_execution_rate_metric_config
+      sqlserver.process.count:
+        $ref: sqlserver_process_count_metric_config
+      sqlserver.processes.blocked:
+        $ref: sqlserver_processes_blocked_metric_config
+      sqlserver.recompilation.ratio:
+        $ref: sqlserver_recompilation_ratio_metric_config
+      sqlserver.replica.data.rate:
+        $ref: sqlserver_replica_data_rate_metric_config
+      sqlserver.resource_pool.disk.operations:
+        $ref: sqlserver_resource_pool_disk_operations_metric_config
+      sqlserver.resource_pool.disk.throttled.read.rate:
+        $ref: sqlserver_resource_pool_disk_throttled_read_rate_metric_config
+      sqlserver.resource_pool.disk.throttled.write.rate:
+        $ref: sqlserver_resource_pool_disk_throttled_write_rate_metric_config
+      sqlserver.scan_point.revalidation.rate:
+        $ref: sqlserver_scan_point_revalidation_rate_metric_config
+      sqlserver.stored_procedure.invocation.rate:
+        $ref: sqlserver_stored_procedure_invocation_rate_metric_config
+      sqlserver.table.count:
+        $ref: sqlserver_table_count_metric_config
+      sqlserver.task.count:
+        $ref: sqlserver_task_count_metric_config
+      sqlserver.task.rate:
+        $ref: sqlserver_task_rate_metric_config
+      sqlserver.tempdb.allocation.wait_time.total:
+        $ref: sqlserver_tempdb_allocation_wait_time_total_metric_config
+      sqlserver.tempdb.contention.waiters.count:
+        $ref: sqlserver_tempdb_contention_waiters_count_metric_config
+      sqlserver.tempdb.data_files.count:
+        $ref: sqlserver_tempdb_data_files_count_metric_config
+      sqlserver.tempdb.file.size:
+        $ref: sqlserver_tempdb_file_size_metric_config
+      sqlserver.tempdb.space.usage:
+        $ref: sqlserver_tempdb_space_usage_metric_config
+      sqlserver.thread_pool.tasks.count:
+        $ref: sqlserver_thread_pool_tasks_count_metric_config
+      sqlserver.thread_pool.workers.count:
+        $ref: sqlserver_thread_pool_workers_count_metric_config
+      sqlserver.thread_pool.workers.max:
+        $ref: sqlserver_thread_pool_workers_max_metric_config
+      sqlserver.thread_pool.workers.utilization:
+        $ref: sqlserver_thread_pool_workers_utilization_metric_config
+      sqlserver.transaction.delay:
+        $ref: sqlserver_transaction_delay_metric_config
+      sqlserver.transaction.longest_running_time:
+        $ref: sqlserver_transaction_longest_running_time_metric_config
+      sqlserver.transaction.mirror_write.rate:
+        $ref: sqlserver_transaction_mirror_write_rate_metric_config
+      sqlserver.transaction.rate:
+        $ref: sqlserver_transaction_rate_metric_config
+      sqlserver.transaction.version_cleanup.rate:
+        $ref: sqlserver_transaction_version_cleanup_rate_metric_config
+      sqlserver.transaction.version_generation.rate:
+        $ref: sqlserver_transaction_version_generation_rate_metric_config
+      sqlserver.transaction.write.rate:
+        $ref: sqlserver_transaction_write_rate_metric_config
+      sqlserver.transaction_log.flush.data.rate:
+        $ref: sqlserver_transaction_log_flush_data_rate_metric_config
+      sqlserver.transaction_log.flush.rate:
+        $ref: sqlserver_transaction_log_flush_rate_metric_config
+      sqlserver.transaction_log.flush.wait.rate:
+        $ref: sqlserver_transaction_log_flush_wait_rate_metric_config
+      sqlserver.transaction_log.growth.count:
+        $ref: sqlserver_transaction_log_growth_count_metric_config
+      sqlserver.transaction_log.shrink.count:
+        $ref: sqlserver_transaction_log_shrink_count_metric_config
+      sqlserver.transaction_log.usage:
+        $ref: sqlserver_transaction_log_usage_metric_config
+      sqlserver.user.connection.count:
+        $ref: sqlserver_user_connection_count_metric_config
+      sqlserver.worker.request.count:
+        $ref: sqlserver_worker_request_count_metric_config
+      sqlserver.worker.thread.count:
+        $ref: sqlserver_worker_thread_count_metric_config
+      sqlserver.worktable.cache.hit_ratio:
+        $ref: sqlserver_worktable_cache_hit_ratio_metric_config
+  resource_attributes_config:
+    description: ResourceAttributesConfig provides config for nrsqlserver resource attributes.
+    type: object
+    properties:
+      host.name:
+        $ref: host_name_resource_attribute_config
+      server.address:
+        $ref: server_address_resource_attribute_config
+      server.port:
+        $ref: server_port_resource_attribute_config
+      service.instance.id:
+        $ref: service_instance_id_resource_attribute_config
+      service.name:
+        $ref: service_name_resource_attribute_config
+      service.namespace:
+        $ref: service_namespace_resource_attribute_config
+      sqlserver.computer.name:
+        $ref: sqlserver_computer_name_resource_attribute_config
+      sqlserver.database.name:
+        $ref: sqlserver_database_name_resource_attribute_config
+      sqlserver.instance.name:
+        $ref: sqlserver_instance_name_resource_attribute_config
+  server_address_resource_attribute_config:
+    description: ServerAddressResourceAttributeConfig provides config for the server.address resource attribute.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+      events_exclude:
+        description: 'Experimental: EventsExclude defines a list of filters for attribute values. If the list is not empty, events with matching resource attribute values will not be emitted. EventsInclude has higher priority than EventsExclude.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      events_include:
+        description: 'Experimental: EventsInclude defines a list of filters for attribute values. If the list is not empty, only events with matching resource attribute values will be emitted.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      metrics_exclude:
+        description: 'Experimental: MetricsExclude defines a list of filters for attribute values. If the list is not empty, metrics with matching resource attribute values will not be emitted. MetricsInclude has higher priority than MetricsExclude.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      metrics_include:
+        description: 'Experimental: MetricsInclude defines a list of filters for attribute values. If the list is not empty, only metrics with matching resource attribute values will be emitted.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      override_value:
+        description: OverrideValue allows users to override the value of this resource attribute.
+        x-pointer: true
+        type: string
+  server_port_resource_attribute_config:
+    description: ServerPortResourceAttributeConfig provides config for the server.port resource attribute.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+      events_exclude:
+        description: 'Experimental: EventsExclude defines a list of filters for attribute values. If the list is not empty, events with matching resource attribute values will not be emitted. EventsInclude has higher priority than EventsExclude.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      events_include:
+        description: 'Experimental: EventsInclude defines a list of filters for attribute values. If the list is not empty, only events with matching resource attribute values will be emitted.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      metrics_exclude:
+        description: 'Experimental: MetricsExclude defines a list of filters for attribute values. If the list is not empty, metrics with matching resource attribute values will not be emitted. MetricsInclude has higher priority than MetricsExclude.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      metrics_include:
+        description: 'Experimental: MetricsInclude defines a list of filters for attribute values. If the list is not empty, only metrics with matching resource attribute values will be emitted.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      override_value:
+        description: OverrideValue allows users to override the value of this resource attribute.
+        x-pointer: true
+        type: integer
+        x-customType: int64
+  service_instance_id_resource_attribute_config:
+    description: ServiceInstanceIDResourceAttributeConfig provides config for the service.instance.id resource attribute.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+      events_exclude:
+        description: 'Experimental: EventsExclude defines a list of filters for attribute values. If the list is not empty, events with matching resource attribute values will not be emitted. EventsInclude has higher priority than EventsExclude.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      events_include:
+        description: 'Experimental: EventsInclude defines a list of filters for attribute values. If the list is not empty, only events with matching resource attribute values will be emitted.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      metrics_exclude:
+        description: 'Experimental: MetricsExclude defines a list of filters for attribute values. If the list is not empty, metrics with matching resource attribute values will not be emitted. MetricsInclude has higher priority than MetricsExclude.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      metrics_include:
+        description: 'Experimental: MetricsInclude defines a list of filters for attribute values. If the list is not empty, only metrics with matching resource attribute values will be emitted.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      override_value:
+        description: OverrideValue allows users to override the value of this resource attribute.
+        x-pointer: true
+        type: string
+  service_name_resource_attribute_config:
+    description: ServiceNameResourceAttributeConfig provides config for the service.name resource attribute.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+      events_exclude:
+        description: 'Experimental: EventsExclude defines a list of filters for attribute values. If the list is not empty, events with matching resource attribute values will not be emitted. EventsInclude has higher priority than EventsExclude.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      events_include:
+        description: 'Experimental: EventsInclude defines a list of filters for attribute values. If the list is not empty, only events with matching resource attribute values will be emitted.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      metrics_exclude:
+        description: 'Experimental: MetricsExclude defines a list of filters for attribute values. If the list is not empty, metrics with matching resource attribute values will not be emitted. MetricsInclude has higher priority than MetricsExclude.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      metrics_include:
+        description: 'Experimental: MetricsInclude defines a list of filters for attribute values. If the list is not empty, only metrics with matching resource attribute values will be emitted.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      override_value:
+        description: OverrideValue allows users to override the value of this resource attribute.
+        x-pointer: true
+        type: string
+  service_namespace_resource_attribute_config:
+    description: ServiceNamespaceResourceAttributeConfig provides config for the service.namespace resource attribute.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+      events_exclude:
+        description: 'Experimental: EventsExclude defines a list of filters for attribute values. If the list is not empty, events with matching resource attribute values will not be emitted. EventsInclude has higher priority than EventsExclude.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      events_include:
+        description: 'Experimental: EventsInclude defines a list of filters for attribute values. If the list is not empty, only events with matching resource attribute values will be emitted.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      metrics_exclude:
+        description: 'Experimental: MetricsExclude defines a list of filters for attribute values. If the list is not empty, metrics with matching resource attribute values will not be emitted. MetricsInclude has higher priority than MetricsExclude.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      metrics_include:
+        description: 'Experimental: MetricsInclude defines a list of filters for attribute values. If the list is not empty, only metrics with matching resource attribute values will be emitted.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      override_value:
+        description: OverrideValue allows users to override the value of this resource attribute.
+        x-pointer: true
+        type: string
+  sqlserver_access_scan_rate_metric_config:
+    description: SqlserverAccessScanRateMetricConfig provides config for the sqlserver.access.scan.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_attention_rate_metric_config:
+    description: SqlserverAttentionRateMetricConfig provides config for the sqlserver.attention.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_availability_group_database_replica_queue_rate_metric_attribute_key:
+    description: SqlserverAvailabilityGroupDatabaseReplicaQueueRateMetricAttributeKey specifies the key of an attribute for the sqlserver.availability_group.database_replica.queue.rate metric.
+    type: string
+  sqlserver_availability_group_database_replica_queue_rate_metric_config:
+    description: SqlserverAvailabilityGroupDatabaseReplicaQueueRateMetricConfig provides config for the sqlserver.availability_group.database_replica.queue.rate metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_availability_group_database_replica_queue_rate_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_availability_group_database_replica_queue_size_metric_attribute_key:
+    description: SqlserverAvailabilityGroupDatabaseReplicaQueueSizeMetricAttributeKey specifies the key of an attribute for the sqlserver.availability_group.database_replica.queue.size metric.
+    type: string
+  sqlserver_availability_group_database_replica_queue_size_metric_config:
+    description: SqlserverAvailabilityGroupDatabaseReplicaQueueSizeMetricConfig provides config for the sqlserver.availability_group.database_replica.queue.size metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_availability_group_database_replica_queue_size_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_availability_group_database_replica_secondary_lag_metric_attribute_key:
+    description: SqlserverAvailabilityGroupDatabaseReplicaSecondaryLagMetricAttributeKey specifies the key of an attribute for the sqlserver.availability_group.database_replica.secondary_lag metric.
+    type: string
+  sqlserver_availability_group_database_replica_secondary_lag_metric_config:
+    description: SqlserverAvailabilityGroupDatabaseReplicaSecondaryLagMetricConfig provides config for the sqlserver.availability_group.database_replica.secondary_lag metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_availability_group_database_replica_secondary_lag_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_batch_compilation_utilization_metric_config:
+    description: SqlserverBatchCompilationUtilizationMetricConfig provides config for the sqlserver.batch.compilation.utilization metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_batch_page_split_utilization_metric_config:
+    description: SqlserverBatchPageSplitUtilizationMetricConfig provides config for the sqlserver.batch.page_split.utilization metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_batch_request_rate_metric_config:
+    description: SqlserverBatchRequestRateMetricConfig provides config for the sqlserver.batch.request.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_batch_sql_compilation_rate_metric_config:
+    description: SqlserverBatchSQLCompilationRateMetricConfig provides config for the sqlserver.batch.sql_compilation.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_batch_sql_recompilation_rate_metric_config:
+    description: SqlserverBatchSQLRecompilationRateMetricConfig provides config for the sqlserver.batch.sql_recompilation.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_clr_execution_time_metric_config:
+    description: SqlserverClrExecutionTimeMetricConfig provides config for the sqlserver.clr.execution.time metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_computer_name_resource_attribute_config:
+    description: SqlserverComputerNameResourceAttributeConfig provides config for the sqlserver.computer.name resource attribute.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+      events_exclude:
+        description: 'Experimental: EventsExclude defines a list of filters for attribute values. If the list is not empty, events with matching resource attribute values will not be emitted. EventsInclude has higher priority than EventsExclude.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      events_include:
+        description: 'Experimental: EventsInclude defines a list of filters for attribute values. If the list is not empty, only events with matching resource attribute values will be emitted.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      metrics_exclude:
+        description: 'Experimental: MetricsExclude defines a list of filters for attribute values. If the list is not empty, metrics with matching resource attribute values will not be emitted. MetricsInclude has higher priority than MetricsExclude.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      metrics_include:
+        description: 'Experimental: MetricsInclude defines a list of filters for attribute values. If the list is not empty, only metrics with matching resource attribute values will be emitted.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      override_value:
+        description: OverrideValue allows users to override the value of this resource attribute.
+        x-pointer: true
+        type: string
+  sqlserver_computer_uptime_metric_config:
+    description: SqlserverComputerUptimeMetricConfig provides config for the sqlserver.computer.uptime metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_connection_reset_rate_metric_config:
+    description: SqlserverConnectionResetRateMetricConfig provides config for the sqlserver.connection.reset.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_cpu_count_metric_config:
+    description: SqlserverCPUCountMetricConfig provides config for the sqlserver.cpu.count metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_cursor_count_metric_attribute_key:
+    description: SqlserverCursorCountMetricAttributeKey specifies the key of an attribute for the sqlserver.cursor.count metric.
+    type: string
+  sqlserver_cursor_count_metric_config:
+    description: SqlserverCursorCountMetricConfig provides config for the sqlserver.cursor.count metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_cursor_count_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_cursor_memory_usage_metric_config:
+    description: SqlserverCursorMemoryUsageMetricConfig provides config for the sqlserver.cursor.memory.usage metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_cursor_plan_count_metric_config:
+    description: SqlserverCursorPlanCountMetricConfig provides config for the sqlserver.cursor.plan.count metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_cursor_request_rate_metric_config:
+    description: SqlserverCursorRequestRateMetricConfig provides config for the sqlserver.cursor.request.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_database_backup_or_restore_rate_metric_config:
+    description: SqlserverDatabaseBackupOrRestoreRateMetricConfig provides config for the sqlserver.database.backup_or_restore.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_database_count_metric_attribute_key:
+    description: SqlserverDatabaseCountMetricAttributeKey specifies the key of an attribute for the sqlserver.database.count metric.
+    type: string
+  sqlserver_database_count_metric_config:
+    description: SqlserverDatabaseCountMetricConfig provides config for the sqlserver.database.count metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_database_count_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_database_execution_errors_metric_config:
+    description: SqlserverDatabaseExecutionErrorsMetricConfig provides config for the sqlserver.database.execution.errors metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_database_file_size_metric_attribute_key:
+    description: SqlserverDatabaseFileSizeMetricAttributeKey specifies the key of an attribute for the sqlserver.database.file.size metric.
+    type: string
+  sqlserver_database_file_size_metric_config:
+    description: SqlserverDatabaseFileSizeMetricConfig provides config for the sqlserver.database.file.size metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_database_file_size_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_database_full_scan_rate_metric_config:
+    description: SqlserverDatabaseFullScanRateMetricConfig provides config for the sqlserver.database.full_scan.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_database_io_metric_attribute_key:
+    description: SqlserverDatabaseIoMetricAttributeKey specifies the key of an attribute for the sqlserver.database.io metric.
+    type: string
+  sqlserver_database_io_metric_config:
+    description: SqlserverDatabaseIoMetricConfig provides config for the sqlserver.database.io metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_database_io_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_database_latency_metric_attribute_key:
+    description: SqlserverDatabaseLatencyMetricAttributeKey specifies the key of an attribute for the sqlserver.database.latency metric.
+    type: string
+  sqlserver_database_latency_metric_config:
+    description: SqlserverDatabaseLatencyMetricConfig provides config for the sqlserver.database.latency metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_database_latency_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_database_name_resource_attribute_config:
+    description: SqlserverDatabaseNameResourceAttributeConfig provides config for the sqlserver.database.name resource attribute.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+      events_exclude:
+        description: 'Experimental: EventsExclude defines a list of filters for attribute values. If the list is not empty, events with matching resource attribute values will not be emitted. EventsInclude has higher priority than EventsExclude.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      events_include:
+        description: 'Experimental: EventsInclude defines a list of filters for attribute values. If the list is not empty, only events with matching resource attribute values will be emitted.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      metrics_exclude:
+        description: 'Experimental: MetricsExclude defines a list of filters for attribute values. If the list is not empty, metrics with matching resource attribute values will not be emitted. MetricsInclude has higher priority than MetricsExclude.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      metrics_include:
+        description: 'Experimental: MetricsInclude defines a list of filters for attribute values. If the list is not empty, only metrics with matching resource attribute values will be emitted.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      override_value:
+        description: OverrideValue allows users to override the value of this resource attribute.
+        x-pointer: true
+        type: string
+  sqlserver_database_operations_metric_attribute_key:
+    description: SqlserverDatabaseOperationsMetricAttributeKey specifies the key of an attribute for the sqlserver.database.operations metric.
+    type: string
+  sqlserver_database_operations_metric_config:
+    description: SqlserverDatabaseOperationsMetricConfig provides config for the sqlserver.database.operations metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_database_operations_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_database_page_file_size_metric_attribute_key:
+    description: SqlserverDatabasePageFileSizeMetricAttributeKey specifies the key of an attribute for the sqlserver.database.page_file.size metric.
+    type: string
+  sqlserver_database_page_file_size_metric_config:
+    description: SqlserverDatabasePageFileSizeMetricConfig provides config for the sqlserver.database.page_file.size metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_database_page_file_size_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_database_tempdb_space_metric_attribute_key:
+    description: SqlserverDatabaseTempdbSpaceMetricAttributeKey specifies the key of an attribute for the sqlserver.database.tempdb.space metric.
+    type: string
+  sqlserver_database_tempdb_space_metric_config:
+    description: SqlserverDatabaseTempdbSpaceMetricConfig provides config for the sqlserver.database.tempdb.space metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_database_tempdb_space_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_database_tempdb_version_store_size_metric_config:
+    description: SqlserverDatabaseTempdbVersionStoreSizeMetricConfig provides config for the sqlserver.database.tempdb.version_store.size metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_database_transactions_active_metric_attribute_key:
+    description: SqlserverDatabaseTransactionsActiveMetricAttributeKey specifies the key of an attribute for the sqlserver.database.transactions.active metric.
+    type: string
+  sqlserver_database_transactions_active_metric_config:
+    description: SqlserverDatabaseTransactionsActiveMetricConfig provides config for the sqlserver.database.transactions.active metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_database_transactions_active_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_deadlock_rate_metric_config:
+    description: SqlserverDeadlockRateMetricConfig provides config for the sqlserver.deadlock.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_error_rate_metric_config:
+    description: SqlserverErrorRateMetricConfig provides config for the sqlserver.error.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_extent_operation_rate_metric_config:
+    description: SqlserverExtentOperationRateMetricConfig provides config for the sqlserver.extent.operation.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_failover_cluster_ag_cluster_type_metric_attribute_key:
+    description: SqlserverFailoverClusterAgClusterTypeMetricAttributeKey specifies the key of an attribute for the sqlserver.failover_cluster.ag.cluster_type metric.
+    type: string
+  sqlserver_failover_cluster_ag_cluster_type_metric_config:
+    description: SqlserverFailoverClusterAgClusterTypeMetricConfig provides config for the sqlserver.failover_cluster.ag.cluster_type metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_failover_cluster_ag_cluster_type_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_failover_cluster_ag_failure_condition_level_metric_attribute_key:
+    description: SqlserverFailoverClusterAgFailureConditionLevelMetricAttributeKey specifies the key of an attribute for the sqlserver.failover_cluster.ag.failure_condition_level metric.
+    type: string
+  sqlserver_failover_cluster_ag_failure_condition_level_metric_config:
+    description: SqlserverFailoverClusterAgFailureConditionLevelMetricConfig provides config for the sqlserver.failover_cluster.ag.failure_condition_level metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_failover_cluster_ag_failure_condition_level_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_failover_cluster_ag_health_check_timeout_metric_attribute_key:
+    description: SqlserverFailoverClusterAgHealthCheckTimeoutMetricAttributeKey specifies the key of an attribute for the sqlserver.failover_cluster.ag.health_check_timeout metric.
+    type: string
+  sqlserver_failover_cluster_ag_health_check_timeout_metric_config:
+    description: SqlserverFailoverClusterAgHealthCheckTimeoutMetricConfig provides config for the sqlserver.failover_cluster.ag.health_check_timeout metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_failover_cluster_ag_health_check_timeout_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_failover_cluster_ag_required_sync_secondaries_metric_attribute_key:
+    description: SqlserverFailoverClusterAgRequiredSyncSecondariesMetricAttributeKey specifies the key of an attribute for the sqlserver.failover_cluster.ag.required_sync_secondaries metric.
+    type: string
+  sqlserver_failover_cluster_ag_required_sync_secondaries_metric_config:
+    description: SqlserverFailoverClusterAgRequiredSyncSecondariesMetricConfig provides config for the sqlserver.failover_cluster.ag.required_sync_secondaries metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_failover_cluster_ag_required_sync_secondaries_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_failover_cluster_replica_database_queue_size_metric_attribute_key:
+    description: SqlserverFailoverClusterReplicaDatabaseQueueSizeMetricAttributeKey specifies the key of an attribute for the sqlserver.failover_cluster.replica.database.queue_size metric.
+    type: string
+  sqlserver_failover_cluster_replica_database_queue_size_metric_config:
+    description: SqlserverFailoverClusterReplicaDatabaseQueueSizeMetricConfig provides config for the sqlserver.failover_cluster.replica.database.queue_size metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_failover_cluster_replica_database_queue_size_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_failover_cluster_replica_database_redo_rate_metric_attribute_key:
+    description: SqlserverFailoverClusterReplicaDatabaseRedoRateMetricAttributeKey specifies the key of an attribute for the sqlserver.failover_cluster.replica.database.redo.rate metric.
+    type: string
+  sqlserver_failover_cluster_replica_database_redo_rate_metric_config:
+    description: SqlserverFailoverClusterReplicaDatabaseRedoRateMetricConfig provides config for the sqlserver.failover_cluster.replica.database.redo.rate metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_failover_cluster_replica_database_redo_rate_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_failover_cluster_replica_flow_control_time_metric_config:
+    description: SqlserverFailoverClusterReplicaFlowControlTimeMetricConfig provides config for the sqlserver.failover_cluster.replica.flow_control_time metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_failover_cluster_replica_role_metric_attribute_key:
+    description: SqlserverFailoverClusterReplicaRoleMetricAttributeKey specifies the key of an attribute for the sqlserver.failover_cluster.replica.role metric.
+    type: string
+  sqlserver_failover_cluster_replica_role_metric_config:
+    description: SqlserverFailoverClusterReplicaRoleMetricConfig provides config for the sqlserver.failover_cluster.replica.role metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_failover_cluster_replica_role_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_failover_cluster_replica_synchronization_health_metric_attribute_key:
+    description: SqlserverFailoverClusterReplicaSynchronizationHealthMetricAttributeKey specifies the key of an attribute for the sqlserver.failover_cluster.replica.synchronization_health metric.
+    type: string
+  sqlserver_failover_cluster_replica_synchronization_health_metric_config:
+    description: SqlserverFailoverClusterReplicaSynchronizationHealthMetricConfig provides config for the sqlserver.failover_cluster.replica.synchronization_health metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_failover_cluster_replica_synchronization_health_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_ghost_record_skipped_rate_metric_config:
+    description: SqlserverGhostRecordSkippedRateMetricConfig provides config for the sqlserver.ghost_record.skipped.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_index_fragmentation_metric_attribute_key:
+    description: SqlserverIndexFragmentationMetricAttributeKey specifies the key of an attribute for the sqlserver.index.fragmentation metric.
+    type: string
+  sqlserver_index_fragmentation_metric_config:
+    description: SqlserverIndexFragmentationMetricConfig provides config for the sqlserver.index.fragmentation metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_index_fragmentation_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_index_page_count_metric_attribute_key:
+    description: SqlserverIndexPageCountMetricAttributeKey specifies the key of an attribute for the sqlserver.index.page.count metric.
+    type: string
+  sqlserver_index_page_count_metric_config:
+    description: SqlserverIndexPageCountMetricConfig provides config for the sqlserver.index.page.count metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_index_page_count_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_index_page_utilization_metric_attribute_key:
+    description: SqlserverIndexPageUtilizationMetricAttributeKey specifies the key of an attribute for the sqlserver.index.page.utilization metric.
+    type: string
+  sqlserver_index_page_utilization_metric_config:
+    description: SqlserverIndexPageUtilizationMetricConfig provides config for the sqlserver.index.page.utilization metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_index_page_utilization_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_index_record_count_metric_attribute_key:
+    description: SqlserverIndexRecordCountMetricAttributeKey specifies the key of an attribute for the sqlserver.index.record.count metric.
+    type: string
+  sqlserver_index_record_count_metric_config:
+    description: SqlserverIndexRecordCountMetricConfig provides config for the sqlserver.index.record.count metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_index_record_count_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_index_search_rate_metric_config:
+    description: SqlserverIndexSearchRateMetricConfig provides config for the sqlserver.index.search.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_index_size_metric_attribute_key:
+    description: SqlserverIndexSizeMetricAttributeKey specifies the key of an attribute for the sqlserver.index.size metric.
+    type: string
+  sqlserver_index_size_metric_config:
+    description: SqlserverIndexSizeMetricConfig provides config for the sqlserver.index.size metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_index_size_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_instance_name_resource_attribute_config:
+    description: SqlserverInstanceNameResourceAttributeConfig provides config for the sqlserver.instance.name resource attribute.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+      events_exclude:
+        description: 'Experimental: EventsExclude defines a list of filters for attribute values. If the list is not empty, events with matching resource attribute values will not be emitted. EventsInclude has higher priority than EventsExclude.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      events_include:
+        description: 'Experimental: EventsInclude defines a list of filters for attribute values. If the list is not empty, only events with matching resource attribute values will be emitted.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      metrics_exclude:
+        description: 'Experimental: MetricsExclude defines a list of filters for attribute values. If the list is not empty, metrics with matching resource attribute values will not be emitted. MetricsInclude has higher priority than MetricsExclude.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      metrics_include:
+        description: 'Experimental: MetricsInclude defines a list of filters for attribute values. If the list is not empty, only metrics with matching resource attribute values will be emitted.'
+        type: array
+        items:
+          $ref: go.opentelemetry.io/collector/filter.config
+      override_value:
+        description: OverrideValue allows users to override the value of this resource attribute.
+        x-pointer: true
+        type: string
+  sqlserver_latch_superlatch_count_metric_config:
+    description: SqlserverLatchSuperlatchCountMetricConfig provides config for the sqlserver.latch.superlatch.count metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_latch_superlatch_transition_rate_metric_attribute_key:
+    description: SqlserverLatchSuperlatchTransitionRateMetricAttributeKey specifies the key of an attribute for the sqlserver.latch.superlatch.transition.rate metric.
+    type: string
+  sqlserver_latch_superlatch_transition_rate_metric_config:
+    description: SqlserverLatchSuperlatchTransitionRateMetricConfig provides config for the sqlserver.latch.superlatch.transition.rate metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_latch_superlatch_transition_rate_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_latch_wait_rate_metric_config:
+    description: SqlserverLatchWaitRateMetricConfig provides config for the sqlserver.latch.wait.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_latch_wait_time_avg_metric_config:
+    description: SqlserverLatchWaitTimeAvgMetricConfig provides config for the sqlserver.latch.wait_time.avg metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_latch_wait_time_total_metric_config:
+    description: SqlserverLatchWaitTimeTotalMetricConfig provides config for the sqlserver.latch.wait_time.total metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_lock_block_count_metric_config:
+    description: SqlserverLockBlockCountMetricConfig provides config for the sqlserver.lock.block.count metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_lock_escalation_rate_metric_config:
+    description: SqlserverLockEscalationRateMetricConfig provides config for the sqlserver.lock.escalation.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_lock_memory_metric_config:
+    description: SqlserverLockMemoryMetricConfig provides config for the sqlserver.lock.memory metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_lock_request_rate_metric_config:
+    description: SqlserverLockRequestRateMetricConfig provides config for the sqlserver.lock.request.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_lock_timeout_rate_metric_config:
+    description: SqlserverLockTimeoutRateMetricConfig provides config for the sqlserver.lock.timeout.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_lock_wait_count_metric_attribute_key:
+    description: SqlserverLockWaitCountMetricAttributeKey specifies the key of an attribute for the sqlserver.lock.wait.count metric.
+    type: string
+  sqlserver_lock_wait_count_metric_config:
+    description: SqlserverLockWaitCountMetricConfig provides config for the sqlserver.lock.wait.count metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_lock_wait_count_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_lock_wait_rate_metric_config:
+    description: SqlserverLockWaitRateMetricConfig provides config for the sqlserver.lock.wait.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_lock_wait_time_avg_metric_config:
+    description: SqlserverLockWaitTimeAvgMetricConfig provides config for the sqlserver.lock.wait_time.avg metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_lock_wait_time_total_metric_config:
+    description: SqlserverLockWaitTimeTotalMetricConfig provides config for the sqlserver.lock.wait_time.total metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_login_rate_metric_config:
+    description: SqlserverLoginRateMetricConfig provides config for the sqlserver.login.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_logout_rate_metric_config:
+    description: SqlserverLogoutRateMetricConfig provides config for the sqlserver.logout.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_memory_area_metric_attribute_key:
+    description: SqlserverMemoryAreaMetricAttributeKey specifies the key of an attribute for the sqlserver.memory.area metric.
+    type: string
+  sqlserver_memory_area_metric_config:
+    description: SqlserverMemoryAreaMetricConfig provides config for the sqlserver.memory.area metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_memory_area_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_memory_cache_object_count_metric_attribute_key:
+    description: SqlserverMemoryCacheObjectCountMetricAttributeKey specifies the key of an attribute for the sqlserver.memory.cache.object.count metric.
+    type: string
+  sqlserver_memory_cache_object_count_metric_config:
+    description: SqlserverMemoryCacheObjectCountMetricConfig provides config for the sqlserver.memory.cache.object.count metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_memory_cache_object_count_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_memory_grants_pending_count_metric_config:
+    description: SqlserverMemoryGrantsPendingCountMetricConfig provides config for the sqlserver.memory.grants.pending.count metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_memory_page_count_metric_attribute_key:
+    description: SqlserverMemoryPageCountMetricAttributeKey specifies the key of an attribute for the sqlserver.memory.page.count metric.
+    type: string
+  sqlserver_memory_page_count_metric_config:
+    description: SqlserverMemoryPageCountMetricConfig provides config for the sqlserver.memory.page.count metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_memory_page_count_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_memory_usage_metric_attribute_key:
+    description: SqlserverMemoryUsageMetricAttributeKey specifies the key of an attribute for the sqlserver.memory.usage metric.
+    type: string
+  sqlserver_memory_usage_metric_config:
+    description: SqlserverMemoryUsageMetricConfig provides config for the sqlserver.memory.usage metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_memory_usage_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_os_disk_size_metric_config:
+    description: SqlserverOsDiskSizeMetricConfig provides config for the sqlserver.os.disk.size metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_os_memory_usage_metric_attribute_key:
+    description: SqlserverOsMemoryUsageMetricAttributeKey specifies the key of an attribute for the sqlserver.os.memory.usage metric.
+    type: string
+  sqlserver_os_memory_usage_metric_config:
+    description: SqlserverOsMemoryUsageMetricConfig provides config for the sqlserver.os.memory.usage metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_os_memory_usage_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_os_memory_utilization_metric_config:
+    description: SqlserverOsMemoryUtilizationMetricConfig provides config for the sqlserver.os.memory.utilization metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_os_scheduler_runnable_tasks_count_metric_config:
+    description: SqlserverOsSchedulerRunnableTasksCountMetricConfig provides config for the sqlserver.os.scheduler.runnable_tasks.count metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_os_wait_duration_metric_attribute_key:
+    description: SqlserverOsWaitDurationMetricAttributeKey specifies the key of an attribute for the sqlserver.os.wait.duration metric.
+    type: string
+  sqlserver_os_wait_duration_metric_config:
+    description: SqlserverOsWaitDurationMetricConfig provides config for the sqlserver.os.wait.duration metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_os_wait_duration_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_os_wait_tasks_count_metric_attribute_key:
+    description: SqlserverOsWaitTasksCountMetricAttributeKey specifies the key of an attribute for the sqlserver.os.wait.tasks.count metric.
+    type: string
+  sqlserver_os_wait_tasks_count_metric_config:
+    description: SqlserverOsWaitTasksCountMetricConfig provides config for the sqlserver.os.wait.tasks.count metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_os_wait_tasks_count_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_page_allocation_rate_metric_config:
+    description: SqlserverPageAllocationRateMetricConfig provides config for the sqlserver.page.allocation.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_page_buffer_cache_free_list_stalls_rate_metric_config:
+    description: SqlserverPageBufferCacheFreeListStallsRateMetricConfig provides config for the sqlserver.page.buffer_cache.free_list.stalls.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_page_buffer_cache_hit_ratio_metric_config:
+    description: SqlserverPageBufferCacheHitRatioMetricConfig provides config for the sqlserver.page.buffer_cache.hit_ratio metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_page_checkpoint_flush_rate_metric_config:
+    description: SqlserverPageCheckpointFlushRateMetricConfig provides config for the sqlserver.page.checkpoint.flush.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_page_compression_rate_metric_config:
+    description: SqlserverPageCompressionRateMetricConfig provides config for the sqlserver.page.compression.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_page_lazy_write_rate_metric_config:
+    description: SqlserverPageLazyWriteRateMetricConfig provides config for the sqlserver.page.lazy_write.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_page_life_expectancy_metric_attribute_key:
+    description: SqlserverPageLifeExpectancyMetricAttributeKey specifies the key of an attribute for the sqlserver.page.life_expectancy metric.
+    type: string
+  sqlserver_page_life_expectancy_metric_config:
+    description: SqlserverPageLifeExpectancyMetricConfig provides config for the sqlserver.page.life_expectancy metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_page_life_expectancy_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_page_lookup_rate_metric_config:
+    description: SqlserverPageLookupRateMetricConfig provides config for the sqlserver.page.lookup.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_page_operation_rate_metric_attribute_key:
+    description: SqlserverPageOperationRateMetricAttributeKey specifies the key of an attribute for the sqlserver.page.operation.rate metric.
+    type: string
+  sqlserver_page_operation_rate_metric_config:
+    description: SqlserverPageOperationRateMetricConfig provides config for the sqlserver.page.operation.rate metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_page_operation_rate_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_page_read_ahead_rate_metric_config:
+    description: SqlserverPageReadAheadRateMetricConfig provides config for the sqlserver.page.read_ahead.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_page_split_rate_metric_config:
+    description: SqlserverPageSplitRateMetricConfig provides config for the sqlserver.page.split.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_parameterization_rate_metric_attribute_key:
+    description: SqlserverParameterizationRateMetricAttributeKey specifies the key of an attribute for the sqlserver.parameterization.rate metric.
+    type: string
+  sqlserver_parameterization_rate_metric_config:
+    description: SqlserverParameterizationRateMetricConfig provides config for the sqlserver.parameterization.rate metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_parameterization_rate_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_plan_execution_rate_metric_attribute_key:
+    description: SqlserverPlanExecutionRateMetricAttributeKey specifies the key of an attribute for the sqlserver.plan.execution.rate metric.
+    type: string
+  sqlserver_plan_execution_rate_metric_config:
+    description: SqlserverPlanExecutionRateMetricConfig provides config for the sqlserver.plan.execution.rate metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_plan_execution_rate_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_process_count_metric_attribute_key:
+    description: SqlserverProcessCountMetricAttributeKey specifies the key of an attribute for the sqlserver.process.count metric.
+    type: string
+  sqlserver_process_count_metric_config:
+    description: SqlserverProcessCountMetricConfig provides config for the sqlserver.process.count metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_process_count_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_processes_blocked_metric_config:
+    description: SqlserverProcessesBlockedMetricConfig provides config for the sqlserver.processes.blocked metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_recompilation_ratio_metric_config:
+    description: SqlserverRecompilationRatioMetricConfig provides config for the sqlserver.recompilation.ratio metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_replica_data_rate_metric_attribute_key:
+    description: SqlserverReplicaDataRateMetricAttributeKey specifies the key of an attribute for the sqlserver.replica.data.rate metric.
+    type: string
+  sqlserver_replica_data_rate_metric_config:
+    description: SqlserverReplicaDataRateMetricConfig provides config for the sqlserver.replica.data.rate metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_replica_data_rate_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_resource_pool_disk_operations_metric_attribute_key:
+    description: SqlserverResourcePoolDiskOperationsMetricAttributeKey specifies the key of an attribute for the sqlserver.resource_pool.disk.operations metric.
+    type: string
+  sqlserver_resource_pool_disk_operations_metric_config:
+    description: SqlserverResourcePoolDiskOperationsMetricConfig provides config for the sqlserver.resource_pool.disk.operations metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_resource_pool_disk_operations_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_resource_pool_disk_throttled_read_rate_metric_config:
+    description: SqlserverResourcePoolDiskThrottledReadRateMetricConfig provides config for the sqlserver.resource_pool.disk.throttled.read.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_resource_pool_disk_throttled_write_rate_metric_config:
+    description: SqlserverResourcePoolDiskThrottledWriteRateMetricConfig provides config for the sqlserver.resource_pool.disk.throttled.write.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_scan_point_revalidation_rate_metric_config:
+    description: SqlserverScanPointRevalidationRateMetricConfig provides config for the sqlserver.scan_point.revalidation.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_stored_procedure_invocation_rate_metric_config:
+    description: SqlserverStoredProcedureInvocationRateMetricConfig provides config for the sqlserver.stored_procedure.invocation.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_table_count_metric_attribute_key:
+    description: SqlserverTableCountMetricAttributeKey specifies the key of an attribute for the sqlserver.table.count metric.
+    type: string
+  sqlserver_table_count_metric_config:
+    description: SqlserverTableCountMetricConfig provides config for the sqlserver.table.count metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_table_count_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_task_count_metric_attribute_key:
+    description: SqlserverTaskCountMetricAttributeKey specifies the key of an attribute for the sqlserver.task.count metric.
+    type: string
+  sqlserver_task_count_metric_config:
+    description: SqlserverTaskCountMetricConfig provides config for the sqlserver.task.count metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_task_count_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_task_rate_metric_attribute_key:
+    description: SqlserverTaskRateMetricAttributeKey specifies the key of an attribute for the sqlserver.task.rate metric.
+    type: string
+  sqlserver_task_rate_metric_config:
+    description: SqlserverTaskRateMetricConfig provides config for the sqlserver.task.rate metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_task_rate_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_tempdb_allocation_wait_time_total_metric_attribute_key:
+    description: SqlserverTempdbAllocationWaitTimeTotalMetricAttributeKey specifies the key of an attribute for the sqlserver.tempdb.allocation.wait_time.total metric.
+    type: string
+  sqlserver_tempdb_allocation_wait_time_total_metric_config:
+    description: SqlserverTempdbAllocationWaitTimeTotalMetricConfig provides config for the sqlserver.tempdb.allocation.wait_time.total metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_tempdb_allocation_wait_time_total_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_tempdb_contention_waiters_count_metric_config:
+    description: SqlserverTempdbContentionWaitersCountMetricConfig provides config for the sqlserver.tempdb.contention.waiters.count metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_tempdb_data_files_count_metric_config:
+    description: SqlserverTempdbDataFilesCountMetricConfig provides config for the sqlserver.tempdb.data_files.count metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_tempdb_file_size_metric_attribute_key:
+    description: SqlserverTempdbFileSizeMetricAttributeKey specifies the key of an attribute for the sqlserver.tempdb.file.size metric.
+    type: string
+  sqlserver_tempdb_file_size_metric_config:
+    description: SqlserverTempdbFileSizeMetricConfig provides config for the sqlserver.tempdb.file.size metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_tempdb_file_size_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_tempdb_space_usage_metric_attribute_key:
+    description: SqlserverTempdbSpaceUsageMetricAttributeKey specifies the key of an attribute for the sqlserver.tempdb.space.usage metric.
+    type: string
+  sqlserver_tempdb_space_usage_metric_config:
+    description: SqlserverTempdbSpaceUsageMetricConfig provides config for the sqlserver.tempdb.space.usage metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_tempdb_space_usage_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_thread_pool_tasks_count_metric_attribute_key:
+    description: SqlserverThreadPoolTasksCountMetricAttributeKey specifies the key of an attribute for the sqlserver.thread_pool.tasks.count metric.
+    type: string
+  sqlserver_thread_pool_tasks_count_metric_config:
+    description: SqlserverThreadPoolTasksCountMetricConfig provides config for the sqlserver.thread_pool.tasks.count metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_thread_pool_tasks_count_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_thread_pool_workers_count_metric_attribute_key:
+    description: SqlserverThreadPoolWorkersCountMetricAttributeKey specifies the key of an attribute for the sqlserver.thread_pool.workers.count metric.
+    type: string
+  sqlserver_thread_pool_workers_count_metric_config:
+    description: SqlserverThreadPoolWorkersCountMetricConfig provides config for the sqlserver.thread_pool.workers.count metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_thread_pool_workers_count_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_thread_pool_workers_max_metric_config:
+    description: SqlserverThreadPoolWorkersMaxMetricConfig provides config for the sqlserver.thread_pool.workers.max metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_thread_pool_workers_utilization_metric_config:
+    description: SqlserverThreadPoolWorkersUtilizationMetricConfig provides config for the sqlserver.thread_pool.workers.utilization metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_transaction_delay_metric_config:
+    description: SqlserverTransactionDelayMetricConfig provides config for the sqlserver.transaction.delay metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_transaction_log_flush_data_rate_metric_config:
+    description: SqlserverTransactionLogFlushDataRateMetricConfig provides config for the sqlserver.transaction_log.flush.data.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_transaction_log_flush_rate_metric_config:
+    description: SqlserverTransactionLogFlushRateMetricConfig provides config for the sqlserver.transaction_log.flush.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_transaction_log_flush_wait_rate_metric_config:
+    description: SqlserverTransactionLogFlushWaitRateMetricConfig provides config for the sqlserver.transaction_log.flush.wait.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_transaction_log_growth_count_metric_config:
+    description: SqlserverTransactionLogGrowthCountMetricConfig provides config for the sqlserver.transaction_log.growth.count metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_transaction_log_shrink_count_metric_config:
+    description: SqlserverTransactionLogShrinkCountMetricConfig provides config for the sqlserver.transaction_log.shrink.count metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_transaction_log_usage_metric_config:
+    description: SqlserverTransactionLogUsageMetricConfig provides config for the sqlserver.transaction_log.usage metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_transaction_longest_running_time_metric_config:
+    description: SqlserverTransactionLongestRunningTimeMetricConfig provides config for the sqlserver.transaction.longest_running_time metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_transaction_mirror_write_rate_metric_config:
+    description: SqlserverTransactionMirrorWriteRateMetricConfig provides config for the sqlserver.transaction.mirror_write.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_transaction_rate_metric_config:
+    description: SqlserverTransactionRateMetricConfig provides config for the sqlserver.transaction.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_transaction_version_cleanup_rate_metric_config:
+    description: SqlserverTransactionVersionCleanupRateMetricConfig provides config for the sqlserver.transaction.version_cleanup.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_transaction_version_generation_rate_metric_config:
+    description: SqlserverTransactionVersionGenerationRateMetricConfig provides config for the sqlserver.transaction.version_generation.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_transaction_write_rate_metric_config:
+    description: SqlserverTransactionWriteRateMetricConfig provides config for the sqlserver.transaction.write.rate metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_user_connection_count_metric_config:
+    description: SqlserverUserConnectionCountMetricConfig provides config for the sqlserver.user.connection.count metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
+  sqlserver_worker_request_count_metric_attribute_key:
+    description: SqlserverWorkerRequestCountMetricAttributeKey specifies the key of an attribute for the sqlserver.worker.request.count metric.
+    type: string
+  sqlserver_worker_request_count_metric_config:
+    description: SqlserverWorkerRequestCountMetricConfig provides config for the sqlserver.worker.request.count metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_worker_request_count_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_worker_thread_count_metric_attribute_key:
+    description: SqlserverWorkerThreadCountMetricAttributeKey specifies the key of an attribute for the sqlserver.worker.thread.count metric.
+    type: string
+  sqlserver_worker_thread_count_metric_config:
+    description: SqlserverWorkerThreadCountMetricConfig provides config for the sqlserver.worker.thread.count metric.
+    type: object
+    properties:
+      aggregation_strategy:
+        type: string
+      attributes:
+        type: array
+        items:
+          $ref: sqlserver_worker_thread_count_metric_attribute_key
+      enabled:
+        type: boolean
+  sqlserver_worktable_cache_hit_ratio_metric_config:
+    description: SqlserverWorktableCacheHitRatioMetricConfig provides config for the sqlserver.worktable.cache.hit_ratio metric.
+    type: object
+    properties:
+      enabled:
+        type: boolean
