@@ -367,12 +367,12 @@ attributes:
     description: Binary hash value calculated on the query and used to identify queries with similar logic, reported in the HEX format.
     type: string
     requirement_level: recommended
-  sqlserver.query_plan:
-    description: The query execution plan used by the SQL Server.
-    type: string
-    requirement_level: recommended
   sqlserver.query_plan_hash:
     description: Binary hash value calculated on the query execution plan and used to identify similar query execution plans, reported in the HEX format.
+    type: string
+    requirement_level: recommended
+  sqlserver.query_plan_json:
+    description: The SQL Server execution plan as a compact JSON array of operator nodes, each carrying node_id, parent_id, input_type, cost attributes, and schema/table/index from IndexScan or TableScan operators.
     type: string
     requirement_level: recommended
   sqlserver.query_start:
@@ -546,6 +546,13 @@ attributes:
   # attributes for events
   ## common
 events:
+  db.server.query_plan:
+    enabled: false
+    description: query execution plan emitted as a separate event; join to db.server.top_query on sqlserver.query_plan_hash
+    attributes:
+      - sqlserver.query_plan_hash
+      - sqlserver.query_plan_json
+
   db.server.query_sample:
     enabled: false
     description: query sample
@@ -607,7 +614,6 @@ events:
       - sqlserver.total_logical_writes
       - sqlserver.total_physical_reads
       - sqlserver.query_hash
-      - sqlserver.query_plan
       - sqlserver.query_plan_hash
       - sqlserver.total_rows
       - sqlserver.total_elapsed_time
