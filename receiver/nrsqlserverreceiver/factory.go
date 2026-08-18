@@ -59,6 +59,7 @@ func createDefaultConfig() component.Config {
 			MaxQuerySampleCount: 1000,
 			TopQueryCount:       250,
 			CollectionInterval:  time.Minute,
+			PlanCacheTTL:        time.Hour,
 		},
 	}
 }

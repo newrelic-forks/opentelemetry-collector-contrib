@@ -6,6 +6,8 @@ package nrsqlserverreceiver // import "github.com/newrelic-forks/opentelemetry-c
 import (
 	"encoding/json"
 	"encoding/xml"
+
+	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver/internal/metadata"
 )
 
 // planFlatNode is one operator node in the flat JSON array emitted for a SQL Server execution plan.
@@ -106,12 +108,35 @@ type xmlOpChildren struct {
 	RelOp []xmlRelOp `xml:"RelOp"`
 }
 
-// xmlPlanToJSON converts an obfuscated XML execution plan to a compact JSON array of
-// operator nodes. Each node carries node_id, parent_id, input_type ("Root" / "LeftInput" /
-// "RightInput" / "Input"), the 8 RelOp cost/row attributes, and Schema/Table/Index from
-// the nested Object element inside IndexScan or TableScan.
+// xmlPlanToNodes parses an obfuscated XML execution plan and returns a flat slice of
+// planFlatNode — one entry per RelOp operator in the plan.
 // The input must be the output of obfuscateXMLPlan (already-obfuscated XML).
-// Returns an empty string (no error) when the input is empty.
+// Returns a nil slice (no error) when the input is empty.
+func xmlPlanToNodes(obfuscatedXML string) ([]planFlatNode, error) {
+	if obfuscatedXML == "" {
+		return nil, nil
+	}
+
+	var plan xmlShowPlan
+	if err := xml.Unmarshal([]byte(obfuscatedXML), &plan); err != nil {
+		return nil, err
+	}
+
+	nodes := make([]planFlatNode, 0)
+	counter := 0
+	for i := range plan.BatchSequence {
+		for j := range plan.BatchSequence[i].Batches {
+			for k := range plan.BatchSequence[i].Batches[j].Statements {
+				root := &plan.BatchSequence[i].Batches[j].Statements[k].QueryPlan.Root
+				walkRelOp(root, &nodes, &counter, -1, "Root")
+			}
+		}
+	}
+	return nodes, nil
+}
+
+// xmlPlanToJSON converts an obfuscated XML execution plan to a compact JSON array of
+// operator nodes. Kept for tests; the scraper uses xmlPlanToNodes directly.
 func xmlPlanToJSON(obfuscatedXML string) (string, error) {
 	if obfuscatedXML == "" {
 		return "", nil
@@ -234,5 +259,19 @@ func walkSingle(op *xmlOpChildren, nodes *[]planFlatNode, counter *int, parentID
 	}
 	for i := range op.RelOp {
 		walkRelOp(&op.RelOp[i], nodes, counter, parentID, "Input")
+	}
+}
+
+// inputTypeAttr converts the InputType string to the generated enum value.
+func inputTypeAttr(s string) metadata.AttributeSqlserverInputType {
+	switch s {
+	case "LeftInput":
+		return metadata.AttributeSqlserverInputTypeLeftInput
+	case "RightInput":
+		return metadata.AttributeSqlserverInputTypeRightInput
+	case "Input":
+		return metadata.AttributeSqlserverInputTypeInput
+	default:
+		return metadata.AttributeSqlserverInputTypeRoot
 	}
 }

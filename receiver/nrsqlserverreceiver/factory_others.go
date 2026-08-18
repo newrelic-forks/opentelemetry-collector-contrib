@@ -59,7 +59,7 @@ func createLogsReceiver(
 	return scraperhelper.NewLogsController(
 		&cfg.ControllerConfig,
 		params,
-		logsConsumer,
+		newSizeAwareBatchConsumer(logsConsumer, defaultMaxCompressedBytes),
 		opts...,
 	)
 }
