@@ -4,6 +4,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -34,6 +37,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -62,6 +68,9 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -98,6 +107,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -132,6 +144,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -160,6 +175,9 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -196,6 +214,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -224,6 +245,9 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -260,6 +284,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -288,6 +315,9 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -324,6 +354,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -358,6 +391,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -386,6 +422,9 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -419,34 +458,7 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
-        - key: service.instance.id
-          value:
-            stringValue: 0.0.0.0:1433
-        - key: service.name
-          value:
-            stringValue: unknown_service:microsoft.sql_server
-        - key: service.namespace
-          value:
-            stringValue: ""
-        - key: sqlserver.instance.name
-          value:
-            stringValue: d26d40521426
-    scopeMetrics:
-      - metrics:
-          - description: Total number of backups/restores.
-            gauge:
-              dataPoints:
-                - asDouble: 0
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
-            name: sqlserver.database.backup_or_restore.rate
-            unit: '{backups_or_restores}/s'
-        scope:
-          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
-          version: latest
-  - resource:
-      attributes:
-        - key: host.name
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -479,34 +491,7 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
-        - key: service.instance.id
-          value:
-            stringValue: 0.0.0.0:1433
-        - key: service.name
-          value:
-            stringValue: unknown_service:microsoft.sql_server
-        - key: service.namespace
-          value:
-            stringValue: ""
-        - key: sqlserver.instance.name
-          value:
-            stringValue: d26d40521426
-    scopeMetrics:
-      - metrics:
-          - description: Total number of backups/restores.
-            gauge:
-              dataPoints:
-                - asDouble: 0
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
-            name: sqlserver.database.backup_or_restore.rate
-            unit: '{backups_or_restores}/s'
-        scope:
-          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
-          version: latest
-  - resource:
-      attributes:
-        - key: host.name
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -539,34 +524,7 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
-        - key: service.instance.id
-          value:
-            stringValue: 0.0.0.0:1433
-        - key: service.name
-          value:
-            stringValue: unknown_service:microsoft.sql_server
-        - key: service.namespace
-          value:
-            stringValue: ""
-        - key: sqlserver.instance.name
-          value:
-            stringValue: d26d40521426
-    scopeMetrics:
-      - metrics:
-          - description: Total number of backups/restores.
-            gauge:
-              dataPoints:
-                - asDouble: 0
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
-            name: sqlserver.database.backup_or_restore.rate
-            unit: '{backups_or_restores}/s'
-        scope:
-          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
-          version: latest
-  - resource:
-      attributes:
-        - key: host.name
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -599,34 +557,7 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
-        - key: service.instance.id
-          value:
-            stringValue: 0.0.0.0:1433
-        - key: service.name
-          value:
-            stringValue: unknown_service:microsoft.sql_server
-        - key: service.namespace
-          value:
-            stringValue: ""
-        - key: sqlserver.instance.name
-          value:
-            stringValue: d26d40521426
-    scopeMetrics:
-      - metrics:
-          - description: Total number of backups/restores.
-            gauge:
-              dataPoints:
-                - asDouble: 0
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
-            name: sqlserver.database.backup_or_restore.rate
-            unit: '{backups_or_restores}/s'
-        scope:
-          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
-          version: latest
-  - resource:
-      attributes:
-        - key: host.name
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -657,6 +588,141 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: service.instance.id
+          value:
+            stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
+        - key: sqlserver.instance.name
+          value:
+            stringValue: d26d40521426
+    scopeMetrics:
+      - metrics:
+          - description: Total number of backups/restores.
+            gauge:
+              dataPoints:
+                - asDouble: 0
+                  startTimeUnixNano: "1000000"
+                  timeUnixNano: "2000000"
+            name: sqlserver.database.backup_or_restore.rate
+            unit: '{backups_or_restores}/s'
+        scope:
+          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
+          version: latest
+  - resource:
+      attributes:
+        - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: service.instance.id
+          value:
+            stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
+        - key: sqlserver.instance.name
+          value:
+            stringValue: d26d40521426
+    scopeMetrics:
+      - metrics:
+          - description: Total number of backups/restores.
+            gauge:
+              dataPoints:
+                - asDouble: 0
+                  startTimeUnixNano: "1000000"
+                  timeUnixNano: "2000000"
+            name: sqlserver.database.backup_or_restore.rate
+            unit: '{backups_or_restores}/s'
+        scope:
+          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
+          version: latest
+  - resource:
+      attributes:
+        - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: service.instance.id
+          value:
+            stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
+        - key: sqlserver.instance.name
+          value:
+            stringValue: d26d40521426
+    scopeMetrics:
+      - metrics:
+          - description: Total number of backups/restores.
+            gauge:
+              dataPoints:
+                - asDouble: 0
+                  startTimeUnixNano: "1000000"
+                  timeUnixNano: "2000000"
+            name: sqlserver.database.backup_or_restore.rate
+            unit: '{backups_or_restores}/s'
+        scope:
+          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
+          version: latest
+  - resource:
+      attributes:
+        - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: service.instance.id
+          value:
+            stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
+        - key: sqlserver.instance.name
+          value:
+            stringValue: d26d40521426
+    scopeMetrics:
+      - metrics:
+          - description: Total number of backups/restores.
+            gauge:
+              dataPoints:
+                - asDouble: 0
+                  startTimeUnixNano: "1000000"
+                  timeUnixNano: "2000000"
+            name: sqlserver.database.backup_or_restore.rate
+            unit: '{backups_or_restores}/s'
+        scope:
+          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
+          version: latest
+  - resource:
+      attributes:
+        - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -687,6 +753,9 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -727,6 +796,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -755,6 +827,9 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -787,6 +862,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -815,6 +893,9 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -847,6 +928,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -877,6 +961,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -905,6 +992,9 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -939,6 +1029,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -967,6 +1060,9 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -1003,6 +1099,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -1035,6 +1134,9 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -1071,6 +1173,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -1105,6 +1210,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -1133,6 +1241,9 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -1165,6 +1276,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -1194,6 +1308,9 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -1230,6 +1347,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -1262,6 +1382,9 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -1299,6 +1422,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -1327,6 +1453,9 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -1363,6 +1492,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -1391,6 +1523,9 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -1427,6 +1562,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -1461,6 +1599,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -1489,6 +1630,9 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -1525,6 +1669,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -1553,6 +1700,9 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -1590,6 +1740,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -1618,6 +1771,9 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -1650,6 +1806,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -1678,6 +1837,9 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -1715,6 +1877,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -1743,6 +1908,9 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -1779,6 +1947,9 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -1817,6 +1988,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -1849,6 +2023,9 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -1885,6 +2062,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -1917,6 +2097,9 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -1953,6 +2136,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -1985,6 +2171,9 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -2021,6 +2210,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -2053,6 +2245,9 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -2089,6 +2284,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -2121,6 +2319,9 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -2157,6 +2358,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -2189,6 +2393,9 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -2225,6 +2432,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -2257,6 +2467,9 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
