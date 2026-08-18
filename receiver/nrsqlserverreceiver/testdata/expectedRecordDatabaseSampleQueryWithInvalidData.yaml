@@ -39,7 +39,7 @@ resourceLogs:
                   stringValue: master
               - key: db.query.text
                 value:
-                  stringValue: ""
+                  stringValue: SELECT cpu_time
               - key: db.system.name
                 value:
                   stringValue: microsoft.sql_server
