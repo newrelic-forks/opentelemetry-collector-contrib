@@ -56,65 +56,75 @@ func (s *sizeAwareBatchConsumer) ConsumeLogs(ctx context.Context, ld plog.Logs) 
 	return errors.Join(errs...)
 }
 
-// splitByCompressedSize splits ld into sub-batches where each sub-batch's
-// gzip-compressed proto size does not exceed maxBytes.
+// logEntry is a flattened log record with its parent resource and scope.
+type logEntry struct {
+	resource pcommon.Resource
+	scope    pcommon.InstrumentationScope
+	record   plog.LogRecord
+}
+
+// splitByCompressedSize splits ld into sub-batches whose gzip-compressed proto
+// size does not exceed maxBytes using a divide-and-conquer strategy:
 //
-// Records are added one at a time to the current sub-batch. Before each
-// addition we measure the compressed size of the candidate batch. If it
-// exceeds maxBytes we flush the current batch and start a new one.
+//  1. Check if the whole batch fits → return immediately (1 measurement).
+//  2. If not, split records in half and recurse on each half independently.
+//  3. A single oversized record is emitted alone — never dropped.
 //
-// A single record that exceeds maxBytes on its own is emitted alone — it is
-// never dropped silently.
+// This is far more efficient than checking one record at a time:
+//   - Happy path (all records fit): 1 measurement regardless of record count.
+//   - Splits into K batches: O(K × log(N/K)) measurements instead of O(N).
 func splitByCompressedSize(ld plog.Logs, maxBytes int) []plog.Logs {
-	type entry struct {
-		resource pcommon.Resource
-		scope    pcommon.InstrumentationScope
-		record   plog.LogRecord
+	if ld.LogRecordCount() == 0 {
+		return nil
 	}
 
-	// Flatten all (resource, scope, record) triples from the nested plog structure.
-	var flat []entry
+	// Fast path: entire batch fits — 1 measurement, done.
+	if compressedProtoSize(ld) <= maxBytes {
+		return []plog.Logs{ld}
+	}
+
+	// Batch too large — flatten and divide-and-conquer.
+	var flat []logEntry
 	rls := ld.ResourceLogs()
 	for i := 0; i < rls.Len(); i++ {
 		rl := rls.At(i)
 		for j := 0; j < rl.ScopeLogs().Len(); j++ {
 			sl := rl.ScopeLogs().At(j)
 			for k := 0; k < sl.LogRecords().Len(); k++ {
-				flat = append(flat, entry{rl.Resource(), sl.Scope(), sl.LogRecords().At(k)})
+				flat = append(flat, logEntry{rl.Resource(), sl.Scope(), sl.LogRecords().At(k)})
 			}
 		}
 	}
-	if len(flat) == 0 {
+
+	return divideAndSplitLogs(flat, maxBytes)
+}
+
+// divideAndSplitLogs recursively splits a flat record slice into sub-batches
+// that each fit within maxBytes when gzip-compressed.
+func divideAndSplitLogs(records []logEntry, maxBytes int) []plog.Logs {
+	if len(records) == 0 {
 		return nil
 	}
 
-	var batches []plog.Logs
-	current := plog.NewLogs()
+	batch := buildLogBatch(records)
 
-	for _, e := range flat {
-		// Build a candidate that includes this record.
-		candidate := plog.NewLogs()
-		current.CopyTo(candidate)
-		appendLogRecord(candidate, e.resource, e.scope, e.record)
-
-		size := compressedProtoSize(candidate)
-
-		if size <= maxBytes || current.LogRecordCount() == 0 {
-			// Fits within limit — or it is the only record in a fresh batch
-			// (single oversized record: emit alone rather than dropping it).
-			current = candidate
-		} else {
-			// Would overflow — flush current batch, start fresh with this record.
-			batches = append(batches, current)
-			current = plog.NewLogs()
-			appendLogRecord(current, e.resource, e.scope, e.record)
-		}
+	if compressedProtoSize(batch) <= maxBytes || len(records) == 1 {
+		return []plog.Logs{batch}
 	}
 
-	if current.LogRecordCount() > 0 {
-		batches = append(batches, current)
+	mid := len(records) / 2
+	left := divideAndSplitLogs(records[:mid], maxBytes)
+	right := divideAndSplitLogs(records[mid:], maxBytes)
+	return append(left, right...)
+}
+
+// buildLogBatch assembles a plog.Logs from a flat slice of logEntry records.
+func buildLogBatch(records []logEntry) plog.Logs {
+	batch := plog.NewLogs()
+	for _, e := range records {
+		appendLogRecord(batch, e.resource, e.scope, e.record)
 	}
-	return batches
+	return batch
 }
 
 // appendLogRecord copies record into dest under the matching resource + scope,

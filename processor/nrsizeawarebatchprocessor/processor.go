@@ -116,57 +116,81 @@ func (p *sizeAwareBatchProcessor) partitionByEventName(ld plog.Logs) (passthroug
 	return passthrough, filtered
 }
 
-// --- size-aware split logic ---
+// --- size-aware split logic (divide and conquer) ---
 
-// splitByCompressedSize splits ld into sub-batches where each sub-batch's
-// gzip-compressed proto size does not exceed maxBytes.
-// A single record that alone exceeds maxBytes is emitted in its own batch
-// rather than being dropped.
+// planEntry is a flattened log record with its parent resource and scope.
+type planEntry struct {
+	resource pcommon.Resource
+	scope    pcommon.InstrumentationScope
+	record   plog.LogRecord
+}
+
+// splitByCompressedSize splits ld into sub-batches whose gzip-compressed proto
+// size does not exceed maxBytes using a divide-and-conquer strategy:
+//
+//  1. Check if the whole batch fits → if yes, return immediately (1 measurement).
+//  2. If not, split records in half and recurse on each half independently.
+//  3. A single record that alone exceeds maxBytes is emitted alone — never dropped.
+//
+// This is far more efficient than the greedy per-record approach:
+//   - Happy path (all fit): 1 measurement regardless of record count.
+//   - Splits into K batches: O(K × log(N/K)) measurements instead of O(N).
 func splitByCompressedSize(ld plog.Logs, maxBytes int) []plog.Logs {
-	type entry struct {
-		resource pcommon.Resource
-		scope    pcommon.InstrumentationScope
-		record   plog.LogRecord
+	if ld.LogRecordCount() == 0 {
+		return nil
 	}
 
-	var flat []entry
+	// Fast path: entire batch fits — most common case after dedup is active.
+	if compressedProtoSize(ld) <= maxBytes {
+		return []plog.Logs{ld}
+	}
+
+	// Batch too large — flatten records and divide-and-conquer.
+	var flat []planEntry
 	rls := ld.ResourceLogs()
 	for i := 0; i < rls.Len(); i++ {
 		rl := rls.At(i)
 		for j := 0; j < rl.ScopeLogs().Len(); j++ {
 			sl := rl.ScopeLogs().At(j)
 			for k := 0; k < sl.LogRecords().Len(); k++ {
-				flat = append(flat, entry{rl.Resource(), sl.Scope(), sl.LogRecords().At(k)})
+				flat = append(flat, planEntry{rl.Resource(), sl.Scope(), sl.LogRecords().At(k)})
 			}
 		}
 	}
-	if len(flat) == 0 {
+
+	return divideAndSplit(flat, maxBytes)
+}
+
+// divideAndSplit recursively splits a flat record slice into sub-batches that
+// each fit within maxBytes when gzip-compressed.
+func divideAndSplit(records []planEntry, maxBytes int) []plog.Logs {
+	if len(records) == 0 {
 		return nil
 	}
 
-	var batches []plog.Logs
-	current := plog.NewLogs()
+	// Build a plog.Logs from this slice and measure it.
+	batch := buildBatch(records)
 
-	for _, e := range flat {
-		candidate := plog.NewLogs()
-		current.CopyTo(candidate)
-		appendLogRecord(candidate, e.resource, e.scope, e.record)
-
-		size := compressedProtoSize(candidate)
-
-		if size <= maxBytes || current.LogRecordCount() == 0 {
-			current = candidate
-		} else {
-			batches = append(batches, current)
-			current = plog.NewLogs()
-			appendLogRecord(current, e.resource, e.scope, e.record)
-		}
+	// Fits within limit, or it is a single record that cannot be split further
+	// (emit alone rather than dropping it).
+	if compressedProtoSize(batch) <= maxBytes || len(records) == 1 {
+		return []plog.Logs{batch}
 	}
 
-	if current.LogRecordCount() > 0 {
-		batches = append(batches, current)
+	// Too large — split in half and recurse on each half independently.
+	mid := len(records) / 2
+	left := divideAndSplit(records[:mid], maxBytes)
+	right := divideAndSplit(records[mid:], maxBytes)
+	return append(left, right...)
+}
+
+// buildBatch assembles a plog.Logs from a flat slice of planEntry records.
+func buildBatch(records []planEntry) plog.Logs {
+	batch := plog.NewLogs()
+	for _, e := range records {
+		appendLogRecord(batch, e.resource, e.scope, e.record)
 	}
-	return batches
+	return batch
 }
 
 // appendLogRecord copies record into dest under the matching resource+scope,
