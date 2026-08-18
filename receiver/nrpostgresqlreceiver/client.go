@@ -29,6 +29,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/dbauth"
 )
 
 const querySampleTraceContextKey = "_otel_trace_context"
@@ -61,8 +63,10 @@ var errNoLastArchive = errors.New("no last archive found, not able to calculate 
 type client interface {
 	Close() error
 	getDatabaseStats(ctx context.Context, databases []string) (map[databaseName]databaseStats, error)
+	getExecutionTimeStats(ctx context.Context, databases []string) (map[databaseName]float64, error)
 	getDatabaseConflicts(ctx context.Context, databases []string) (map[databaseName]databaseConflictStats, error)
 	getDatabaseLocks(ctx context.Context) ([]databaseLocks, error)
+	getSharedRelationLocks(ctx context.Context) ([]databaseLocks, error)
 	getBGWriterStats(ctx context.Context) (*bgStat, error)
 	getBackends(ctx context.Context, databases []string) (map[databaseName]int64, error)
 	getDatabaseSize(ctx context.Context, databases []string) (map[databaseName]int64, error)
@@ -137,7 +141,36 @@ func isExplainableQuery(query string) bool {
 	}
 
 	_, ok := explainableStatements[strings.ToUpper(firstWord)]
-	return ok
+	if !ok {
+		return false
+	}
+
+	return !hasEmbeddedStatementSeparator(trimmed)
+}
+
+// hasEmbeddedStatementSeparator reports whether query contains a ';' that terminates a
+// statement before the end of the string, ignoring a single optional trailing ';' (which
+// PREPARE's own "AS <query>;" wrapping already tolerates) and any ';' inside a single-quoted
+// string literal (two consecutive single quotes is the standard SQL-escaped quote). This
+// stops a second statement from being smuggled into the simple-query PREPARE/EXPLAIN path
+// via query text that only passes the leading-keyword whitelist check.
+func hasEmbeddedStatementSeparator(query string) bool {
+	body := strings.TrimRight(query, " \t\n")
+	body = strings.TrimSuffix(body, ";")
+
+	inString := false
+	for i := 0; i < len(body); i++ {
+		switch {
+		case body[i] == '\'' && inString && i+1 < len(body) && body[i+1] == '\'':
+			// Escaped quote ('') inside a string literal: skip both characters.
+			i++
+		case body[i] == '\'':
+			inString = !inString
+		case body[i] == ';' && !inString:
+			return true
+		}
+	}
+	return false
 }
 
 // quoteExplainFunctionName double-quotes each segment of a validated [schema.]name.
@@ -342,6 +375,22 @@ type postgreSQLConfig struct {
 	database string
 	address  confignet.AddrConfig
 	tls      configtls.ClientConfig
+	// credentialProvider, when non-nil, supplies the password (and optionally the
+	// username) at connection-string-build time instead of the static password.
+	// Non-pool path: resolved once per *sql.DB build (one build per scrape), so
+	// each scrape picks up a freshly-minted credential. Pool path: resolved per
+	// physical connection by credentialConnector, so a long-lived pool re-mints on
+	// every new connection it opens. Either way, no collector restart is needed.
+	credentialProvider dbauth.Provider
+}
+
+var conninfoValueEscaper = strings.NewReplacer(`\`, `\\`, `'`, `\'`)
+
+// quoteConninfoValue encodes a value for lib/pq's keyword/value connection
+// string format. Quoting every value prevents credential or configuration data
+// containing whitespace, quotes, or backslashes from becoming new options.
+func quoteConninfoValue(value string) string {
+	return `'` + conninfoValueEscaper.Replace(value) + `'`
 }
 
 func sslConnectionString(tls configtls.ClientConfig) string {
@@ -358,21 +407,25 @@ func sslConnectionString(tls configtls.ClientConfig) string {
 	}
 
 	if tls.CAFile != "" {
-		conn += fmt.Sprintf(" sslrootcert='%s'", tls.CAFile)
+		conn += " sslrootcert=" + quoteConninfoValue(tls.CAFile)
 	}
 
 	if tls.KeyFile != "" {
-		conn += fmt.Sprintf(" sslkey='%s'", tls.KeyFile)
+		conn += " sslkey=" + quoteConninfoValue(tls.KeyFile)
 	}
 
 	if tls.CertFile != "" {
-		conn += fmt.Sprintf(" sslcert='%s'", tls.CertFile)
+		conn += " sslcert=" + quoteConninfoValue(tls.CertFile)
 	}
 
 	return conn
 }
 
-func (c postgreSQLConfig) ConnectionString() (string, error) {
+// ConnectionString builds the lib/pq DSN, resolving the credential provider (if
+// any) with the supplied context. The pool path resolves per physical connection
+// via credentialConnector, so the connection context flows through to credential
+// minting.
+func (c postgreSQLConfig) ConnectionString(ctx context.Context) (string, error) {
 	// postgres will assume the supplied user as the database name if none is provided,
 	// so we must specify a database name even when we are just collecting the list of databases.
 	database := defaultPostgreSQLDatabase
@@ -390,7 +443,38 @@ func (c postgreSQLConfig) ConnectionString() (string, error) {
 		host = "/" + host
 	}
 
-	return fmt.Sprintf("port=%s host=%s user=%s password=%s dbname=%s %s", port, host, c.username, c.password, database, sslConnectionString(c.tls)), nil
+	username, password := c.username, c.password
+	if c.credentialProvider != nil {
+		// Resolve the credential at build time so each new connection uses a
+		// currently-valid secret (e.g. a freshly-minted AWS IAM token).
+		cred, credErr := c.credentialProvider.GetCredential(ctx, dbauth.Request{
+			Endpoint: c.address.Endpoint,
+			Username: c.username,
+		})
+		if credErr != nil {
+			return "", fmt.Errorf("resolve credential: %w", credErr)
+		}
+		if cred == nil {
+			// A provider must return either a credential or an error. Guard against a
+			// contract-violating provider so a bad extension fails this scrape closed
+			// rather than panicking the whole collector on the nil dereference below.
+			return "", errors.New("resolve credential: provider returned a nil credential")
+		}
+		password = cred.Secret
+		if cred.Username != nil {
+			username = *cred.Username
+		}
+	}
+
+	return fmt.Sprintf(
+		"port=%s host=%s user=%s password=%s dbname=%s %s",
+		quoteConninfoValue(port),
+		quoteConninfoValue(host),
+		quoteConninfoValue(username),
+		quoteConninfoValue(password),
+		quoteConninfoValue(database),
+		sslConnectionString(c.tls),
+	), nil
 }
 
 func (c *postgreSQLClient) Close() error {
@@ -458,6 +542,41 @@ func (c *postgreSQLClient) getDatabaseStats(ctx context.Context, databases []str
 	return dbStats, errs
 }
 
+// getExecutionTimeStats returns, per database, the cumulative time (in seconds) spent executing
+// SQL statements. It aggregates the total_exec_time column of pg_stat_statements (reported in
+// milliseconds) across all currently tracked statements and requires the pg_stat_statements
+// extension to be installed.
+func (c *postgreSQLClient) getExecutionTimeStats(ctx context.Context, databases []string) (map[databaseName]float64, error) {
+	query := filterQueryByDatabases(
+		"SELECT pd.datname AS datname, SUM(pss.total_exec_time) / 1000.0 AS execution_time_seconds FROM pg_stat_statements pss JOIN pg_database pd ON pss.dbid = pd.oid",
+		databases,
+		true,
+	)
+
+	rows, err := c.client.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var errs error
+	stats := map[databaseName]float64{}
+
+	for rows.Next() {
+		var datname string
+		var executionTime float64
+		err = rows.Scan(&datname, &executionTime)
+		if err != nil {
+			errs = multierr.Append(errs, err)
+			continue
+		}
+		if datname != "" {
+			stats[databaseName(datname)] = executionTime
+		}
+	}
+	return stats, multierr.Append(errs, rows.Err())
+}
+
 // databaseConflictStats holds the per-database query cancellation counters from
 // pg_stat_database_conflicts. These counters are only incremented on standby
 // servers, where queries can be canceled due to conflicts with recovery.
@@ -514,11 +633,27 @@ type databaseLocks struct {
 }
 
 func (c *postgreSQLClient) getDatabaseLocks(ctx context.Context) ([]databaseLocks, error) {
-	query := `SELECT relname AS relation, mode, locktype,COUNT(pid)
+	// Scope to the connected database: shared catalogs (database = 0) are
+	// collected once via getSharedRelationLocks, and relation OIDs from other
+	// databases must not resolve against this database's pg_class.
+	return c.queryDatabaseLocks(ctx, `SELECT relname AS relation, mode, locktype,COUNT(*)
 	AS locks FROM pg_locks
 	JOIN pg_class ON pg_locks.relation = pg_class.oid
-	GROUP BY relname, mode, locktype;`
+	WHERE pg_locks.database = (SELECT oid FROM pg_database WHERE datname = current_database())
+	GROUP BY relname, mode, locktype;`)
+}
 
+func (c *postgreSQLClient) getSharedRelationLocks(ctx context.Context) ([]databaseLocks, error) {
+	// Shared relations (pg_database, pg_authid, ...) carry database = 0 and
+	// exist in every database's pg_class, so any connection can resolve them.
+	return c.queryDatabaseLocks(ctx, `SELECT relname AS relation, mode, locktype,COUNT(*)
+	AS locks FROM pg_locks
+	JOIN pg_class ON pg_locks.relation = pg_class.oid
+	WHERE pg_locks.database = 0 AND pg_class.relisshared
+	GROUP BY relname, mode, locktype;`)
+}
+
+func (c *postgreSQLClient) queryDatabaseLocks(ctx context.Context, query string) ([]databaseLocks, error) {
 	rows, err := c.client.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("unable to query pg_locks and pg_locks.relation: %w", err)
@@ -1353,7 +1488,7 @@ func (c *postgreSQLClient) getQuerySamples(ctx context.Context, limit int64, new
 
 		obfuscated, err := obfuscateSQL(row[querySampleColumnQuery])
 		if err != nil {
-			logger.Warn("failed to obfuscate query", zap.String("query", row[querySampleColumnQuery]))
+			logger.Warn("failed to obfuscate query", zap.String("queryID", row[querySampleColumnQueryID]))
 			obfuscated = ""
 		}
 		_, normalizedHashVal := sqlnormalizer.NormalizeSQLAndHash(obfuscated)
@@ -1376,8 +1511,7 @@ func (c *postgreSQLClient) getQuerySamples(ctx context.Context, limit int64, new
 	return finalAttributes, newestQueryTimestamp, errors.Join(errs...)
 }
 
-// convertToFloat parses value as a float64 without scaling; total_exec_time/total_plan_time are ms per metadata.yaml.
-func convertToFloat(column, value string, logger *zap.Logger) (any, error) {
+func convertMillisecondToSecond(column, value string, logger *zap.Logger) (any, error) {
 	result := float64(0)
 	var err error
 	if value != "" {
@@ -1386,7 +1520,7 @@ func convertToFloat(column, value string, logger *zap.Logger) (any, error) {
 			logger.Error("failed to parse float", zap.String("column", column), zap.String("value", value), zap.Error(err))
 		}
 	}
-	return result, err
+	return result / 1000.0, err
 }
 
 func convertToInt(column, value string, logger *zap.Logger) (any, error) {
@@ -1449,8 +1583,8 @@ func (c *postgreSQLClient) getTopQuery(ctx context.Context, limit int64, allowed
 			sharedBlksWrittenColumnName: convertToInt,
 			tempBlksReadColumnName:      convertToInt,
 			tempBlksWrittenColumnName:   convertToInt,
-			totalExecTimeColumnName:     convertToFloat,
-			totalPlanTimeColumnName:     convertToFloat,
+			totalExecTimeColumnName:     convertMillisecondToSecond,
+			totalPlanTimeColumnName:     convertMillisecondToSecond,
 		}
 		currentAttributes := make(map[string]any)
 
@@ -1479,7 +1613,7 @@ func (c *postgreSQLClient) getTopQuery(ctx context.Context, limit int64, allowed
 				// Raw query is already stored separately for EXPLAIN
 				val, err = obfuscateSQL(row[col])
 				if err != nil {
-					logger.Error("failed to obfuscate query", zap.String("query", row[col]))
+					logger.Error("failed to obfuscate query", zap.String("queryID", row[queryidColumnName]))
 					val = ""
 				}
 			default:

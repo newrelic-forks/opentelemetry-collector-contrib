@@ -10,7 +10,7 @@ import (
 
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver/internal/metadata"
 	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/collector/confmap/xconfmap"
+	"go.opentelemetry.io/collector/confmap"
 	"go.opentelemetry.io/collector/scraper/scraperhelper"
 )
 
@@ -84,9 +84,9 @@ func TestValidateOtherOS(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			if tc.expectedSuccess {
-				require.NoError(t, xconfmap.Validate(tc.cfg))
+				require.NoError(t, confmap.Validate(tc.cfg))
 			} else {
-				require.Error(t, xconfmap.Validate(tc.cfg))
+				require.Error(t, confmap.Validate(tc.cfg))
 			}
 		})
 	}

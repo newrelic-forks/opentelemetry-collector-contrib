@@ -5,6 +5,32 @@ including confirmation of which breaking changes from [CHANGELOG.md](./CHANGELOG
 
 <!-- next version -->
 
+## v0.158.0
+
+### 🛑 Breaking changes 🛑
+
+- `receiver/nroracledb` (upstream [#48643](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/48643)):
+  `oracle.db.pdb` moved from a resource attribute to an opt-in data-point attribute. Already defined
+  as a data-point attribute in the fork's `metadata.yaml` — no fork change was required.
+
+- `receiver/nrpostgresql` (upstream [#49206](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49206)):
+  `postgresql.database.locks` is now collected per configured database via a dedicated
+  `getSharedRelationLocks` query for shared catalogs plus a database-scoped `getDatabaseLocks`
+  query, and the lock count switched from `COUNT(pid)` to `COUNT(*)` so locks held by prepared
+  transactions (NULL `pid`) are counted. Also adds an opt-in `db.namespace` attribute. Ported.
+
+### 🚩 New components 🚩
+
+- `receiver/nrpostgresql`: First tagged release. Forked from upstream `receiver/postgresql`; adds
+  `db_auth` credential provider support (e.g. AWS IAM), EXPLAIN-via-`SECURITY DEFINER`-function
+  support with per-database probe caching, pgvector similarity-search metrics, NR correlation
+  attribute extraction from SQL comments, and the `postgresql.query.execution.time` metric.
+
+- `receiver/nrmysql`: First tagged release. Forked from upstream `receiver/mysql`; adds NR
+  correlation attribute extraction and redaction on `db.query.text`, blocking-session detection and
+  client program name on `db.server.query_sample`, `explain_mode` for EXPLAIN-via-definer-procedure,
+  and rows examined/sent on `db.server.top_query`.
+
 ## v0.157.1
 
 ### 🛑 Breaking changes 🛑

@@ -80,6 +80,7 @@ extension/bearertokenauthextension extension/bearertokenauth
 extension/cgroupruntimeextension extension/cgroupruntime
 extension/datadogextension extension/datadog
 extension/dbauth extension/dbauth
+extension/dbauth/awsiamdbauthextension extension/dbauth/awsiamdbauth
 extension/encoding extension/encoding
 extension/encoding/avrologencodingextension extension/encoding/avrologencoding
 extension/encoding/awscloudwatchmetricstreamsencodingextension extension/encoding/awscloudwatchmetricstreams
@@ -107,12 +108,12 @@ extension/observer/dockerobserver extension/observer/dockerobserver
 extension/observer/ecsobserver extension/observer/ecsobserver
 extension/observer/hostobserver extension/observer/hostobserver
 extension/observer/k8sobserver extension/observer/k8sobserver
-extension/observer/kafkatopicsobserver extension/observer/kafkatopicsobserver
 extension/oidcauthextension extension/oidcauth
 extension/opampcustommessages extension/opampcustommessages
 extension/opampextension extension/opamp
 extension/pprofextension extension/pprof
 extension/remotetapextension extension/remotetap
+extension/sdnotifyextension extension/sdnotify
 extension/sigv4authextension extension/sigv4auth
 extension/solarwindsapmsettingsextension extension/solarwindsapmsettings
 extension/storage extension/storage
@@ -309,6 +310,7 @@ receiver/mysqlreceiver receiver/mysql
 receiver/namedpipereceiver receiver/namedpipe
 receiver/netflowreceiver receiver/netflow
 receiver/nginxreceiver receiver/nginx
+receiver/nrmysqlreceiver receiver/nrmysql
 receiver/nroracledbreceiver receiver/nroracledb
 receiver/nrpostgresqlreceiver receiver/nrpostgresql
 receiver/nrsqlserverreceiver receiver/nrsqlserver

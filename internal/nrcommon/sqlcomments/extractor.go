@@ -9,8 +9,11 @@ import (
 )
 
 var (
-	commentContentRegex      = regexp.MustCompile(`/\*(.*?)\*/`)
-	leadingBlockCommentRegex = regexp.MustCompile(`^\s*(/\*.*?\*/\s*)+`)
+	// (?s) (dotall) lets `.` match newlines so multi-line /* ... */ comments are
+	// handled — some APM agents/drivers inject the correlation tag across several
+	// lines, and without dotall the leading comment (and its tags) would be missed.
+	commentContentRegex      = regexp.MustCompile(`(?s)/\*(.*?)\*/`)
+	leadingBlockCommentRegex = regexp.MustCompile(`(?s)^\s*(/\*.*?\*/\s*)+`)
 )
 
 // ExtractAndFilterComments returns the comma-separated key=value pairs found in
@@ -31,6 +34,15 @@ func ExtractAndFilterComments(sqlText string, allowedKeys []string) string {
 	}
 
 	return strings.Join(filteredPairs, ",")
+}
+
+// HasLeadingComment reports whether sqlText starts with one or more /* */ block
+// comments (optionally preceded by whitespace), regardless of their content or
+// whether any key inside matches an allowlist. Used to detect that a comment was
+// present in a raw SQL source even when ExtractAndFilterComments returns "" for it
+// (e.g. an allowed keys list that doesn't match, or no allowed keys configured).
+func HasLeadingComment(sqlText string) bool {
+	return leadingBlockCommentRegex.MatchString(sqlText)
 }
 
 // ExtractValueForKey returns the value associated with key in a comma-separated

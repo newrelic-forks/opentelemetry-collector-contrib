@@ -62,11 +62,11 @@ func TestIntegrationScrapeMetrics(t *testing.T) {
 	factory := NewFactory()
 	cfg := factory.CreateDefaultConfig().(*Config)
 	cfg.ControllerConfig.CollectionInterval = time.Second
-	cfg.Endpoint = net.JoinHostPort(host, mappedPort.Port())
+	cfg.AddrConfig.Endpoint = net.JoinHostPort(host, mappedPort.Port())
 	cfg.Username = "otel"
 	cfg.Password = "otel"
 	cfg.Databases = []string{"otel"}
-	cfg.Insecure = true
+	cfg.ClientConfig.Insecure = true
 
 	sink := new(consumertest.MetricsSink)
 	recv, err := factory.CreateMetrics(ctx, receivertest.NewNopSettings(factory.Type()), cfg, sink)
