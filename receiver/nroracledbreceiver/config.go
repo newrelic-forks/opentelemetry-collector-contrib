@@ -60,9 +60,9 @@ type Config struct {
 	metadata.MetricsBuilderConfig  `mapstructure:",squash"`
 	metadata.LogsBuilderConfig     `mapstructure:",squash"`
 
-	TopQueryCollection `mapstructure:"top_query_collection"`
-	QuerySample        `mapstructure:"query_sample_collection"`
-	SessionWaitEvent   `mapstructure:"session_wait_event_collection"`
+	TopQueryCollection TopQueryCollection `mapstructure:"top_query_collection"`
+	QuerySample        QuerySample        `mapstructure:"query_sample_collection"`
+	SessionWaitEvent   SessionWaitEvent   `mapstructure:"session_wait_event_collection"`
 }
 
 func (c Config) Validate() error {
@@ -109,10 +109,10 @@ func (c Config) Validate() error {
 		}
 	}
 
-	if c.MaxQuerySampleCount < 1 || c.MaxQuerySampleCount > 10000 {
+	if c.TopQueryCollection.MaxQuerySampleCount < 1 || c.TopQueryCollection.MaxQuerySampleCount > 10000 {
 		allErrs = multierr.Append(allErrs, errMaxQuerySampleCount)
 	}
-	if c.TopQueryCount < 1 || c.TopQueryCount > 200 || c.TopQueryCount > c.MaxQuerySampleCount {
+	if c.TopQueryCollection.TopQueryCount < 1 || c.TopQueryCollection.TopQueryCount > 200 || c.TopQueryCollection.TopQueryCount > c.TopQueryCollection.MaxQuerySampleCount {
 		allErrs = multierr.Append(allErrs, errTopQueryCount)
 	}
 	return allErrs

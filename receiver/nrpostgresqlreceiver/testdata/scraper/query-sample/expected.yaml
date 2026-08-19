@@ -16,6 +16,12 @@ resourceLogs:
               - key: db.query.text
                 value:
                   stringValue: select * from pg_stat_activity where id = ?
+              - key: db.query.comment_tags
+                value:
+                  stringValue: ""
+              - key: db.query.comment_tags.nr_service_guid
+                value:
+                  stringValue: ""
               - key: user.name
                 value:
                   stringValue: otelu
@@ -25,6 +31,12 @@ resourceLogs:
               - key: postgresql.pid
                 value:
                   intValue: "1450"
+              - key: postgresql.backend_start
+                value:
+                  stringValue: ""
+              - key: postgresql.session_duration
+                value:
+                  intValue: "0"
               - key: postgresql.application_name
                 value:
                   stringValue: receiver
@@ -73,6 +85,9 @@ resourceLogs:
               - key: postgresql.blocking.transaction.start_time
                 value:
                   stringValue: ""
+              - key: db.query.text.normalized.hash
+                value:
+                  stringValue: c6adf50579663b7fe5457a6c0f42a6b7
             body: {}
             eventName: db.server.query_sample
             timeUnixNano: "1781255872205847000"

@@ -331,15 +331,27 @@ attributes:
   oracledb.status:
     description: Execution state or result of a database query or session.
     type: string
+  oracledb.tablespace.state:
+    description: Tablespace state as reported by Oracle (e.g. online, offline, read only)
+    type: string
+    enum: [online, offline, read only]
+    requirement_level: recommended
+  oracledb.transaction.type:
+    description: The type of user transaction.
+    type: string
+    enum: [commit, rollback]
   oracledb.user_io_wait_time:
     description: The total time (in seconds) a query spent waiting for user I/O operations—such as reading or writing data to disk or network file systems (reporting delta).
     type: double
   oracledb.wait.count:
-    description: Total number of waits for the wait event across all sessions.
+    description: Number of times the session has waited on the wait event.
     type: int
   oracledb.wait.duration:
     description: Total time waited in seconds for the wait event.
     type: double
+  oracledb.wait.timeouts:
+    description: Number of the session's waits on the wait event that timed out.
+    type: int
   oracledb.wait_class:
     description: The category of wait events a query or session is currently experiencing in Oracle Database.
     type: string
@@ -419,6 +431,7 @@ events:
       - oracledb.event
       - oracledb.wait_class
       - oracledb.wait.count
+      - oracledb.wait.timeouts
       - oracledb.wait.duration
       - db.namespace
   db.server.top_query:
@@ -493,6 +506,14 @@ metrics:
       value_type: int
       input_type: string
     unit: "{change}"
+  oracledb.buffer_cache.block.changes.rate:
+    description: Rate of changes applied to blocks in the buffer cache.
+    enabled: false
+    stability: development
+    gauge:
+      value_type: double
+    unit: "{change}/s"
+    attributes: [oracle.db.pdb]
   oracledb.buffer_cache.block.gets:
     description: Number of current-mode block gets satisfied from the buffer cache. Distinct from oracledb.db_block_gets, which counts all current-mode block gets requested regardless of where they are satisfied.
     enabled: false
@@ -619,6 +640,14 @@ metrics:
       value_type: int
       input_type: string
     unit: "{cursor}"
+  oracledb.cursor.open.rate:
+    description: Rate of cursors opened.
+    enabled: false
+    stability: development
+    gauge:
+      value_type: double
+    unit: "{cursor}/s"
+    attributes: [oracle.db.pdb]
   oracledb.data_dictionary.hit_ratio:
     description: Data dictionary cache hit ratio from v$rowcache.
     enabled: false
@@ -706,6 +735,14 @@ metrics:
       value_type: int
       input_type: string
     unit: "{statements}"
+  oracledb.enqueue.deadlocks.rate:
+    description: Rate of enqueue deadlocks.
+    enabled: false
+    stability: development
+    gauge:
+      value_type: double
+    unit: "{deadlock}/s"
+    attributes: [oracle.db.pdb]
   oracledb.enqueue.operations:
     description: Total count of enqueue (lock) operations.
     enabled: false
@@ -717,6 +754,14 @@ metrics:
       input_type: string
     unit: "{operation}"
     attributes: [oracledb.enqueue.type]
+  oracledb.enqueue.timeouts.rate:
+    description: Rate of enqueue timeouts.
+    enabled: false
+    stability: development
+    gauge:
+      value_type: double
+    unit: "{timeout}/s"
+    attributes: [oracle.db.pdb]
   oracledb.enqueue_deadlocks:
     attributes:
       - oracle.db.pdb
@@ -795,6 +840,14 @@ metrics:
       value_type: int
       input_type: string
     unit: "{executions}"
+  oracledb.executions.rate:
+    description: Rate of SQL statement executions.
+    enabled: false
+    stability: development
+    gauge:
+      value_type: double
+    unit: "{execution}/s"
+    attributes: [oracle.db.pdb]
   oracledb.gc.current_block.time:
     attributes:
       - network.io.direction
@@ -818,6 +871,14 @@ metrics:
       value_type: int
       input_type: string
     unit: "{parses}"
+  oracledb.hard_parses.rate:
+    description: Rate of hard parses.
+    enabled: false
+    stability: development
+    gauge:
+      value_type: double
+    unit: "{parse}/s"
+    attributes: [oracle.db.pdb]
   oracledb.host.cpu.usage.rate:
     description: Host CPU consumption rate across all cores, in CPU-seconds used per second.
     enabled: false
@@ -834,6 +895,13 @@ metrics:
     gauge:
       value_type: double
     unit: "%"
+  oracledb.io.requests.rate:
+    description: Rate of I/O requests issued by the database.
+    enabled: false
+    stability: development
+    gauge:
+      value_type: double
+    unit: "{request}/s"
   oracledb.io.single_block.read.latency:
     description: Average latency of a synchronous single-block read.
     enabled: false
@@ -841,6 +909,13 @@ metrics:
     gauge:
       value_type: double
     unit: s
+  oracledb.io.throughput.rate:
+    description: Rate of I/O bytes transferred by the database.
+    enabled: false
+    stability: development
+    gauge:
+      value_type: double
+    unit: By/s
   oracledb.jvm.memory.committed:
     description: Committed (total) size of Oracle's in-database JVM (OJVM) call heap.
     enabled: false
@@ -909,6 +984,14 @@ metrics:
       value_type: int
       input_type: string
     unit: "{reads}"
+  oracledb.logical_reads.rate:
+    description: Rate of logical reads performed by the database.
+    enabled: false
+    stability: development
+    gauge:
+      value_type: double
+    unit: "{read}/s"
+    attributes: [oracle.db.pdb]
   oracledb.logons:
     attributes:
       - oracle.db.pdb
@@ -921,6 +1004,14 @@ metrics:
       value_type: int
       input_type: string
     unit: "{operation}"
+  oracledb.logons.rate:
+    description: Rate of logon operations.
+    enabled: false
+    stability: development
+    gauge:
+      value_type: double
+    unit: "{logon}/s"
+    attributes: [oracle.db.pdb]
 
   oracledb.os.swaps:
     description: Number of OS swap operations.
@@ -1092,6 +1183,14 @@ metrics:
       input_type: string
     unit: "{requests}"
     attributes: [disk.io.direction, disk.io.block_size, oracle.db.pdb]
+  oracledb.physical_io.requests.rate:
+    description: Rate of physical I/O requests issued to storage.
+    enabled: false
+    stability: development
+    gauge:
+      value_type: double
+    unit: "{request}/s"
+    attributes: [disk.io.direction, oracle.db.pdb]
   oracledb.physical_io.transferred:
     description: Total physical I/O bytes transferred between Oracle and storage. Sums across all data files. Sourced from v$sysstat names physical read/write bytes (disk.io.type=buffered) and physical read/write total bytes (disk.io.type=total).
     enabled: false
@@ -1103,6 +1202,22 @@ metrics:
       input_type: string
     unit: By
     attributes: [disk.io.direction, disk.io.type, oracle.db.pdb]
+  oracledb.physical_io.transferred.rate:
+    description: Rate of physical I/O bytes transferred between Oracle and storage.
+    enabled: false
+    stability: development
+    gauge:
+      value_type: double
+    unit: By/s
+    attributes: [disk.io.direction, oracle.db.pdb]
+  oracledb.physical_operations.rate:
+    description: Rate of physical read and write operations performed by the database.
+    enabled: false
+    stability: development
+    gauge:
+      value_type: double
+    unit: "{operation}/s"
+    attributes: [disk.io.direction, oracle.db.pdb]
   oracledb.physical_read_io_requests:
     attributes:
       - oracle.db.pdb
@@ -1274,6 +1389,14 @@ metrics:
       value_type: int
       input_type: string
     unit: By
+  oracledb.redo.size.rate:
+    description: Rate of redo bytes generated by the database.
+    enabled: false
+    stability: development
+    gauge:
+      value_type: double
+    unit: By/s
+    attributes: [oracle.db.pdb]
   oracledb.redo.time:
     description: Time spent in each phase of the redo pipeline.
     enabled: false
@@ -1502,6 +1625,39 @@ metrics:
     gauge:
       value_type: double
     unit: "{process}"
+  oracledb.tablespace.limit:
+    attributes:
+      - tablespace_name
+      - oracle.db.pdb
+    description: Maximum autoextend size of tablespace in bytes. Returns 0 for temporary tablespaces and tablespaces without autoextend enabled.
+    enabled: false
+    stability: development
+    gauge:
+      value_type: int
+    unit: By
+  oracledb.tablespace.status:
+    attributes:
+      - tablespace_name
+      - oracledb.tablespace.state
+      - oracle.db.pdb
+    description: Current status of tablespaces, broken down by state. A timeseries is produced for every possible value of oracledb.tablespace.state; the value is 1 for a tablespace's current state, and 0 for all other states.
+    enabled: false
+    stability: development
+    sum:
+      monotonic: false
+      aggregation_temporality: cumulative
+      value_type: int
+    unit: "{tablespace}"
+  oracledb.tablespace.utilization:
+    attributes:
+      - tablespace_name
+      - oracle.db.pdb
+    description: Fraction of tablespace currently in use, expressed as a value between 0 and 1.
+    enabled: false
+    stability: development
+    gauge:
+      value_type: double
+    unit: "1"
   oracledb.tablespace_size.limit:
     attributes:
       - tablespace_name
@@ -1551,6 +1707,14 @@ metrics:
       value_type: int
       input_type: string
     unit: "{transactions}"
+  oracledb.transactions.rate:
+    description: Rate of user transactions.
+    enabled: false
+    stability: development
+    gauge:
+      value_type: double
+    unit: "{transaction}/s"
+    attributes: [oracledb.transaction.type, oracle.db.pdb]
   oracledb.transactions.usage:
     description: Current count of active transactions.
     enabled: true

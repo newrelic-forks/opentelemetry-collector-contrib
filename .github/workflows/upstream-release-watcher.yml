@@ -1,0 +1,51 @@
+# Requires two repo secrets, configured under Settings -> Secrets and variables -> Actions:
+#   SLACK_WEBHOOK_URL_UPSTREAM_RELEASE_WATCHER - Incoming Webhook URL for the target Slack channel.
+#   VARIABLES_PAT - fine-grained PAT scoped to this repo only, with "Variables: read and write"
+#     repository permission. The default GITHUB_TOKEN cannot read/write repo Variables (GitHub
+#     REST API requires a PAT or GitHub App token for that endpoint), so this PAT is required
+#     solely to persist LAST_UPSTREAM_RELEASE_TAG between runs.
+name: "Upstream release watcher"
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "27 3 * * *" # Run daily at 03:27 UTC (~08:57 AM IST).
+
+permissions:
+  contents: read
+
+jobs:
+  check-upstream-release:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check latest upstream release tag
+        id: check
+        run: |
+          set -euo pipefail
+          latest_tag="$(gh api repos/open-telemetry/opentelemetry-collector-contrib/releases/latest --jq .tag_name)"
+          last_notified="${LAST_NOTIFIED_TAG:-}"
+          echo "latest_tag=${latest_tag}" >> "$GITHUB_OUTPUT"
+          if [ "${latest_tag}" = "${last_notified}" ]; then
+            echo "is_new=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_new=true" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LAST_NOTIFIED_TAG: ${{ vars.LAST_UPSTREAM_RELEASE_TAG }}
+
+      - name: Post new release tag to Slack
+        if: steps.check.outputs.is_new == 'true'
+        continue-on-error: true
+        uses: slackapi/slack-github-action@45a88b9581bfab2566dc881e2cd66d334e621e2c # v3.0.3
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK_URL_UPSTREAM_RELEASE_WATCHER }}
+          webhook-type: incoming-webhook
+          payload: |
+            text: "New opentelemetry-collector-contrib release: `${{ steps.check.outputs.latest_tag }}`\nhttps://github.com/open-telemetry/opentelemetry-collector-contrib/releases/tag/${{ steps.check.outputs.latest_tag }}"
+
+      - name: Record notified tag
+        if: steps.check.outputs.is_new == 'true'
+        run: gh variable set LAST_UPSTREAM_RELEASE_TAG --repo "${GITHUB_REPOSITORY}" --body "${TAG}"
+        env:
+          GH_TOKEN: ${{ secrets.VARIABLES_PAT }}
+          TAG: ${{ steps.check.outputs.latest_tag }}

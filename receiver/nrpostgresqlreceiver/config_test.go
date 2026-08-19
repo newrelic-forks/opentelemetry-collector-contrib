@@ -15,8 +15,8 @@ import (
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config/confignet"
 	"go.opentelemetry.io/collector/config/configtls"
+	"go.opentelemetry.io/collector/confmap"
 	"go.opentelemetry.io/collector/confmap/confmaptest"
-	"go.opentelemetry.io/collector/confmap/xconfmap"
 )
 
 func TestValidate(t *testing.T) {
@@ -56,7 +56,7 @@ func TestValidate(t *testing.T) {
 			defaultConfigModifier: func(cfg *Config) {
 				cfg.Username = "otel"
 				cfg.Password = "otel"
-				cfg.Endpoint = "open-telemetry"
+				cfg.AddrConfig.Endpoint = "open-telemetry"
 			},
 			expected: []error{
 				errors.New(ErrHostPort),
@@ -67,7 +67,7 @@ func TestValidate(t *testing.T) {
 			defaultConfigModifier: func(cfg *Config) {
 				cfg.Username = "otel"
 				cfg.Password = "otel"
-				cfg.Transport = "udp"
+				cfg.AddrConfig.Transport = "udp"
 			},
 			expected: []error{
 				errors.New(ErrTransportsSupported),
@@ -78,9 +78,9 @@ func TestValidate(t *testing.T) {
 			defaultConfigModifier: func(cfg *Config) {
 				cfg.Username = "otel"
 				cfg.Password = "otel"
-				cfg.ServerName = "notlocalhost"
-				cfg.MinVersion = "1.0"
-				cfg.MaxVersion = "1.0"
+				cfg.ClientConfig.ServerName = "notlocalhost"
+				cfg.ClientConfig.MinVersion = "1.0"
+				cfg.ClientConfig.MaxVersion = "1.0"
 			},
 			expected: []error{
 				fmt.Errorf(ErrNotSupported, "ServerName"),
@@ -96,13 +96,73 @@ func TestValidate(t *testing.T) {
 			},
 			expected: nil,
 		},
+		{
+			desc: "valid unqualified explain function name",
+			defaultConfigModifier: func(cfg *Config) {
+				cfg.Username = "otel"
+				cfg.Password = "otel"
+				cfg.TopQueryCollection.ExplainFunctionName = "explain_statement"
+			},
+			expected: nil,
+		},
+		{
+			desc: "valid schema-qualified explain function name",
+			defaultConfigModifier: func(cfg *Config) {
+				cfg.Username = "otel"
+				cfg.Password = "otel"
+				cfg.TopQueryCollection.ExplainFunctionName = "otel.explain_statement"
+			},
+			expected: nil,
+		},
+		{
+			desc: "empty explain function name is valid (disables the feature)",
+			defaultConfigModifier: func(cfg *Config) {
+				cfg.Username = "otel"
+				cfg.Password = "otel"
+				cfg.TopQueryCollection.ExplainFunctionName = ""
+			},
+			expected: nil,
+		},
+		{
+			desc: "explain function name with too many dots is rejected",
+			defaultConfigModifier: func(cfg *Config) {
+				cfg.Username = "otel"
+				cfg.Password = "otel"
+				cfg.TopQueryCollection.ExplainFunctionName = "a.b.c"
+			},
+			expected: []error{
+				errors.New(ErrInvalidExplainFunctionName),
+			},
+		},
+		{
+			desc: "explain function name with SQL injection attempt is rejected",
+			defaultConfigModifier: func(cfg *Config) {
+				cfg.Username = "otel"
+				cfg.Password = "otel"
+				cfg.TopQueryCollection.ExplainFunctionName = "explain_statement; DROP TABLE orders"
+			},
+			expected: []error{
+				errors.New(ErrInvalidExplainFunctionName),
+			},
+		},
+		{
+			desc: "explain function name starting with a digit is rejected",
+			defaultConfigModifier: func(cfg *Config) {
+				cfg.Username = "otel"
+				cfg.Password = "otel"
+				cfg.TopQueryCollection.ExplainFunctionName = "1explain"
+			},
+			expected: []error{
+				errors.New(ErrInvalidExplainFunctionName),
+			},
+		},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
 			factory := NewFactory()
 			cfg := factory.CreateDefaultConfig().(*Config)
 			tC.defaultConfigModifier(cfg)
-			actual := xconfmap.Validate(cfg)
+			actual := confmap.Validate(cfg)
 			if len(tC.expected) > 0 {
 				for _, err := range tC.expected {
 					require.ErrorContains(t, actual, err.Error())
@@ -125,11 +185,11 @@ func TestLoadConfig(t *testing.T) {
 		require.NoError(t, sub.Unmarshal(cfg))
 
 		expected := factory.CreateDefaultConfig().(*Config)
-		expected.Endpoint = "localhost:5432"
+		expected.AddrConfig.Endpoint = "localhost:5432"
 		expected.Username = "otel"
 		expected.Password = "${env:POSTGRESQL_PASSWORD}"
-		expected.TopNQuery = 1234
-		expected.QueryPlanCacheTTL = time.Second * 123
+		expected.TopQueryCollection.TopNQuery = 1234
+		expected.TopQueryCollection.QueryPlanCacheTTL = time.Second * 123
 		require.Equal(t, expected, cfg)
 	})
 
@@ -141,8 +201,8 @@ func TestLoadConfig(t *testing.T) {
 		require.NoError(t, sub.Unmarshal(cfg))
 
 		expected := factory.CreateDefaultConfig().(*Config)
-		expected.Endpoint = "localhost:5432"
-		expected.Transport = confignet.TransportTypeTCP
+		expected.AddrConfig.Endpoint = "localhost:5432"
+		expected.AddrConfig.Transport = confignet.TransportTypeTCP
 		expected.Username = "otel"
 		expected.Password = "${env:POSTGRESQL_PASSWORD}"
 		expected.ConnectionPool = ConnectionPool{
@@ -161,8 +221,8 @@ func TestLoadConfig(t *testing.T) {
 		require.NoError(t, sub.Unmarshal(cfg))
 
 		expected := factory.CreateDefaultConfig().(*Config)
-		expected.Endpoint = "localhost:5432"
-		expected.Transport = confignet.TransportTypeTCP
+		expected.AddrConfig.Endpoint = "localhost:5432"
+		expected.AddrConfig.Transport = confignet.TransportTypeTCP
 		expected.Username = "otel"
 		expected.Password = "${env:POSTGRESQL_PASSWORD}"
 		expected.Databases = []string{"otel"}

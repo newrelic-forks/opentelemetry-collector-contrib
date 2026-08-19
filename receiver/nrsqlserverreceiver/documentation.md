@@ -244,6 +244,59 @@ Number of SQL attentions (client cancellation interrupts) received per second.
 | ---- | ----------- | ---------- | --------- |
 | {attentions}/s | Gauge | Double | Development |
 
+### sqlserver.availability_group.database_replica.queue.rate
+
+Rate at which log data is being sent or redone on a database replica, broken down by queue type (log_send for primary-to-secondary transmission, redo for applying log records on the secondary).
+
+This metric is only available when the receiver is configured to directly connect to SQL Server and the instance has Always On Availability Groups enabled.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| By/s | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| sqlserver.availability_group.name | The name of the SQL Server Availability Group. | Any Str | Recommended | - |
+| sqlserver.replica.name | The name of the SQL Server Availability Group replica. | Any Str | Recommended | - |
+| sqlserver.availability_group.queue.type | The type of availability group queue. | Str: ``log_send``, ``redo`` | Recommended | - |
+
+### sqlserver.availability_group.database_replica.queue.size
+
+Amount of log data waiting to be processed on a database replica, broken down by queue type (log_send for data not yet sent to the secondary, redo for data received but not yet applied).
+
+This metric is only available when the receiver is configured to directly connect to SQL Server and the instance has Always On Availability Groups enabled.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| By | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| sqlserver.availability_group.name | The name of the SQL Server Availability Group. | Any Str | Recommended | - |
+| sqlserver.replica.name | The name of the SQL Server Availability Group replica. | Any Str | Recommended | - |
+| sqlserver.availability_group.queue.type | The type of availability group queue. | Str: ``log_send``, ``redo`` | Recommended | - |
+
+### sqlserver.availability_group.database_replica.secondary_lag
+
+Number of seconds the secondary replica is lagging behind the primary replica, measured as the time between the most recent hardened log block on the primary and on the secondary.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server and the instance has Always On Availability Groups enabled.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| s | Gauge | Double | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| sqlserver.availability_group.name | The name of the SQL Server Availability Group. | Any Str | Recommended | - |
+| sqlserver.replica.name | The name of the SQL Server Availability Group replica. | Any Str | Recommended | - |
+
 ### sqlserver.batch.compilation.utilization
 
 Number of SQL compilations per batch request.
@@ -299,6 +352,16 @@ Number of CPUs.
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
 | {CPUs} | Gauge | Int | Development |
+
+### sqlserver.cpu.utilization
+
+System-wide CPU utilization on the host that SQL Server is running on, expressed as a fraction between 0 and 1.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| 1 | Gauge | Double | Development |
 
 ### sqlserver.cursor.count
 
@@ -477,156 +540,6 @@ This metric is only available when the receiver is configured to directly connec
 | db.namespace | The database name. | Any Str | Recommended | - |
 | page_file.state | The state of the database page file (reserved space) allocation. | Str: ``used``, ``free``, ``total`` | Recommended | - |
 
-### sqlserver.database.principals.count
-
-Number of database security principals broken down by type.
-
-This metric is only available when the receiver is configured to directly connect to SQL Server.
-
-| Unit | Metric Type | Value Type | Stability |
-| ---- | ----------- | ---------- | --------- |
-| {principals} | Gauge | Int | Development |
-
-#### Attributes
-
-| Name | Description | Values | Requirement Level | Semantic Convention |
-| ---- | ----------- | ------ | ----------------- | ------------------- |
-| db.namespace | The database name. | Any Str | Recommended | - |
-| principal.type | Database security principal type. | Str: ``sql_user``, ``windows_user``, ``role``, ``application_role``, ``certificate_mapped_user``, ``asymmetric_key_mapped_user`` | Recommended | - |
-
-### sqlserver.database.principals.old
-
-Number of database principals created more than one year ago.
-
-This metric is only available when the receiver is configured to directly connect to SQL Server.
-
-| Unit | Metric Type | Value Type | Stability |
-| ---- | ----------- | ---------- | --------- |
-| {principals} | Gauge | Int | Development |
-
-#### Attributes
-
-| Name | Description | Values | Requirement Level | Semantic Convention |
-| ---- | ----------- | ------ | ----------------- | ------------------- |
-| db.namespace | The database name. | Any Str | Recommended | - |
-
-### sqlserver.database.principals.orphaned_users
-
-Number of SQL users in the database that have no matching server login.
-
-This metric is only available when the receiver is configured to directly connect to SQL Server.
-
-| Unit | Metric Type | Value Type | Stability |
-| ---- | ----------- | ---------- | --------- |
-| {principals} | Gauge | Int | Development |
-
-#### Attributes
-
-| Name | Description | Values | Requirement Level | Semantic Convention |
-| ---- | ----------- | ------ | ----------------- | ------------------- |
-| db.namespace | The database name. | Any Str | Recommended | - |
-
-### sqlserver.database.principals.recently_created
-
-Number of database principals created in the last 30 days.
-
-This metric is only available when the receiver is configured to directly connect to SQL Server.
-
-| Unit | Metric Type | Value Type | Stability |
-| ---- | ----------- | ---------- | --------- |
-| {principals} | Gauge | Int | Development |
-
-#### Attributes
-
-| Name | Description | Values | Requirement Level | Semantic Convention |
-| ---- | ----------- | ------ | ----------------- | ------------------- |
-| db.namespace | The database name. | Any Str | Recommended | - |
-
-### sqlserver.database.role.members.count
-
-Number of database role members broken down by member kind.
-
-This metric is only available when the receiver is configured to directly connect to SQL Server.
-
-| Unit | Metric Type | Value Type | Stability |
-| ---- | ----------- | ---------- | --------- |
-| {members} | Gauge | Int | Development |
-
-#### Attributes
-
-| Name | Description | Values | Requirement Level | Semantic Convention |
-| ---- | ----------- | ------ | ----------------- | ------------------- |
-| db.namespace | The database name. | Any Str | Recommended | - |
-| member.kind | Role-membership member breakdown bucket. `high_privilege` covers db_owner, db_securityadmin, db_accessadmin, db_backupoperator, db_ddladmin. | Str: ``app_role``, ``cross_role``, ``high_privilege``, ``unique`` | Recommended | - |
-
-### sqlserver.database.role.memberships.count
-
-Number of database role memberships broken down by kind.
-
-This metric is only available when the receiver is configured to directly connect to SQL Server.
-
-| Unit | Metric Type | Value Type | Stability |
-| ---- | ----------- | ---------- | --------- |
-| {memberships} | Gauge | Int | Development |
-
-#### Attributes
-
-| Name | Description | Values | Requirement Level | Semantic Convention |
-| ---- | ----------- | ------ | ----------------- | ------------------- |
-| db.namespace | The database name. | Any Str | Recommended | - |
-| membership.kind | Role-membership grouping bucket. | Str: ``active``, ``custom``, ``nested``, ``users`` | Recommended | - |
-
-### sqlserver.database.role.permission.risk_level
-
-Risk level assigned to each database role (1=low, 4=high).
-
-This metric is only available when the receiver is configured to directly connect to SQL Server.
-
-| Unit | Metric Type | Value Type | Stability |
-| ---- | ----------- | ---------- | --------- |
-| 1 | Gauge | Int | Development |
-
-#### Attributes
-
-| Name | Description | Values | Requirement Level | Semantic Convention |
-| ---- | ----------- | ------ | ----------------- | ------------------- |
-| db.namespace | The database name. | Any Str | Recommended | - |
-| role | The name of the database or server role. | Any Str | Recommended | - |
-
-### sqlserver.database.role.roles.count
-
-Number of database roles broken down by usage state.
-
-This metric is only available when the receiver is configured to directly connect to SQL Server.
-
-| Unit | Metric Type | Value Type | Stability |
-| ---- | ----------- | ---------- | --------- |
-| {roles} | Gauge | Int | Development |
-
-#### Attributes
-
-| Name | Description | Values | Requirement Level | Semantic Convention |
-| ---- | ----------- | ------ | ----------------- | ------------------- |
-| db.namespace | The database name. | Any Str | Recommended | - |
-| role.state | Database role usage state. | Str: ``empty``, ``with_members`` | Recommended | - |
-
-### sqlserver.database.security.role_membership.count
-
-Number of members in a database role.
-
-This metric is only available when the receiver is configured to directly connect to SQL Server. Reports the number of members (principals) assigned to each database-level role. The 'db.namespace' attribute identifies the database, and the 'role' attribute identifies the specific role (e.g., db_owner, db_datareader). Critical for monitoring privilege escalation and compliance. Available on SQL Server 2012+.
-
-| Unit | Metric Type | Value Type | Stability |
-| ---- | ----------- | ---------- | --------- |
-| {members} | Gauge | Int | Development |
-
-#### Attributes
-
-| Name | Description | Values | Requirement Level | Semantic Convention |
-| ---- | ----------- | ------ | ----------------- | ------------------- |
-| db.namespace | The database name. | Any Str | Recommended | - |
-| role | The name of the database or server role. | Any Str | Recommended | - |
-
 ### sqlserver.database.tempdb.space
 
 Total free space in temporary DB.
@@ -672,6 +585,40 @@ Total number of deadlocks.
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
 | {deadlocks}/s | Gauge | Double | Development |
+
+### sqlserver.disk.io
+
+Cumulative bytes transferred to or from files backing SQL Server databases, per I/O direction. Counters reset when the file becomes unavailable (detached, taken offline, or database restart).
+
+This metric is only available when the receiver is configured to directly connect to SQL Server. Only covers I/O for SQL Server database files, not total host disk I/O.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
+| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
+| By | Sum | Int | Cumulative | true | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| disk.io.direction | The direction of disk I/O operations. | Str: ``read``, ``write`` | Recommended | - |
+| sqlserver.file.path.prefix | The path prefix identifying the storage location of SQL Server database files. | Any Str | Recommended | - |
+
+### sqlserver.disk.operations
+
+Cumulative I/O operation count on files backing SQL Server databases, per I/O direction. Counters reset when the file becomes unavailable (detached, taken offline, or database restart).
+
+This metric is only available when the receiver is configured to directly connect to SQL Server. Only covers I/O for SQL Server database files, not total host disk I/O.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
+| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
+| {operation} | Sum | Int | Cumulative | true | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| disk.io.direction | The direction of disk I/O operations. | Str: ``read``, ``write`` | Recommended | - |
+| sqlserver.file.path.prefix | The path prefix identifying the storage location of SQL Server database files. | Any Str | Recommended | - |
 
 ### sqlserver.error.rate
 
@@ -863,6 +810,32 @@ This metric is only available when the receiver is configured to directly connec
 | ---- | ----------- | ---------- | --------- |
 | {record}/s | Gauge | Double | Development |
 
+### sqlserver.host.memory.limit
+
+Total physical memory available to SQL Server on the host.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| By | Gauge | Int | Development |
+
+### sqlserver.host.memory.usage
+
+Physical memory usage available to SQL Server on the host, broken down by state.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| By | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| system.memory.state | The state of the physical memory on the host. | Str: ``used``, ``free`` | Recommended | - |
+
 ### sqlserver.index.fragmentation
 
 Average fragmentation percentage of the index.
@@ -964,16 +937,6 @@ This metric is only available when the receiver is configured to directly connec
 | sqlserver.object.name | The name of the database object. | Any Str | Recommended | - |
 | sqlserver.schema.name | The name of the database schema. | Any Str | Recommended | - |
 
-### sqlserver.kill_connection.error.rate
-
-Number of kill-connection errors per second.
-
-This metric is only available when the receiver is configured to directly connect to SQL Server.
-
-| Unit | Metric Type | Value Type | Stability |
-| ---- | ----------- | ---------- | --------- |
-| {errors}/s | Gauge | Double | Development |
-
 ### sqlserver.latch.superlatch.count
 
 Number of superlatches currently active.
@@ -1045,40 +1008,6 @@ This metric is only available when the receiver is configured to directly connec
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
 | sqlserver.lock.block.type | The type of lock block tracked by the lock manager. | Str: ``allocated``, ``blocks``, ``owner``, ``owner_allocated`` | Required | - |
-
-### sqlserver.lock.by_mode.count
-
-Number of currently active locks held in the database, grouped by lock mode.
-
-This metric is only available when the receiver is configured to directly connect to SQL Server.
-
-| Unit | Metric Type | Value Type | Stability |
-| ---- | ----------- | ---------- | --------- |
-| {locks} | Gauge | Int | Development |
-
-#### Attributes
-
-| Name | Description | Values | Requirement Level | Semantic Convention |
-| ---- | ----------- | ------ | ----------------- | ------------------- |
-| db.namespace | The database name. | Any Str | Recommended | - |
-| lock.mode | SQL Server lock request mode. | Str: ``shared``, ``exclusive``, ``update``, ``intent``, ``schema``, ``bulk_update``, ``shared_intent_exclusive`` | Recommended | - |
-
-### sqlserver.lock.by_resource.count
-
-Number of currently active locks held in the database, grouped by resource type.
-
-This metric is only available when the receiver is configured to directly connect to SQL Server.
-
-| Unit | Metric Type | Value Type | Stability |
-| ---- | ----------- | ---------- | --------- |
-| {locks} | Gauge | Int | Development |
-
-#### Attributes
-
-| Name | Description | Values | Requirement Level | Semantic Convention |
-| ---- | ----------- | ------ | ----------------- | ------------------- |
-| db.namespace | The database name. | Any Str | Recommended | - |
-| lock.resource | SQL Server lock resource type. | Str: ``key``, ``page``, ``row``, ``table``, ``extent``, ``file``, ``hobt``, ``metadata``, ``application``, ``allocation_unit``, ``database_level`` | Recommended | - |
 
 ### sqlserver.lock.escalation.rate
 
@@ -1221,16 +1150,6 @@ This metric is only available when the receiver is configured to directly connec
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
 | page.pool | The type of page pool in the SQL Server buffer manager. | Str: ``cache``, ``total``, ``target``, ``database``, ``stolen``, ``reserved``, ``free`` | Recommended | - |
-
-### sqlserver.memory.target
-
-Maximum amount of memory SQL Server is willing to use (target server memory).
-
-This metric is only available when the receiver is configured to directly connect to SQL Server. Target memory represents the ideal amount of memory SQL Server would like to acquire based on recent memory demand. When actual memory usage is less than target memory, SQL Server will attempt to acquire more memory. Available on SQL Server 2005+.
-
-| Unit | Metric Type | Value Type | Stability |
-| ---- | ----------- | ---------- | --------- |
-| By | Gauge | Int | Development |
 
 ### sqlserver.memory.usage
 
@@ -1507,32 +1426,6 @@ This metric is only available when the receiver is configured to directly connec
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
 | {revalidate}/s | Gauge | Double | Development |
-
-### sqlserver.server.security.principal.count
-
-Number of security principals (logins, users) at the server level.
-
-This metric is only available when the receiver is configured to directly connect to SQL Server. Tracks server-level security principals including SQL logins, Windows logins, and server roles. Essential for security monitoring and compliance auditing. Available on SQL Server 2012+.
-
-| Unit | Metric Type | Value Type | Stability |
-| ---- | ----------- | ---------- | --------- |
-| {principals} | Gauge | Int | Development |
-
-### sqlserver.server.security.role_membership.count
-
-Number of members in a server role.
-
-This metric is only available when the receiver is configured to directly connect to SQL Server. Reports the number of members (principals) assigned to each server-level role. The 'role' attribute identifies the specific server role (e.g., sysadmin, securityadmin). Critical for monitoring high-privilege access and compliance. Available on SQL Server 2012+.
-
-| Unit | Metric Type | Value Type | Stability |
-| ---- | ----------- | ---------- | --------- |
-| {members} | Gauge | Int | Development |
-
-#### Attributes
-
-| Name | Description | Values | Requirement Level | Semantic Convention |
-| ---- | ----------- | ------ | ----------------- | ------------------- |
-| role | The name of the database or server role. | Any Str | Recommended | - |
 
 ### sqlserver.stored_procedure.invocation.rate
 
@@ -1913,7 +1806,7 @@ top query
 | host.name | The host name of SQL Server | Any Str | true | - | - |
 | server.address | Name of the database host. | Any Str | false | - | - |
 | server.port | Server port number. | Any Int | false | - | - |
-| service.instance.id | A unique identifier of the SQL Server instance in the format host:port. This resource attribute is only available when the receiver is configured to directly connect to SQL Server. | Any Str | true | - | - |
+| service.instance.id | A unique identifier of the SQL Server instance in the format host:port. In Windows Performance Counter mode the host is derived from computer_name (falling back to the collector host when monitoring locally), with a default port of 1433. | Any Str | true | - | - |
 | service.name | Logical name of the service. When enabled, defaults to unknown_service:microsoft.sql_server. | Any Str | false | - | - |
 | service.namespace | Logical namespace for the service (for example team or environment). When enabled, defaults to an empty string until set via configuration. | Any Str | false | - | - |
 | sqlserver.computer.name | The name of the SQL Server instance being monitored. | Any Str | false | - | - |

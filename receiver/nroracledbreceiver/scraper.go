@@ -69,6 +69,29 @@ const (
 	sysmetricResponseTimePerTxn       = "Response Time Per Txn"
 	sysmetricSingleBlockReadLatency   = "Average Synchronous Single-Block Read Latency"
 
+	// V$SYSMETRIC I/O rates (group_id=2, ~60s interval)
+	sysmetricDBBlockChangesPerSec               = "DB Block Changes Per Sec"
+	sysmetricIOMegabytesPerSecond               = "I/O Megabytes per Second"
+	sysmetricIORequestsPerSecond                = "I/O Requests per Second"
+	sysmetricLogicalReadsPerSec                 = "Logical Reads Per Sec"
+	sysmetricPhysicalReadTotalBytesPerSec       = "Physical Read Total Bytes Per Sec"
+	sysmetricPhysicalReadTotalIORequestsPerSec  = "Physical Read Total IO Requests Per Sec"
+	sysmetricPhysicalReadsPerSec                = "Physical Reads Per Sec"
+	sysmetricPhysicalWriteTotalBytesPerSec      = "Physical Write Total Bytes Per Sec"
+	sysmetricPhysicalWriteTotalIORequestsPerSec = "Physical Write Total IO Requests Per Sec"
+	sysmetricPhysicalWritesPerSec               = "Physical Writes Per Sec"
+	sysmetricRedoGeneratedPerSec                = "Redo Generated Per Sec" // #nosec G101 -- Oracle V$SYSMETRIC metric name, not a credential
+
+	// V$SYSMETRIC workload rates (group_id=2, ~60s interval)
+	sysmetricEnqueueDeadlocksPerSec = "Enqueue Deadlocks Per Sec"
+	sysmetricEnqueueTimeoutsPerSec  = "Enqueue Timeouts Per Sec"
+	sysmetricExecutionsPerSec       = "Executions Per Sec"
+	sysmetricHardParseCountPerSec   = "Hard Parse Count Per Sec"
+	sysmetricLogonsPerSec           = "Logons Per Sec"
+	sysmetricOpenCursorsPerSec      = "Open Cursors Per Sec"
+	sysmetricUserCommitsPerSec      = "User Commits Per Sec"
+	sysmetricUserRollbacksPerSec    = "User Rollbacks Per Sec"
+
 	enqueueDeadlocks               = "enqueue deadlocks"
 	exchangeDeadlocks              = "exchange deadlocks"
 	executeCount                   = "execute count"
@@ -180,14 +203,32 @@ const (
 	sessionCountCDBSQL      = "select s.status, s.type, c.name as PDB_NAME, count(*) as VALUE FROM v$session s, v$containers c WHERE s.con_id = c.con_id(+) GROUP BY s.status, s.type, c.name"
 	systemResourceLimitsSQL = "select RESOURCE_NAME, CURRENT_UTILIZATION, LIMIT_VALUE, CASE WHEN TRIM(INITIAL_ALLOCATION) LIKE 'UNLIMITED' THEN '-1' ELSE TRIM(INITIAL_ALLOCATION) END as INITIAL_ALLOCATION, CASE WHEN TRIM(LIMIT_VALUE) LIKE 'UNLIMITED' THEN '-1' ELSE TRIM(LIMIT_VALUE) END as LIMIT_VALUE from v$resource_limit"
 	tablespaceUsageSQL      = `
-		select um.TABLESPACE_NAME, um.USED_SPACE, um.TABLESPACE_SIZE, ts.BLOCK_SIZE
+		select um.TABLESPACE_NAME, um.USED_SPACE, um.TABLESPACE_SIZE, ts.BLOCK_SIZE, ts.STATUS
 		FROM DBA_TABLESPACE_USAGE_METRICS um INNER JOIN DBA_TABLESPACES ts
 		ON um.TABLESPACE_NAME = ts.TABLESPACE_NAME`
+	// tablespaceUsageWithMaxSQL extends tablespaceUsageSQL with autoextend max size from DBA_DATA_FILES.
+	tablespaceUsageWithMaxSQL = `
+		select um.TABLESPACE_NAME, um.USED_SPACE, um.TABLESPACE_SIZE, ts.BLOCK_SIZE, ts.STATUS,
+		       NVL(mxb.MAX_BYTES, 0) as MAX_BYTES
+		FROM DBA_TABLESPACE_USAGE_METRICS um
+		INNER JOIN DBA_TABLESPACES ts ON um.TABLESPACE_NAME = ts.TABLESPACE_NAME
+		LEFT JOIN (SELECT TABLESPACE_NAME, SUM(NVL(MAXBYTES, 0)) as MAX_BYTES FROM DBA_DATA_FILES GROUP BY TABLESPACE_NAME) mxb
+		    ON um.TABLESPACE_NAME = mxb.TABLESPACE_NAME`
 	// tablespaceUsageCDBSQL extends tablespaceUsageSQL for CDB root, using CDB_ views to cover all PDBs.
 	tablespaceUsageCDBSQL = `
-		SELECT c.name AS PDB_NAME, t.TABLESPACE_NAME, m.USED_SPACE, m.TABLESPACE_SIZE, t.BLOCK_SIZE
+		SELECT c.name AS PDB_NAME, t.TABLESPACE_NAME, m.USED_SPACE, m.TABLESPACE_SIZE, t.BLOCK_SIZE, t.STATUS
 		FROM CDB_TABLESPACE_USAGE_METRICS m, CDB_TABLESPACES t, v$containers c
 		WHERE m.con_id(+) = t.con_id AND t.con_id = c.con_id AND m.TABLESPACE_NAME(+) = t.TABLESPACE_NAME`
+	// tablespaceUsageCDBWithMaxSQL extends tablespaceUsageCDBSQL with autoextend max size from CDB_DATA_FILES.
+	// Uses ANSI join syntax throughout (Oracle rejects mixing old-style (+) outer joins with ANSI joins).
+	tablespaceUsageCDBWithMaxSQL = `
+		SELECT c.name AS PDB_NAME, t.TABLESPACE_NAME, m.USED_SPACE, m.TABLESPACE_SIZE, t.BLOCK_SIZE, t.STATUS,
+		       NVL(mxb.MAX_BYTES, 0) as MAX_BYTES
+		FROM CDB_TABLESPACES t
+		JOIN v$containers c ON t.con_id = c.con_id
+		LEFT JOIN CDB_TABLESPACE_USAGE_METRICS m ON m.con_id = t.con_id AND m.TABLESPACE_NAME = t.TABLESPACE_NAME
+		LEFT JOIN (SELECT TABLESPACE_NAME, CON_ID, SUM(NVL(MAXBYTES, 0)) as MAX_BYTES FROM CDB_DATA_FILES GROUP BY TABLESPACE_NAME, CON_ID) mxb
+		    ON t.TABLESPACE_NAME = mxb.TABLESPACE_NAME AND t.con_id = mxb.CON_ID`
 	// statsCDBSQL extends statsSQL for CDB root using v$con_sysstat (a Container Data Object)
 	// which returns per-PDB rows with correct CON_IDs; v$sysstat always returns CON_ID=0 from CDB root.
 	statsCDBSQL = `
@@ -258,6 +299,8 @@ const (
 var (
 	//go:embed templates/oracleQuerySampleSql.tmpl
 	samplesQuery string
+	//go:embed templates/oracleQuerySampleStatsSql.tmpl
+	samplesStatsQuery string
 	//go:embed templates/oracleQueryMetricsAndTextSql.tmpl
 	oracleQueryMetricsSQL string
 	//go:embed templates/oracleQueryPlanSql.tmpl
@@ -371,6 +414,22 @@ func newLogsScraper(logsBuilder *metadata.LogsBuilder, logsBuilderConfig metadat
 	return scraper.NewLogs(s.scrapeLogs, scraper.WithShutdown(s.shutdown), scraper.WithStart(s.start))
 }
 
+// buildTablespaceSQL selects the tablespace query variant for the connection type,
+// including the DBA_DATA_FILES/CDB_DATA_FILES join only when needed.
+func (s *oracleScraper) buildTablespaceSQL() string {
+	withMax := s.metricsBuilderConfig.Metrics.OracledbTablespaceLimit.Enabled
+	switch {
+	case s.isCDBRoot && withMax:
+		return tablespaceUsageCDBWithMaxSQL
+	case s.isCDBRoot:
+		return tablespaceUsageCDBSQL
+	case withMax:
+		return tablespaceUsageWithMaxSQL
+	default:
+		return tablespaceUsageSQL
+	}
+}
+
 func (s *oracleScraper) start(ctx context.Context, _ component.Host) error {
 	s.startTime = pcommon.NewTimestampFromTime(time.Now())
 	var err error
@@ -400,12 +459,11 @@ func (s *oracleScraper) start(ctx context.Context, _ component.Host) error {
 		s.logger.Info("oracledbreceiver: connected to CDB root; using CDB-aware queries for per-PDB metrics")
 		s.statsClient = s.clientProviderFunc(s.db, statsCDBSQL, s.logger)
 		s.sessionCountClient = s.clientProviderFunc(s.db, sessionCountCDBSQL, s.logger)
-		s.tablespaceUsageClient = s.clientProviderFunc(s.db, tablespaceUsageCDBSQL, s.logger)
 	} else {
 		s.statsClient = s.clientProviderFunc(s.db, statsSQL, s.logger)
 		s.sessionCountClient = s.clientProviderFunc(s.db, sessionCountSQL, s.logger)
-		s.tablespaceUsageClient = s.clientProviderFunc(s.db, tablespaceUsageSQL, s.logger)
 	}
+	s.tablespaceUsageClient = s.clientProviderFunc(s.db, s.buildTablespaceSQL(), s.logger)
 	s.systemResourceLimitsClient = s.clientProviderFunc(s.db, systemResourceLimitsSQL, s.logger)
 	s.samplesQueryClient = s.clientProviderFunc(s.db, samplesQuery, s.logger)
 	s.sessionEventClient = s.clientProviderFunc(s.db, sessionEventQuery, s.logger)
@@ -1050,11 +1108,11 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 	}
 
 	if s.metricsBuilderConfig.Metrics.OracledbTablespaceSizeUsage.Enabled ||
-		s.metricsBuilderConfig.Metrics.OracledbTablespaceSizeLimit.Enabled {
-		tablespaceQueryName := tablespaceUsageSQL
-		if s.isCDBRoot {
-			tablespaceQueryName = tablespaceUsageCDBSQL
-		}
+		s.metricsBuilderConfig.Metrics.OracledbTablespaceSizeLimit.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbTablespaceUtilization.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbTablespaceStatus.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbTablespaceLimit.Enabled {
+		tablespaceQueryName := s.buildTablespaceSQL()
 		rows, err := s.tablespaceUsageClient.metricRows(ctx)
 		if err != nil {
 			scrapeErrors = append(scrapeErrors, fmt.Errorf("error executing %s: %w", tablespaceQueryName, err))
@@ -1062,8 +1120,7 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 			now := pcommon.NewTimestampFromTime(time.Now())
 			for _, row := range rows {
 				tablespaceName := row["TABLESPACE_NAME"]
-				// pdbName is set for CDB-root queries; empty for non-CDB or direct-PDB connections.
-				pdbName := row["PDB_NAME"]
+				pdbName := s.pdbNameForRow(row)
 				usedSpaceBlockCount, err := strconv.ParseInt(row["USED_SPACE"], 10, 64)
 				if err != nil {
 					scrapeErrors = append(scrapeErrors, fmt.Errorf("failed to parse int64 for OracledbTablespaceSizeUsage, value was %s: %w", row["USED_SPACE"], err))
@@ -1096,6 +1153,27 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 					s.mb.RecordOracledbTablespaceSizeLimitDataPoint(now, -1, tablespaceName, pdbName)
 				} else {
 					s.mb.RecordOracledbTablespaceSizeLimitDataPoint(now, tablespaceSizeBlockCount*blockSize, tablespaceName, pdbName)
+				}
+
+				if s.metricsBuilderConfig.Metrics.OracledbTablespaceUtilization.Enabled && tablespaceSizeBlockCount > 0 {
+					utilization := float64(usedSpaceBlockCount) / float64(tablespaceSizeBlockCount)
+					s.mb.RecordOracledbTablespaceUtilizationDataPoint(now, utilization, tablespaceName, pdbName)
+				}
+
+				if s.metricsBuilderConfig.Metrics.OracledbTablespaceStatus.Enabled {
+					state := strings.ToLower(strings.TrimSpace(row["STATUS"]))
+					if tablespaceState, ok := metadata.MapAttributeOracledbTablespaceState[state]; ok {
+						s.mb.RecordOracledbTablespaceStatusDataPoint(now, 1, tablespaceName, tablespaceState, pdbName)
+					}
+				}
+
+				if s.metricsBuilderConfig.Metrics.OracledbTablespaceLimit.Enabled {
+					maxBytes, err := strconv.ParseInt(row["MAX_BYTES"], 10, 64)
+					if err != nil {
+						scrapeErrors = append(scrapeErrors, fmt.Errorf("failed to parse int64 for OracledbTablespaceLimit, value was %s: %w", row["MAX_BYTES"], err))
+						continue
+					}
+					s.mb.RecordOracledbTablespaceLimitDataPoint(now, maxBytes, tablespaceName, pdbName)
 				}
 			}
 		}
@@ -1375,7 +1453,20 @@ func (s *oracleScraper) anySysmetricPdbAttrEnabled() bool {
 		hasPdbAttr(m.OracledbSessionAverage.EnabledAttributes) ||
 		hasPdbAttr(m.OracledbCPUUsageRate.EnabledAttributes) ||
 		hasPdbAttr(m.OracledbCursorCacheUtilization.EnabledAttributes) ||
-		hasPdbAttr(m.OracledbTransactionResponseTime.EnabledAttributes)
+		hasPdbAttr(m.OracledbTransactionResponseTime.EnabledAttributes) ||
+		hasPdbAttr(m.OracledbBufferCacheBlockChangesRate.EnabledAttributes) ||
+		hasPdbAttr(m.OracledbCursorOpenRate.EnabledAttributes) ||
+		hasPdbAttr(m.OracledbEnqueueDeadlocksRate.EnabledAttributes) ||
+		hasPdbAttr(m.OracledbEnqueueTimeoutsRate.EnabledAttributes) ||
+		hasPdbAttr(m.OracledbExecutionsRate.EnabledAttributes) ||
+		hasPdbAttr(m.OracledbHardParsesRate.EnabledAttributes) ||
+		hasPdbAttr(m.OracledbLogicalReadsRate.EnabledAttributes) ||
+		hasPdbAttr(m.OracledbLogonsRate.EnabledAttributes) ||
+		hasPdbAttr(m.OracledbPhysicalIoRequestsRate.EnabledAttributes) ||
+		hasPdbAttr(m.OracledbPhysicalIoTransferredRate.EnabledAttributes) ||
+		hasPdbAttr(m.OracledbPhysicalOperationsRate.EnabledAttributes) ||
+		hasPdbAttr(m.OracledbRedoSizeRate.EnabledAttributes) ||
+		hasPdbAttr(m.OracledbTransactionsRate.EnabledAttributes)
 }
 
 // hasPdbAttr reports whether the generated EnabledAttributes slice contains
@@ -1481,6 +1572,85 @@ func (s *oracleScraper) recordSysmetric(now pcommon.Timestamp, metricName string
 		if s.metricsBuilderConfig.Metrics.OracledbIoSingleBlockReadLatency.Enabled {
 			// Oracle reports single-block read latency in milliseconds; convert to seconds.
 			s.mb.RecordOracledbIoSingleBlockReadLatencyDataPoint(now, val/1000)
+		}
+	// V$SYSMETRIC I/O rates
+	case sysmetricDBBlockChangesPerSec:
+		if s.metricsBuilderConfig.Metrics.OracledbBufferCacheBlockChangesRate.Enabled {
+			s.mb.RecordOracledbBufferCacheBlockChangesRateDataPoint(now, val, pdbName)
+		}
+	case sysmetricIOMegabytesPerSecond:
+		if s.metricsBuilderConfig.Metrics.OracledbIoThroughputRate.Enabled {
+			// Oracle reports this rate in megabytes/sec; convert to bytes/sec.
+			s.mb.RecordOracledbIoThroughputRateDataPoint(now, val*1048576)
+		}
+	case sysmetricIORequestsPerSecond:
+		if s.metricsBuilderConfig.Metrics.OracledbIoRequestsRate.Enabled {
+			s.mb.RecordOracledbIoRequestsRateDataPoint(now, val)
+		}
+	case sysmetricLogicalReadsPerSec:
+		if s.metricsBuilderConfig.Metrics.OracledbLogicalReadsRate.Enabled {
+			s.mb.RecordOracledbLogicalReadsRateDataPoint(now, val, pdbName)
+		}
+	case sysmetricPhysicalReadTotalBytesPerSec:
+		if s.metricsBuilderConfig.Metrics.OracledbPhysicalIoTransferredRate.Enabled {
+			s.mb.RecordOracledbPhysicalIoTransferredRateDataPoint(now, val, metadata.AttributeDiskIoDirectionRead, pdbName)
+		}
+	case sysmetricPhysicalReadTotalIORequestsPerSec:
+		if s.metricsBuilderConfig.Metrics.OracledbPhysicalIoRequestsRate.Enabled {
+			s.mb.RecordOracledbPhysicalIoRequestsRateDataPoint(now, val, metadata.AttributeDiskIoDirectionRead, pdbName)
+		}
+	case sysmetricPhysicalReadsPerSec:
+		if s.metricsBuilderConfig.Metrics.OracledbPhysicalOperationsRate.Enabled {
+			s.mb.RecordOracledbPhysicalOperationsRateDataPoint(now, val, metadata.AttributeDiskIoDirectionRead, pdbName)
+		}
+	case sysmetricPhysicalWriteTotalBytesPerSec:
+		if s.metricsBuilderConfig.Metrics.OracledbPhysicalIoTransferredRate.Enabled {
+			s.mb.RecordOracledbPhysicalIoTransferredRateDataPoint(now, val, metadata.AttributeDiskIoDirectionWrite, pdbName)
+		}
+	case sysmetricPhysicalWriteTotalIORequestsPerSec:
+		if s.metricsBuilderConfig.Metrics.OracledbPhysicalIoRequestsRate.Enabled {
+			s.mb.RecordOracledbPhysicalIoRequestsRateDataPoint(now, val, metadata.AttributeDiskIoDirectionWrite, pdbName)
+		}
+	case sysmetricPhysicalWritesPerSec:
+		if s.metricsBuilderConfig.Metrics.OracledbPhysicalOperationsRate.Enabled {
+			s.mb.RecordOracledbPhysicalOperationsRateDataPoint(now, val, metadata.AttributeDiskIoDirectionWrite, pdbName)
+		}
+	case sysmetricRedoGeneratedPerSec:
+		if s.metricsBuilderConfig.Metrics.OracledbRedoSizeRate.Enabled {
+			s.mb.RecordOracledbRedoSizeRateDataPoint(now, val, pdbName)
+		}
+	// V$SYSMETRIC workload rates
+	case sysmetricEnqueueDeadlocksPerSec:
+		if s.metricsBuilderConfig.Metrics.OracledbEnqueueDeadlocksRate.Enabled {
+			s.mb.RecordOracledbEnqueueDeadlocksRateDataPoint(now, val, pdbName)
+		}
+	case sysmetricEnqueueTimeoutsPerSec:
+		if s.metricsBuilderConfig.Metrics.OracledbEnqueueTimeoutsRate.Enabled {
+			s.mb.RecordOracledbEnqueueTimeoutsRateDataPoint(now, val, pdbName)
+		}
+	case sysmetricExecutionsPerSec:
+		if s.metricsBuilderConfig.Metrics.OracledbExecutionsRate.Enabled {
+			s.mb.RecordOracledbExecutionsRateDataPoint(now, val, pdbName)
+		}
+	case sysmetricHardParseCountPerSec:
+		if s.metricsBuilderConfig.Metrics.OracledbHardParsesRate.Enabled {
+			s.mb.RecordOracledbHardParsesRateDataPoint(now, val, pdbName)
+		}
+	case sysmetricLogonsPerSec:
+		if s.metricsBuilderConfig.Metrics.OracledbLogonsRate.Enabled {
+			s.mb.RecordOracledbLogonsRateDataPoint(now, val, pdbName)
+		}
+	case sysmetricOpenCursorsPerSec:
+		if s.metricsBuilderConfig.Metrics.OracledbCursorOpenRate.Enabled {
+			s.mb.RecordOracledbCursorOpenRateDataPoint(now, val, pdbName)
+		}
+	case sysmetricUserCommitsPerSec:
+		if s.metricsBuilderConfig.Metrics.OracledbTransactionsRate.Enabled {
+			s.mb.RecordOracledbTransactionsRateDataPoint(now, val, metadata.AttributeOracledbTransactionTypeCommit, pdbName)
+		}
+	case sysmetricUserRollbacksPerSec:
+		if s.metricsBuilderConfig.Metrics.OracledbTransactionsRate.Enabled {
+			s.mb.RecordOracledbTransactionsRateDataPoint(now, val, metadata.AttributeOracledbTransactionTypeRollback, pdbName)
 		}
 	}
 }
@@ -1854,7 +2024,6 @@ func (s *oracleScraper) enrichSamplesWithSQLStats(ctx context.Context, rows []me
 
 	seen := make(map[string]struct{})
 	var ids []any
-	var placeholders []string
 	for _, row := range rows {
 		id := row[lookupSQLID]
 		if id == "" {
@@ -1864,25 +2033,24 @@ func (s *oracleScraper) enrichSamplesWithSQLStats(ctx context.Context, rows []me
 			continue
 		}
 		seen[id] = struct{}{}
-		placeholders = append(placeholders, fmt.Sprintf(":%d", len(ids)+1))
 		ids = append(ids, id)
 	}
 	if len(ids) == 0 {
 		return nil
 	}
 
-	// Oracle IN list is capped at 1000 expressions; batch if needed.
+	// Oracle IN list is capped at 1000 expressions; batch to stay under it.
+	// Build :1..:N once up to the max batch size and slice per batch.
 	const oracleInLimit = 1000
+	maxPlaceholders := make([]string, min(len(ids), oracleInLimit))
+	for j := range maxPlaceholders {
+		maxPlaceholders[j] = fmt.Sprintf(":%d", j+1)
+	}
 	stats := make(map[string]metricRow, len(ids))
 	for i := 0; i < len(ids); i += oracleInLimit {
-		end := i + oracleInLimit
-		if end > len(ids) {
-			end = len(ids)
-		}
+		end := min(i+oracleInLimit, len(ids))
 		batchIDs := ids[i:end]
-		batchPlaceholders := placeholders[i:end]
-		sqlQuery := fmt.Sprintf(samplesStatsQuery, strings.Join(batchPlaceholders, ", "))
-		s.logger.Info("enrichSamplesWithSQLStats query", zap.String("sql", sqlQuery))
+		sqlQuery := fmt.Sprintf(samplesStatsQuery, strings.Join(maxPlaceholders[:len(batchIDs)], ", "))
 		statsRows, err := s.clientProviderFunc(s.db, sqlQuery, s.logger).metricRows(ctx, batchIDs...)
 		if err != nil {
 			return fmt.Errorf("failed to fetch V$SQL stats for query samples: %w", err)
@@ -1910,6 +2078,7 @@ func (s *oracleScraper) collectSessionWaitEvents(ctx context.Context, logs plog.
 	const event = "EVENT"
 	const waitClass = "WAIT_CLASS"
 	const totalWaits = "TOTAL_WAITS"
+	const totalTimeouts = "TOTAL_TIMEOUTS"
 	const totalTimeWaitedSecs = "TOTAL_TIME_WAITED_SECS"
 
 	var scrapeErrors []error
@@ -1930,13 +2099,19 @@ func (s *oracleScraper) collectSessionWaitEvents(ctx context.Context, logs plog.
 			continue
 		}
 
+		totalTimeoutsVal, err := strconv.ParseInt(row[totalTimeouts], 10, 64)
+		if err != nil {
+			scrapeErrors = append(scrapeErrors, fmt.Errorf("failed to parse int64 for oracledb.wait.timeouts, value was %s: %w", row[totalTimeouts], err))
+			continue
+		}
+
 		totalTimeWaitedSecsVal, err := strconv.ParseFloat(row[totalTimeWaitedSecs], 64)
 		if err != nil {
 			scrapeErrors = append(scrapeErrors, fmt.Errorf("failed to parse float64 for oracledb.wait.duration, value was %s: %w", row[totalTimeWaitedSecs], err))
 			continue
 		}
 
-		s.lb.RecordDbServerSessionWaitSampleEvent(ctx, timestamp, row[sid], row[serial], row[event], row[waitClass], totalWaitsVal, totalTimeWaitedSecsVal, row[dbNamespaceAttr])
+		s.lb.RecordDbServerSessionWaitSampleEvent(ctx, timestamp, row[sid], row[serial], row[event], row[waitClass], totalWaitsVal, totalTimeoutsVal, totalTimeWaitedSecsVal, row[dbNamespaceAttr])
 	}
 
 	s.lb.Emit(metadata.WithLogsResource(rb.Emit())).ResourceLogs().MoveAndAppendTo(logs.ResourceLogs())

@@ -11,6 +11,7 @@
 package nrpostgresqlreceiver // import "github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrpostgresqlreceiver"
 
 import (
+	"strings"
 	"sync"
 
 	"github.com/DataDog/datadog-agent/pkg/obfuscate"
@@ -20,6 +21,16 @@ var (
 	obfuscator       *obfuscate.Obfuscator
 	obfuscatorLoader sync.Once
 )
+
+// collectCommentsConfig extracts leading comments so they can be replaced with `?` in obfuscateSQL.
+var collectCommentsConfig = obfuscate.SQLConfig{
+	DBMS:            "postgresql",
+	ObfuscationMode: "obfuscate_and_normalize",
+	CollectComments: true,
+	KeepSQLAlias:    true,
+	KeepBoolean:     true,
+	KeepNull:        true,
+}
 
 // defaultSQLPlanNormalizeSettings are the default JSON obfuscator settings for both obfuscating and normalizing SQL
 // execution plans
@@ -190,8 +201,19 @@ func lazyInitObfuscator() *obfuscate.Obfuscator {
 }
 
 // obfuscateSQL obfuscates & normalizes the provided SQL query, writing the error into errResult if the operation fails.
+// Leading comments are replaced with `?` rather than dropped.
 func obfuscateSQL(rawQuery string) (string, error) {
-	obfuscatedQuery, err := lazyInitObfuscator().ObfuscateSQLString(rawQuery)
+	collectResult, err := lazyInitObfuscator().ObfuscateSQLStringWithOptions(rawQuery, &collectCommentsConfig, "")
+	if err != nil {
+		return "", err
+	}
+
+	sqlWithAnonymizedComments := rawQuery
+	for _, comment := range collectResult.Metadata.Comments {
+		sqlWithAnonymizedComments = strings.Replace(sqlWithAnonymizedComments, comment, "?", 1)
+	}
+
+	obfuscatedQuery, err := lazyInitObfuscator().ObfuscateSQLString(sqlWithAnonymizedComments)
 	if err != nil {
 		return "", err
 	}

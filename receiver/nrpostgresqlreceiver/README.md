@@ -55,10 +55,40 @@ The monitoring user must be granted `SELECT` on `pg_stat_database`.
 
 ## Configuration
 
-The following settings are required to create a database connection:
+The following setting is required to create a database connection:
 
 - `username`
-- `password`
+
+Exactly one of the following credential settings is also required:
+
+- `password`: A static PostgreSQL password.
+- `db_auth`: The component ID of a database authentication provider extension. The provider supplies the password, and can optionally override `username`, whenever the receiver opens a connection. `db_auth` and `password` are mutually exclusive.
+
+For example, a provider extension must be declared, referenced from the receiver,
+and enabled in `service.extensions`:
+
+```yaml
+extensions:
+  aws_iam_db_auth:
+    region: us-east-2
+
+receivers:
+  nrpostgresql:
+    endpoint: my-database.example.com:5432
+    username: monitor
+    db_auth: aws_iam_db_auth
+
+service:
+  extensions: [aws_iam_db_auth]
+  pipelines:
+    metrics:
+      receivers: [nrpostgresql]
+```
+
+The selected provider extension must be included in the Collector distribution.
+Provider-wide settings, such as the region above, belong to the extension;
+`endpoint` and `username` are passed to it by the receiver for each credential
+request.
 
 The following settings are optional:
 
@@ -97,6 +127,16 @@ to grant the user you are using `pg_monitor`. Take the example from `testdata/in
 GRANT pg_monitor TO otelu;
 ```
 
+To correlate query samples with traces, set the PostgreSQL [`application_name`](https://www.postgresql.org/docs/current/runtime-config-logging.html#GUC-APPLICATION-NAME)
+for the client connection to a valid [W3C `traceparent`](https://www.w3.org/TR/trace-context/#traceparent-header) value before running the query:
+
+```sql
+SET application_name = '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01';
+```
+
+When query sample collection observes a valid `traceparent` in `application_name`, the receiver sets the trace ID and span ID on the emitted
+`db.server.query_sample` log record. This enables correlation between the query sample and the originating trace.
+
 The following options are available:
 - `max_rows_per_query`: (optional, default=1000) The max number of rows would return from the query 
 against `pg_stat_activity`.
@@ -131,6 +171,203 @@ separately. This could lead some resources usage and limit this will reduce the 
 This defines the cache's size for query plan.
 - `query_plan_cache_ttl`: (optional, default=1h). How long before the query plan cache got expired. Example values: `1m`, `1h`. 
 - `collection_interval`: (optional, default=60s). This receiver can collect top_query metrics on an interval. If not provided then the global collection_interval takes effect. This value must be a string readable by Golang's [time.ParseDuration](https://pkg.go.dev/time#ParseDuration). Valid time units are `ns`, `us` (or `µs`), `ms`, `s`, `m`, `h`.
+- `allowed_comment_keys`: (optional, default=empty). List of SQL comment keys (e.g. `nr_service_guid`) to extract from the query's leading block comments into `db.query.comment_tags` and, for `nr_service_guid` specifically, `db.query.comment_tags.nr_service_guid`. Empty by default (no extraction). See the note below on why `top_query` comment tags can be stale.
+
+#### `top_query` comment tags reflect the first-seen execution, not the current one
+
+`pg_stat_statements` hashes `queryid` from query structure only, ignoring comments, and freezes the
+stored text (comment included) at first execution — later callers with a different `nr_service_guid`
+just increment counters, never update the text. So `top_query`'s comment tags reflect whichever
+caller ran first, not necessarily the current/dominant one. `query_sample` has no such issue (it
+reads live text from `pg_stat_activity` every scrape); prefer it for per-execution APM correlation.
+
+### PostgreSQL version requirement for EXPLAIN
+
+Explaining a parameterized query requires `plan_cache_mode = force_generic_plan` before
+`PREPARE`/`EXPLAIN EXECUTE`, since we only have `null`s to bind, not real values. Without it,
+Postgres's default plan_cache_mode (`auto`) builds a plan around the bound `null` and collapses
+it into a useless no-op `Result` node. That GUC needs **PostgreSQL 12+**; on older servers the
+receiver detects the version and skips EXPLAIN for that query instead of sending a `SET` that
+would fail. Non-parameterized queries are unaffected on any version. `explain_function_name`
+below uses the same mechanism internally, so it has the same PostgreSQL 12+ requirement.
+
+### Collecting EXPLAIN plans for locking and write queries (`explain_function_name`)
+
+By default, `EXPLAIN` runs directly as the monitoring user. Postgres checks table privileges at
+*plan* time, so a row-locking clause (`FOR UPDATE`/`FOR SHARE`) or a write statement
+(`UPDATE`/`INSERT`/`DELETE`/`MERGE`) fails with `permission denied` unless the monitoring user has
+write access — which it should never be granted.
+
+To collect plans for these query types without granting write access, provision a
+`SECURITY DEFINER` helper function once per database:
+
+```sql
+CREATE OR REPLACE FUNCTION otel.explain_statement(l_query text)
+RETURNS json
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_plan json;
+    v_param_count int;
+    v_nulls text := '';
+    i int;
+BEGIN
+    SET TRANSACTION READ ONLY;
+
+    -- Without this, the default plan_cache_mode peeks at the bound NULL and collapses
+    -- the plan into a useless no-op Result node. force_generic_plan treats $1 as opaque.
+    SET plan_cache_mode = force_generic_plan;
+
+    -- l_query is text from pg_stat_statements, normalized with $1/$2/... placeholders
+    -- (no bound values). PREPARE/EXECUTE with generic-plan NULLs, same as the inline
+    -- EXPLAIN path, but running as the function owner so it also covers locking/write
+    -- queries the monitoring user has no privilege to plan directly.
+    EXECUTE 'PREPARE otel_explain_stmt AS ' || l_query;
+
+    SELECT COALESCE(array_length(parameter_types, 1), 0) INTO v_param_count
+    FROM pg_prepared_statements WHERE name = 'otel_explain_stmt';
+
+    -- Built with a plain loop, not a query (e.g. SELECT ... FROM generate_series(1, v_param_count)):
+    -- that query would itself get captured by pg_stat_statements when pg_stat_statements.track = all,
+    -- and later get mistaken for a top query — but v_param_count is a local variable with no meaning
+    -- outside this function, so re-EXPLAINing that captured text on its own fails with
+    -- "column v_param_count does not exist".
+    IF v_param_count > 0 THEN
+        FOR i IN 1..v_param_count LOOP
+            v_nulls := v_nulls || CASE WHEN i > 1 THEN ', ' ELSE '' END || 'null';
+        END LOOP;
+        v_nulls := '(' || v_nulls || ')';
+    END IF;
+
+    EXECUTE 'EXPLAIN (FORMAT JSON) EXECUTE otel_explain_stmt' || v_nulls INTO v_plan;
+    DEALLOCATE otel_explain_stmt;
+    RETURN v_plan;
+EXCEPTION WHEN OTHERS THEN
+    -- Always clean up the prepared statement, even on failure (e.g. a query shape
+    -- PREPARE rejects), so it never leaks across calls. Postgres's DEALLOCATE has no
+    -- IF EXISTS clause, so guard with pg_prepared_statements instead — PREPARE itself
+    -- may be what failed, in which case there's nothing to deallocate.
+    IF EXISTS (SELECT 1 FROM pg_prepared_statements WHERE name = 'otel_explain_stmt') THEN
+        DEALLOCATE otel_explain_stmt;
+    END IF;
+    RAISE;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION otel.explain_statement(text) TO <monitoring_user>;
+```
+
+The function's owner needs write privilege on the target tables to pass PostgreSQL's
+plan-time check — either a superuser, or a dedicated non-superuser role scoped to
+exactly those tables. `SET TRANSACTION READ ONLY` guarantees no write is ever
+possible, regardless of the owner's privileges. **The monitoring user itself must
+never be granted `CREATE` on any database or schema it connects through** — the
+function intentionally does not pin `search_path` (so unqualified table names in
+captured queries resolve correctly), which is only safe if the monitoring role
+cannot create objects to redirect that resolution into.
+
+**Security note:** `l_query` is `PREPARE`d and run under the function owner's elevated
+privilege, so it must only ever come from already-executed SQL text (`pg_stat_statements`
+or `pg_stat_activity`) — never from user/API input. This function is not a general-purpose
+SQL execution endpoint.
+
+`l_query` is the normalized text from `pg_stat_statements.query` — it contains `$1`/`$2`/...
+placeholders with no bound values, not literals. The function `PREPARE`s it and runs
+`EXPLAIN EXECUTE` with all-`NULL` arguments (a generic plan, not parameter-sniffed) inside
+its own body, so this also works for locking/write queries the monitoring user can't PREPARE
+directly. Each invocation uses a fixed statement name (`otel_explain_stmt`) since PL/pgSQL
+functions execute one call at a time per session and the connection is not reused across
+calls the way `explainQueryInline`'s dedicated connection is.
+
+PREPARE and EXPLAIN EXECUTE can't be split across two functions or done partly in the
+caller: Postgres re-checks table privileges at EXPLAIN-EXECUTE time, not just at PREPARE
+time, so a step run outside `SECURITY DEFINER` still hits `permission denied` for
+write/locking queries even if PREPARE itself succeeded inside the function. Both steps must
+run together, under the same elevated call.
+
+Configuration:
+
+```yaml
+receivers:
+  nrpostgresql:
+    top_query_collection:
+      explain_function_name: otel.explain_statement  # default; empty string disables this feature
+      explain_function_cache_ttl: 5m                  # default
+```
+
+If the function is missing or fails (including a transient connection error probing it), the
+receiver logs once per `explain_function_cache_ttl` per database and falls back to inline
+EXPLAIN — no error, no missing metrics, just no function-based plan until the function is fixed
+and the next probe runs.
+
+This covers only the function's own availability. If a specific query still can't be explained
+(e.g. a locking/write query with no `explain_function_name` set), that's logged once per
+`query_plan_cache_ttl` — `Warn` for permission errors, `Error` otherwise — not every scrape.
+
+**Two independent cache clocks.** `query_plan_cache_ttl` (1h) caches a *query's* plan;
+`explain_function_cache_ttl` (5m) caches a *database's* function availability. Since they're
+separate caches, a query can keep showing a stale plan-availability outcome for up to an hour
+after the function's status actually changed, while a different query that misses cache sooner
+sees the new state immediately — two queries of the same shape can disagree. Expected, not a bug.
+
+### Vector Metrics
+
+The receiver can report [pgvector](https://github.com/pgvector/pgvector) similarity-search and insert activity
+through a set of opt-in metrics.
+
+Prerequisites:
+
+- PostgreSQL 13 or later.
+- The [pgvector](https://github.com/pgvector/pgvector) extension installed in each scanned database. The `l1`,
+  `hamming`, and `jaccard` distance functions additionally require pgvector 0.7.0 or later.
+- The `pg_stat_statements` extension (version 1.8+) installed and enabled in each scanned database (see below).
+
+#### Search metrics
+
+Three metrics report similarity-search activity
+
+- `postgresql.vector.search.calls`: the cumulative number of vector search executions.
+- `postgresql.vector.search.duration`: the cumulative execution time (in seconds) of vector searches.
+- `postgresql.vector.search.rows_returned`: the cumulative number of rows returned by vector searches.
+
+> [!NOTE]
+> The distance function is inferred from the query text alone, so the receiver cannot tell which
+> operator implementation is actually invoked. If the `pg_trgm` extension is also installed, its
+> text-similarity `<->` operator is indistinguishable from pgvector's L2 `<->` operator, so queries
+> such as `ORDER BY text_col <-> 'abc'` may be counted under the `l2` distance function.
+
+#### Insert metrics
+
+These metrics report write activity against pgvector tables
+
+- `postgresql.vector.insert.rows`: the cumulative number of vectors inserted.
+- `postgresql.vector.insert.duration`: the cumulative execution time (in seconds) of those inserts.
+
+All of these metrics are disabled by default. Enable the ones you need via:
+
+```yaml
+receivers:
+  nrpostgresql:
+    metrics:
+      postgresql.vector.search.calls:
+        enabled: true
+      postgresql.vector.search.duration:
+        enabled: true
+      postgresql.vector.search.rows_returned:
+        enabled: true
+      postgresql.vector.insert.rows:
+        enabled: true
+      postgresql.vector.insert.duration:
+        enabled: true
+```
+
+The `pg_stat_statements` extension must be created in every database you want these metrics collected from:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+```
+
 ### Example Configuration
 
 ```yaml
@@ -178,6 +415,14 @@ When this feature gate is enabled, the following optional settings are available
 
 Those settings and their defaults are further documented in the [`sql/database`](https://pkg.go.dev/database/sql#DB) package.
 
+The connection pool composes with a `db_auth` block (e.g. AWS IAM). The
+credential is re-resolved on every new connection the pool opens, so a short-lived
+token (an RDS IAM token lives ~15 minutes) is re-minted as the pool grows or
+replaces connections, and a connection is never opened with an expired token.
+Connections already established stay valid for their lifetime — IAM authenticates
+only at connection open, not per query — so tune `max_lifetime` to bound how long
+a connection lives before it must reconnect with a fresh token.
+
 ### Example Configuration
 
 ```yaml
@@ -206,3 +451,7 @@ This gate is mutually exclusive with `receiver.postgresql.separateSchemaAttr` �
 ## Metrics
 
 Details about the metrics produced by this receiver can be found in [metadata.yaml](./metadata.yaml)
+
+> [!NOTE]
+> The optional `postgresql.query.execution.time` metric requires the `pg_stat_statements` extension to be
+> installed and enabled.

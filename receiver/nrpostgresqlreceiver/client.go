@@ -18,6 +18,8 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon/sqlcomments"
+	"github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon/sqlnormalizer"
 	sqlquery "github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrsqlquery"
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrpostgresqlreceiver/internal/metadata"
 	"go.opentelemetry.io/collector/config/confignet"
@@ -27,9 +29,18 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/dbauth"
 )
 
 const querySampleTraceContextKey = "_otel_trace_context"
+
+// Row-attribute keys carrying comment tags, nr_service_guid, and the normalized-query hash to scraper.go.
+const (
+	dbQueryCommentTagsAttributeKey              = "db.query.comment_tags"
+	dbQueryCommentTagsNrServiceGUIDAttributeKey = "db.query.comment_tags.nr_service_guid"
+	dbQueryTextNormalizedHashAttributeKey       = "db.query.text.normalized.hash"
+)
 
 // databaseName is a name that refers to a database so that it can be uniquely referred to later
 // i.e. database1
@@ -52,8 +63,10 @@ var errNoLastArchive = errors.New("no last archive found, not able to calculate 
 type client interface {
 	Close() error
 	getDatabaseStats(ctx context.Context, databases []string) (map[databaseName]databaseStats, error)
+	getExecutionTimeStats(ctx context.Context, databases []string) (map[databaseName]float64, error)
 	getDatabaseConflicts(ctx context.Context, databases []string) (map[databaseName]databaseConflictStats, error)
 	getDatabaseLocks(ctx context.Context) ([]databaseLocks, error)
+	getSharedRelationLocks(ctx context.Context) ([]databaseLocks, error)
 	getBGWriterStats(ctx context.Context) (*bgStat, error)
 	getBackends(ctx context.Context, databases []string) (map[databaseName]int64, error)
 	getDatabaseSize(ctx context.Context, databases []string) (map[databaseName]int64, error)
@@ -64,11 +77,14 @@ type client interface {
 	getMaxConnections(ctx context.Context) (int64, error)
 	getIndexStats(ctx context.Context, database string) (map[indexIdentifer]indexStat, error)
 	getFunctionStats(ctx context.Context, database string) (map[functionIdentifer]functionStat, error)
+	getVectorSearchStats(ctx context.Context) ([]vectorSearchStat, error)
+	getVectorInsertStats(ctx context.Context) ([]vectorInsertStat, error)
 	listDatabases(ctx context.Context) ([]string, error)
 	getVersion(ctx context.Context) (string, error)
-	getQuerySamples(ctx context.Context, limit int64, newestQueryTimestamp float64, logger *zap.Logger) ([]map[string]any, float64, error)
-	getTopQuery(ctx context.Context, limit int64, logger *zap.Logger) ([]map[string]any, error)
-	explainQuery(query, queryID string, logger *zap.Logger) (string, error)
+	getQuerySamples(ctx context.Context, limit int64, newestQueryTimestamp float64, allowedCommentKeys []string, logger *zap.Logger) ([]map[string]any, float64, error)
+	getTopQuery(ctx context.Context, limit int64, allowedCommentKeys []string, logger *zap.Logger) ([]map[string]any, error)
+	explainQuery(query, queryID, explainFunction string, logger *zap.Logger) (string, error)
+	probeExplainFunction(ctx context.Context, quotedFunctionName string) error
 }
 
 type postgreSQLClient struct {
@@ -125,49 +141,221 @@ func isExplainableQuery(query string) bool {
 	}
 
 	_, ok := explainableStatements[strings.ToUpper(firstWord)]
-	return ok
+	if !ok {
+		return false
+	}
+
+	return !hasEmbeddedStatementSeparator(trimmed)
+}
+
+// hasEmbeddedStatementSeparator reports whether query contains a ';' that terminates a
+// statement before the end of the string, ignoring a single optional trailing ';' (which
+// PREPARE's own "AS <query>;" wrapping already tolerates) and any ';' inside a single-quoted
+// string literal (two consecutive single quotes is the standard SQL-escaped quote). This
+// stops a second statement from being smuggled into the simple-query PREPARE/EXPLAIN path
+// via query text that only passes the leading-keyword whitelist check.
+func hasEmbeddedStatementSeparator(query string) bool {
+	body := strings.TrimRight(query, " \t\n")
+	body = strings.TrimSuffix(body, ";")
+
+	inString := false
+	for i := 0; i < len(body); i++ {
+		switch {
+		case body[i] == '\'' && inString && i+1 < len(body) && body[i+1] == '\'':
+			// Escaped quote ('') inside a string literal: skip both characters.
+			i++
+		case body[i] == '\'':
+			inString = !inString
+		case body[i] == ';' && !inString:
+			return true
+		}
+	}
+	return false
+}
+
+// quoteExplainFunctionName double-quotes each segment of a validated [schema.]name.
+func quoteExplainFunctionName(name string) string {
+	parts := strings.Split(name, ".")
+	quoted := make([]string, len(parts))
+	for i, p := range parts {
+		quoted[i] = `"` + p + `"`
+	}
+	return strings.Join(quoted, ".")
+}
+
+// probeExplainFunction checks the function is present and callable via a live test call.
+func (c *postgreSQLClient) probeExplainFunction(ctx context.Context, quotedFunctionName string) error {
+	query := fmt.Sprintf("SELECT %s('SELECT 1')", quotedFunctionName) // #nosec G201 -- quotedFunctionName is produced by quoteExplainFunctionName from a config value already validated against a strict identifier pattern, not user input
+	rows, err := c.client.QueryContext(ctx, query)
+	if err != nil {
+		return err
+	}
+	return rows.Close()
+}
+
+// intervalParamPattern matches "INTERVAL $N", a placeholder pg_stat_statements leaves after
+// normalizing a literal interval. $N isn't a real bind param, so PREPARE rejects it as-is.
+var intervalParamPattern = regexp.MustCompile(`(?i)INTERVAL\s+(\$\d+)`)
+
+// rewriteIntervalParams rewrites "INTERVAL $N" to "$N::interval" so PREPARE accepts it.
+func rewriteIntervalParams(query string) string {
+	return intervalParamPattern.ReplaceAllString(query, "$1::interval")
 }
 
 // explainQuery implements client.
-func (c *postgreSQLClient) explainQuery(query, queryID string, logger *zap.Logger) (string, error) {
+func (c *postgreSQLClient) explainQuery(query, queryID, explainFunction string, logger *zap.Logger) (string, error) {
 	// Check if the query is explainable before attempting EXPLAIN
 	if !isExplainableQuery(query) {
 		logger.Debug("skipping EXPLAIN for non-explainable query", zap.String("queryID", queryID))
 		return "", nil
 	}
 
+	query = rewriteIntervalParams(query)
+
+	if explainFunction != "" {
+		return c.explainQueryViaFunction(query, queryID, explainFunction, logger)
+	}
+
+	return c.explainQueryInline(query, queryID, logger)
+}
+
+// explainQueryViaFunction runs EXPLAIN through a DBA-provisioned SECURITY DEFINER helper function.
+// Requires PostgreSQL 12+, same as explainQueryInline.
+func (c *postgreSQLClient) explainQueryViaFunction(query, queryID, explainFunction string, logger *zap.Logger) (string, error) {
+	supported, err := c.supportsPlanCacheMode(queryID, logger)
+	if err != nil {
+		return "", err
+	}
+	if !supported {
+		return "", nil
+	}
+
+	sql := fmt.Sprintf("SELECT %s($1)", explainFunction)
+	wrappedDb := sqlquery.NewDbClient(sqlquery.DbWrapper{Db: c.client}, sql, logger, sqlquery.TelemetryConfig{})
+
+	result, err := wrappedDb.QueryRows(context.Background(), query)
+	if err != nil {
+		logger.Error("failed to explain statement via function", zap.Error(err), zap.String("queryID", queryID))
+		return "", err
+	}
+
+	if len(result) == 0 {
+		return "", nil
+	}
+
+	var rawPlan string
+	for _, v := range result[0] {
+		rawPlan = v
+		break
+	}
+
+	plan, err := obfuscateSQLExecPlan(rawPlan)
+	if err != nil {
+		logger.Error("failed to obfuscate explain plan", zap.Error(err), zap.String("queryID", queryID))
+		return "", err
+	}
+
+	return plan, nil
+}
+
+// minPlanCacheModeVersion is the first PostgreSQL version with plan_cache_mode as a GUC.
+const minPlanCacheModeVersion = 12
+
+// supportsPlanCacheMode reports whether the server supports plan_cache_mode (PostgreSQL 12+).
+// A false, nil-error return means "skip EXPLAIN for this query", not a failure.
+func (c *postgreSQLClient) supportsPlanCacheMode(queryID string, logger *zap.Logger) (bool, error) {
+	version, err := c.getVersion(context.Background())
+	if err != nil {
+		logger.Error("failed to determine PostgreSQL version for EXPLAIN", zap.Error(err), zap.String("queryID", queryID))
+		return false, err
+	}
+	major, err := parseMajorVersion(version)
+	if err != nil {
+		logger.Error("failed to parse PostgreSQL version for EXPLAIN", zap.Error(err), zap.String("queryID", queryID))
+		return false, err
+	}
+	if major < minPlanCacheModeVersion {
+		logger.Debug("skipping EXPLAIN: plan_cache_mode requires PostgreSQL 12+",
+			zap.Int("serverMajorVersion", major), zap.String("queryID", queryID))
+		return false, nil
+	}
+	return true, nil
+}
+
+// explainQueryInline runs EXPLAIN directly as the monitoring user (PREPARE/EXPLAIN EXECUTE/DEALLOCATE).
+// Param count comes from pg_prepared_statements, not text counting, since "$1" can repeat.
+func (c *postgreSQLClient) explainQueryInline(query, queryID string, logger *zap.Logger) (string, error) {
+	supported, err := c.supportsPlanCacheMode(queryID, logger)
+	if err != nil {
+		return "", err
+	}
+	if !supported {
+		return "", nil
+	}
+
 	normalizedQueryID := strings.ReplaceAll(queryID, "-", "_")
 
-	// PostgreSQL's pg_stat_statements returns queries with $1, $2 placeholders
-	paramRegex := regexp.MustCompile(`\$\d+`)
-	matches := paramRegex.FindAllString(query, -1)
-
-	// Build nulls array for placeholders
-	nulls := make([]string, len(matches))
-	for i := range nulls {
-		nulls[i] = "null"
+	// PREPARE is session-scoped, so PREPARE/lookup/EXPLAIN/DEALLOCATE must share one connection.
+	conn, err := c.client.Conn(context.Background())
+	if err != nil {
+		logger.Error("failed to obtain a dedicated connection for EXPLAIN", zap.Error(err), zap.String("queryID", queryID))
+		return "", err
 	}
+	defer conn.Close()
 
 	defer func() {
-		_, _ = c.client.Exec(fmt.Sprintf("/* otel-collector-ignore */ DEALLOCATE PREPARE otel_%s", normalizedQueryID))
+		_, _ = conn.ExecContext(context.Background(), fmt.Sprintf("/* otel-collector-ignore */ DEALLOCATE PREPARE otel_%s", normalizedQueryID))
 	}()
 
-	// if there is no parameter needed, we can not put an empty bracket
-
-	nullsString := ""
-	if len(nulls) > 0 {
-		nullsString = "(" + strings.Join(nulls, ", ") + ")"
-	}
 	setPlanCacheMode := "/* otel-collector-ignore */ SET plan_cache_mode = force_generic_plan;"
 	prepareStatement := fmt.Sprintf("PREPARE otel_%s AS %s;", normalizedQueryID, query)
+
+	prepareDb := sqlquery.NewDbClient(sqlquery.ConnWrapper{Conn: conn}, setPlanCacheMode+prepareStatement, logger, sqlquery.TelemetryConfig{})
+	if _, err = prepareDb.QueryRows(context.Background()); err != nil {
+		logger.Error("failed to prepare statement for EXPLAIN", zap.Error(err), zap.String("queryID", queryID))
+		return "", err
+	}
+
+	paramCountSQL := fmt.Sprintf(
+		"/* otel-collector-ignore */ SELECT COALESCE(array_length(parameter_types, 1), 0) AS param_count FROM pg_prepared_statements WHERE name = 'otel_%s';",
+		normalizedQueryID,
+	)
+	paramCountDb := sqlquery.NewDbClient(sqlquery.ConnWrapper{Conn: conn}, paramCountSQL, logger, sqlquery.TelemetryConfig{})
+	paramCountResult, err := paramCountDb.QueryRows(context.Background())
+	if err != nil {
+		logger.Error("failed to look up prepared statement parameter count", zap.Error(err), zap.String("queryID", queryID))
+		return "", err
+	}
+	if len(paramCountResult) == 0 {
+		logger.Error("prepared statement not found in pg_prepared_statements after PREPARE succeeded", zap.String("queryID", queryID))
+		return "", fmt.Errorf("prepared statement otel_%s not found in pg_prepared_statements", normalizedQueryID)
+	}
+
+	paramCount, err := strconv.Atoi(paramCountResult[0]["param_count"])
+	if err != nil {
+		logger.Error("failed to parse prepared statement parameter count", zap.Error(err), zap.String("queryID", queryID))
+		return "", err
+	}
+
+	nullsString := ""
+	if paramCount > 0 {
+		nulls := make([]string, paramCount)
+		for i := range nulls {
+			nulls[i] = "null"
+		}
+		nullsString = "(" + strings.Join(nulls, ", ") + ")"
+	}
 	explainStatement := fmt.Sprintf("EXPLAIN(FORMAT JSON) EXECUTE otel_%s%s;", normalizedQueryID, nullsString)
 
-	wrappedDb := sqlquery.NewDbClient(sqlquery.DbWrapper{Db: c.client}, setPlanCacheMode+prepareStatement+explainStatement, logger, sqlquery.TelemetryConfig{})
-
-	result, err := wrappedDb.QueryRows(context.Background())
+	explainDb := sqlquery.NewDbClient(sqlquery.ConnWrapper{Conn: conn}, explainStatement, logger, sqlquery.TelemetryConfig{})
+	result, err := explainDb.QueryRows(context.Background())
 	if err != nil {
 		logger.Error("failed to explain statement", zap.Error(err))
 		return "", err
+	}
+
+	if len(result) == 0 {
+		return "", nil
 	}
 
 	plan, err := obfuscateSQLExecPlan(result[0]["QUERY PLAN"])
@@ -187,6 +375,22 @@ type postgreSQLConfig struct {
 	database string
 	address  confignet.AddrConfig
 	tls      configtls.ClientConfig
+	// credentialProvider, when non-nil, supplies the password (and optionally the
+	// username) at connection-string-build time instead of the static password.
+	// Non-pool path: resolved once per *sql.DB build (one build per scrape), so
+	// each scrape picks up a freshly-minted credential. Pool path: resolved per
+	// physical connection by credentialConnector, so a long-lived pool re-mints on
+	// every new connection it opens. Either way, no collector restart is needed.
+	credentialProvider dbauth.Provider
+}
+
+var conninfoValueEscaper = strings.NewReplacer(`\`, `\\`, `'`, `\'`)
+
+// quoteConninfoValue encodes a value for lib/pq's keyword/value connection
+// string format. Quoting every value prevents credential or configuration data
+// containing whitespace, quotes, or backslashes from becoming new options.
+func quoteConninfoValue(value string) string {
+	return `'` + conninfoValueEscaper.Replace(value) + `'`
 }
 
 func sslConnectionString(tls configtls.ClientConfig) string {
@@ -203,21 +407,25 @@ func sslConnectionString(tls configtls.ClientConfig) string {
 	}
 
 	if tls.CAFile != "" {
-		conn += fmt.Sprintf(" sslrootcert='%s'", tls.CAFile)
+		conn += " sslrootcert=" + quoteConninfoValue(tls.CAFile)
 	}
 
 	if tls.KeyFile != "" {
-		conn += fmt.Sprintf(" sslkey='%s'", tls.KeyFile)
+		conn += " sslkey=" + quoteConninfoValue(tls.KeyFile)
 	}
 
 	if tls.CertFile != "" {
-		conn += fmt.Sprintf(" sslcert='%s'", tls.CertFile)
+		conn += " sslcert=" + quoteConninfoValue(tls.CertFile)
 	}
 
 	return conn
 }
 
-func (c postgreSQLConfig) ConnectionString() (string, error) {
+// ConnectionString builds the lib/pq DSN, resolving the credential provider (if
+// any) with the supplied context. The pool path resolves per physical connection
+// via credentialConnector, so the connection context flows through to credential
+// minting.
+func (c postgreSQLConfig) ConnectionString(ctx context.Context) (string, error) {
 	// postgres will assume the supplied user as the database name if none is provided,
 	// so we must specify a database name even when we are just collecting the list of databases.
 	database := defaultPostgreSQLDatabase
@@ -235,7 +443,38 @@ func (c postgreSQLConfig) ConnectionString() (string, error) {
 		host = "/" + host
 	}
 
-	return fmt.Sprintf("port=%s host=%s user=%s password=%s dbname=%s %s", port, host, c.username, c.password, database, sslConnectionString(c.tls)), nil
+	username, password := c.username, c.password
+	if c.credentialProvider != nil {
+		// Resolve the credential at build time so each new connection uses a
+		// currently-valid secret (e.g. a freshly-minted AWS IAM token).
+		cred, credErr := c.credentialProvider.GetCredential(ctx, dbauth.Request{
+			Endpoint: c.address.Endpoint,
+			Username: c.username,
+		})
+		if credErr != nil {
+			return "", fmt.Errorf("resolve credential: %w", credErr)
+		}
+		if cred == nil {
+			// A provider must return either a credential or an error. Guard against a
+			// contract-violating provider so a bad extension fails this scrape closed
+			// rather than panicking the whole collector on the nil dereference below.
+			return "", errors.New("resolve credential: provider returned a nil credential")
+		}
+		password = cred.Secret
+		if cred.Username != nil {
+			username = *cred.Username
+		}
+	}
+
+	return fmt.Sprintf(
+		"port=%s host=%s user=%s password=%s dbname=%s %s",
+		quoteConninfoValue(port),
+		quoteConninfoValue(host),
+		quoteConninfoValue(username),
+		quoteConninfoValue(password),
+		quoteConninfoValue(database),
+		sslConnectionString(c.tls),
+	), nil
 }
 
 func (c *postgreSQLClient) Close() error {
@@ -303,6 +542,41 @@ func (c *postgreSQLClient) getDatabaseStats(ctx context.Context, databases []str
 	return dbStats, errs
 }
 
+// getExecutionTimeStats returns, per database, the cumulative time (in seconds) spent executing
+// SQL statements. It aggregates the total_exec_time column of pg_stat_statements (reported in
+// milliseconds) across all currently tracked statements and requires the pg_stat_statements
+// extension to be installed.
+func (c *postgreSQLClient) getExecutionTimeStats(ctx context.Context, databases []string) (map[databaseName]float64, error) {
+	query := filterQueryByDatabases(
+		"SELECT pd.datname AS datname, SUM(pss.total_exec_time) / 1000.0 AS execution_time_seconds FROM pg_stat_statements pss JOIN pg_database pd ON pss.dbid = pd.oid",
+		databases,
+		true,
+	)
+
+	rows, err := c.client.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var errs error
+	stats := map[databaseName]float64{}
+
+	for rows.Next() {
+		var datname string
+		var executionTime float64
+		err = rows.Scan(&datname, &executionTime)
+		if err != nil {
+			errs = multierr.Append(errs, err)
+			continue
+		}
+		if datname != "" {
+			stats[databaseName(datname)] = executionTime
+		}
+	}
+	return stats, multierr.Append(errs, rows.Err())
+}
+
 // databaseConflictStats holds the per-database query cancellation counters from
 // pg_stat_database_conflicts. These counters are only incremented on standby
 // servers, where queries can be canceled due to conflicts with recovery.
@@ -359,11 +633,27 @@ type databaseLocks struct {
 }
 
 func (c *postgreSQLClient) getDatabaseLocks(ctx context.Context) ([]databaseLocks, error) {
-	query := `SELECT relname AS relation, mode, locktype,COUNT(pid)
+	// Scope to the connected database: shared catalogs (database = 0) are
+	// collected once via getSharedRelationLocks, and relation OIDs from other
+	// databases must not resolve against this database's pg_class.
+	return c.queryDatabaseLocks(ctx, `SELECT relname AS relation, mode, locktype,COUNT(*)
 	AS locks FROM pg_locks
 	JOIN pg_class ON pg_locks.relation = pg_class.oid
-	GROUP BY relname, mode, locktype;`
+	WHERE pg_locks.database = (SELECT oid FROM pg_database WHERE datname = current_database())
+	GROUP BY relname, mode, locktype;`)
+}
 
+func (c *postgreSQLClient) getSharedRelationLocks(ctx context.Context) ([]databaseLocks, error) {
+	// Shared relations (pg_database, pg_authid, ...) carry database = 0 and
+	// exist in every database's pg_class, so any connection can resolve them.
+	return c.queryDatabaseLocks(ctx, `SELECT relname AS relation, mode, locktype,COUNT(*)
+	AS locks FROM pg_locks
+	JOIN pg_class ON pg_locks.relation = pg_class.oid
+	WHERE pg_locks.database = 0 AND pg_class.relisshared
+	GROUP BY relname, mode, locktype;`)
+}
+
+func (c *postgreSQLClient) queryDatabaseLocks(ctx context.Context, query string) ([]databaseLocks, error) {
 	rows, err := c.client.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("unable to query pg_locks and pg_locks.relation: %w", err)
@@ -678,6 +968,91 @@ SELECT s.schemaname,
 	return stats, multierr.Combine(errs...)
 }
 
+type vectorSearchStat struct {
+	// distanceFunction is the pgvector distance function classification (e.g. cosine, l2, hamming).
+	distanceFunction string
+	// calls is the cumulative number of executions of statements using this distance function.
+	calls int64
+	// totalExecTime is the cumulative execution time in seconds.
+	totalExecTime float64
+	// rowsReturned is the cumulative number of rows returned by statements using this distance function.
+	rowsReturned int64
+}
+
+//go:embed templates/vectorSearchStatsTemplate.tmpl
+var vectorSearchStatsQuery string
+
+func (c *postgreSQLClient) getVectorSearchStats(ctx context.Context) ([]vectorSearchStat, error) {
+	rows, err := c.client.QueryContext(ctx, vectorSearchStatsQuery)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var stats []vectorSearchStat
+	var errs error
+	for rows.Next() {
+		var distanceFunction string
+		var calls int64
+		var totalExecTimeMs float64
+		var rowsReturned int64
+		if err := rows.Scan(&distanceFunction, &calls, &totalExecTimeMs, &rowsReturned); err != nil {
+			errs = multierr.Append(errs, err)
+			continue
+		}
+		stats = append(stats, vectorSearchStat{
+			distanceFunction: distanceFunction,
+			calls:            calls,
+			// pg_stat_statements reports total_exec_time in milliseconds; convert to seconds.
+			totalExecTime: totalExecTimeMs / 1000.0,
+			rowsReturned:  rowsReturned,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		errs = multierr.Append(errs, err)
+	}
+	return stats, errs
+}
+
+// vectorInsertStat holds the aggregated pgvector insert statistics.
+type vectorInsertStat struct {
+	// rows is the cumulative number of vectors inserted into pgvector tables.
+	rows int64
+	// totalExecTime is the cumulative execution time in seconds.
+	totalExecTime float64
+}
+
+//go:embed templates/vectorInsertStatsTemplate.tmpl
+var vectorInsertStatsQuery string
+
+func (c *postgreSQLClient) getVectorInsertStats(ctx context.Context) ([]vectorInsertStat, error) {
+	rows, err := c.client.QueryContext(ctx, vectorInsertStatsQuery)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var stats []vectorInsertStat
+	var errs error
+	for rows.Next() {
+		var insertedRows int64
+		var totalExecTimeMs float64
+		if err := rows.Scan(&insertedRows, &totalExecTimeMs); err != nil {
+			errs = multierr.Append(errs, err)
+			continue
+		}
+		stats = append(stats, vectorInsertStat{
+			rows: insertedRows,
+			// pg_stat_statements reports total_exec_time in milliseconds; convert to seconds.
+			totalExecTime: totalExecTimeMs / 1000.0,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		errs = multierr.Append(errs, err)
+	}
+	return stats, errs
+}
+
 type bgStat struct {
 	checkpointsReq       int64
 	checkpointsScheduled int64
@@ -812,7 +1187,7 @@ type replicationStats struct {
 }
 
 func (c *postgreSQLClient) getDeprecatedReplicationStats(ctx context.Context) ([]replicationStats, error) {
-	query := `SELECT
+	query := `/* otel-collector-ignore */ SELECT
 	coalesce(cast(client_addr as varchar), 'unix') AS client_addr,
 	coalesce(pg_wal_lsn_diff(pg_current_wal_lsn(), replay_lsn), -1) AS replication_bytes_pending,
 	extract('epoch' from coalesce(write_lag, '-1 seconds'))::integer,
@@ -854,7 +1229,7 @@ func (c *postgreSQLClient) getReplicationStats(ctx context.Context) ([]replicati
 		return c.getDeprecatedReplicationStats(ctx)
 	}
 
-	query := `SELECT
+	query := `/* otel-collector-ignore */ SELECT
 	coalesce(cast(client_addr as varchar), 'unix') AS client_addr,
 	coalesce(pg_wal_lsn_diff(pg_current_wal_lsn(), replay_lsn), -1) AS replication_bytes_pending,
 	extract('epoch' from coalesce(write_lag, '-1 seconds'))::decimal AS write_lag_fractional,
@@ -983,7 +1358,7 @@ func functionKey(database, schema, function string) functionIdentifer {
 //go:embed templates/querySampleTemplate.tmpl
 var querySampleTemplate string
 
-func (c *postgreSQLClient) getQuerySamples(ctx context.Context, limit int64, newestQueryTimestamp float64, logger *zap.Logger) ([]map[string]any, float64, error) {
+func (c *postgreSQLClient) getQuerySamples(ctx context.Context, limit int64, newestQueryTimestamp float64, allowedCommentKeys []string, logger *zap.Logger) ([]map[string]any, float64, error) {
 	tmpl := template.Must(template.New("querySample").Option("missingkey=error").Parse(querySampleTemplate))
 	buf := bytes.Buffer{}
 
@@ -1020,6 +1395,7 @@ func (c *postgreSQLClient) getQuerySamples(ctx context.Context, limit int64, new
 		var traceCtx context.Context
 		querySampleSimpleColumns := []string{
 			querySampleColumnClientHostname,
+			querySampleColumnBackendStart,
 			querySampleColumnQueryStart,
 			querySampleColumnWaitEventType,
 			querySampleColumnWaitEvent,
@@ -1097,20 +1473,38 @@ func (c *postgreSQLClient) getQuerySamples(ctx context.Context, limit int64, new
 			}
 		}
 
+		sessionDuration := int64(0)
+		if row[querySampleColumnSessionDuration] != "" {
+			sessionDuration, err = strconv.ParseInt(row[querySampleColumnSessionDuration], 10, 64)
+			if err != nil {
+				logger.Warn("failed to convert session_duration to int64", zap.Error(err))
+				errs = append(errs, err)
+			}
+		}
+
 		// TODO: check if the query is truncated.
+		dbSQLCommentsVal := sqlcomments.ExtractAndFilterComments(row[querySampleColumnQuery], allowedCommentKeys)
+		nrServiceGUIDVal := sqlcomments.ExtractValueForKey(dbSQLCommentsVal, "nr_service_guid")
+
 		obfuscated, err := obfuscateSQL(row[querySampleColumnQuery])
 		if err != nil {
-			logger.Warn("failed to obfuscate query", zap.String("query", row[querySampleColumnQuery]))
+			logger.Warn("failed to obfuscate query", zap.String("queryID", row[querySampleColumnQueryID]))
 			obfuscated = ""
 		}
+		_, normalizedHashVal := sqlnormalizer.NormalizeSQLAndHash(obfuscated)
+
 		currentAttributes[dbAttributePrefix+querySampleColumnPID] = pid
 		currentAttributes[string(semconv.NetworkPeerPortKey)] = clientPort
 		currentAttributes[string(semconv.NetworkPeerAddressKey)] = row[querySampleColumnClientAddr]
 		currentAttributes[string(semconv.DBQueryTextKey)] = obfuscated
+		currentAttributes[dbQueryCommentTagsAttributeKey] = dbSQLCommentsVal
+		currentAttributes[dbQueryCommentTagsNrServiceGUIDAttributeKey] = nrServiceGUIDVal
+		currentAttributes[dbQueryTextNormalizedHashAttributeKey] = normalizedHashVal
 		currentAttributes[string(semconv.DBNamespaceKey)] = row[querySampleColumnDatname]
 		currentAttributes[string(semconv.UserNameKey)] = row[querySampleColumnUsename]
 		currentAttributes[postgresqlTotalExecTimeAttributeName] = duration
 		currentAttributes[dbAttributePrefix+querySampleColumnBlockingWaitDuration] = blockingWaitDuration
+		currentAttributes[dbAttributePrefix+querySampleColumnSessionDuration] = sessionDuration
 		finalAttributes = append(finalAttributes, currentAttributes)
 	}
 
@@ -1145,7 +1539,7 @@ func convertToInt(column, value string, logger *zap.Logger) (any, error) {
 var topQueryTemplate string
 
 // getTopQuery implements client.
-func (c *postgreSQLClient) getTopQuery(ctx context.Context, limit int64, logger *zap.Logger) ([]map[string]any, error) {
+func (c *postgreSQLClient) getTopQuery(ctx context.Context, limit int64, allowedCommentKeys []string, logger *zap.Logger) ([]map[string]any, error) {
 	tmpl := template.Must(template.New("topQuery").Option("missingkey=error").Parse(topQueryTemplate))
 	buf := bytes.Buffer{}
 
@@ -1197,6 +1591,10 @@ func (c *postgreSQLClient) getTopQuery(ctx context.Context, limit int64, logger 
 		// Store raw query before obfuscation (needed for EXPLAIN with $N placeholders)
 		if rawQuery, ok := row["query"]; ok {
 			currentAttributes[dbAttributePrefix+"raw_query"] = rawQuery
+
+			dbSQLCommentsVal := sqlcomments.ExtractAndFilterComments(rawQuery, allowedCommentKeys)
+			currentAttributes[dbQueryCommentTagsAttributeKey] = dbSQLCommentsVal
+			currentAttributes[dbQueryCommentTagsNrServiceGUIDAttributeKey] = sqlcomments.ExtractValueForKey(dbSQLCommentsVal, "nr_service_guid")
 		}
 
 		for col := range row {
@@ -1215,7 +1613,7 @@ func (c *postgreSQLClient) getTopQuery(ctx context.Context, limit int64, logger 
 				// Raw query is already stored separately for EXPLAIN
 				val, err = obfuscateSQL(row[col])
 				if err != nil {
-					logger.Error("failed to obfuscate query", zap.String("query", row[col]))
+					logger.Error("failed to obfuscate query", zap.String("queryID", row[queryidColumnName]))
 					val = ""
 				}
 			default:
@@ -1225,6 +1623,12 @@ func (c *postgreSQLClient) getTopQuery(ctx context.Context, limit int64, logger 
 				currentAttributes[hasConvention[col]] = val
 			} else {
 				currentAttributes[dbAttributePrefix+col] = val
+			}
+			if col == "query" {
+				if obfuscated, ok := val.(string); ok {
+					_, normalizedHashVal := sqlnormalizer.NormalizeSQLAndHash(obfuscated)
+					currentAttributes[dbQueryTextNormalizedHashAttributeKey] = normalizedHashVal
+				}
 			}
 		}
 		finalAttributes = append(finalAttributes, currentAttributes)

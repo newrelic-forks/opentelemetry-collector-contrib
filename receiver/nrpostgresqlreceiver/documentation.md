@@ -360,6 +360,7 @@ The number of database locks.
 | relation | OID of the relation targeted by the lock, or null if the target is not a relation or part of a relation. | Any Str | Recommended | - |
 | mode | Name of the lock mode held or desired by the process. | Any Str | Recommended | - |
 | lock_type | Type of the lockable object. | Any Str | Recommended | - |
+| db.namespace | The database namespace, following the `{database}|{schema}` format defined by OpenTelemetry semantic conventions for PostgreSQL. | Any Str | Recommended | - |
 
 ### postgresql.deadlocks
 
@@ -403,6 +404,20 @@ Number of queries canceled due to conflicts with recovery on this database. Conf
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
 | postgresql.conflict.type | The type of recovery conflict that caused a query to be canceled on a standby server. | Str: ``tablespace``, ``lock``, ``snapshot``, ``bufferpin``, ``deadlock`` | Recommended | - |
+| db.namespace | The database namespace, following the `{database}|{schema}` format defined by OpenTelemetry semantic conventions for PostgreSQL. | Any Str | Recommended | - |
+
+### postgresql.query.execution.time
+
+The total execution time of SQL statements currently tracked by pg_stat_statements for the database.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
+| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
+| s | Sum | Double | Cumulative | true | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
 | db.namespace | The database namespace, following the `{database}|{schema}` format defined by OpenTelemetry semantic conventions for PostgreSQL. | Any Str | Recommended | - |
 
 ### postgresql.sequential_scans
@@ -518,6 +533,97 @@ Number of rows updated by queries in the database.
 | ---- | ----------- | ------ | ----------------- | ------------------- |
 | db.namespace | The database namespace, following the `{database}|{schema}` format defined by OpenTelemetry semantic conventions for PostgreSQL. | Any Str | Recommended | - |
 
+### postgresql.vector.insert.duration
+
+The cumulative execution time of statements that insert vectors into pgvector tables.
+
+Requires the `pg_stat_statements` extension, PostgreSQL 13 or later, and the `pgvector`
+extension in the scanned database.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
+| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
+| s | Sum | Double | Cumulative | true | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| db.namespace | The database namespace, following the `{database}|{schema}` format defined by OpenTelemetry semantic conventions for PostgreSQL. | Any Str | Recommended | - |
+
+### postgresql.vector.insert.rows
+
+The number of vectors inserted into pgvector tables.
+
+Requires the `pg_stat_statements` extension, PostgreSQL 13 or later, and the `pgvector`
+extension in the scanned database.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
+| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
+| {vectors} | Sum | Int | Cumulative | true | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| db.namespace | The database namespace, following the `{database}|{schema}` format defined by OpenTelemetry semantic conventions for PostgreSQL. | Any Str | Recommended | - |
+
+### postgresql.vector.search.calls
+
+The number of vector similarity search operations executed, grouped by the distance function used.
+
+Requires the `pg_stat_statements` extension, PostgreSQL 13 or later, and the `pgvector`
+extension in the scanned database. The `l1`, `hamming`, and `jaccard` distance functions
+additionally require pgvector 0.7.0 or later.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
+| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
+| {search} | Sum | Int | Cumulative | true | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| postgresql.distance.function.name | The vector distance (similarity) function used by the query, one of the pgvector distance functions. | Str: ``cosine``, ``l2``, ``inner_product``, ``l1``, ``hamming``, ``jaccard`` | Recommended | - |
+| db.namespace | The database namespace, following the `{database}|{schema}` format defined by OpenTelemetry semantic conventions for PostgreSQL. | Any Str | Recommended | - |
+
+### postgresql.vector.search.duration
+
+The cumulative execution time of vector similarity searches, grouped by the distance function used.
+
+Requires the `pg_stat_statements` extension, PostgreSQL 13 or later, and the `pgvector`
+extension in the scanned database. The `l1`, `hamming`, and `jaccard` distance functions
+additionally require pgvector 0.7.0 or later.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
+| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
+| s | Sum | Double | Cumulative | true | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| postgresql.distance.function.name | The vector distance (similarity) function used by the query, one of the pgvector distance functions. | Str: ``cosine``, ``l2``, ``inner_product``, ``l1``, ``hamming``, ``jaccard`` | Recommended | - |
+| db.namespace | The database namespace, following the `{database}|{schema}` format defined by OpenTelemetry semantic conventions for PostgreSQL. | Any Str | Recommended | - |
+
+### postgresql.vector.search.rows_returned
+
+The cumulative number of rows returned by vector similarity searches, grouped by the distance function used.
+
+Requires the `pg_stat_statements` extension, PostgreSQL 13 or later, and the `pgvector`
+extension in the scanned database. The `l1`, `hamming`, and `jaccard` distance functions
+additionally require pgvector 0.7.0 or later.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
+| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
+| {rows} | Sum | Int | Cumulative | true | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| postgresql.distance.function.name | The vector distance (similarity) function used by the query, one of the pgvector distance functions. | Str: ``cosine``, ``l2``, ``inner_product``, ``l1``, ``hamming``, ``jaccard`` | Recommended | - |
+| db.namespace | The database namespace, following the `{database}|{schema}` format defined by OpenTelemetry semantic conventions for PostgreSQL. | Any Str | Recommended | - |
+
 ### postgresql.wal.delay
 
 Time between flushing recent WAL locally and receiving notification that the standby server has completed an operation with it.
@@ -566,9 +672,13 @@ query sample
 | db.system.name | The database management system (DBMS) product as identified by the client instrumentation. | Str: ``postgresql`` | - |
 | db.namespace | The database namespace, following the `{database}|{schema}` format defined by OpenTelemetry semantic conventions for PostgreSQL. | Any Str | - |
 | db.query.text | The text of the database query being executed. | Any Str | - |
+| db.query.comment_tags | Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys specified in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
+| db.query.comment_tags.nr_service_guid | New Relic service GUID extracted from the filtered db.query.comment_tags. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
 | user.name | Name of the user logged into this backend. | Any Str | - |
 | postgresql.state | Current overall state of this backend | Any Str | - |
 | postgresql.pid | Process ID of this backend. | Any Int | - |
+| postgresql.backend_start | UTC timestamp (RFC3339) when this backend (connection) was started, from pg_stat_activity.backend_start. Stable for the lifetime of the connection, unlike postgresql.query_start which changes on every query. | Any Str | - |
+| postgresql.session_duration | Whole seconds since this backend (connection) was started, computed as now() minus pg_stat_activity.backend_start. 0 if backend_start is unavailable. | Any Int | - |
 | postgresql.application_name | Name of the application that is connected to this backend. | Any Str | - |
 | network.peer.address | IP address of the client connected to this backend. | Any Str | - |
 | network.peer.port | TCP port number that the client is using for communication with this backend. | Any Int | - |
@@ -577,7 +687,7 @@ query sample
 | postgresql.wait_event | Wait event name if backend is currently waiting, otherwise NULL. | Any Str | - |
 | postgresql.wait_event_type | The type of event for which the backend is waiting, if any; otherwise NULL. | Any Str | - |
 | postgresql.query_id | Identifier of this backend's most recent query. If state is active this field shows the identifier of the currently executing query. In all other states, it shows the identifier of last query that was executed. | Any Str | - |
-| postgresql.total_exec_time | Total time spent executing the statement, in delta milliseconds. | Any Double | - |
+| postgresql.total_exec_time | Total time spent executing the statement, in delta seconds. | Any Double | - |
 | postgresql.blocking.pids | Array of PIDs of sessions blocking this session (from pg_blocking_pids). Empty array when not blocked. | Any Str | - |
 | postgresql.blocking.start_time | UTC timestamp (RFC3339) when the current lock wait began, derived from pg_locks.waitstart. Empty string when not blocked. | Any Str | - |
 | postgresql.blocking.wait_duration | Whole seconds this session has been waiting for a lock, measured from pg_locks.waitstart. 0 when not blocked. | Any Int | - |
@@ -585,6 +695,7 @@ query sample
 | postgresql.blocking.lock.type | The type of lock resource being waited on (e.g. relation, transactionid, tuple). Empty string when not blocked. | Any Str | - |
 | postgresql.blocking.lock.relation | The name of the relation (table) being waited on. Empty string when not blocked or when lock is not on a relation. | Any Str | - |
 | postgresql.blocking.transaction.start_time | UTC timestamp (RFC3339) when the current transaction started. Empty string when no active transaction. | Any Str | - |
+| db.query.text.normalized.hash | MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Used for correlation with APM slow query traces. | Any Str | - |
 
 ### db.server.top_query
 
@@ -597,6 +708,8 @@ top query
 | db.system.name | The database management system (DBMS) product as identified by the client instrumentation. | Str: ``postgresql`` | - |
 | db.namespace | The database namespace, following the `{database}|{schema}` format defined by OpenTelemetry semantic conventions for PostgreSQL. | Any Str | - |
 | db.query.text | The text of the database query being executed. | Any Str | - |
+| db.query.comment_tags | Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys specified in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
+| db.query.comment_tags.nr_service_guid | New Relic service GUID extracted from the filtered db.query.comment_tags. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
 | postgresql.calls | Number of times the statement was executed, reported in delta value. | Any Int | - |
 | postgresql.rows | Total number of rows retrieved or affected by the statement, reported in delta value. | Any Int | - |
 | postgresql.shared_blks_dirtied | Total number of shared blocks dirtied by the statement, reported in delta value. | Any Int | - |
@@ -607,9 +720,10 @@ top query
 | postgresql.temp_blks_written | Total number of temp blocks written by the statement, reported in delta value. | Any Int | - |
 | postgresql.queryid | Hash code to identify identical normalized queries. | Any Str | - |
 | postgresql.rolname | The name of the PostgreSQL role that executed the query. | Any Str | - |
-| postgresql.total_exec_time | Total time spent executing the statement, in delta milliseconds. | Any Double | - |
-| postgresql.total_plan_time | Total time spent planning the statement, in delta milliseconds. | Any Double | - |
+| postgresql.total_exec_time | Total time spent executing the statement, in delta seconds. | Any Double | - |
+| postgresql.total_plan_time | Total time spent planning the statement, in delta seconds. | Any Double | - |
 | postgresql.query_plan | The execution plan used by PostgreSQL for the query. | Any Str | - |
+| db.query.text.normalized.hash | MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Used for correlation with APM slow query traces. | Any Str | - |
 
 ## Resource Attributes
 

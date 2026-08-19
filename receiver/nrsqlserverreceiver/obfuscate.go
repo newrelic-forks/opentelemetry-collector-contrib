@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/xml"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/DataDog/datadog-agent/pkg/obfuscate"
@@ -140,8 +141,24 @@ func newObfuscator() *obfuscator {
 	return (*obfuscator)(obfuscate.NewObfuscator(obfuscate.Config{}))
 }
 
+// sanitizeSQL strips non-semantic Unicode format characters (Unicode category
+// Cf, e.g. a zero-width space U+200B) that carry no SQL semantics. These
+// characters would otherwise survive into the obfuscated output as garbled
+// bytes and, worse, cause an otherwise-identical statement to obfuscate to a
+// different string. Stripping them keeps the obfuscated text clean and
+// ensures the query signature is stable regardless of stray invisible
+// characters.
+func sanitizeSQL(sql string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.Is(unicode.Cf, r) {
+			return -1
+		}
+		return r
+	}, sql)
+}
+
 func (o *obfuscator) obfuscateSQLString(sql string) (string, error) {
-	obfuscatedQuery, err := (*obfuscate.Obfuscator)(o).ObfuscateSQLStringWithOptions(sql, &obfuscateSQLConfig, "")
+	obfuscatedQuery, err := (*obfuscate.Obfuscator)(o).ObfuscateSQLStringWithOptions(sanitizeSQL(sql), &obfuscateSQLConfig, "")
 	if err != nil {
 		return "", err
 	}
@@ -198,8 +215,9 @@ func (o *obfuscator) obfuscateXMLPlan(rawPlan string, logger *zap.Logger, queryP
 						}
 						val, err := o.obfuscateSQLString(elem.Attr[i].Value)
 						if err != nil {
-							logger.Warn("Unable to obfuscate SQL statement in query plan, skipping", zap.String("query_plan_hash", queryPlanHash))
-							return "", nil
+							logger.Warn("Unable to obfuscate SQL statement in query plan, redacting attribute", zap.String("attr", attrName), zap.String("query_plan_hash", queryPlanHash), zap.Error(err))
+							elem.Attr[i].Value = "?"
+							continue
 						}
 						elem.Attr[i].Value = val
 					}
