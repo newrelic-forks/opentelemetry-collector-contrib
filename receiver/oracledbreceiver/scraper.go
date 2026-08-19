@@ -379,7 +379,9 @@ type oracleScraper struct {
 	// instanceInfo holds Oracle deployment metadata detected once at start().
 	// All fields are best-effort: detection failures are logged and leave the
 	// field at its zero value; they never prevent the receiver from starting.
-	instanceInfo oracleInstanceInfo
+	instanceInfo         oracleInstanceInfo
+	isCDBRoot            bool
+	sysmetricCDBClient   dbClient
 }
 
 func newScraper(metricsBuilder *metadata.MetricsBuilder, metricsBuilderConfig metadata.MetricsBuilderConfig, scrapeCfg scraperhelper.ControllerConfig, logger *zap.Logger, providerFunc dbProviderFunc, clientProviderFunc clientProviderFunc, instanceName, hostName string) (scraper.Metrics, error) {

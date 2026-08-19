@@ -307,8 +307,6 @@ var (
 	oracleQueryPlanDataSQL string
 	//go:embed templates/oracleSessionEventSql.tmpl
 	sessionEventQuery string
-	//go:embed templates/oracleQuerySampleStatsSql.tmpl
-	samplesStatsQuery string
 )
 
 // sgaComponentNames maps V$SGAINFO.NAME values to the snake_case enum keys
