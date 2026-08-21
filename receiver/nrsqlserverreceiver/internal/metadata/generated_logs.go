@@ -4,7 +4,6 @@ package metadata
 
 import (
 	"context"
-
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/filter"
 	"go.opentelemetry.io/collector/pdata/pcommon"
@@ -12,6 +11,60 @@ import (
 	"go.opentelemetry.io/collector/receiver"
 	"go.opentelemetry.io/otel/trace"
 )
+
+type eventDbServerProcedureMetrics struct {
+	data   plog.LogRecordSlice // data buffer for generated log records.
+	config EventConfig         // event config provided by user.
+}
+
+func (e *eventDbServerProcedureMetrics) recordEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue string, dbNamespaceAttributeValue string, serverAddressAttributeValue string, serverPortAttributeValue int64, sqlserverProcedureIDAttributeValue string, sqlserverProcedureNameAttributeValue string, sqlserverProcedureSchemaNameAttributeValue string, sqlserverProcedureDatabaseNameAttributeValue string, sqlserverProcedureExecutionCountAttributeValue int64, sqlserverTotalWorkerTimeAttributeValue float64, sqlserverTotalElapsedTimeAttributeValue float64, sqlserverTotalLogicalReadsAttributeValue int64, sqlserverTotalLogicalWritesAttributeValue int64, sqlserverTotalPhysicalReadsAttributeValue int64, sqlserverProcedureTotalSpillsAttributeValue int64, sqlserverProcedureAvgElapsedTimeMsAttributeValue float64, sqlserverProcedureMaxElapsedTimeMsAttributeValue float64, sqlserverProcedureMinElapsedTimeMsAttributeValue float64, sqlserverProcedureLastExecutionTimeAttributeValue string) {
+	if !e.config.Enabled {
+		return
+	}
+	dp := e.data.AppendEmpty()
+	dp.SetEventName("db.server.procedure_metrics")
+	dp.SetTimestamp(timestamp)
+
+	if span := trace.SpanContextFromContext(ctx); span.IsValid() {
+		dp.SetTraceID(pcommon.TraceID(span.TraceID()))
+		dp.SetSpanID(pcommon.SpanID(span.SpanID()))
+	}
+	dp.Attributes().PutStr("db.system.name", dbSystemNameAttributeValue)
+	dp.Attributes().PutStr("db.namespace", dbNamespaceAttributeValue)
+	dp.Attributes().PutStr("server.address", serverAddressAttributeValue)
+	dp.Attributes().PutInt("server.port", serverPortAttributeValue)
+	dp.Attributes().PutStr("sqlserver.procedure_id", sqlserverProcedureIDAttributeValue)
+	dp.Attributes().PutStr("sqlserver.procedure_name", sqlserverProcedureNameAttributeValue)
+	dp.Attributes().PutStr("sqlserver.procedure.schema_name", sqlserverProcedureSchemaNameAttributeValue)
+	dp.Attributes().PutStr("sqlserver.procedure.database_name", sqlserverProcedureDatabaseNameAttributeValue)
+	dp.Attributes().PutInt("sqlserver.procedure_execution_count", sqlserverProcedureExecutionCountAttributeValue)
+	dp.Attributes().PutDouble("sqlserver.total_worker_time", sqlserverTotalWorkerTimeAttributeValue)
+	dp.Attributes().PutDouble("sqlserver.total_elapsed_time", sqlserverTotalElapsedTimeAttributeValue)
+	dp.Attributes().PutInt("sqlserver.total_logical_reads", sqlserverTotalLogicalReadsAttributeValue)
+	dp.Attributes().PutInt("sqlserver.total_logical_writes", sqlserverTotalLogicalWritesAttributeValue)
+	dp.Attributes().PutInt("sqlserver.total_physical_reads", sqlserverTotalPhysicalReadsAttributeValue)
+	dp.Attributes().PutInt("sqlserver.procedure.total_spills", sqlserverProcedureTotalSpillsAttributeValue)
+	dp.Attributes().PutDouble("sqlserver.procedure.avg_elapsed_time_ms", sqlserverProcedureAvgElapsedTimeMsAttributeValue)
+	dp.Attributes().PutDouble("sqlserver.procedure.max_elapsed_time_ms", sqlserverProcedureMaxElapsedTimeMsAttributeValue)
+	dp.Attributes().PutDouble("sqlserver.procedure.min_elapsed_time_ms", sqlserverProcedureMinElapsedTimeMsAttributeValue)
+	dp.Attributes().PutStr("sqlserver.procedure.last_execution_time", sqlserverProcedureLastExecutionTimeAttributeValue)
+
+}
+
+// emit appends recorded event data to a events slice and prepares it for recording another set of log records.
+func (e *eventDbServerProcedureMetrics) emit(lrs plog.LogRecordSlice) {
+	if e.config.Enabled && e.data.Len() > 0 {
+		e.data.MoveAndAppendTo(lrs)
+	}
+}
+
+func newEventDbServerProcedureMetrics(cfg EventConfig) eventDbServerProcedureMetrics {
+	e := eventDbServerProcedureMetrics{config: cfg}
+	if cfg.Enabled {
+		e.data = plog.NewLogRecordSlice()
+	}
+	return e
+}
 
 type eventDbServerQuerySample struct {
 	data   plog.LogRecordSlice // data buffer for generated log records.
@@ -160,6 +213,7 @@ type LogsBuilder struct {
 	buildInfo                      component.BuildInfo // contains version information.
 	resourceAttributeIncludeFilter map[string]filter.Filter
 	resourceAttributeExcludeFilter map[string]filter.Filter
+	eventDbServerProcedureMetrics  eventDbServerProcedureMetrics
 	eventDbServerQuerySample       eventDbServerQuerySample
 	eventDbServerTopQuery          eventDbServerTopQuery
 }
@@ -175,6 +229,7 @@ func NewLogsBuilder(lbc LogsBuilderConfig, settings receiver.Settings) *LogsBuil
 		logsBuffer:                     plog.NewLogs(),
 		logRecordsBuffer:               plog.NewLogRecordSlice(),
 		buildInfo:                      settings.BuildInfo,
+		eventDbServerProcedureMetrics:  newEventDbServerProcedureMetrics(lbc.Events.DbServerProcedureMetrics),
 		eventDbServerQuerySample:       newEventDbServerQuerySample(lbc.Events.DbServerQuerySample),
 		eventDbServerTopQuery:          newEventDbServerTopQuery(lbc.Events.DbServerTopQuery),
 		resourceAttributeIncludeFilter: make(map[string]filter.Filter),
@@ -277,6 +332,7 @@ func (lb *LogsBuilder) EmitForResource(options ...ResourceLogsOption) {
 	ils := rl.ScopeLogs().AppendEmpty()
 	ils.Scope().SetName(ScopeName)
 	ils.Scope().SetVersion(lb.buildInfo.Version)
+	lb.eventDbServerProcedureMetrics.emit(ils.LogRecords())
 	lb.eventDbServerQuerySample.emit(ils.LogRecords())
 	lb.eventDbServerTopQuery.emit(ils.LogRecords())
 
@@ -313,6 +369,11 @@ func (lb *LogsBuilder) Emit(options ...ResourceLogsOption) plog.Logs {
 	logs := lb.logsBuffer
 	lb.logsBuffer = plog.NewLogs()
 	return logs
+}
+
+// RecordDbServerProcedureMetricsEvent adds a log record of db.server.procedure_metrics event.
+func (lb *LogsBuilder) RecordDbServerProcedureMetricsEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue string, dbNamespaceAttributeValue string, serverAddressAttributeValue string, serverPortAttributeValue int64, sqlserverProcedureIDAttributeValue string, sqlserverProcedureNameAttributeValue string, sqlserverProcedureSchemaNameAttributeValue string, sqlserverProcedureDatabaseNameAttributeValue string, sqlserverProcedureExecutionCountAttributeValue int64, sqlserverTotalWorkerTimeAttributeValue float64, sqlserverTotalElapsedTimeAttributeValue float64, sqlserverTotalLogicalReadsAttributeValue int64, sqlserverTotalLogicalWritesAttributeValue int64, sqlserverTotalPhysicalReadsAttributeValue int64, sqlserverProcedureTotalSpillsAttributeValue int64, sqlserverProcedureAvgElapsedTimeMsAttributeValue float64, sqlserverProcedureMaxElapsedTimeMsAttributeValue float64, sqlserverProcedureMinElapsedTimeMsAttributeValue float64, sqlserverProcedureLastExecutionTimeAttributeValue string) {
+	lb.eventDbServerProcedureMetrics.recordEvent(ctx, timestamp, dbSystemNameAttributeValue, dbNamespaceAttributeValue, serverAddressAttributeValue, serverPortAttributeValue, sqlserverProcedureIDAttributeValue, sqlserverProcedureNameAttributeValue, sqlserverProcedureSchemaNameAttributeValue, sqlserverProcedureDatabaseNameAttributeValue, sqlserverProcedureExecutionCountAttributeValue, sqlserverTotalWorkerTimeAttributeValue, sqlserverTotalElapsedTimeAttributeValue, sqlserverTotalLogicalReadsAttributeValue, sqlserverTotalLogicalWritesAttributeValue, sqlserverTotalPhysicalReadsAttributeValue, sqlserverProcedureTotalSpillsAttributeValue, sqlserverProcedureAvgElapsedTimeMsAttributeValue, sqlserverProcedureMaxElapsedTimeMsAttributeValue, sqlserverProcedureMinElapsedTimeMsAttributeValue, sqlserverProcedureLastExecutionTimeAttributeValue)
 }
 
 // RecordDbServerQuerySampleEvent adds a log record of db.server.query_sample event.

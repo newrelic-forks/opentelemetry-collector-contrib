@@ -320,6 +320,8 @@ all_set:
     sqlserver.worktable.cache.hit_ratio:
       enabled: true
   events:
+    db.server.procedure_metrics:
+      enabled: true
     db.server.query_sample:
       enabled: true
     db.server.top_query:
@@ -664,6 +666,8 @@ reaggregate_set:
     sqlserver.worktable.cache.hit_ratio:
       enabled: true
   events:
+    db.server.procedure_metrics:
+      enabled: true
     db.server.query_sample:
       enabled: true
     db.server.top_query:
@@ -1008,6 +1012,8 @@ none_set:
     sqlserver.worktable.cache.hit_ratio:
       enabled: false
   events:
+    db.server.procedure_metrics:
+      enabled: false
     db.server.query_sample:
       enabled: false
     db.server.top_query:

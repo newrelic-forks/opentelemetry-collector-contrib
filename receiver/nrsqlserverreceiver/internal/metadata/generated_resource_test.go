@@ -7,7 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.opentelemetry.io/collector/confmap"
+
+	"go.opentelemetry.io/collector/confmap/xconfmap"
 )
 
 func TestResourceBuilder(t *testing.T) {
