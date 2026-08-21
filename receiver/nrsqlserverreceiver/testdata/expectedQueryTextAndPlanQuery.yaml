@@ -67,12 +67,6 @@ resourceLogs:
               - key: sqlserver.total_grant_kb
                 value:
                   intValue: "3095"
-              - key: server.address
-                value:
-                  stringValue: 0.0.0.0
-              - key: server.port
-                value:
-                  intValue: "1433"
               - key: db.system.name
                 value:
                   stringValue: microsoft.sql_server
@@ -85,6 +79,12 @@ resourceLogs:
               - key: sqlserver.procedure_name
                 value:
                   stringValue: ""
+              - key: sqlserver.query.last_started
+                value:
+                  stringValue: "2026-01-15T10:30:00.0000000+00:00"
+              - key: sqlserver.query.plan.creation_time
+                value:
+                  stringValue: "2026-01-10T08:00:00.0000000+00:00"
               - key: db.query.full_text
                 value:
                   stringValue: ""
@@ -94,15 +94,9 @@ resourceLogs:
               - key: db.query.text.normalized.hash
                 value:
                   stringValue: ""
-              - key: sqlserver.query.last_started
-                value:
-                  stringValue: "2026-01-15T10:30:00.0000000+00:00"
-              - key: sqlserver.query.plan.creation_time
-                value:
-                  stringValue: "2026-01-10T08:00:00.0000000+00:00"
             body: {}
             eventName: db.server.top_query
-            timeUnixNano: "1781193815535269000"
+            timeUnixNano: "1787272131204977000"
         scope:
           name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
           version: latest

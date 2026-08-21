@@ -18,7 +18,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon/testutil"
 	sqlquery "github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrsqlquery"
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver/internal/metadata"
 	"github.com/stretchr/testify/assert"
@@ -142,95 +141,69 @@ func TestEmptyScrape(t *testing.T) {
 }
 
 func TestSuccessfulScrape(t *testing.T) {
-	tests := []struct {
-		removeServerResourceAttributeFeatureGate bool
-		name                                     string
-	}{
-		{
-			name:                                     "TestSuccessfulScrape with removing server resource attribute feature gate on",
-			removeServerResourceAttributeFeatureGate: true,
-		},
-		{
-			name:                                     "TestSuccessfulScrape with removing server resource attribute feature gate off",
-			removeServerResourceAttributeFeatureGate: false,
-		},
-	}
+	cfg := createDefaultConfig().(*Config)
+	cfg.Username = "sa"
+	cfg.Password = "password"
+	cfg.Port = 1433
+	cfg.Server = "0.0.0.0"
+	cfg.MetricsBuilderConfig.ResourceAttributes.SqlserverInstanceName.Enabled = true
+	cfg.MetricsBuilderConfig.ResourceAttributes.ServiceName.Enabled = true
+	cfg.MetricsBuilderConfig.ResourceAttributes.ServiceNamespace.Enabled = true
+	cfg.LogsBuilderConfig.ResourceAttributes.ServiceName.Enabled = true
+	cfg.LogsBuilderConfig.ResourceAttributes.ServiceNamespace.Enabled = true
+	assert.NoError(t, cfg.Validate())
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			testutil.SetFeatureGateForTest(t, metadata.ReceiverNrsqlserverRemoveServerResourceAttributeFeatureGate, test.removeServerResourceAttributeFeatureGate)
-			cfg := createDefaultConfig().(*Config)
-			cfg.Username = "sa"
-			cfg.Password = "password"
-			cfg.Port = 1433
-			cfg.Server = "0.0.0.0"
-			cfg.MetricsBuilderConfig.ResourceAttributes.SqlserverInstanceName.Enabled = true
-			cfg.MetricsBuilderConfig.ResourceAttributes.ServerAddress.Enabled = true
-			cfg.MetricsBuilderConfig.ResourceAttributes.ServerPort.Enabled = true
-			cfg.MetricsBuilderConfig.ResourceAttributes.ServiceName.Enabled = true
-			cfg.MetricsBuilderConfig.ResourceAttributes.ServiceNamespace.Enabled = true
-			cfg.LogsBuilderConfig.ResourceAttributes.ServiceName.Enabled = true
-			cfg.LogsBuilderConfig.ResourceAttributes.ServiceNamespace.Enabled = true
-			assert.NoError(t, cfg.Validate())
+	configureAllScraperMetricsAndEvents(cfg, true)
 
-			configureAllScraperMetricsAndEvents(cfg, true)
+	scrapers, provider := setupSQLServerScrapers(receivertest.NewNopSettings(metadata.Type), cfg)
+	assert.NotEmpty(t, scrapers)
+	// The receiver owns the shared pool; close it once the test is done.
+	t.Cleanup(func() { assert.NoError(t, provider.close()) })
 
-			scrapers, provider := setupSQLServerScrapers(receivertest.NewNopSettings(metadata.Type), cfg)
-			assert.NotEmpty(t, scrapers)
-			// The receiver owns the shared pool; close it once the test is done.
-			t.Cleanup(func() { assert.NoError(t, provider.close()) })
+	for _, scraper := range scrapers {
+		err := scraper.Start(t.Context(), componenttest.NewNopHost())
+		assert.NoError(t, err)
+		defer assert.NoError(t, scraper.Shutdown(t.Context()))
 
-			for _, scraper := range scrapers {
-				err := scraper.Start(t.Context(), componenttest.NewNopHost())
-				assert.NoError(t, err)
-				defer assert.NoError(t, scraper.Shutdown(t.Context()))
+		scraper.client = mockClient{
+			instanceName:        scraper.config.InstanceName,
+			SQL:                 scraper.sqlQuery,
+			maxQuerySampleCount: 1000,
+			lookbackTime:        20,
+		}
 
-				scraper.client = mockClient{
-					instanceName:        scraper.config.InstanceName,
-					SQL:                 scraper.sqlQuery,
-					maxQuerySampleCount: 1000,
-					lookbackTime:        20,
-				}
+		actualMetrics, err := scraper.ScrapeMetrics(t.Context())
+		assert.NoError(t, err)
+		var expectedFile string
+		switch scraper.sqlQuery {
+		case getSQLServerAvailabilityGroupQuery(scraper.config.InstanceName):
+			expectedFile = filepath.Join("testdata", "expectedAvailabilityGroupMetrics.yaml")
+		case getSQLServerDatabaseIOQuery(scraper.config.InstanceName):
+			expectedFile = filepath.Join("testdata", "expectedDatabaseIO.yaml")
+		case getSQLServerPerformanceCounterQuery(scraper.config.InstanceName):
+			expectedFile = filepath.Join("testdata", "expectedPerfCounters.yaml")
+		case getSQLServerPropertiesQuery(scraper.config.InstanceName):
+			expectedFile = filepath.Join("testdata", "expectedProperties.yaml")
+		case getSQLServerWaitStatsQuery(scraper.config.InstanceName):
+			expectedFile = filepath.Join("testdata", "expectedWaitStats.yaml")
+		case getSQLServerDatabaseSizeQuery(scraper.config.InstanceName):
+			expectedFile = filepath.Join("testdata", "expectedDatabaseSize.yaml")
+		case getSQLServerCPUMemoryQuery(scraper.config.InstanceName):
+			expectedFile = filepath.Join("testdata", "expectedCPUMemory.yaml")
+		case getSQLServerDiskIOQuery(scraper.config.InstanceName):
+			expectedFile = filepath.Join("testdata", "expectedDiskIO.yaml")
+		}
 
-				actualMetrics, err := scraper.ScrapeMetrics(t.Context())
-				assert.NoError(t, err)
-				fileSuffix := ".yaml"
-				if test.removeServerResourceAttributeFeatureGate {
-					fileSuffix = "RemoveServerResourceAttributes.yaml"
-				}
-				var expectedFile string
-				switch scraper.sqlQuery {
-				case getSQLServerAvailabilityGroupQuery(scraper.config.InstanceName):
-					expectedFile = filepath.Join("testdata", "expectedAvailabilityGroupMetrics")
-				case getSQLServerDatabaseIOQuery(scraper.config.InstanceName):
-					expectedFile = filepath.Join("testdata", "expectedDatabaseIO")
-				case getSQLServerPerformanceCounterQuery(scraper.config.InstanceName):
-					expectedFile = filepath.Join("testdata", "expectedPerfCounters")
-				case getSQLServerPropertiesQuery(scraper.config.InstanceName):
-					expectedFile = filepath.Join("testdata", "expectedProperties")
-				case getSQLServerWaitStatsQuery(scraper.config.InstanceName):
-					expectedFile = filepath.Join("testdata", "expectedWaitStats")
-				case getSQLServerDatabaseSizeQuery(scraper.config.InstanceName):
-					expectedFile = filepath.Join("testdata", "expectedDatabaseSize")
-				case getSQLServerCPUMemoryQuery(scraper.config.InstanceName):
-					expectedFile = filepath.Join("testdata", "expectedCPUMemory")
-				case getSQLServerDiskIOQuery(scraper.config.InstanceName):
-					expectedFile = filepath.Join("testdata", "expectedDiskIO")
-				}
-				expectedFile += fileSuffix
+		// Uncomment line below to re-generate expected metrics.
+		// golden.WriteMetrics(t, expectedFile, actualMetrics)
+		expectedMetrics, err := golden.ReadMetrics(expectedFile)
+		assert.NoError(t, err)
 
-				// Uncomment line below to re-generate expected metrics.
-				// golden.WriteMetrics(t, expectedFile, actualMetrics)
-				expectedMetrics, err := golden.ReadMetrics(expectedFile)
-				assert.NoError(t, err)
-
-				assert.NoError(t, pmetrictest.CompareMetrics(expectedMetrics, actualMetrics,
-					pmetrictest.IgnoreMetricDataPointsOrder(),
-					pmetrictest.IgnoreStartTimestamp(),
-					pmetrictest.IgnoreTimestamp(),
-					pmetrictest.IgnoreResourceMetricsOrder()), expectedFile)
-			}
-		})
+		assert.NoError(t, pmetrictest.CompareMetrics(expectedMetrics, actualMetrics,
+			pmetrictest.IgnoreMetricDataPointsOrder(),
+			pmetrictest.IgnoreStartTimestamp(),
+			pmetrictest.IgnoreTimestamp(),
+			pmetrictest.IgnoreResourceMetricsOrder()), expectedFile)
 	}
 }
 
