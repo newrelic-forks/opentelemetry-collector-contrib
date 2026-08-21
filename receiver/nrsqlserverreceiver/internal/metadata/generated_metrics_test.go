@@ -699,7 +699,6 @@ func TestMetricsBuilder(t *testing.T) {
 			rb.SetSqlserverDatabaseName("sqlserver.database.name-val")
 			rb.SetSqlserverHostName("sqlserver.host.name-val")
 			rb.SetSqlserverInstanceName("sqlserver.instance.name-val")
-			rb.SetSqlserverVersion("sqlserver.version-val")
 			res := rb.Emit()
 			metrics := mb.Emit(WithResource(res))
 			if tt.name == "reaggregate_set" {

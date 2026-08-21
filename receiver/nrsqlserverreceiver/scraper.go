@@ -58,7 +58,6 @@ type sqlServerScraperHelper struct {
 	lastExecutionTimestamp time.Time
 	obfuscator             *obfuscator
 	serviceInstanceID      string
-	sqlServerVersion       string
 }
 
 var (
@@ -103,7 +102,7 @@ func (s *sqlServerScraperHelper) ID() component.ID {
 	return s.id
 }
 
-func (s *sqlServerScraperHelper) Start(ctx context.Context, _ component.Host) error {
+func (s *sqlServerScraperHelper) Start(context.Context, component.Host) error {
 	// The connection pool is owned by the receiver and shared across all
 	// scrapers. Fetch the shared pool (opened once by the provider) rather than
 	// opening a new one here.
@@ -113,13 +112,6 @@ func (s *sqlServerScraperHelper) Start(ctx context.Context, _ component.Host) er
 		return fmt.Errorf("failed to open Db connection: %w", err)
 	}
 	s.client = s.clientProviderFunc(sqlquery.DbWrapper{Db: s.db}, s.sqlQuery, s.logger, s.telemetry)
-
-	var version string
-	if err := s.db.QueryRowContext(ctx, "SELECT CAST(SERVERPROPERTY('ProductVersion') AS NVARCHAR(128))").Scan(&version); err != nil {
-		s.logger.Warn("Failed to query SQL Server version", zap.Error(err))
-	} else {
-		s.sqlServerVersion = version
-	}
 
 	return nil
 }
@@ -386,9 +378,6 @@ func (s *sqlServerScraperHelper) setupResourceBuilder(rb *metadata.ResourceBuild
 	rb.SetHostName(hostName)
 	rb.SetSqlserverHostName(hostName)
 	rb.SetServiceInstanceID(s.serviceInstanceID)
-	if s.sqlServerVersion != "" {
-		rb.SetSqlserverVersion(s.sqlServerVersion)
-	}
 	rb.SetServiceName(defaultServiceName)
 	rb.SetServiceNamespace("")
 

@@ -25,16 +25,15 @@ func TestResourceBuilder(t *testing.T) {
 			rb.SetSqlserverDatabaseName("sqlserver.database.name-val")
 			rb.SetSqlserverHostName("sqlserver.host.name-val")
 			rb.SetSqlserverInstanceName("sqlserver.instance.name-val")
-			rb.SetSqlserverVersion("sqlserver.version-val")
 
 			res := rb.Emit()
 			assert.Equal(t, 0, rb.Emit().Attributes().Len()) // Second call should return empty Resource
 
 			switch tt {
 			case "default":
-				assert.Equal(t, 5, res.Attributes().Len())
+				assert.Equal(t, 4, res.Attributes().Len())
 			case "all_set":
-				assert.Equal(t, 11, res.Attributes().Len())
+				assert.Equal(t, 10, res.Attributes().Len())
 			case "none_set":
 				assert.Equal(t, 0, res.Attributes().Len())
 				return
@@ -91,11 +90,6 @@ func TestResourceBuilder(t *testing.T) {
 			if ok {
 				assert.Equal(t, "sqlserver.instance.name-val", sqlserverInstanceNameAttrVal.Str())
 			}
-			sqlserverVersionAttrVal, ok := res.Attributes().Get("sqlserver.version")
-			assert.True(t, ok)
-			if ok {
-				assert.Equal(t, "sqlserver.version-val", sqlserverVersionAttrVal.Str())
-			}
 		})
 	}
 }
@@ -114,7 +108,6 @@ func TestResourceBuilderOverrideValue(t *testing.T) {
 	rb.SetSqlserverDatabaseName("sqlserver.database.name-val")
 	rb.SetSqlserverHostName("sqlserver.host.name-val")
 	rb.SetSqlserverInstanceName("sqlserver.instance.name-val")
-	rb.SetSqlserverVersion("sqlserver.version-val")
 
 	res := rb.Emit()
 	{
@@ -185,13 +178,6 @@ func TestResourceBuilderOverrideValue(t *testing.T) {
 		assert.True(t, ok, "sqlserver.instance.name should be present")
 		if ok {
 			assert.Equal(t, "override-sqlserver.instance.name", val.Str())
-		}
-	}
-	{
-		val, ok := res.Attributes().Get("sqlserver.version")
-		assert.True(t, ok, "sqlserver.version should be present")
-		if ok {
-			assert.Equal(t, "override-sqlserver.version", val.Str())
 		}
 	}
 }
@@ -273,13 +259,6 @@ func TestResourceBuilderOverrideWithoutSet(t *testing.T) {
 			assert.Equal(t, "override-sqlserver.instance.name", val.Str())
 		}
 	}
-	{
-		val, ok := res.Attributes().Get("sqlserver.version")
-		assert.True(t, ok, "sqlserver.version should be present even without calling Set")
-		if ok {
-			assert.Equal(t, "override-sqlserver.version", val.Str())
-		}
-	}
 }
 
 // TestResourceBuilderOverrideDisabled disables all attributes, so override should not apply.
@@ -295,7 +274,6 @@ func TestResourceBuilderOverrideDisabled(t *testing.T) {
 	cfg.SqlserverDatabaseName.Enabled = false
 	cfg.SqlserverHostName.Enabled = false
 	cfg.SqlserverInstanceName.Enabled = false
-	cfg.SqlserverVersion.Enabled = false
 	require.NoError(t, confmap.Validate(cfg))
 	rb := NewResourceBuilder(cfg)
 
@@ -317,7 +295,6 @@ func TestResourceBuilderNoOverride(t *testing.T) {
 	assert.Nil(t, cfg.SqlserverDatabaseName.OverrideValue, "OverrideValue should be nil for sqlserver.database.name")
 	assert.Nil(t, cfg.SqlserverHostName.OverrideValue, "OverrideValue should be nil for sqlserver.host.name")
 	assert.Nil(t, cfg.SqlserverInstanceName.OverrideValue, "OverrideValue should be nil for sqlserver.instance.name")
-	assert.Nil(t, cfg.SqlserverVersion.OverrideValue, "OverrideValue should be nil for sqlserver.version")
 	rb := NewResourceBuilder(cfg)
 	rb.SetHostName("host.name-val")
 	rb.SetServerAddress("server.address-val")
@@ -329,10 +306,9 @@ func TestResourceBuilderNoOverride(t *testing.T) {
 	rb.SetSqlserverDatabaseName("sqlserver.database.name-val")
 	rb.SetSqlserverHostName("sqlserver.host.name-val")
 	rb.SetSqlserverInstanceName("sqlserver.instance.name-val")
-	rb.SetSqlserverVersion("sqlserver.version-val")
 
 	res := rb.Emit()
-	assert.Equal(t, 11, res.Attributes().Len())
+	assert.Equal(t, 10, res.Attributes().Len())
 	hostNameAttrVal, ok := res.Attributes().Get("host.name")
 	assert.True(t, ok)
 	if ok {
@@ -382,10 +358,5 @@ func TestResourceBuilderNoOverride(t *testing.T) {
 	assert.True(t, ok)
 	if ok {
 		assert.Equal(t, "sqlserver.instance.name-val", sqlserverInstanceNameAttrVal.Str())
-	}
-	sqlserverVersionAttrVal, ok := res.Attributes().Get("sqlserver.version")
-	assert.True(t, ok)
-	if ok {
-		assert.Equal(t, "sqlserver.version-val", sqlserverVersionAttrVal.Str())
 	}
 }

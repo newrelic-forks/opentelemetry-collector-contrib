@@ -41,7 +41,6 @@ func TestLogsBuilderAppendLogRecord(t *testing.T) {
 	rb.SetSqlserverDatabaseName("sqlserver.database.name-val")
 	rb.SetSqlserverHostName("sqlserver.host.name-val")
 	rb.SetSqlserverInstanceName("sqlserver.instance.name-val")
-	rb.SetSqlserverVersion("sqlserver.version-val")
 	res := rb.Emit()
 
 	// append the first log record
@@ -155,7 +154,6 @@ func TestLogsBuilder(t *testing.T) {
 			rb.SetSqlserverDatabaseName("sqlserver.database.name-val")
 			rb.SetSqlserverHostName("sqlserver.host.name-val")
 			rb.SetSqlserverInstanceName("sqlserver.instance.name-val")
-			rb.SetSqlserverVersion("sqlserver.version-val")
 			res := rb.Emit()
 			logs := lb.Emit(WithLogsResource(res))
 

@@ -1813,7 +1813,6 @@ top query
 | sqlserver.database.name | The name of the SQL Server database. | Any Str | true | - | - |
 | sqlserver.host.name | The hostname of the SQL Server instance, extracted from service.instance.id. | Any Str | true | - | - |
 | sqlserver.instance.name | The name of the SQL Server instance being monitored. | Any Str | false | - | - |
-| sqlserver.version | The version of the SQL Server instance (e.g. 15.0.2000.5). | Any Str | true | - | - |
 
 ## Feature Gates
 
