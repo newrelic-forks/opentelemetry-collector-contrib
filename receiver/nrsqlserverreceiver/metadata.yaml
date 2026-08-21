@@ -53,6 +53,10 @@ resource_attributes:
     description: The name of the SQL Server database.
     enabled: true
     type: string
+  sqlserver.host.name:
+    description: The hostname of the SQL Server instance, extracted from service.instance.id.
+    enabled: true
+    type: string
   sqlserver.instance.name:
     description: The name of the SQL Server instance being monitored.
     enabled: false

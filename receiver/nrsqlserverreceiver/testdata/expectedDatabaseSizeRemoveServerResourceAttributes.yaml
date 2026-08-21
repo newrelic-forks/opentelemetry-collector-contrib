@@ -4,6 +4,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -42,6 +45,9 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -84,6 +90,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -122,6 +131,9 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
@@ -164,6 +176,9 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
+        - key: sqlserver.host.name
+          value:
+            stringValue: 0.0.0.0
         - key: service.instance.id
           value:
             stringValue: 0.0.0.0:1433
@@ -202,6 +217,9 @@ resourceMetrics:
   - resource:
       attributes:
         - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: sqlserver.host.name
           value:
             stringValue: 0.0.0.0
         - key: service.instance.id
