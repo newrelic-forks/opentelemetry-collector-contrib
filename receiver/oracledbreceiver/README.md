@@ -196,7 +196,22 @@ GRANT SELECT ON V_$SQL TO <username>;            -- Aggregated procedure executi
 GRANT SELECT ON DBA_PROCEDURES TO <username>;    -- Stored procedure metadata (owner, name, type)
 ```
 
-No additional grants are required beyond those for `db.server.query_sample` / `db.server.top_query`.
+On a non-CDB or direct-PDB connection, no additional grants are required beyond those for
+`db.server.query_sample` / `db.server.top_query`.
+
+> [!IMPORTANT]
+> When connected to a **CDB root**, `DBA_PROCEDURES` only exposes the root container's
+> procedures, while `V$SQL` reports cursors for every container. Procedures owned by a PDB
+> would therefore be dropped entirely. The receiver detects a CDB-root connection and
+> switches to `CDB_PROCEDURES` (matched on `CON_ID` as well as `OBJECT_ID`, since object ids
+> are only unique within a container), which requires a container-wide grant:
+>
+> ```sql
+> GRANT SELECT ON CDB_PROCEDURES TO <username> CONTAINER=ALL;
+> ```
+>
+> Users holding `SELECT_CATALOG_ROLE` inherit this and need no explicit grant. Without it,
+> `db.server.procedure_metrics` reports nothing on CDB-root connections.
 
 > [!NOTE]
 > Oracle has no per-procedure statistics view equivalent to a single cumulative counter per
@@ -220,6 +235,8 @@ GRANT SELECT ON V_$LOCK TO <username>;
 GRANT SELECT ON V_$CONTAINERS TO <username>;
 GRANT SELECT ON DBA_OBJECTS TO <username>;
 GRANT SELECT ON DBA_PROCEDURES TO <username>;
+-- CDB-root connections only, for db.server.procedure_metrics:
+GRANT SELECT ON CDB_PROCEDURES TO <username> CONTAINER=ALL;
 ```
 
 ## Enabling metrics.

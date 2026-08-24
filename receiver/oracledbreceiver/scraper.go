@@ -319,6 +319,8 @@ var (
 	sessionEventQuery string
 	//go:embed templates/oracleProcedureMetricsSql.tmpl
 	oracleProcedureMetricsSQL string
+	//go:embed templates/oracleProcedureMetricsCDBSql.tmpl
+	oracleProcedureMetricsCDBSQL string
 )
 
 // sgaComponentNames maps V$SGAINFO.NAME values to the snake_case enum keys
@@ -446,6 +448,19 @@ func (s *oracleScraper) buildTablespaceSQL() string {
 	default:
 		return tablespaceUsageSQL
 	}
+}
+
+// buildProcedureMetricsSQL selects the procedure metrics query variant for the
+// connection type. From a CDB root, DBA_PROCEDURES only exposes the root
+// container's procedures, so PDB-owned procedures would be dropped by the join
+// to V$SQL (which does report cursors for every container). CDB_PROCEDURES
+// covers all containers, matched on CON_ID as well as OBJECT_ID because object
+// ids are only unique within a container.
+func (s *oracleScraper) buildProcedureMetricsSQL() string {
+	if s.isCDBRoot {
+		return oracleProcedureMetricsCDBSQL
+	}
+	return oracleProcedureMetricsSQL
 }
 
 func (s *oracleScraper) start(ctx context.Context, _ component.Host) error {
@@ -1745,11 +1760,21 @@ func (s *oracleScraper) scrapeLogs(ctx context.Context) (plog.Logs, error) {
 	if s.logsBuilderConfig.Events.DbServerProcedureMetrics.Enabled {
 		currentCollectionTime := time.Now()
 		lookbackTimeCounter := s.calculateLookbackSeconds(s.lastProcedureMetricsTimestamp, s.procedureMetricsCfg.CollectionInterval)
+		s.logger.Debug("Procedure metrics collection triggered",
+			zap.Int("lookback-seconds", lookbackTimeCounter),
+			zap.Int("collection-interval-seconds", int(s.procedureMetricsCfg.CollectionInterval.Seconds())),
+			zap.Time("last-collection-time", s.lastProcedureMetricsTimestamp),
+			zap.Uint("top-procedure-count", s.procedureMetricsCfg.TopProcedureCount))
 		if lookbackTimeCounter < int(s.procedureMetricsCfg.CollectionInterval.Seconds()) {
-			s.logger.Debug("Skipping the collection of procedure metrics because collection interval has not yet elapsed.")
+			s.logger.Debug("Skipping procedure metrics: collection interval has not yet elapsed",
+				zap.Int("lookback-seconds", lookbackTimeCounter),
+				zap.Int("required-seconds", int(s.procedureMetricsCfg.CollectionInterval.Seconds())))
 		} else {
+			s.logger.Debug("Collecting procedure metrics now",
+				zap.Int("lookback-seconds", lookbackTimeCounter))
 			procedureCollectionErrors := s.collectProcedureMetrics(ctx, logs, currentCollectionTime, lookbackTimeCounter)
 			if procedureCollectionErrors != nil {
+				s.logger.Error("Procedure metrics collection failed", zap.Error(procedureCollectionErrors))
 				scrapeErrors = append(scrapeErrors, procedureCollectionErrors)
 			}
 			s.lastProcedureMetricsTimestamp = currentCollectionTime
@@ -1953,14 +1978,22 @@ func getProcedureMetricNames() []string {
 func (s *oracleScraper) collectProcedureMetrics(ctx context.Context, logs plog.Logs, collectionTime time.Time, lookbackTimeSeconds int) error {
 	var errs []error
 	// get aggregated procedure metrics from DB
-	s.oracleProcedureMetricsClient = s.clientProviderFunc(s.db, oracleProcedureMetricsSQL, s.logger)
+	s.oracleProcedureMetricsClient = s.clientProviderFunc(s.db, s.buildProcedureMetricsSQL(), s.logger)
 	metricRows, metricError := s.oracleProcedureMetricsClient.metricRows(ctx, lookbackTimeSeconds, s.procedureMetricsCfg.TopProcedureCount)
 
 	if metricError != nil {
 		return fmt.Errorf("error executing oracleProcedureMetricsSQL: %w", metricError)
 	}
+	s.logger.Debug("Procedure metrics query returned rows",
+		zap.Int("row-count", len(metricRows)),
+		zap.Int("lookback-seconds", lookbackTimeSeconds),
+		zap.Uint("top-procedure-count", s.procedureMetricsCfg.TopProcedureCount))
+	// Zero rows is a normal condition: it just means no PL/SQL program unit was
+	// active in the lookback window. Don't surface it as a scrape error.
 	if len(metricRows) == 0 {
-		return errors.New("no data returned from oracleProcedureMetricsClient")
+		s.logger.Debug("No stored procedures active in the lookback window, skipping procedure metrics",
+			zap.Int("lookback-seconds", lookbackTimeSeconds))
+		return nil
 	}
 
 	metricNames := getProcedureMetricNames()
@@ -2020,14 +2053,22 @@ func (s *oracleScraper) collectProcedureMetrics(ctx context.Context, logs plog.L
 		cacheUpdates++
 	}
 
-	s.logger.Debug("Procedure metric cache update", zap.Int("update-count", cacheUpdates), zap.Int("new-size", s.procedureMetricCache.Len()))
+	s.logger.Debug("Procedure metric cache update",
+		zap.Int("rows-from-db", len(metricRows)),
+		zap.Int("cache-updates", cacheUpdates),
+		zap.Int("cache-hits-with-delta", len(hits)),
+		zap.Int("discarded-hits", discardedHits),
+		zap.Int("cache-size", s.procedureMetricCache.Len()))
 
 	if len(hits) == 0 {
-		s.logger.Info("No procedure metric log records for this scrape")
+		s.logger.Debug("No procedure metric deltas to emit (first scrape seeds cache, subsequent scrapes compute deltas)")
 		return errors.Join(errs...)
 	}
 
-	s.logger.Debug("Procedure metric cache hits", zap.Int("hit-count", len(hits)), zap.Int("discarded-hit-count", discardedHits))
+	s.logger.Debug("Procedure metrics emitting log records",
+		zap.Int("procedures-to-emit", min(len(hits), int(s.procedureMetricsCfg.TopProcedureCount))),
+		zap.Int("total-cache-hits", len(hits)),
+		zap.Int("discarded-no-new-executions", discardedHits))
 
 	// order by elapsed time delta, descending
 	sort.Slice(hits, func(i, j int) bool {
