@@ -228,6 +228,18 @@ attributes:
   oracledb.plan_hash_value:
     description: Binary hash value calculated on the query execution plan and used to identify similar query execution plans, reported in the HEX format.
     type: string
+  oracledb.procedure.avg_elapsed_time:
+    description: Average elapsed time (in seconds) per procedure execution, computed as the elapsed time delta divided by the execution count delta for the aggregation interval.
+    type: double
+  oracledb.procedure.first_load_time:
+    description: "Earliest load time across the procedure's cached statements, in the server's local timezone. Format: YYYY-MM-DD/HH:MM:SS"
+    type: string
+  oracledb.procedure.last_active_time:
+    description: "The most recent time any of the procedure's cached statements were active, in ISO 8601 format (UTC)."
+    type: string
+  oracledb.procedure.schema_name:
+    description: The schema (owner) of the stored procedure or function.
+    type: string
   oracledb.procedure_execution_count:
     description: The number of times the stored procedure has been executed, derived from the minimum statement execution count across all statements in the procedure (reporting delta). Please note, this is best effort and may not be accurate in some scenarios. Use with caution.
     type: int
@@ -376,6 +388,30 @@ attributes:
     type: string
 
 events:
+  db.server.procedure_metrics:
+    enabled: false
+    description: Aggregated performance metrics for stored procedures, derived from V$SQL grouped by PROGRAM_ID and joined to DBA_PROCEDURES, with delta computation on cumulative counters. Correlates with db.server.top_query and db.server.query_sample via oracledb.procedure_id.
+    attributes:
+      - db.system.name
+      - db.namespace
+      - db.server.name
+      - oracle.db.service
+      - oracledb.procedure_id
+      - oracledb.procedure_name
+      - oracledb.procedure_type
+      - oracledb.procedure.schema_name
+      - oracledb.procedure_execution_count
+      - oracledb.cpu_time
+      - oracledb.elapsed_time
+      - oracledb.procedure.avg_elapsed_time
+      - oracledb.buffer_gets
+      - oracledb.disk_reads
+      - oracledb.direct_writes
+      - oracledb.rows_processed
+      - oracledb.physical_read_bytes
+      - oracledb.physical_write_bytes
+      - oracledb.procedure.first_load_time
+      - oracledb.procedure.last_active_time
   db.server.query_sample:
     enabled: false
     description: sample query

@@ -105,6 +105,26 @@ func TestValidateInvalidConfigs(t *testing.T) {
 			},
 			expected: errBadDataSource,
 		},
+		{
+			name: "Top procedure count below range",
+			config: &Config{
+				DataSource:         "oracle://otel:password@localhost:1521/XE",
+				ControllerConfig:   scraperhelper.NewDefaultControllerConfig(),
+				TopQueryCollection: TopQueryCollection{MaxQuerySampleCount: 1000, TopQueryCount: 200},
+				ProcedureMetrics:   ProcedureMetrics{TopProcedureCount: 0},
+			},
+			expected: errTopProcedureCount,
+		},
+		{
+			name: "Top procedure count above range",
+			config: &Config{
+				DataSource:         "oracle://otel:password@localhost:1521/XE",
+				ControllerConfig:   scraperhelper.NewDefaultControllerConfig(),
+				TopQueryCollection: TopQueryCollection{MaxQuerySampleCount: 1000, TopQueryCount: 200},
+				ProcedureMetrics:   ProcedureMetrics{TopProcedureCount: 1001},
+			},
+			expected: errTopProcedureCount,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -118,6 +138,8 @@ func TestValidateInvalidConfigs(t *testing.T) {
 func TestCreateDefaultConfig(t *testing.T) {
 	cfg := createDefaultConfig().(*Config)
 	assert.Equal(t, 10*time.Second, cfg.ControllerConfig.CollectionInterval)
+	assert.Equal(t, uint(250), cfg.ProcedureMetrics.TopProcedureCount)
+	assert.Equal(t, time.Minute, cfg.ProcedureMetrics.CollectionInterval)
 }
 
 func TestParseConfig(t *testing.T) {
@@ -137,4 +159,6 @@ func TestParseConfig(t *testing.T) {
 	settings := cfg.MetricsBuilderConfig.Metrics
 	assert.False(t, settings.OracledbTablespaceSizeUsage.Enabled)
 	assert.False(t, settings.OracledbExchangeDeadlocks.Enabled)
+	assert.Equal(t, uint(111), cfg.ProcedureMetrics.TopProcedureCount)
+	assert.True(t, cfg.LogsBuilderConfig.Events.DbServerProcedureMetrics.Enabled)
 }

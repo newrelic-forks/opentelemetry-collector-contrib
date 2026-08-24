@@ -1,4 +1,13 @@
 $defs:
+  procedure_metrics:
+    type: object
+    properties:
+      collection_interval:
+        type: string
+        format: duration
+      top_procedure_count:
+        type: integer
+        x-customType: uint
   query_sample:
     type: object
     properties:
@@ -39,6 +48,8 @@ properties:
     type: string
   password:
     type: string
+  procedure_metrics_collection:
+    $ref: procedure_metrics
   query_sample_collection:
     $ref: query_sample
   service:

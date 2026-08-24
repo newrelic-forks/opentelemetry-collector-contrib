@@ -13,6 +13,61 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+type eventDbServerProcedureMetrics struct {
+	data   plog.LogRecordSlice // data buffer for generated log records.
+	config EventConfig         // event config provided by user.
+}
+
+func (e *eventDbServerProcedureMetrics) recordEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue string, dbNamespaceAttributeValue string, dbServerNameAttributeValue string, oracleDbServiceAttributeValue string, oracledbProcedureIDAttributeValue int64, oracledbProcedureNameAttributeValue string, oracledbProcedureTypeAttributeValue string, oracledbProcedureSchemaNameAttributeValue string, oracledbProcedureExecutionCountAttributeValue int64, oracledbCPUTimeAttributeValue float64, oracledbElapsedTimeAttributeValue float64, oracledbProcedureAvgElapsedTimeAttributeValue float64, oracledbBufferGetsAttributeValue int64, oracledbDiskReadsAttributeValue int64, oracledbDirectWritesAttributeValue int64, oracledbRowsProcessedAttributeValue int64, oracledbPhysicalReadBytesAttributeValue int64, oracledbPhysicalWriteBytesAttributeValue int64, oracledbProcedureFirstLoadTimeAttributeValue string, oracledbProcedureLastActiveTimeAttributeValue string) {
+	if !e.config.Enabled {
+		return
+	}
+	dp := e.data.AppendEmpty()
+	dp.SetEventName("db.server.procedure_metrics")
+	dp.SetTimestamp(timestamp)
+
+	if span := trace.SpanContextFromContext(ctx); span.IsValid() {
+		dp.SetTraceID(pcommon.TraceID(span.TraceID()))
+		dp.SetSpanID(pcommon.SpanID(span.SpanID()))
+	}
+	dp.Attributes().PutStr("db.system.name", dbSystemNameAttributeValue)
+	dp.Attributes().PutStr("db.namespace", dbNamespaceAttributeValue)
+	dp.Attributes().PutStr("db.server.name", dbServerNameAttributeValue)
+	dp.Attributes().PutStr("oracle.db.service", oracleDbServiceAttributeValue)
+	dp.Attributes().PutInt("oracledb.procedure_id", oracledbProcedureIDAttributeValue)
+	dp.Attributes().PutStr("oracledb.procedure_name", oracledbProcedureNameAttributeValue)
+	dp.Attributes().PutStr("oracledb.procedure_type", oracledbProcedureTypeAttributeValue)
+	dp.Attributes().PutStr("oracledb.procedure.schema_name", oracledbProcedureSchemaNameAttributeValue)
+	dp.Attributes().PutInt("oracledb.procedure_execution_count", oracledbProcedureExecutionCountAttributeValue)
+	dp.Attributes().PutDouble("oracledb.cpu_time", oracledbCPUTimeAttributeValue)
+	dp.Attributes().PutDouble("oracledb.elapsed_time", oracledbElapsedTimeAttributeValue)
+	dp.Attributes().PutDouble("oracledb.procedure.avg_elapsed_time", oracledbProcedureAvgElapsedTimeAttributeValue)
+	dp.Attributes().PutInt("oracledb.buffer_gets", oracledbBufferGetsAttributeValue)
+	dp.Attributes().PutInt("oracledb.disk_reads", oracledbDiskReadsAttributeValue)
+	dp.Attributes().PutInt("oracledb.direct_writes", oracledbDirectWritesAttributeValue)
+	dp.Attributes().PutInt("oracledb.rows_processed", oracledbRowsProcessedAttributeValue)
+	dp.Attributes().PutInt("oracledb.physical_read_bytes", oracledbPhysicalReadBytesAttributeValue)
+	dp.Attributes().PutInt("oracledb.physical_write_bytes", oracledbPhysicalWriteBytesAttributeValue)
+	dp.Attributes().PutStr("oracledb.procedure.first_load_time", oracledbProcedureFirstLoadTimeAttributeValue)
+	dp.Attributes().PutStr("oracledb.procedure.last_active_time", oracledbProcedureLastActiveTimeAttributeValue)
+
+}
+
+// emit appends recorded event data to a events slice and prepares it for recording another set of log records.
+func (e *eventDbServerProcedureMetrics) emit(lrs plog.LogRecordSlice) {
+	if e.config.Enabled && e.data.Len() > 0 {
+		e.data.MoveAndAppendTo(lrs)
+	}
+}
+
+func newEventDbServerProcedureMetrics(cfg EventConfig) eventDbServerProcedureMetrics {
+	e := eventDbServerProcedureMetrics{config: cfg}
+	if cfg.Enabled {
+		e.data = plog.NewLogRecordSlice()
+	}
+	return e
+}
+
 type eventDbServerQuerySample struct {
 	data   plog.LogRecordSlice // data buffer for generated log records.
 	config EventConfig         // event config provided by user.
@@ -211,6 +266,7 @@ type LogsBuilder struct {
 	buildInfo                      component.BuildInfo // contains version information.
 	resourceAttributeIncludeFilter map[string]filter.Filter
 	resourceAttributeExcludeFilter map[string]filter.Filter
+	eventDbServerProcedureMetrics  eventDbServerProcedureMetrics
 	eventDbServerQuerySample       eventDbServerQuerySample
 	eventDbServerSessionWaitSample eventDbServerSessionWaitSample
 	eventDbServerTopQuery          eventDbServerTopQuery
@@ -227,6 +283,7 @@ func NewLogsBuilder(lbc LogsBuilderConfig, settings receiver.Settings) *LogsBuil
 		logsBuffer:                     plog.NewLogs(),
 		logRecordsBuffer:               plog.NewLogRecordSlice(),
 		buildInfo:                      settings.BuildInfo,
+		eventDbServerProcedureMetrics:  newEventDbServerProcedureMetrics(lbc.Events.DbServerProcedureMetrics),
 		eventDbServerQuerySample:       newEventDbServerQuerySample(lbc.Events.DbServerQuerySample),
 		eventDbServerSessionWaitSample: newEventDbServerSessionWaitSample(lbc.Events.DbServerSessionWaitSample),
 		eventDbServerTopQuery:          newEventDbServerTopQuery(lbc.Events.DbServerTopQuery),
@@ -330,6 +387,7 @@ func (lb *LogsBuilder) EmitForResource(options ...ResourceLogsOption) {
 	ils := rl.ScopeLogs().AppendEmpty()
 	ils.Scope().SetName(ScopeName)
 	ils.Scope().SetVersion(lb.buildInfo.Version)
+	lb.eventDbServerProcedureMetrics.emit(ils.LogRecords())
 	lb.eventDbServerQuerySample.emit(ils.LogRecords())
 	lb.eventDbServerSessionWaitSample.emit(ils.LogRecords())
 	lb.eventDbServerTopQuery.emit(ils.LogRecords())
@@ -367,6 +425,11 @@ func (lb *LogsBuilder) Emit(options ...ResourceLogsOption) plog.Logs {
 	logs := lb.logsBuffer
 	lb.logsBuffer = plog.NewLogs()
 	return logs
+}
+
+// RecordDbServerProcedureMetricsEvent adds a log record of db.server.procedure_metrics event.
+func (lb *LogsBuilder) RecordDbServerProcedureMetricsEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue string, dbNamespaceAttributeValue string, dbServerNameAttributeValue string, oracleDbServiceAttributeValue string, oracledbProcedureIDAttributeValue int64, oracledbProcedureNameAttributeValue string, oracledbProcedureTypeAttributeValue string, oracledbProcedureSchemaNameAttributeValue string, oracledbProcedureExecutionCountAttributeValue int64, oracledbCPUTimeAttributeValue float64, oracledbElapsedTimeAttributeValue float64, oracledbProcedureAvgElapsedTimeAttributeValue float64, oracledbBufferGetsAttributeValue int64, oracledbDiskReadsAttributeValue int64, oracledbDirectWritesAttributeValue int64, oracledbRowsProcessedAttributeValue int64, oracledbPhysicalReadBytesAttributeValue int64, oracledbPhysicalWriteBytesAttributeValue int64, oracledbProcedureFirstLoadTimeAttributeValue string, oracledbProcedureLastActiveTimeAttributeValue string) {
+	lb.eventDbServerProcedureMetrics.recordEvent(ctx, timestamp, dbSystemNameAttributeValue, dbNamespaceAttributeValue, dbServerNameAttributeValue, oracleDbServiceAttributeValue, oracledbProcedureIDAttributeValue, oracledbProcedureNameAttributeValue, oracledbProcedureTypeAttributeValue, oracledbProcedureSchemaNameAttributeValue, oracledbProcedureExecutionCountAttributeValue, oracledbCPUTimeAttributeValue, oracledbElapsedTimeAttributeValue, oracledbProcedureAvgElapsedTimeAttributeValue, oracledbBufferGetsAttributeValue, oracledbDiskReadsAttributeValue, oracledbDirectWritesAttributeValue, oracledbRowsProcessedAttributeValue, oracledbPhysicalReadBytesAttributeValue, oracledbPhysicalWriteBytesAttributeValue, oracledbProcedureFirstLoadTimeAttributeValue, oracledbProcedureLastActiveTimeAttributeValue)
 }
 
 // RecordDbServerQuerySampleEvent adds a log record of db.server.query_sample event.
