@@ -2740,6 +2740,77 @@ func TestBuildProcedureMetricsSQL(t *testing.T) {
 	}
 }
 
+// TestCDBRootDictionaryJoinsMatchOnConID guards every dictionary join that
+// resolves an object id against the container it belongs to. Object ids are only
+// unique within a container, so from a CDB root a join on object id alone can
+// attribute a PDB row to an unrelated root object, and an aggregate grouped by
+// object id alone merges values across containers.
+func TestCDBRootDictionaryJoinsMatchOnConID(t *testing.T) {
+	tests := []struct {
+		name       string
+		build      func(s *oracleScraper) string
+		cdbViews   []string
+		nonCDBView string
+		// conIDJoins are substrings that must each appear in the CDB variant.
+		conIDJoins []string
+	}{
+		{
+			name:       "top query",
+			build:      func(s *oracleScraper) string { return s.buildTopQuerySQL() },
+			cdbViews:   []string{"CDB_PROCEDURES"},
+			nonCDBView: "DBA_PROCEDURES",
+			conIDJoins: []string{
+				"P.CON_ID    = S.CON_ID",
+				"PE.CON_ID     = S.CON_ID",
+				"GROUP BY PROGRAM_ID, CON_ID",
+			},
+		},
+		{
+			name:       "query sample",
+			build:      func(s *oracleScraper) string { return s.buildQuerySampleSQL() },
+			cdbViews:   []string{"CDB_PROCEDURES", "CDB_OBJECTS"},
+			nonCDBView: "DBA_PROCEDURES",
+			conIDJoins: []string{
+				"P.CON_ID    = S.CON_ID",
+				"O.CON_ID    = S.CON_ID",
+			},
+		},
+		{
+			name:       "procedure metrics",
+			build:      func(s *oracleScraper) string { return s.buildProcedureMetricsSQL() },
+			cdbViews:   []string{"CDB_PROCEDURES"},
+			nonCDBView: "DBA_PROCEDURES",
+			conIDJoins: []string{"P.CON_ID    = S.CON_ID"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			cdbSQL := test.build(&oracleScraper{isCDBRoot: true})
+			for _, view := range test.cdbViews {
+				assert.Contains(t, cdbSQL, view, "CDB-root variant must read cross-container dictionary views")
+			}
+			for _, join := range test.conIDJoins {
+				assert.Contains(t, cdbSQL, join,
+					"CDB-root variant must qualify the join/grouping by CON_ID")
+			}
+
+			nonCDBSQL := test.build(&oracleScraper{isCDBRoot: false})
+			assert.Contains(t, nonCDBSQL, test.nonCDBView,
+				"non-root variant should keep the container-local dictionary view")
+			for _, view := range test.cdbViews {
+				assert.NotContains(t, nonCDBSQL, view)
+			}
+
+			// The two variants are interchangeable only if they take the same binds.
+			assert.Equal(t, strings.Count(nonCDBSQL, ":1"), strings.Count(cdbSQL, ":1"),
+				"variants must keep the same bind parameter contract")
+			assert.Equal(t, strings.Count(nonCDBSQL, ":2"), strings.Count(cdbSQL, ":2"),
+				"variants must keep the same bind parameter contract")
+		})
+	}
+}
+
 func TestScraper_ScrapeProcedureMetricsLogs(t *testing.T) {
 	tests := []struct {
 		name       string

@@ -309,10 +309,14 @@ const (
 var (
 	//go:embed templates/oracleQuerySampleSql.tmpl
 	samplesQuery string
+	//go:embed templates/oracleQuerySampleCDBSql.tmpl
+	samplesCDBQuery string
 	//go:embed templates/oracleQuerySampleStatsSql.tmpl
 	samplesStatsQuery string
 	//go:embed templates/oracleQueryMetricsAndTextSql.tmpl
 	oracleQueryMetricsSQL string
+	//go:embed templates/oracleQueryMetricsAndTextCDBSql.tmpl
+	oracleQueryMetricsCDBSQL string
 	//go:embed templates/oracleQueryPlanSql.tmpl
 	oracleQueryPlanDataSQL string
 	//go:embed templates/oracleSessionEventSql.tmpl
@@ -463,6 +467,30 @@ func (s *oracleScraper) buildProcedureMetricsSQL() string {
 	return oracleProcedureMetricsSQL
 }
 
+// buildTopQuerySQL selects the top query variant for the connection type. The
+// dictionary joins that resolve a statement's owning procedure key on object id,
+// which is only unique within a container, so from a CDB root they must also
+// match on CON_ID or a PDB statement can be attributed to an unrelated root
+// procedure. The PROCEDURE_EXECUTIONS subquery needs CON_ID in its GROUP BY for
+// the same reason, otherwise executions of colliding object ids in different
+// PDBs are merged into one value.
+func (s *oracleScraper) buildTopQuerySQL() string {
+	if s.isCDBRoot {
+		return oracleQueryMetricsCDBSQL
+	}
+	return oracleQueryMetricsSQL
+}
+
+// buildQuerySampleSQL selects the query sample variant for the connection type.
+// From a CDB root both the procedure lookup and the blocked-object lookup must
+// match on CON_ID; see buildTopQuerySQL for why.
+func (s *oracleScraper) buildQuerySampleSQL() string {
+	if s.isCDBRoot {
+		return samplesCDBQuery
+	}
+	return samplesQuery
+}
+
 func (s *oracleScraper) start(ctx context.Context, _ component.Host) error {
 	s.startTime = pcommon.NewTimestampFromTime(time.Now())
 	var err error
@@ -498,7 +526,7 @@ func (s *oracleScraper) start(ctx context.Context, _ component.Host) error {
 	}
 	s.tablespaceUsageClient = s.clientProviderFunc(s.db, s.buildTablespaceSQL(), s.logger)
 	s.systemResourceLimitsClient = s.clientProviderFunc(s.db, systemResourceLimitsSQL, s.logger)
-	s.samplesQueryClient = s.clientProviderFunc(s.db, samplesQuery, s.logger)
+	s.samplesQueryClient = s.clientProviderFunc(s.db, s.buildQuerySampleSQL(), s.logger)
 	s.sessionEventClient = s.clientProviderFunc(s.db, sessionEventQuery, s.logger)
 	s.dataDictHitRatioClient = s.clientProviderFunc(s.db, dataDictHitRatioSQL, s.logger)
 	s.osStatClient = s.clientProviderFunc(s.db, osStatSQL, s.logger)
@@ -1787,7 +1815,7 @@ func (s *oracleScraper) scrapeLogs(ctx context.Context) (plog.Logs, error) {
 func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Logs, collectionTime time.Time, lookbackTimeSeconds int) error {
 	var errs []error
 	// get metrics and query texts from DB
-	s.oracleQueryMetricsClient = s.clientProviderFunc(s.db, oracleQueryMetricsSQL, s.logger)
+	s.oracleQueryMetricsClient = s.clientProviderFunc(s.db, s.buildTopQuerySQL(), s.logger)
 	metricRows, metricError := s.oracleQueryMetricsClient.metricRows(ctx, lookbackTimeSeconds, s.topQueryCollectCfg.MaxQuerySampleCount)
 
 	if metricError != nil {
