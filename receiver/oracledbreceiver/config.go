@@ -54,7 +54,7 @@ type SessionWaitEvent struct {
 
 type WaitChain struct {
 	MaxRowsPerQuery uint64 `mapstructure:"max_rows_per_query"`
-		// prevent unkeyed literal initialization
+	// prevent unkeyed literal initialization
 	_ struct{}
 }
 

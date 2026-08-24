@@ -346,42 +346,42 @@ type dbProviderFunc func() (*sql.DB, error)
 type clientProviderFunc func(*sql.DB, string, *zap.Logger) dbClient
 
 type oracleScraper struct {
-	statsClient                dbClient
-	tablespaceUsageClient      dbClient
-	systemResourceLimitsClient dbClient
-	sessionCountClient         dbClient
-	oracleQueryMetricsClient   dbClient
-	oraclePlanDataClient       dbClient
-	samplesQueryClient         dbClient
-	sessionEventClient         dbClient
-	waitChainClient            dbClient
-	dataDictHitRatioClient     dbClient
-	osStatClient               dbClient
-	recycleBinSizeClient       dbClient
-	sgaInfoClient              dbClient
-	storageUsageClient         dbClient
-	sysmetricClient            dbClient
-	db                         *sql.DB
-	clientProviderFunc         clientProviderFunc
-	mb                         *metadata.MetricsBuilder
-	lb                         *metadata.LogsBuilder
-	dbProviderFunc             dbProviderFunc
-	logger                     *zap.Logger
-	id                         component.ID
-	instanceName               string
-	hostName                   string
-	scrapeCfg                  scraperhelper.ControllerConfig
-	startTime                  pcommon.Timestamp
-	metricsBuilderConfig       metadata.MetricsBuilderConfig
-	logsBuilderConfig          metadata.LogsBuilderConfig
-	metricCache                *lru.Cache[string, map[string]int64]
-	topQueryCollectCfg         TopQueryCollection
-	obfuscator                 *obfuscator
-	querySampleCfg             QuerySample
-	sessionWaitEventCfg        SessionWaitEvent
-	waitChainCfg               WaitChain
-	serviceInstanceID          string
-	lastExecutionTimestamp     time.Time
+	statsClient                   dbClient
+	tablespaceUsageClient         dbClient
+	systemResourceLimitsClient    dbClient
+	sessionCountClient            dbClient
+	oracleQueryMetricsClient      dbClient
+	oraclePlanDataClient          dbClient
+	samplesQueryClient            dbClient
+	sessionEventClient            dbClient
+	waitChainClient               dbClient
+	dataDictHitRatioClient        dbClient
+	osStatClient                  dbClient
+	recycleBinSizeClient          dbClient
+	sgaInfoClient                 dbClient
+	storageUsageClient            dbClient
+	sysmetricClient               dbClient
+	db                            *sql.DB
+	clientProviderFunc            clientProviderFunc
+	mb                            *metadata.MetricsBuilder
+	lb                            *metadata.LogsBuilder
+	dbProviderFunc                dbProviderFunc
+	logger                        *zap.Logger
+	id                            component.ID
+	instanceName                  string
+	hostName                      string
+	scrapeCfg                     scraperhelper.ControllerConfig
+	startTime                     pcommon.Timestamp
+	metricsBuilderConfig          metadata.MetricsBuilderConfig
+	logsBuilderConfig             metadata.LogsBuilderConfig
+	metricCache                   *lru.Cache[string, map[string]int64]
+	topQueryCollectCfg            TopQueryCollection
+	obfuscator                    *obfuscator
+	querySampleCfg                QuerySample
+	sessionWaitEventCfg           SessionWaitEvent
+	waitChainCfg                  WaitChain
+	serviceInstanceID             string
+	lastExecutionTimestamp        time.Time
 	oracleProcedureMetricsClient  dbClient
 	procedureMetricCache          *lru.Cache[string, map[string]int64]
 	procedureMetricsCfg           ProcedureMetrics
@@ -389,9 +389,9 @@ type oracleScraper struct {
 	// instanceInfo holds Oracle deployment metadata detected once at start().
 	// All fields are best-effort: detection failures are logged and leave the
 	// field at its zero value; they never prevent the receiver from starting.
-	instanceInfo         oracleInstanceInfo
-	isCDBRoot            bool
-	sysmetricCDBClient   dbClient
+	instanceInfo       oracleInstanceInfo
+	isCDBRoot          bool
+	sysmetricCDBClient dbClient
 }
 
 func newScraper(metricsBuilder *metadata.MetricsBuilder, metricsBuilderConfig metadata.MetricsBuilderConfig, scrapeCfg scraperhelper.ControllerConfig, logger *zap.Logger, providerFunc dbProviderFunc, clientProviderFunc clientProviderFunc, instanceName, hostName string) (scraper.Metrics, error) {
@@ -411,24 +411,25 @@ func newScraper(metricsBuilder *metadata.MetricsBuilder, metricsBuilderConfig me
 
 func newLogsScraper(logsBuilder *metadata.LogsBuilder, logsBuilderConfig metadata.LogsBuilderConfig, scrapeCfg scraperhelper.ControllerConfig,
 	logger *zap.Logger, providerFunc dbProviderFunc, clientProviderFunc clientProviderFunc, instanceName string, metricCache *lru.Cache[string, map[string]int64],
-	topQueryCollectCfg TopQueryCollection, querySampleCfg QuerySample, sessionWaitEventCfg SessionWaitEvent, waitChainCfg WaitChain, hostName string, procedureMetricCache *lru.Cache[string, map[string]int64], procedureMetricsCfg ProcedureMetrics
+	topQueryCollectCfg TopQueryCollection, querySampleCfg QuerySample, sessionWaitEventCfg SessionWaitEvent, waitChainCfg WaitChain, hostName string,
+	procedureMetricCache *lru.Cache[string, map[string]int64], procedureMetricsCfg ProcedureMetrics,
 ) (scraper.Logs, error) {
 	s := &oracleScraper{
-		lb:                  logsBuilder,
-		logsBuilderConfig:   logsBuilderConfig,
-		scrapeCfg:           scrapeCfg,
-		logger:              logger,
-		dbProviderFunc:      providerFunc,
-		clientProviderFunc:  clientProviderFunc,
-		instanceName:        instanceName,
-		metricCache:         metricCache,
-		topQueryCollectCfg:  topQueryCollectCfg,
-		querySampleCfg:      querySampleCfg,
-		sessionWaitEventCfg: sessionWaitEventCfg,
-		waitChainCfg:        waitChainCfg,
-		hostName:            hostName,
-		obfuscator:          newObfuscator(),
-		serviceInstanceID:   getInstanceID(instanceName, logger),
+		lb:                   logsBuilder,
+		logsBuilderConfig:    logsBuilderConfig,
+		scrapeCfg:            scrapeCfg,
+		logger:               logger,
+		dbProviderFunc:       providerFunc,
+		clientProviderFunc:   clientProviderFunc,
+		instanceName:         instanceName,
+		metricCache:          metricCache,
+		topQueryCollectCfg:   topQueryCollectCfg,
+		querySampleCfg:       querySampleCfg,
+		sessionWaitEventCfg:  sessionWaitEventCfg,
+		waitChainCfg:         waitChainCfg,
+		hostName:             hostName,
+		obfuscator:           newObfuscator(),
+		serviceInstanceID:    getInstanceID(instanceName, logger),
 		procedureMetricCache: procedureMetricCache,
 		procedureMetricsCfg:  procedureMetricsCfg,
 	}
@@ -1753,7 +1754,7 @@ func (s *oracleScraper) scrapeLogs(ctx context.Context) (plog.Logs, error) {
 			scrapeErrors = append(scrapeErrors, waitChainErrors)
 		}
 	}
-	
+
 	if s.logsBuilderConfig.Events.DbServerProcedureMetrics.Enabled {
 		currentCollectionTime := time.Now()
 		lookbackTimeCounter := s.calculateLookbackSeconds(s.lastProcedureMetricsTimestamp, s.procedureMetricsCfg.CollectionInterval)
