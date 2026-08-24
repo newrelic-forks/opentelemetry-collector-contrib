@@ -11043,6 +11043,12 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 	if mbc.ResourceAttributes.SqlserverDatabaseName.MetricsExclude != nil {
 		mb.resourceAttributeExcludeFilter["sqlserver.database.name"] = filter.CreateFilter(mbc.ResourceAttributes.SqlserverDatabaseName.MetricsExclude)
 	}
+	if mbc.ResourceAttributes.SqlserverHostName.MetricsInclude != nil {
+		mb.resourceAttributeIncludeFilter["sqlserver.host.name"] = filter.CreateFilter(mbc.ResourceAttributes.SqlserverHostName.MetricsInclude)
+	}
+	if mbc.ResourceAttributes.SqlserverHostName.MetricsExclude != nil {
+		mb.resourceAttributeExcludeFilter["sqlserver.host.name"] = filter.CreateFilter(mbc.ResourceAttributes.SqlserverHostName.MetricsExclude)
+	}
 	if mbc.ResourceAttributes.SqlserverInstanceName.MetricsInclude != nil {
 		mb.resourceAttributeIncludeFilter["sqlserver.instance.name"] = filter.CreateFilter(mbc.ResourceAttributes.SqlserverInstanceName.MetricsInclude)
 	}
