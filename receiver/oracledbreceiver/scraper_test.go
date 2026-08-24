@@ -2708,16 +2708,20 @@ func TestScraper_ScrapeProcedureMetricsLogs(t *testing.T) {
 		name       string
 		dbclientFn func(db *sql.DB, s string, logger *zap.Logger) dbClient
 		errWanted  string
+		// noRecordsWanted expects a successful scrape that emits nothing.
+		noRecordsWanted bool
 	}{
 		{
 			name:       "valid collection",
 			dbclientFn: procedureMetricsDbClientFn(t),
 		}, {
+			// No PL/SQL program unit was active in the lookback window. This is a
+			// normal condition, not a scrape error.
 			name: "No metrics collected",
 			dbclientFn: func(_ *sql.DB, _ string, _ *zap.Logger) dbClient {
 				return &fakeDbClient{Responses: [][]metricRow{nil}}
 			},
-			errWanted: `no data returned from oracleProcedureMetricsClient`,
+			noRecordsWanted: true,
 		}, {
 			name: "Error on collecting metrics",
 			dbclientFn: func(_ *sql.DB, _ string, _ *zap.Logger) dbClient {
@@ -2747,6 +2751,12 @@ func TestScraper_ScrapeProcedureMetricsLogs(t *testing.T) {
 
 			if test.errWanted != "" {
 				require.EqualError(t, err, test.errWanted)
+				return
+			}
+
+			if test.noRecordsWanted {
+				require.NoError(t, err, "an empty result set should not be reported as a scrape error")
+				assert.Equal(t, 0, logs.ResourceLogs().Len(), "no log records should be emitted when no procedures were active")
 				return
 			}
 
