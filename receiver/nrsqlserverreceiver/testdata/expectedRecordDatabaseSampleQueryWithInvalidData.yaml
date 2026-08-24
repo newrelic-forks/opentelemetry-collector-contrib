@@ -55,6 +55,9 @@ resourceLogs:
               - key: sqlserver.blocking_session_id
                 value:
                   intValue: "0"
+              - key: db.query.text.normalized.hash
+                value:
+                  stringValue: ""
               - key: sqlserver.client.app.name
                 value:
                   stringValue: SSMS
@@ -112,12 +115,12 @@ resourceLogs:
               - key: sqlserver.session.duration
                 value:
                   doubleValue: 0
-              - key: sqlserver.session_id
-                value:
-                  intValue: "0"
               - key: sqlserver.session.start_time
                 value:
                   stringValue: "2025-02-12T15:00:00.000+08:00"
+              - key: sqlserver.session_id
+                value:
+                  intValue: "0"
               - key: sqlserver.session_status
                 value:
                   stringValue: running
@@ -157,12 +160,9 @@ resourceLogs:
               - key: db.query.comment_tags.nr_service_guid
                 value:
                   stringValue: ""
-              - key: db.query.text.normalized.hash
-                value:
-                  stringValue: ""
             body: {}
             eventName: db.server.query_sample
-            timeUnixNano: "1779132411124301000"
+            timeUnixNano: "1787579311347846000"
         scope:
           name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
           version: latest

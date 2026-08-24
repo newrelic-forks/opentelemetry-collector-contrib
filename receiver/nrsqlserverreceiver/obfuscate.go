@@ -133,7 +133,18 @@ func extractCleanText(fullText string, statementStartOffset, statementEndOffset 
 	return statement
 }
 
-var obfuscateSQLConfig = obfuscate.SQLConfig{DBMS: "mssql"}
+var obfuscateSQLConfig = obfuscate.SQLConfig{
+	DBMS: "mssql",
+	// ObfuscateAndNormalize routes obfuscation through the go-sqllexer
+	// engine, which is more tolerant than the legacy tokenizer: it does
+	// not error on statements that reduce to nothing after comments are
+	// stripped (returning an empty result instead of "result is empty"),
+	// so comment-only statements no longer spam error logs or drop the
+	// row. It also normalizes the output (collapsing whitespace and
+	// stripping comments/aliases), which yields more stable query
+	// signatures across semantically identical statements.
+	ObfuscationMode: obfuscate.ObfuscateAndNormalize,
+}
 
 type obfuscator obfuscate.Obfuscator
 
