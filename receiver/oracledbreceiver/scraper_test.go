@@ -2703,6 +2703,43 @@ func procedureMetricsDbClientFn(t *testing.T) func(db *sql.DB, s string, logger 
 	}
 }
 
+// TestBuildProcedureMetricsSQL verifies the CDB-root variant is selected when
+// connected to a CDB root. DBA_PROCEDURES only exposes the root container's
+// procedures, so a root connection must use CDB_PROCEDURES matched on CON_ID or
+// every PDB-owned procedure is silently dropped by the join.
+func TestBuildProcedureMetricsSQL(t *testing.T) {
+	tests := []struct {
+		name          string
+		isCDBRoot     bool
+		wantView      string
+		wantConIDJoin bool
+	}{
+		{name: "CDB root uses CDB_PROCEDURES", isCDBRoot: true, wantView: "CDB_PROCEDURES", wantConIDJoin: true},
+		{name: "non-root uses DBA_PROCEDURES", isCDBRoot: false, wantView: "DBA_PROCEDURES", wantConIDJoin: false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			scrpr := oracleScraper{isCDBRoot: test.isCDBRoot}
+			got := scrpr.buildProcedureMetricsSQL()
+
+			assert.Contains(t, got, test.wantView)
+			if test.wantConIDJoin {
+				assert.Contains(t, got, "P.CON_ID    = S.CON_ID",
+					"CDB variant must match on CON_ID; object ids are only unique within a container")
+				assert.NotContains(t, got, "FROM   DBA_PROCEDURES")
+			} else {
+				assert.NotContains(t, got, "CDB_PROCEDURES")
+			}
+
+			// Both variants must keep the same bind parameter contract, since the
+			// caller passes (lookbackSeconds, topProcedureCount) positionally.
+			assert.Contains(t, got, "NUMTODSINTERVAL(:1, 'SECOND')")
+			assert.Contains(t, got, "FETCH FIRST :2 ROWS ONLY")
+		})
+	}
+}
+
 func TestScraper_ScrapeProcedureMetricsLogs(t *testing.T) {
 	tests := []struct {
 		name       string

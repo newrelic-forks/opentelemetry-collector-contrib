@@ -322,6 +322,8 @@ var (
 	waitChainQuery string
 	//go:embed templates/oracleProcedureMetricsSql.tmpl
 	oracleProcedureMetricsSQL string
+	//go:embed templates/oracleProcedureMetricsCDBSql.tmpl
+	oracleProcedureMetricsCDBSQL string
 )
 
 // sgaComponentNames maps V$SGAINFO.NAME values to the snake_case enum keys
@@ -450,6 +452,19 @@ func (s *oracleScraper) buildTablespaceSQL() string {
 	default:
 		return tablespaceUsageSQL
 	}
+}
+
+// buildProcedureMetricsSQL selects the procedure metrics query variant for the
+// connection type. From a CDB root, DBA_PROCEDURES only exposes the root
+// container's procedures, so PDB-owned procedures would be dropped by the join
+// to V$SQL (which does report cursors for every container). CDB_PROCEDURES
+// covers all containers, matched on CON_ID as well as OBJECT_ID because object
+// ids are only unique within a container.
+func (s *oracleScraper) buildProcedureMetricsSQL() string {
+	if s.isCDBRoot {
+		return oracleProcedureMetricsCDBSQL
+	}
+	return oracleProcedureMetricsSQL
 }
 
 func (s *oracleScraper) start(ctx context.Context, _ component.Host) error {
@@ -1985,7 +2000,7 @@ func getProcedureMetricNames() []string {
 func (s *oracleScraper) collectProcedureMetrics(ctx context.Context, logs plog.Logs, collectionTime time.Time, lookbackTimeSeconds int) error {
 	var errs []error
 	// get aggregated procedure metrics from DB
-	s.oracleProcedureMetricsClient = s.clientProviderFunc(s.db, oracleProcedureMetricsSQL, s.logger)
+	s.oracleProcedureMetricsClient = s.clientProviderFunc(s.db, s.buildProcedureMetricsSQL(), s.logger)
 	metricRows, metricError := s.oracleProcedureMetricsClient.metricRows(ctx, lookbackTimeSeconds, s.procedureMetricsCfg.TopProcedureCount)
 
 	if metricError != nil {
