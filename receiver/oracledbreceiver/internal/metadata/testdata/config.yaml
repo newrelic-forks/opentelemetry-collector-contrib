@@ -349,6 +349,8 @@ all_set:
       enabled: true
       attributes: ["oracle.db.pdb"]
   events:
+    db.server.procedure_metrics:
+      enabled: true
     db.server.query_sample:
       enabled: true
     db.server.session.wait_sample:
@@ -726,6 +728,8 @@ reaggregate_set:
       enabled: true
       attributes: []
   events:
+    db.server.procedure_metrics:
+      enabled: true
     db.server.query_sample:
       enabled: true
     db.server.session.wait_sample:
@@ -1103,6 +1107,8 @@ none_set:
       enabled: false
       attributes: ["oracle.db.pdb"]
   events:
+    db.server.procedure_metrics:
+      enabled: false
     db.server.query_sample:
       enabled: false
     db.server.session.wait_sample:

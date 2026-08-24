@@ -296,11 +296,15 @@ const (
 	objectNameAttr  = "PROCEDURE_NAME"
 	objectTypeAttr  = "PROCEDURE_TYPE"
 	commandTypeAttr = "COMMAND_TYPE"
+	schemaNameAttr  = "SCHEMA_NAME"
 
 	// Plan metadata columns
 	firstLoadTimeAttr = "FIRST_LOAD_TIME"
 	lastLoadTimeAttr  = "LAST_LOAD_TIME"
 	planHashValueAttr = "PLAN_HASH_VALUE"
+
+	// Procedure metrics columns
+	lastActiveTimeAttr = "LAST_ACTIVE_TIME"
 )
 
 var (
@@ -316,6 +320,8 @@ var (
 	sessionEventQuery string
 	//go:embed templates/oracleWaitChainSql.tmpl
 	waitChainQuery string
+	//go:embed templates/oracleProcedureMetricsSql.tmpl
+	oracleProcedureMetricsSQL string
 )
 
 // sgaComponentNames maps V$SGAINFO.NAME values to the snake_case enum keys
@@ -376,6 +382,10 @@ type oracleScraper struct {
 	waitChainCfg               WaitChain
 	serviceInstanceID          string
 	lastExecutionTimestamp     time.Time
+	oracleProcedureMetricsClient  dbClient
+	procedureMetricCache          *lru.Cache[string, map[string]int64]
+	procedureMetricsCfg           ProcedureMetrics
+	lastProcedureMetricsTimestamp time.Time
 	// instanceInfo holds Oracle deployment metadata detected once at start().
 	// All fields are best-effort: detection failures are logged and leave the
 	// field at its zero value; they never prevent the receiver from starting.
@@ -401,7 +411,7 @@ func newScraper(metricsBuilder *metadata.MetricsBuilder, metricsBuilderConfig me
 
 func newLogsScraper(logsBuilder *metadata.LogsBuilder, logsBuilderConfig metadata.LogsBuilderConfig, scrapeCfg scraperhelper.ControllerConfig,
 	logger *zap.Logger, providerFunc dbProviderFunc, clientProviderFunc clientProviderFunc, instanceName string, metricCache *lru.Cache[string, map[string]int64],
-	topQueryCollectCfg TopQueryCollection, querySampleCfg QuerySample, sessionWaitEventCfg SessionWaitEvent, waitChainCfg WaitChain, hostName string,
+	topQueryCollectCfg TopQueryCollection, querySampleCfg QuerySample, sessionWaitEventCfg SessionWaitEvent, waitChainCfg WaitChain, hostName string, procedureMetricCache *lru.Cache[string, map[string]int64], procedureMetricsCfg ProcedureMetrics
 ) (scraper.Logs, error) {
 	s := &oracleScraper{
 		lb:                  logsBuilder,
@@ -419,6 +429,8 @@ func newLogsScraper(logsBuilder *metadata.LogsBuilder, logsBuilderConfig metadat
 		hostName:            hostName,
 		obfuscator:          newObfuscator(),
 		serviceInstanceID:   getInstanceID(instanceName, logger),
+		procedureMetricCache: procedureMetricCache,
+		procedureMetricsCfg:  procedureMetricsCfg,
 	}
 	return scraper.NewLogs(s.scrapeLogs, scraper.WithShutdown(s.shutdown), scraper.WithStart(s.start))
 }
@@ -1709,7 +1721,7 @@ func (s *oracleScraper) scrapeLogs(ctx context.Context) (plog.Logs, error) {
 
 	if s.logsBuilderConfig.Events.DbServerTopQuery.Enabled {
 		currentCollectionTime := time.Now()
-		lookbackTimeCounter := s.calculateLookbackSeconds()
+		lookbackTimeCounter := s.calculateLookbackSeconds(s.lastExecutionTimestamp, s.topQueryCollectCfg.CollectionInterval)
 		if lookbackTimeCounter < int(s.topQueryCollectCfg.CollectionInterval.Seconds()) {
 			s.logger.Debug("Skipping the collection of top queries because collection interval has not yet elapsed.")
 		} else {
@@ -1739,6 +1751,20 @@ func (s *oracleScraper) scrapeLogs(ctx context.Context) (plog.Logs, error) {
 		waitChainErrors := s.collectWaitChains(ctx, logs)
 		if waitChainErrors != nil {
 			scrapeErrors = append(scrapeErrors, waitChainErrors)
+		}
+	}
+	
+	if s.logsBuilderConfig.Events.DbServerProcedureMetrics.Enabled {
+		currentCollectionTime := time.Now()
+		lookbackTimeCounter := s.calculateLookbackSeconds(s.lastProcedureMetricsTimestamp, s.procedureMetricsCfg.CollectionInterval)
+		if lookbackTimeCounter < int(s.procedureMetricsCfg.CollectionInterval.Seconds()) {
+			s.logger.Debug("Skipping the collection of procedure metrics because collection interval has not yet elapsed.")
+		} else {
+			procedureCollectionErrors := s.collectProcedureMetrics(ctx, logs, currentCollectionTime, lookbackTimeCounter)
+			if procedureCollectionErrors != nil {
+				scrapeErrors = append(scrapeErrors, procedureCollectionErrors)
+			}
+			s.lastProcedureMetricsTimestamp = currentCollectionTime
 		}
 	}
 
@@ -1916,6 +1942,160 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 	hitCount := len(hits)
 	if hitCount > 0 {
 		s.logger.Debug("Log records for this scrape", zap.Int("count", hitCount))
+	}
+
+	s.lb.Emit(metadata.WithLogsResource(rb.Emit())).ResourceLogs().MoveAndAppendTo(logs.ResourceLogs())
+
+	return errors.Join(errs...)
+}
+
+type procedureMetricCacheHit struct {
+	schemaName     string
+	procedureName  string
+	procedureType  string
+	programID      int64
+	dbNamespace    string
+	service        string
+	firstLoadTime  string
+	lastActiveTime string
+	metrics        map[string]int64
+}
+
+// getProcedureMetricNames returns the cumulative V$SQL counters aggregated per
+// procedure that are delta-computed between scrapes.
+func getProcedureMetricNames() []string {
+	return []string{
+		queryExecutionMetric, cpuTimeMetric, elapsedTimeMetric, bufferGetsMetric,
+		queryDiskReadsMetric, queryDirectWritesMetric, rowsProcessedMetric,
+		physicalReadBytesMetric, physicalWriteBytesMetric,
+	}
+}
+
+func (s *oracleScraper) collectProcedureMetrics(ctx context.Context, logs plog.Logs, collectionTime time.Time, lookbackTimeSeconds int) error {
+	var errs []error
+	// get aggregated procedure metrics from DB
+	s.oracleProcedureMetricsClient = s.clientProviderFunc(s.db, oracleProcedureMetricsSQL, s.logger)
+	metricRows, metricError := s.oracleProcedureMetricsClient.metricRows(ctx, lookbackTimeSeconds, s.procedureMetricsCfg.TopProcedureCount)
+
+	if metricError != nil {
+		return fmt.Errorf("error executing oracleProcedureMetricsSQL: %w", metricError)
+	}
+	if len(metricRows) == 0 {
+		return errors.New("no data returned from oracleProcedureMetricsClient")
+	}
+
+	metricNames := getProcedureMetricNames()
+	var hits []procedureMetricCacheHit
+	var cacheUpdates, discardedHits int
+	for _, row := range metricRows {
+		newCacheVal := make(map[string]int64, len(metricNames))
+		for _, columnName := range metricNames {
+			val := row[columnName]
+			valInt64, err := strconv.ParseInt(val, 10, 64)
+			if err != nil {
+				errs = append(errs, err)
+			} else {
+				newCacheVal[columnName] = valInt64
+			}
+		}
+
+		cacheKey := fmt.Sprintf("%v:%v", row[objectIDAttr], row[dbNamespaceAttr])
+		// if we have a cache hit and the procedure doesn't belong to top N, cache is updated anyway
+		// as a result, once it finally makes its way to the top N procedures, only the latest delta will be sent downstream
+		if oldCacheVal, ok := s.procedureMetricCache.Get(cacheKey); ok {
+			hit := procedureMetricCacheHit{
+				schemaName:     row[schemaNameAttr],
+				procedureName:  row[objectNameAttr],
+				procedureType:  row[objectTypeAttr],
+				dbNamespace:    row[dbNamespaceAttr],
+				service:        row[serviceAttr],
+				firstLoadTime:  row[firstLoadTimeAttr],
+				lastActiveTime: row[lastActiveTimeAttr],
+				metrics:        make(map[string]int64, len(metricNames)),
+			}
+			if row[objectIDAttr] != "" {
+				hit.programID, _ = strconv.ParseInt(row[objectIDAttr], 10, 64)
+			}
+
+			var possiblePurge bool
+			for _, columnName := range metricNames {
+				delta := newCacheVal[columnName] - oldCacheVal[columnName]
+
+				// if any of the deltas is less than zero, a cursor belonging to this procedure was likely purged from the shared pool
+				if delta < 0 {
+					possiblePurge = true
+					break
+				}
+
+				hit.metrics[columnName] = delta
+			}
+
+			// skip if possible purge or no new executions since last scrape
+			if !possiblePurge && hit.metrics[queryExecutionMetric] > 0 {
+				hits = append(hits, hit)
+			} else {
+				discardedHits++
+			}
+		}
+		s.procedureMetricCache.Add(cacheKey, newCacheVal)
+		cacheUpdates++
+	}
+
+	s.logger.Debug("Procedure metric cache update", zap.Int("update-count", cacheUpdates), zap.Int("new-size", s.procedureMetricCache.Len()))
+
+	if len(hits) == 0 {
+		s.logger.Info("No procedure metric log records for this scrape")
+		return errors.Join(errs...)
+	}
+
+	s.logger.Debug("Procedure metric cache hits", zap.Int("hit-count", len(hits)), zap.Int("discarded-hit-count", discardedHits))
+
+	// order by elapsed time delta, descending
+	sort.Slice(hits, func(i, j int) bool {
+		return hits[i].metrics[elapsedTimeMetric] > hits[j].metrics[elapsedTimeMetric]
+	})
+
+	// keep at most maxHitSize
+	maxHitsSize := min(len(hits), int(s.procedureMetricsCfg.TopProcedureCount))
+	hits = hits[:maxHitsSize]
+
+	rb := s.setupResourceBuilder(s.lb.NewResourceBuilder())
+
+	for i := range hits {
+		hit := &hits[i]
+
+		var avgElapsedTime float64
+		if hit.metrics[queryExecutionMetric] > 0 {
+			avgElapsedTime = asFloatInSeconds(hit.metrics[elapsedTimeMetric]) / float64(hit.metrics[queryExecutionMetric])
+		}
+
+		s.lb.RecordDbServerProcedureMetricsEvent(context.Background(),
+			pcommon.NewTimestampFromTime(collectionTime),
+			dbSystemNameVal,
+			hit.dbNamespace,
+			s.hostName,
+			hit.service,
+			hit.programID,
+			hit.procedureName,
+			hit.procedureType,
+			hit.schemaName,
+			hit.metrics[queryExecutionMetric],
+			asFloatInSeconds(hit.metrics[cpuTimeMetric]),
+			asFloatInSeconds(hit.metrics[elapsedTimeMetric]),
+			avgElapsedTime,
+			hit.metrics[bufferGetsMetric],
+			hit.metrics[queryDiskReadsMetric],
+			hit.metrics[queryDirectWritesMetric],
+			hit.metrics[rowsProcessedMetric],
+			hit.metrics[physicalReadBytesMetric],
+			hit.metrics[physicalWriteBytesMetric],
+			hit.firstLoadTime,
+			hit.lastActiveTime)
+	}
+
+	hitCount := len(hits)
+	if hitCount > 0 {
+		s.logger.Debug("Procedure metric log records for this scrape", zap.Int("count", hitCount))
 	}
 
 	s.lb.Emit(metadata.WithLogsResource(rb.Emit())).ResourceLogs().MoveAndAppendTo(logs.ResourceLogs())
@@ -2356,9 +2536,9 @@ func constructInstanceID(host, port, service string) string {
 	return fmt.Sprintf("%s:%s", host, port)
 }
 
-func (s *oracleScraper) calculateLookbackSeconds() int {
-	if s.lastExecutionTimestamp.IsZero() {
-		return int(s.topQueryCollectCfg.CollectionInterval.Seconds())
+func (*oracleScraper) calculateLookbackSeconds(lastTimestamp time.Time, collectionInterval time.Duration) int {
+	if lastTimestamp.IsZero() {
+		return int(collectionInterval.Seconds())
 	}
 
 	// vsqlRefreshLag is the buffer to account for v$sql maximum refresh latency (5 seconds) + 5 seconds to offset any collection delays.
@@ -2367,5 +2547,5 @@ func (s *oracleScraper) calculateLookbackSeconds() int {
 
 	return int(math.Ceil(time.Now().
 		Add(vsqlRefreshLag).
-		Sub(s.lastExecutionTimestamp).Seconds()))
+		Sub(lastTimestamp).Seconds()))
 }

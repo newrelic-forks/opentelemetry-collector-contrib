@@ -12,6 +12,9 @@ exclude  = [
     "^https://docs.splunk.com",
     "^https://docs.honeycomb.io",
     "^https?://(www\\.)?github\\.com/newrelic/dbi"
+    "^https://www.ibm.com",
+    "^https://access.redhat.com",
+    "^https://superuser.com"
 ]
 
 # better to be safe and avoid failures
