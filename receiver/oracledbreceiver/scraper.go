@@ -1981,8 +1981,12 @@ func (s *oracleScraper) collectProcedureMetrics(ctx context.Context, logs plog.L
 	if metricError != nil {
 		return fmt.Errorf("error executing oracleProcedureMetricsSQL: %w", metricError)
 	}
+	// Zero rows is a normal condition: it just means no PL/SQL program unit was
+	// active in the lookback window. Don't surface it as a scrape error.
 	if len(metricRows) == 0 {
-		return errors.New("no data returned from oracleProcedureMetricsClient")
+		s.logger.Debug("No stored procedures active in the lookback window, skipping procedure metrics for this scrape",
+			zap.Int("lookback-seconds", lookbackTimeSeconds))
+		return nil
 	}
 
 	metricNames := getProcedureMetricNames()
