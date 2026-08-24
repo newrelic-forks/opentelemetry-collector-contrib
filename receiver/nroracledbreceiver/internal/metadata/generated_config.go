@@ -5849,7 +5849,9 @@ func (rac *ResourceAttributeConfig) Unmarshal(parser *confmap.Conf) error {
 
 // ResourceAttributesConfig provides config for nroracledb resource attributes.
 type ResourceAttributesConfig struct {
+	HostAddress          ResourceAttributeConfig `mapstructure:"host.address"`
 	HostName             ResourceAttributeConfig `mapstructure:"host.name"`
+	HostPort             ResourceAttributeConfig `mapstructure:"host.port"`
 	OracleDbHostingType  ResourceAttributeConfig `mapstructure:"oracle.db.hosting_type"`
 	OracleDbOpenMode     ResourceAttributeConfig `mapstructure:"oracle.db.open_mode"`
 	OracleDbRole         ResourceAttributeConfig `mapstructure:"oracle.db.role"`
@@ -5860,7 +5862,13 @@ type ResourceAttributesConfig struct {
 
 func DefaultResourceAttributesConfig() ResourceAttributesConfig {
 	return ResourceAttributesConfig{
+		HostAddress: ResourceAttributeConfig{
+			Enabled: true,
+		},
 		HostName: ResourceAttributeConfig{
+			Enabled: true,
+		},
+		HostPort: ResourceAttributeConfig{
 			Enabled: true,
 		},
 		OracleDbHostingType: ResourceAttributeConfig{

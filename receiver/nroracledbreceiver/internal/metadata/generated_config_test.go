@@ -592,7 +592,9 @@ func TestMetricsBuilderConfig(t *testing.T) {
 					},
 				},
 				ResourceAttributes: ResourceAttributesConfig{
+					HostAddress:          ResourceAttributeConfig{Enabled: true},
 					HostName:             ResourceAttributeConfig{Enabled: true},
+					HostPort:             ResourceAttributeConfig{Enabled: true},
 					OracleDbHostingType:  ResourceAttributeConfig{Enabled: true},
 					OracleDbOpenMode:     ResourceAttributeConfig{Enabled: true},
 					OracleDbRole:         ResourceAttributeConfig{Enabled: true},
@@ -1172,7 +1174,9 @@ func TestMetricsBuilderConfig(t *testing.T) {
 					},
 				},
 				ResourceAttributes: ResourceAttributesConfig{
+					HostAddress:          ResourceAttributeConfig{Enabled: false},
 					HostName:             ResourceAttributeConfig{Enabled: false},
+					HostPort:             ResourceAttributeConfig{Enabled: false},
 					OracleDbHostingType:  ResourceAttributeConfig{Enabled: false},
 					OracleDbOpenMode:     ResourceAttributeConfig{Enabled: false},
 					OracleDbRole:         ResourceAttributeConfig{Enabled: false},
@@ -2267,7 +2271,9 @@ func TestResourceAttributesConfig(t *testing.T) {
 		{
 			name: "all_set",
 			want: ResourceAttributesConfig{
+				HostAddress:          ResourceAttributeConfig{Enabled: true},
 				HostName:             ResourceAttributeConfig{Enabled: true},
+				HostPort:             ResourceAttributeConfig{Enabled: true},
 				OracleDbHostingType:  ResourceAttributeConfig{Enabled: true},
 				OracleDbOpenMode:     ResourceAttributeConfig{Enabled: true},
 				OracleDbRole:         ResourceAttributeConfig{Enabled: true},
@@ -2279,7 +2285,9 @@ func TestResourceAttributesConfig(t *testing.T) {
 		{
 			name: "none_set",
 			want: ResourceAttributesConfig{
+				HostAddress:          ResourceAttributeConfig{Enabled: false},
 				HostName:             ResourceAttributeConfig{Enabled: false},
+				HostPort:             ResourceAttributeConfig{Enabled: false},
 				OracleDbHostingType:  ResourceAttributeConfig{Enabled: false},
 				OracleDbOpenMode:     ResourceAttributeConfig{Enabled: false},
 				OracleDbRole:         ResourceAttributeConfig{Enabled: false},
