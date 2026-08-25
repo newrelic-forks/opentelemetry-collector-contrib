@@ -931,6 +931,7 @@ func (m *mySQLScraper) scrapeQuerySamples(_ context.Context, now pcommon.Timesta
 		_, normalizedQueryHash := sqlnormalizer.NormalizeSQLAndHash(obfuscatedQuery)
 
 		blockersJSON, blockerCount := m.deriveBlockingCount(sample.blockers)
+		waitTime := m.sanitizeWaitTime(sample.waitTime, sample.waitEventType, sample.waitEvent)
 
 		m.lb.RecordDbServerQuerySampleEvent(
 			recordCtx,
@@ -952,7 +953,7 @@ func (m *mySQLScraper) scrapeQuerySamples(_ context.Context, now pcommon.Timesta
 			sample.sessionStatus,
 			sample.sessionID,
 			sample.statementTimerWait,
-			sample.waitTime,
+			waitTime,
 			clientAddress,
 			clientPort,
 			networkPeerAddress,
@@ -1023,6 +1024,37 @@ func createCacheKey(dbName, digestTextHash string) string {
 func getDigestTextHash(digestText string) string {
 	sum := sha256.Sum256([]byte(digestText))
 	return hex.EncodeToString(sum[:])
+}
+
+// maxPlausibleIOSyncWaitSeconds bounds io/synch waits, which should never
+// legitimately be slow. Guards against a wait whose elapsed time is
+// estimated as (now - start) growing unbounded because it never gets marked
+// complete -- observed on Aurora MySQL's redo_log_flush wait, which never
+// resolves the way it does on standalone InnoDB.
+const maxPlausibleIOSyncWaitSeconds = 60.0
+
+// maxPlausibleLockWaitSeconds is far more permissive: lock waits (row/table
+// locks) can legitimately run for minutes -- that's what mysql.blocking.*
+// and "Queries waiting" exist to surface. This only backstops the same
+// overflow class from silently reaching a lock reading too.
+const maxPlausibleLockWaitSeconds = 86400.0
+
+// sanitizeWaitTime clamps an implausible mysql.events_waits_current.timer_wait
+// to zero. The ceiling depends on waitEventType ("io", "lock", "synch") since
+// what counts as implausible differs by wait category.
+func (m *mySQLScraper) sanitizeWaitTime(waitTime float64, waitEventType, waitEvent string) float64 {
+	ceiling := maxPlausibleIOSyncWaitSeconds
+	if waitEventType == "lock" {
+		ceiling = maxPlausibleLockWaitSeconds
+	}
+	if waitTime > ceiling {
+		m.logger.Warn("Discarding implausible mysql.events_waits_current.timer_wait reading",
+			zap.Float64("timer_wait_seconds", waitTime),
+			zap.String("mysql.wait_event_type", waitEventType),
+			zap.String("mysql.wait_event", waitEvent))
+		return 0
+	}
+	return waitTime
 }
 
 // blockerJSONEntry is one element of the raw blockers JSON produced by
