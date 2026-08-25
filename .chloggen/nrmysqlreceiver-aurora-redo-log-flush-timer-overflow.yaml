@@ -10,7 +10,7 @@ component: receiver/nrmysql
 note: Discard implausible `mysql.events_waits_current.timer_wait` readings instead of reporting them as-is.
 
 # Mandatory: One or more tracking issues related to the change. You can use the PR number here if no issue exists.
-issues: [266] # TODO: latest PR in this fork was #265 at time of writing -- confirm/replace once this PR is actually opened
+issues: [266]
 
 # (Optional) One or more lines of additional information to render under the primary note.
 # These lines will be padded with 2 spaces and then inserted directly into the document.

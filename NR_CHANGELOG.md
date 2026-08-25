@@ -16,6 +16,10 @@ including confirmation of which breaking changes from [CHANGELOG.md](./CHANGELOG
   instead of UTC, making it non-comparable to `postgresql.blocking.start_time` (which is UTC). Both
   are now UTC.
 
+- `receiver/nrmysql`: `mysql.events_waits_current.timer_wait` could report implausible values
+  (millions of seconds) for the `redo_log_flush` wait event on Aurora MySQL. Readings above a sanity
+  ceiling are now discarded instead of emitted as-is.
+
 ### 💡 Enhancements 💡
 
 - `receiver/nrsqlserver`: `server.address` and `server.port` are now emitted by default.
