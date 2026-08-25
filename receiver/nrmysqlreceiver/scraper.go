@@ -1027,10 +1027,10 @@ func getDigestTextHash(digestText string) string {
 }
 
 // maxPlausibleIOSyncWaitSeconds bounds io/synch waits, which should never
-// legitimately be slow. Backstop for a known overflow bug in the Tier 2
-// estimate: on Aurora MySQL, the redo_log_flush wait's completion side never
-// resolves the way it does on standalone InnoDB, so the estimate
-// (current_time - wait.timer_start) grows without bound and can overflow.
+// legitimately be slow. Guards against a wait whose elapsed time is
+// estimated as (now - start) growing unbounded because it never gets marked
+// complete -- observed on Aurora MySQL's redo_log_flush wait, which never
+// resolves the way it does on standalone InnoDB.
 const maxPlausibleIOSyncWaitSeconds = 60.0
 
 // maxPlausibleLockWaitSeconds is far more permissive: lock waits (row/table
