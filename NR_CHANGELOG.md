@@ -5,6 +5,21 @@ including confirmation of which breaking changes from [CHANGELOG.md](./CHANGELOG
 
 <!-- next version -->
 
+## v0.158.3
+
+### 🧰 Bug fixes 🧰
+
+- `receiver/nrsqlserver`: Skip emitting `db.server.query_sample`/`db.server.top_query` rows whose
+  query text is empty, instead of emitting an empty-text record.
+
+- `receiver/nrpostgresql`: `postgresql.backend_start` was emitted in the session's local timezone
+  instead of UTC, making it non-comparable to `postgresql.blocking.start_time` (which is UTC). Both
+  are now UTC.
+
+### 💡 Enhancements 💡
+
+- `receiver/nrsqlserver`: `server.address` and `server.port` are now emitted by default.
+
 ## v0.158.0
 
 ### 🛑 Breaking changes 🛑
