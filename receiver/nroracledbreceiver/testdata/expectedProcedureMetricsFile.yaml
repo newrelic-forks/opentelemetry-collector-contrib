@@ -30,7 +30,7 @@ resourceLogs:
                   intValue: "98765"
               - key: oracledb.procedure_name
                 value:
-                  stringValue: MY_PROCEDURE
+                  stringValue: ADMIN.MY_PROCEDURE
               - key: oracledb.procedure_type
                 value:
                   stringValue: PROCEDURE
