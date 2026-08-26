@@ -8,7 +8,7 @@ END
 SELECT TOP (%d)
     DB_NAME(ps.database_id) AS database_name,
     OBJECT_SCHEMA_NAME(ps.object_id, ps.database_id) AS schema_name,
-    OBJECT_NAME(ps.object_id, ps.database_id) AS procedure_name,
+    QUOTENAME(OBJECT_SCHEMA_NAME(ps.object_id, ps.database_id)) + N'.' + QUOTENAME(OBJECT_NAME(ps.object_id, ps.database_id)) AS procedure_name,
     CAST(ps.object_id AS nvarchar(50)) AS procedure_id,
     ps.database_id,
     ps.execution_count,
