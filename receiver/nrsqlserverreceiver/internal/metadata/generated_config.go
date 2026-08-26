@@ -5170,6 +5170,41 @@ func (rac *SqlserverDatabaseNameResourceAttributeConfig) Unmarshal(parser *confm
 	return nil
 }
 
+// SqlserverHostNameResourceAttributeConfig provides config for the sqlserver.host.name resource attribute.
+type SqlserverHostNameResourceAttributeConfig struct {
+	Enabled bool `mapstructure:"enabled"`
+	// OverrideValue allows users to override the value of this resource attribute.
+	OverrideValue *string `mapstructure:"override_value"`
+	// Experimental: MetricsInclude defines a list of filters for attribute values.
+	// If the list is not empty, only metrics with matching resource attribute values will be emitted.
+	MetricsInclude []filter.Config `mapstructure:"metrics_include"`
+	// Experimental: MetricsExclude defines a list of filters for attribute values.
+	// If the list is not empty, metrics with matching resource attribute values will not be emitted.
+	// MetricsInclude has higher priority than MetricsExclude.
+	MetricsExclude []filter.Config `mapstructure:"metrics_exclude"`
+	// Experimental: EventsInclude defines a list of filters for attribute values.
+	// If the list is not empty, only events with matching resource attribute values will be emitted.
+	EventsInclude []filter.Config `mapstructure:"events_include"`
+	// Experimental: EventsExclude defines a list of filters for attribute values.
+	// If the list is not empty, events with matching resource attribute values will not be emitted.
+	// EventsInclude has higher priority than EventsExclude.
+	EventsExclude []filter.Config `mapstructure:"events_exclude"`
+
+	enabledSetByUser bool
+}
+
+func (rac *SqlserverHostNameResourceAttributeConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+	err := parser.Unmarshal(rac)
+	if err != nil {
+		return err
+	}
+	rac.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
 // SqlserverInstanceNameResourceAttributeConfig provides config for the sqlserver.instance.name resource attribute.
 type SqlserverInstanceNameResourceAttributeConfig struct {
 	Enabled bool `mapstructure:"enabled"`
@@ -5215,6 +5250,7 @@ type ResourceAttributesConfig struct {
 	ServiceNamespace      ServiceNamespaceResourceAttributeConfig      `mapstructure:"service.namespace"`
 	SqlserverComputerName SqlserverComputerNameResourceAttributeConfig `mapstructure:"sqlserver.computer.name"`
 	SqlserverDatabaseName SqlserverDatabaseNameResourceAttributeConfig `mapstructure:"sqlserver.database.name"`
+	SqlserverHostName     SqlserverHostNameResourceAttributeConfig     `mapstructure:"sqlserver.host.name"`
 	SqlserverInstanceName SqlserverInstanceNameResourceAttributeConfig `mapstructure:"sqlserver.instance.name"`
 }
 
@@ -5224,10 +5260,10 @@ func DefaultResourceAttributesConfig() ResourceAttributesConfig {
 			Enabled: true,
 		},
 		ServerAddress: ServerAddressResourceAttributeConfig{
-			Enabled: false,
+			Enabled: true,
 		},
 		ServerPort: ServerPortResourceAttributeConfig{
-			Enabled: false,
+			Enabled: true,
 		},
 		ServiceInstanceID: ServiceInstanceIDResourceAttributeConfig{
 			Enabled: true,
@@ -5242,6 +5278,9 @@ func DefaultResourceAttributesConfig() ResourceAttributesConfig {
 			Enabled: false,
 		},
 		SqlserverDatabaseName: SqlserverDatabaseNameResourceAttributeConfig{
+			Enabled: true,
+		},
+		SqlserverHostName: SqlserverHostNameResourceAttributeConfig{
 			Enabled: true,
 		},
 		SqlserverInstanceName: SqlserverInstanceNameResourceAttributeConfig{
@@ -5277,6 +5316,9 @@ func (rac *ResourceAttributesConfig) applyOverrideValues(res pcommon.Resource) {
 	}
 	if rac.SqlserverDatabaseName.Enabled && rac.SqlserverDatabaseName.OverrideValue != nil {
 		res.Attributes().PutStr("sqlserver.database.name", *rac.SqlserverDatabaseName.OverrideValue)
+	}
+	if rac.SqlserverHostName.Enabled && rac.SqlserverHostName.OverrideValue != nil {
+		res.Attributes().PutStr("sqlserver.host.name", *rac.SqlserverHostName.OverrideValue)
 	}
 	if rac.SqlserverInstanceName.Enabled && rac.SqlserverInstanceName.OverrideValue != nil {
 		res.Attributes().PutStr("sqlserver.instance.name", *rac.SqlserverInstanceName.OverrideValue)

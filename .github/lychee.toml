@@ -11,10 +11,10 @@ exclude  = [
     "^https://www.vultr.com",
     "^https://docs.splunk.com",
     "^https://docs.honeycomb.io",
-    "^https?://(www\\.)?github\\.com/newrelic/dbi"
-    "^https://www.ibm.com",
+    "^https?://(www\\.)?github\\.com/newrelic/dbi",
     "^https://access.redhat.com",
-    "^https://superuser.com"
+    "^https://superuser.com",
+    "^https?://(www\\.)?ibm\\.com"
 ]
 
 # better to be safe and avoid failures

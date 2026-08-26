@@ -77,6 +77,13 @@ func (rb *ResourceBuilder) SetSqlserverDatabaseName(val string) {
 	}
 }
 
+// SetSqlserverHostName sets provided value as "sqlserver.host.name" attribute.
+func (rb *ResourceBuilder) SetSqlserverHostName(val string) {
+	if rb.config.SqlserverHostName.Enabled {
+		rb.res.Attributes().PutStr("sqlserver.host.name", val)
+	}
+}
+
 // SetSqlserverInstanceName sets provided value as "sqlserver.instance.name" attribute.
 func (rb *ResourceBuilder) SetSqlserverInstanceName(val string) {
 	if rb.config.SqlserverInstanceName.Enabled {
