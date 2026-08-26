@@ -4,7 +4,6 @@ package metadata
 
 import (
 	"context"
-
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/filter"
 	"go.opentelemetry.io/collector/pdata/pcommon"
@@ -50,6 +49,7 @@ func (e *eventDbServerProcedureMetrics) recordEvent(ctx context.Context, timesta
 	dp.Attributes().PutInt("oracledb.physical_write_bytes", oracledbPhysicalWriteBytesAttributeValue)
 	dp.Attributes().PutStr("oracledb.procedure.first_load_time", oracledbProcedureFirstLoadTimeAttributeValue)
 	dp.Attributes().PutStr("oracledb.procedure.last_active_time", oracledbProcedureLastActiveTimeAttributeValue)
+
 }
 
 // emit appends recorded event data to a events slice and prepares it for recording another set of log records.
