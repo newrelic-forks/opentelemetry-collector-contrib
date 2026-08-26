@@ -1,7 +1,7 @@
 [
     {
         "SCHEMA_NAME": "ADMIN",
-        "PROCEDURE_NAME": "MY_PROCEDURE",
+        "PROCEDURE_NAME": "ADMIN.MY_PROCEDURE",
         "PROCEDURE_TYPE": "PROCEDURE",
         "PROGRAM_ID": "98765",
         "DB_NAMESPACE": "ORCLPDB1",
