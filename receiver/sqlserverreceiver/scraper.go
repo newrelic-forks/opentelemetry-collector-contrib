@@ -162,6 +162,11 @@ func (s *sqlServerScraperHelper) ScrapeLogs(ctx context.Context) (plog.Logs, err
 	case getSQLServerQuerySamplesQuery():
 		isQuerySample = true
 		resources, err = s.recordDatabaseSampleQuery(ctx)
+	case getSQLServerProcedureMetricsQuery(s.config.ProcedureMetrics.TopProcedureCount, s.config.InstanceName):
+		resources, err = s.recordDatabaseProcedureMetrics(ctx)
+		if err != nil {
+			s.logger.Error("ProcedureMetrics: scrape failed", zap.Error(err))
+		}
 	default:
 		return plog.Logs{}, fmt.Errorf("Attempted to get logs from unsupported query: %s", s.sqlQuery)
 	}
@@ -2290,4 +2295,102 @@ func (s *sqlServerScraperHelper) recordDiskIOMetrics(ctx context.Context) error 
 	}
 
 	return errors.Join(errs...)
+}
+
+func (s *sqlServerScraperHelper) recordDatabaseProcedureMetrics(ctx context.Context) (pcommon.Resource, error) {
+	const (
+		colDatabaseName     = "database_name"
+		colSchemaName       = "schema_name"
+		colProcedureName    = "procedure_name"
+		colProcedureID      = "procedure_id"
+		colDatabaseID       = "database_id"
+		colExecutionCount   = "execution_count"
+		colTotalWorkerTime  = "total_worker_time"
+		colTotalElapsedTime = "total_elapsed_time"
+		colTotalPhysReads   = "total_physical_reads"
+		colTotalLogReads    = "total_logical_reads"
+		colTotalLogWrites   = "total_logical_writes"
+		colTotalSpills      = "total_spills"
+		colMinElapsedTime   = "min_elapsed_time"
+		colMaxElapsedTime   = "max_elapsed_time"
+		colLastExecTime     = "last_execution_time"
+	)
+
+	rows, err := s.client.QueryRows(ctx)
+	if err != nil {
+		return pcommon.Resource{}, err
+	}
+
+	var resources pcommon.Resource
+	var resourcesAdded bool
+	var errs []error
+	timestamp := pcommon.NewTimestampFromTime(time.Now())
+	dbSystemName := "mssql"
+
+	for _, row := range rows {
+		procedureID := row[colProcedureID]
+		databaseID := row[colDatabaseID]
+
+		executionCountRaw := s.retrieveValue(row, colExecutionCount, &errs, retrieveInt)
+		totalWorkerTimeRaw := s.retrieveValue(row, colTotalWorkerTime, &errs, retrieveInt)
+		totalElapsedTimeRaw := s.retrieveValue(row, colTotalElapsedTime, &errs, retrieveInt)
+		totalPhysReadsRaw := s.retrieveValue(row, colTotalPhysReads, &errs, retrieveInt)
+		totalLogReadsRaw := s.retrieveValue(row, colTotalLogReads, &errs, retrieveInt)
+		totalLogWritesRaw := s.retrieveValue(row, colTotalLogWrites, &errs, retrieveInt)
+		totalSpillsRaw := s.retrieveValue(row, colTotalSpills, &errs, retrieveInt)
+		minElapsedTimeRaw := s.retrieveValue(row, colMinElapsedTime, &errs, retrieveInt)
+		maxElapsedTimeRaw := s.retrieveValue(row, colMaxElapsedTime, &errs, retrieveInt)
+
+		if executionCountRaw == nil || totalElapsedTimeRaw == nil {
+			continue
+		}
+
+		cached, execCountDelta := s.cacheAndDiff(databaseID, procedureID, "0", colExecutionCount, executionCountRaw.(int64))
+		_, workerTimeDelta := s.cacheAndDiff(databaseID, procedureID, "0", colTotalWorkerTime, totalWorkerTimeRaw.(int64))
+		_, elapsedTimeDelta := s.cacheAndDiff(databaseID, procedureID, "0", colTotalElapsedTime, totalElapsedTimeRaw.(int64))
+		_, physReadsDelta := s.cacheAndDiff(databaseID, procedureID, "0", colTotalPhysReads, totalPhysReadsRaw.(int64))
+		_, logReadsDelta := s.cacheAndDiff(databaseID, procedureID, "0", colTotalLogReads, totalLogReadsRaw.(int64))
+		_, logWritesDelta := s.cacheAndDiff(databaseID, procedureID, "0", colTotalLogWrites, totalLogWritesRaw.(int64))
+		_, spillsDelta := s.cacheAndDiff(databaseID, procedureID, "0", colTotalSpills, totalSpillsRaw.(int64))
+
+		if !cached || execCountDelta == 0 {
+			continue
+		}
+
+		totalWorkerTimeSec := float64(workerTimeDelta) / 1_000_000
+		totalElapsedTimeSec := float64(elapsedTimeDelta) / 1_000_000
+		avgElapsedTimeMs := float64(elapsedTimeDelta) / float64(execCountDelta) / 1_000.0
+		minElapsedTimeMs := float64(minElapsedTimeRaw.(int64)) / 1_000.0
+		maxElapsedTimeMs := float64(maxElapsedTimeRaw.(int64)) / 1_000.0
+
+		if !resourcesAdded {
+			resources = s.setupResourceBuilder(s.lb.NewResourceBuilder(), row).Emit()
+			resourcesAdded = true
+		}
+
+		s.lb.RecordDbServerProcedureMetricsEvent(
+			context.Background(),
+			timestamp,
+			dbSystemName,
+			row[colDatabaseName],
+			s.config.Server,
+			int64(s.config.Port),
+			procedureID,
+			row[colProcedureName],
+			row[colSchemaName],
+			row[colDatabaseName],
+			execCountDelta,
+			totalWorkerTimeSec,
+			totalElapsedTimeSec,
+			logReadsDelta,
+			logWritesDelta,
+			physReadsDelta,
+			spillsDelta,
+			avgElapsedTimeMs,
+			maxElapsedTimeMs,
+			minElapsedTimeMs,
+			row[colLastExecTime],
+		)
+	}
+	return resources, errors.Join(errs...)
 }
