@@ -327,10 +327,6 @@ var (
 	oracleProcedureMetricsCDBSQL string
 )
 
-// sgaComponentNames maps V$SGAINFO.NAME values to the snake_case enum keys
-// declared for oracledb.sga.component.name in metadata.yaml. Rows whose name
-// is not in this map are skipped so that sum(oracledb.sga.usage) stays
-// consistent with oracledb.sga.limit.
 var sgaComponentNames = map[string]metadata.AttributeOracledbSgaComponentName{
 	"Buffer Cache Size":        metadata.AttributeOracledbSgaComponentNameBufferCache,
 	"Data Transfer Cache Size": metadata.AttributeOracledbSgaComponentNameDataTransferCache,
@@ -438,8 +434,6 @@ func newLogsScraper(logsBuilder *metadata.LogsBuilder, logsBuilderConfig metadat
 	return scraper.NewLogs(s.scrapeLogs, scraper.WithShutdown(s.shutdown), scraper.WithStart(s.start))
 }
 
-// buildTablespaceSQL selects the tablespace query variant for the connection type,
-// including the DBA_DATA_FILES/CDB_DATA_FILES join only when needed.
 func (s *oracleScraper) buildTablespaceSQL() string {
 	withMax := s.metricsBuilderConfig.Metrics.OracledbTablespaceLimit.Enabled
 	switch {
@@ -454,12 +448,6 @@ func (s *oracleScraper) buildTablespaceSQL() string {
 	}
 }
 
-// buildProcedureMetricsSQL selects the procedure metrics query variant for the
-// connection type. From a CDB root, DBA_PROCEDURES only exposes the root
-// container's procedures, so PDB-owned procedures would be dropped by the join
-// to V$SQL (which does report cursors for every container). CDB_PROCEDURES
-// covers all containers, matched on CON_ID as well as OBJECT_ID because object
-// ids are only unique within a container.
 func (s *oracleScraper) buildProcedureMetricsSQL() string {
 	if s.isCDBRoot {
 		return oracleProcedureMetricsCDBSQL
@@ -467,13 +455,6 @@ func (s *oracleScraper) buildProcedureMetricsSQL() string {
 	return oracleProcedureMetricsSQL
 }
 
-// buildTopQuerySQL selects the top query variant for the connection type. The
-// dictionary joins that resolve a statement's owning procedure key on object id,
-// which is only unique within a container, so from a CDB root they must also
-// match on CON_ID or a PDB statement can be attributed to an unrelated root
-// procedure. The PROCEDURE_EXECUTIONS subquery needs CON_ID in its GROUP BY for
-// the same reason, otherwise executions of colliding object ids in different
-// PDBs are merged into one value.
 func (s *oracleScraper) buildTopQuerySQL() string {
 	if s.isCDBRoot {
 		return oracleQueryMetricsCDBSQL
@@ -481,9 +462,6 @@ func (s *oracleScraper) buildTopQuerySQL() string {
 	return oracleQueryMetricsSQL
 }
 
-// buildQuerySampleSQL selects the query sample variant for the connection type.
-// From a CDB root both the procedure lookup and the blocked-object lookup must
-// match on CON_ID; see buildTopQuerySQL for why.
 func (s *oracleScraper) buildQuerySampleSQL() string {
 	if s.isCDBRoot {
 		return samplesCDBQuery
@@ -1504,10 +1482,6 @@ func (s *oracleScraper) collectSysMetrics(ctx context.Context, scrapeErrors *[]e
 	}
 }
 
-// pdbNameForRow returns the PDB name to attach to a data point: the row's
-// PDB_NAME when present (per-PDB queries), the connection's PDB name for
-// direct-PDB connections, or empty otherwise. Ignored by Record* methods when
-// the oracle.db.pdb attribute is not enabled.
 func (s *oracleScraper) pdbNameForRow(row map[string]string) string {
 	if name := row["PDB_NAME"]; name != "" {
 		return name
@@ -1518,8 +1492,6 @@ func (s *oracleScraper) pdbNameForRow(row map[string]string) string {
 	return ""
 }
 
-// anySysmetricPdbAttrEnabled reports whether oracle.db.pdb is enabled on any
-// sysmetric-based metric.
 func (s *oracleScraper) anySysmetricPdbAttrEnabled() bool {
 	m := s.metricsBuilderConfig.Metrics
 	return hasPdbAttr(m.OracledbBufferCacheUtilization.EnabledAttributes) ||
@@ -1553,15 +1525,10 @@ func (s *oracleScraper) anySysmetricPdbAttrEnabled() bool {
 		hasPdbAttr(m.OracledbTransactionsRate.EnabledAttributes)
 }
 
-// hasPdbAttr reports whether the generated EnabledAttributes slice contains
-// the oracle.db.pdb key. Generic over the per-metric string-typed key alias.
 func hasPdbAttr[T ~string](keys []T) bool {
 	return slices.Contains(keys, T("oracle.db.pdb"))
 }
 
-// hasContainerGrants reports whether the user has the grants required for
-// per-PDB collection. Any error resolves to false and logs a warning that
-// points operators at the README.
 func (s *oracleScraper) hasContainerGrants(ctx context.Context, probe dbClient) bool {
 	probeCtx, cancel := context.WithTimeout(ctx, containerGrantsProbeTimeout)
 	defer cancel()
@@ -1573,7 +1540,6 @@ func (s *oracleScraper) hasContainerGrants(ctx context.Context, probe dbClient) 
 	return true
 }
 
-// recordSysmetric records a single sysmetric data point based on the Oracle metric name.
 func (s *oracleScraper) recordSysmetric(now pcommon.Timestamp, metricName string, val float64, pdbName string) {
 	switch metricName {
 	case sysmetricBufferCacheHitRatio:
@@ -1982,8 +1948,6 @@ type procedureMetricCacheHit struct {
 	metrics        map[string]int64
 }
 
-// getProcedureMetricNames returns the cumulative V$SQL counters aggregated per
-// procedure that are delta-computed between scrapes.
 func getProcedureMetricNames() []string {
 	return []string{
 		queryExecutionMetric, cpuTimeMetric, elapsedTimeMetric, bufferGetsMetric,
