@@ -1788,18 +1788,7 @@ func (s *oracleScraper) scrapeLogs(ctx context.Context) (plog.Logs, error) {
 	if s.logsBuilderConfig.Events.DbServerProcedureMetrics.Enabled {
 		currentCollectionTime := time.Now()
 		lookbackTimeCounter := s.calculateLookbackSeconds(s.lastProcedureMetricsTimestamp, s.procedureMetricsCfg.CollectionInterval)
-		s.logger.Debug("Procedure metrics collection triggered",
-			zap.Int("lookback-seconds", lookbackTimeCounter),
-			zap.Int("collection-interval-seconds", int(s.procedureMetricsCfg.CollectionInterval.Seconds())),
-			zap.Time("last-collection-time", s.lastProcedureMetricsTimestamp),
-			zap.Uint("top-procedure-count", s.procedureMetricsCfg.TopProcedureCount))
-		if lookbackTimeCounter < int(s.procedureMetricsCfg.CollectionInterval.Seconds()) {
-			s.logger.Debug("Skipping procedure metrics: collection interval has not yet elapsed",
-				zap.Int("lookback-seconds", lookbackTimeCounter),
-				zap.Int("required-seconds", int(s.procedureMetricsCfg.CollectionInterval.Seconds())))
-		} else {
-			s.logger.Debug("Collecting procedure metrics now",
-				zap.Int("lookback-seconds", lookbackTimeCounter))
+		if lookbackTimeCounter >= int(s.procedureMetricsCfg.CollectionInterval.Seconds()) {
 			procedureCollectionErrors := s.collectProcedureMetrics(ctx, logs, currentCollectionTime, lookbackTimeCounter)
 			if procedureCollectionErrors != nil {
 				s.logger.Error("Procedure metrics collection failed", zap.Error(procedureCollectionErrors))
@@ -2012,21 +2001,13 @@ func (s *oracleScraper) collectProcedureMetrics(ctx context.Context, logs plog.L
 	if metricError != nil {
 		return fmt.Errorf("error executing oracleProcedureMetricsSQL: %w", metricError)
 	}
-	s.logger.Debug("Procedure metrics query returned rows",
-		zap.Int("row-count", len(metricRows)),
-		zap.Int("lookback-seconds", lookbackTimeSeconds),
-		zap.Uint("top-procedure-count", s.procedureMetricsCfg.TopProcedureCount))
-	// Zero rows is a normal condition: it just means no PL/SQL program unit was
-	// active in the lookback window. Don't surface it as a scrape error.
 	if len(metricRows) == 0 {
-		s.logger.Debug("No stored procedures active in the lookback window, skipping procedure metrics",
-			zap.Int("lookback-seconds", lookbackTimeSeconds))
 		return nil
 	}
 
 	metricNames := getProcedureMetricNames()
 	var hits []procedureMetricCacheHit
-	var cacheUpdates, discardedHits int
+	var discardedHits int
 	for _, row := range metricRows {
 		newCacheVal := make(map[string]int64, len(metricNames))
 		for _, columnName := range metricNames {
@@ -2078,25 +2059,16 @@ func (s *oracleScraper) collectProcedureMetrics(ctx context.Context, logs plog.L
 			}
 		}
 		s.procedureMetricCache.Add(cacheKey, newCacheVal)
-		cacheUpdates++
 	}
 
-	s.logger.Debug("Procedure metric cache update",
+	s.logger.Debug("Procedure metrics scrape summary",
 		zap.Int("rows-from-db", len(metricRows)),
-		zap.Int("cache-updates", cacheUpdates),
-		zap.Int("cache-hits-with-delta", len(hits)),
-		zap.Int("discarded-hits", discardedHits),
-		zap.Int("cache-size", s.procedureMetricCache.Len()))
+		zap.Int("deltas-to-emit", len(hits)),
+		zap.Int("discarded", discardedHits))
 
 	if len(hits) == 0 {
-		s.logger.Debug("No procedure metric deltas to emit (first scrape seeds cache, subsequent scrapes compute deltas)")
 		return errors.Join(errs...)
 	}
-
-	s.logger.Debug("Procedure metrics emitting log records",
-		zap.Int("procedures-to-emit", min(len(hits), int(s.procedureMetricsCfg.TopProcedureCount))),
-		zap.Int("total-cache-hits", len(hits)),
-		zap.Int("discarded-no-new-executions", discardedHits))
 
 	// order by elapsed time delta, descending
 	sort.Slice(hits, func(i, j int) bool {
@@ -2139,11 +2111,6 @@ func (s *oracleScraper) collectProcedureMetrics(ctx context.Context, logs plog.L
 			hit.metrics[physicalWriteBytesMetric],
 			hit.firstLoadTime,
 			hit.lastActiveTime)
-	}
-
-	hitCount := len(hits)
-	if hitCount > 0 {
-		s.logger.Debug("Procedure metric log records for this scrape", zap.Int("count", hitCount))
 	}
 
 	s.lb.Emit(metadata.WithLogsResource(rb.Emit())).ResourceLogs().MoveAndAppendTo(logs.ResourceLogs())
