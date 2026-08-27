@@ -225,6 +225,165 @@ func TestScraper(t *testing.T) {
 	runTest(false, "expected.yaml")
 }
 
+// TestScraperSkipsQueriesForDisabledMetrics verifies table/index/function/lock queries are skipped when every metric they feed is disabled.
+func TestScraperSkipsQueriesForDisabledMetrics(t *testing.T) {
+	factory := new(mockClientFactory)
+	factory.initMocks([]string{"otel"})
+
+	cfg := createDefaultConfig().(*Config)
+	cfg.Databases = []string{"otel"}
+	// rows/operations/table.size/table.vacuum.count/blocks_read/index.scans/index.size default to enabled; disable them for this test.
+	cfg.MetricsBuilderConfig.Metrics.PostgresqlRows.Enabled = false
+	cfg.MetricsBuilderConfig.Metrics.PostgresqlOperations.Enabled = false
+	cfg.MetricsBuilderConfig.Metrics.PostgresqlTableSize.Enabled = false
+	cfg.MetricsBuilderConfig.Metrics.PostgresqlTableVacuumCount.Enabled = false
+	cfg.MetricsBuilderConfig.Metrics.PostgresqlBlocksRead.Enabled = false
+	cfg.MetricsBuilderConfig.Metrics.PostgresqlIndexScans.Enabled = false
+	cfg.MetricsBuilderConfig.Metrics.PostgresqlIndexSize.Enabled = false
+	require.False(t, cfg.MetricsBuilderConfig.Metrics.PostgresqlSequentialScans.Enabled)
+	require.False(t, cfg.MetricsBuilderConfig.Metrics.PostgresqlFunctionCalls.Enabled)
+	require.False(t, cfg.MetricsBuilderConfig.Metrics.PostgresqlDatabaseLocks.Enabled)
+	// postgresql.table.count stays enabled, so getDatabaseTableMetrics still runs for its row count.
+	require.True(t, cfg.MetricsBuilderConfig.Metrics.PostgresqlTableCount.Enabled)
+
+	scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, factory, newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
+	require.NoError(t, err)
+
+	_, err = scraper.scrape(t.Context())
+	require.NoError(t, err)
+
+	listClientAny, clientErr := factory.getClient(t.Context(), defaultPostgreSQLDatabase)
+	require.NoError(t, clientErr)
+	listClient := listClientAny.(*mockClient)
+
+	dbClientAny, clientErr := factory.getClient(t.Context(), "otel")
+	require.NoError(t, clientErr)
+	dbClient := dbClientAny.(*mockClient)
+
+	// Queries with no remaining enabled consumer must not run.
+	dbClient.AssertNumberOfCalls(t, "getDatabaseTableMetrics", 1)
+	dbClient.AssertNotCalled(t, "getBlocksReadByTable", mock.Anything, mock.Anything)
+	dbClient.AssertNotCalled(t, "getIndexStats", mock.Anything, mock.Anything)
+	dbClient.AssertNotCalled(t, "getFunctionStats", mock.Anything, mock.Anything)
+	dbClient.AssertNotCalled(t, "getDatabaseLocks", mock.Anything)
+	listClient.AssertNotCalled(t, "getSharedRelationLocks", mock.Anything)
+}
+
+// TestScraperRunsQueriesWhenAnyFedMetricIsEnabled verifies a query still runs when at least one of the metrics it feeds is enabled.
+func TestScraperRunsQueriesWhenAnyFedMetricIsEnabled(t *testing.T) {
+	factory := new(mockClientFactory)
+	factory.initMocks([]string{"otel"})
+
+	cfg := createDefaultConfig().(*Config)
+	cfg.Databases = []string{"otel"}
+	// Disable one of the two metrics fed by getIndexStats; the other stays enabled.
+	cfg.MetricsBuilderConfig.Metrics.PostgresqlIndexScans.Enabled = false
+	require.True(t, cfg.MetricsBuilderConfig.Metrics.PostgresqlIndexSize.Enabled)
+
+	scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, factory, newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
+	require.NoError(t, err)
+
+	_, err = scraper.scrape(t.Context())
+	require.NoError(t, err)
+
+	dbClientAny, clientErr := factory.getClient(t.Context(), "otel")
+	require.NoError(t, clientErr)
+	dbClient := dbClientAny.(*mockClient)
+
+	dbClient.AssertNumberOfCalls(t, "getIndexStats", 1)
+}
+
+// TestScraperSkipsServerWideQueriesForDisabledMetrics verifies the once-per-scrape (not once-per-database) queries are also skipped when disabled.
+func TestScraperSkipsServerWideQueriesForDisabledMetrics(t *testing.T) {
+	tests := []struct {
+		name           string
+		disableMetrics func(*Config)
+		mockMethod     string
+	}{
+		{
+			name:           "getBackends skipped when postgresql.backends disabled",
+			disableMetrics: func(cfg *Config) { cfg.MetricsBuilderConfig.Metrics.PostgresqlBackends.Enabled = false },
+			mockMethod:     "getBackends",
+		},
+		{
+			name:           "getDatabaseSize skipped when postgresql.db_size disabled",
+			disableMetrics: func(cfg *Config) { cfg.MetricsBuilderConfig.Metrics.PostgresqlDbSize.Enabled = false },
+			mockMethod:     "getDatabaseSize",
+		},
+		{
+			name: "getDatabaseStats skipped when all 11 metrics it feeds are disabled",
+			disableMetrics: func(cfg *Config) {
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlCommits.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlRollbacks.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlDeadlocks.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlTempFiles.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlTempIo.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlTupUpdated.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlTupReturned.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlTupFetched.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlTupInserted.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlTupDeleted.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlBlksHit.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlBlksRead.Enabled = false
+			},
+			mockMethod: "getDatabaseStats",
+		},
+		{
+			name: "getBGWriterStats skipped when all 5 bgwriter metrics are disabled",
+			disableMetrics: func(cfg *Config) {
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlBgwriterBuffersAllocated.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlBgwriterBuffersWrites.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlBgwriterCheckpointCount.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlBgwriterDuration.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlBgwriterMaxwritten.Enabled = false
+			},
+			mockMethod: "getBGWriterStats",
+		},
+		{
+			name:           "getMaxConnections skipped when postgresql.connection.max disabled",
+			disableMetrics: func(cfg *Config) { cfg.MetricsBuilderConfig.Metrics.PostgresqlConnectionMax.Enabled = false },
+			mockMethod:     "getMaxConnections",
+		},
+		{
+			name: "getReplicationStats skipped when data_delay and both wal lag metrics are disabled",
+			disableMetrics: func(cfg *Config) {
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlReplicationDataDelay.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlWalDelay.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlWalLag.Enabled = false
+			},
+			mockMethod: "getReplicationStats",
+		},
+		{
+			name:           "getLatestWalAgeSeconds skipped when postgresql.wal.age disabled",
+			disableMetrics: func(cfg *Config) { cfg.MetricsBuilderConfig.Metrics.PostgresqlWalAge.Enabled = false },
+			mockMethod:     "getLatestWalAgeSeconds",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			factory := new(mockClientFactory)
+			factory.initMocks([]string{"otel"})
+
+			cfg := createDefaultConfig().(*Config)
+			cfg.Databases = []string{"otel"}
+			tc.disableMetrics(cfg)
+
+			scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, factory, newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
+			require.NoError(t, err)
+
+			_, err = scraper.scrape(t.Context())
+			require.NoError(t, err)
+
+			listClientAny, clientErr := factory.getClient(t.Context(), defaultPostgreSQLDatabase)
+			require.NoError(t, clientErr)
+			listClient := listClientAny.(*mockClient)
+
+			listClient.AssertNotCalled(t, tc.mockMethod, mock.Anything)
+		})
+	}
+}
+
 func TestScraperWithExecutionTime(t *testing.T) {
 	factory := new(mockClientFactory)
 	factory.initMocks([]string{"otel"})

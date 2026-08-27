@@ -649,10 +649,34 @@ func (p *postgreSQLScraper) retrieveDBMetrics(
 ) {
 	wg := &sync.WaitGroup{}
 
-	wg.Add(3)
-	go p.retrieveBackends(ctx, wg, listClient, databases, r, errs)
-	go p.retrieveDatabaseSize(ctx, wg, listClient, databases, r, errs)
-	go p.retrieveDatabaseStats(ctx, wg, listClient, databases, r, errs)
+	// Skip if postgresql.backends is disabled.
+	if p.config.MetricsBuilderConfig.Metrics.PostgresqlBackends.Enabled {
+		wg.Add(1)
+		go p.retrieveBackends(ctx, wg, listClient, databases, r, errs)
+	}
+
+	// Skip if postgresql.db_size is disabled.
+	if p.config.MetricsBuilderConfig.Metrics.PostgresqlDbSize.Enabled {
+		wg.Add(1)
+		go p.retrieveDatabaseSize(ctx, wg, listClient, databases, r, errs)
+	}
+
+	// Skip if none of the metrics this query feeds are enabled.
+	if p.config.MetricsBuilderConfig.Metrics.PostgresqlCommits.Enabled ||
+		p.config.MetricsBuilderConfig.Metrics.PostgresqlRollbacks.Enabled ||
+		p.config.MetricsBuilderConfig.Metrics.PostgresqlDeadlocks.Enabled ||
+		p.config.MetricsBuilderConfig.Metrics.PostgresqlTempFiles.Enabled ||
+		p.config.MetricsBuilderConfig.Metrics.PostgresqlTempIo.Enabled ||
+		p.config.MetricsBuilderConfig.Metrics.PostgresqlTupUpdated.Enabled ||
+		p.config.MetricsBuilderConfig.Metrics.PostgresqlTupReturned.Enabled ||
+		p.config.MetricsBuilderConfig.Metrics.PostgresqlTupFetched.Enabled ||
+		p.config.MetricsBuilderConfig.Metrics.PostgresqlTupInserted.Enabled ||
+		p.config.MetricsBuilderConfig.Metrics.PostgresqlTupDeleted.Enabled ||
+		p.config.MetricsBuilderConfig.Metrics.PostgresqlBlksHit.Enabled ||
+		p.config.MetricsBuilderConfig.Metrics.PostgresqlBlksRead.Enabled {
+		wg.Add(1)
+		go p.retrieveDatabaseStats(ctx, wg, listClient, databases, r, errs)
+	}
 
 	// pg_stat_database_conflicts is queried separately and only when the metric is
 	// enabled, since the counters are only populated on standby servers and would
@@ -721,14 +745,30 @@ func formatNamespace(database, schema string) string {
 }
 
 func (p *postgreSQLScraper) collectTables(ctx context.Context, now pcommon.Timestamp, dbClient client, db string, errs *errsMux) (numTables int64) {
-	blockReads, err := dbClient.getBlocksReadByTable(ctx, db)
-	if err != nil {
-		errs.addPartial(err)
+	// Skip if postgresql.blocks_read is disabled.
+	var blockReads map[tableIdentifier]tableIOStats
+	if p.config.MetricsBuilderConfig.Metrics.PostgresqlBlocksRead.Enabled {
+		var err error
+		blockReads, err = dbClient.getBlocksReadByTable(ctx, db)
+		if err != nil {
+			errs.addPartial(err)
+		}
 	}
 
-	tableMetrics, err := dbClient.getDatabaseTableMetrics(ctx, db)
-	if err != nil {
-		errs.addPartial(err)
+	// Skip if none of the metrics this query feeds are enabled.
+	needsTableMetrics := p.config.MetricsBuilderConfig.Metrics.PostgresqlRows.Enabled ||
+		p.config.MetricsBuilderConfig.Metrics.PostgresqlOperations.Enabled ||
+		p.config.MetricsBuilderConfig.Metrics.PostgresqlTableSize.Enabled ||
+		p.config.MetricsBuilderConfig.Metrics.PostgresqlTableVacuumCount.Enabled ||
+		p.config.MetricsBuilderConfig.Metrics.PostgresqlSequentialScans.Enabled ||
+		p.config.MetricsBuilderConfig.Metrics.PostgresqlTableCount.Enabled
+	var tableMetrics map[tableIdentifier]tableStats
+	if needsTableMetrics {
+		var err error
+		tableMetrics, err = dbClient.getDatabaseTableMetrics(ctx, db)
+		if err != nil {
+			errs.addPartial(err)
+		}
 	}
 
 	for tableKey, tm := range tableMetrics {
@@ -779,6 +819,12 @@ func (p *postgreSQLScraper) collectIndexes(
 	database string,
 	errs *errsMux,
 ) {
+	// Skip if none of the metrics this query feeds are enabled.
+	if !p.config.MetricsBuilderConfig.Metrics.PostgresqlIndexScans.Enabled &&
+		!p.config.MetricsBuilderConfig.Metrics.PostgresqlIndexSize.Enabled {
+		return
+	}
+
 	idxStats, err := client.getIndexStats(ctx, database)
 	if err != nil {
 		errs.addPartial(err)
@@ -809,6 +855,11 @@ func (p *postgreSQLScraper) collectFunctions(
 	database string,
 	errs *errsMux,
 ) {
+	// Skip if postgresql.function.calls is disabled.
+	if !p.config.MetricsBuilderConfig.Metrics.PostgresqlFunctionCalls.Enabled {
+		return
+	}
+
 	funcStats, err := client.getFunctionStats(ctx, database)
 	if err != nil {
 		errs.addPartial(err)
@@ -935,6 +986,15 @@ func (p *postgreSQLScraper) collectBGWriterStats(
 	client client,
 	errs *errsMux,
 ) {
+	// Skip if none of the metrics this query feeds are enabled.
+	if !p.config.MetricsBuilderConfig.Metrics.PostgresqlBgwriterBuffersAllocated.Enabled &&
+		!p.config.MetricsBuilderConfig.Metrics.PostgresqlBgwriterBuffersWrites.Enabled &&
+		!p.config.MetricsBuilderConfig.Metrics.PostgresqlBgwriterCheckpointCount.Enabled &&
+		!p.config.MetricsBuilderConfig.Metrics.PostgresqlBgwriterDuration.Enabled &&
+		!p.config.MetricsBuilderConfig.Metrics.PostgresqlBgwriterMaxwritten.Enabled {
+		return
+	}
+
 	bgStats, err := client.getBGWriterStats(ctx)
 	if err != nil {
 		errs.addPartial(err)
@@ -969,6 +1029,11 @@ func (p *postgreSQLScraper) collectDatabaseLocks(
 	database string,
 	errs *errsMux,
 ) {
+	// Skip if postgresql.database.locks is disabled.
+	if !p.config.MetricsBuilderConfig.Metrics.PostgresqlDatabaseLocks.Enabled {
+		return
+	}
+
 	dbLocks, err := dbClient.getDatabaseLocks(ctx)
 	if err != nil {
 		p.logger.Error("Errors encountered while fetching database locks", zap.String("database", database), zap.Error(err))
@@ -986,6 +1051,11 @@ func (p *postgreSQLScraper) collectSharedRelationLocks(
 	client client,
 	errs *errsMux,
 ) {
+	// Skip if postgresql.database.locks is disabled.
+	if !p.config.MetricsBuilderConfig.Metrics.PostgresqlDatabaseLocks.Enabled {
+		return
+	}
+
 	sharedLocks, err := client.getSharedRelationLocks(ctx)
 	if err != nil {
 		p.logger.Error("Errors encountered while fetching shared relation locks", zap.Error(err))
@@ -1004,6 +1074,11 @@ func (p *postgreSQLScraper) collectMaxConnections(
 	client client,
 	errs *errsMux,
 ) {
+	// Skip if postgresql.connection.max is disabled.
+	if !p.config.MetricsBuilderConfig.Metrics.PostgresqlConnectionMax.Enabled {
+		return
+	}
+
 	mc, err := client.getMaxConnections(ctx)
 	if err != nil {
 		errs.addPartial(err)
@@ -1018,6 +1093,13 @@ func (p *postgreSQLScraper) collectReplicationStats(
 	client client,
 	errs *errsMux,
 ) {
+	// Skip if none of the metrics this query feeds are enabled (wal.delay/wal.lag naming depends on a feature gate).
+	if !p.config.MetricsBuilderConfig.Metrics.PostgresqlReplicationDataDelay.Enabled &&
+		!p.config.MetricsBuilderConfig.Metrics.PostgresqlWalDelay.Enabled &&
+		!p.config.MetricsBuilderConfig.Metrics.PostgresqlWalLag.Enabled {
+		return
+	}
+
 	rss, err := client.getReplicationStats(ctx)
 	if err != nil {
 		errs.addPartial(err)
@@ -1057,6 +1139,11 @@ func (p *postgreSQLScraper) collectWalAge(
 	client client,
 	errs *errsMux,
 ) {
+	// Skip if postgresql.wal.age is disabled.
+	if !p.config.MetricsBuilderConfig.Metrics.PostgresqlWalAge.Enabled {
+		return
+	}
+
 	walAge, err := client.getLatestWalAgeSeconds(ctx)
 	if errors.Is(err, errNoLastArchive) {
 		// return no error as there is no last archive to derive the value from
