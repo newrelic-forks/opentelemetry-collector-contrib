@@ -15,7 +15,9 @@ func TestResourceBuilder(t *testing.T) {
 		t.Run(tt, func(t *testing.T) {
 			cfg := loadResourceAttributesConfig(t, tt)
 			rb := NewResourceBuilder(cfg)
+			rb.SetHostAddress("host.address-val")
 			rb.SetHostName("host.name-val")
+			rb.SetHostPort(9)
 			rb.SetOracleDbHostingType("oracle.db.hosting_type-val")
 			rb.SetOracleDbOpenMode("oracle.db.open_mode-val")
 			rb.SetOracleDbRole("oracle.db.role-val")
@@ -30,19 +32,29 @@ func TestResourceBuilder(t *testing.T) {
 
 			switch tt {
 			case "default":
-				assert.Equal(t, 7, res.Attributes().Len())
-			case "all_set":
 				assert.Equal(t, 9, res.Attributes().Len())
+			case "all_set":
+				assert.Equal(t, 11, res.Attributes().Len())
 			case "none_set":
 				assert.Equal(t, 0, res.Attributes().Len())
 				return
 			default:
 				assert.Failf(t, "unexpected test case: %s", tt)
 			}
+			hostAddressAttrVal, ok := res.Attributes().Get("host.address")
+			assert.True(t, ok)
+			if ok {
+				assert.Equal(t, "host.address-val", hostAddressAttrVal.Str())
+			}
 			hostNameAttrVal, ok := res.Attributes().Get("host.name")
 			assert.True(t, ok)
 			if ok {
 				assert.Equal(t, "host.name-val", hostNameAttrVal.Str())
+			}
+			hostPortAttrVal, ok := res.Attributes().Get("host.port")
+			assert.True(t, ok)
+			if ok {
+				assert.EqualValues(t, 9, hostPortAttrVal.Int())
 			}
 			oracleDbHostingTypeAttrVal, ok := res.Attributes().Get("oracle.db.hosting_type")
 			assert.True(t, ok)
@@ -92,7 +104,9 @@ func TestResourceBuilderOverrideValue(t *testing.T) {
 	cfg := loadResourceAttributesConfig(t, "override_set")
 	require.NoError(t, confmap.Validate(cfg))
 	rb := NewResourceBuilder(cfg)
+	rb.SetHostAddress("host.address-val")
 	rb.SetHostName("host.name-val")
+	rb.SetHostPort(9)
 	rb.SetOracleDbHostingType("oracle.db.hosting_type-val")
 	rb.SetOracleDbOpenMode("oracle.db.open_mode-val")
 	rb.SetOracleDbRole("oracle.db.role-val")
@@ -104,10 +118,24 @@ func TestResourceBuilderOverrideValue(t *testing.T) {
 
 	res := rb.Emit()
 	{
+		val, ok := res.Attributes().Get("host.address")
+		assert.True(t, ok, "host.address should be present")
+		if ok {
+			assert.Equal(t, "override-host.address", val.Str())
+		}
+	}
+	{
 		val, ok := res.Attributes().Get("host.name")
 		assert.True(t, ok, "host.name should be present")
 		if ok {
 			assert.Equal(t, "override-host.name", val.Str())
+		}
+	}
+	{
+		val, ok := res.Attributes().Get("host.port")
+		assert.True(t, ok, "host.port should be present")
+		if ok {
+			assert.EqualValues(t, 123, val.Int())
 		}
 	}
 	{
@@ -176,10 +204,24 @@ func TestResourceBuilderOverrideWithoutSet(t *testing.T) {
 
 	res := rb.Emit()
 	{
+		val, ok := res.Attributes().Get("host.address")
+		assert.True(t, ok, "host.address should be present even without calling Set")
+		if ok {
+			assert.Equal(t, "override-host.address", val.Str())
+		}
+	}
+	{
 		val, ok := res.Attributes().Get("host.name")
 		assert.True(t, ok, "host.name should be present even without calling Set")
 		if ok {
 			assert.Equal(t, "override-host.name", val.Str())
+		}
+	}
+	{
+		val, ok := res.Attributes().Get("host.port")
+		assert.True(t, ok, "host.port should be present even without calling Set")
+		if ok {
+			assert.EqualValues(t, 123, val.Int())
 		}
 	}
 	{
@@ -243,7 +285,9 @@ func TestResourceBuilderOverrideWithoutSet(t *testing.T) {
 // TestResourceBuilderOverrideDisabled disables all attributes, so override should not apply.
 func TestResourceBuilderOverrideDisabled(t *testing.T) {
 	cfg := loadResourceAttributesConfig(t, "override_set")
+	cfg.HostAddress.Enabled = false
 	cfg.HostName.Enabled = false
+	cfg.HostPort.Enabled = false
 	cfg.OracleDbHostingType.Enabled = false
 	cfg.OracleDbOpenMode.Enabled = false
 	cfg.OracleDbRole.Enabled = false
@@ -263,7 +307,9 @@ func TestResourceBuilderOverrideDisabled(t *testing.T) {
 func TestResourceBuilderNoOverride(t *testing.T) {
 	cfg := loadResourceAttributesConfig(t, "all_set")
 	require.NoError(t, confmap.Validate(cfg))
+	assert.Nil(t, cfg.HostAddress.OverrideValue, "OverrideValue should be nil for host.address")
 	assert.Nil(t, cfg.HostName.OverrideValue, "OverrideValue should be nil for host.name")
+	assert.Nil(t, cfg.HostPort.OverrideValue, "OverrideValue should be nil for host.port")
 	assert.Nil(t, cfg.OracleDbHostingType.OverrideValue, "OverrideValue should be nil for oracle.db.hosting_type")
 	assert.Nil(t, cfg.OracleDbOpenMode.OverrideValue, "OverrideValue should be nil for oracle.db.open_mode")
 	assert.Nil(t, cfg.OracleDbRole.OverrideValue, "OverrideValue should be nil for oracle.db.role")
@@ -273,7 +319,9 @@ func TestResourceBuilderNoOverride(t *testing.T) {
 	assert.Nil(t, cfg.ServiceName.OverrideValue, "OverrideValue should be nil for service.name")
 	assert.Nil(t, cfg.ServiceNamespace.OverrideValue, "OverrideValue should be nil for service.namespace")
 	rb := NewResourceBuilder(cfg)
+	rb.SetHostAddress("host.address-val")
 	rb.SetHostName("host.name-val")
+	rb.SetHostPort(9)
 	rb.SetOracleDbHostingType("oracle.db.hosting_type-val")
 	rb.SetOracleDbOpenMode("oracle.db.open_mode-val")
 	rb.SetOracleDbRole("oracle.db.role-val")
@@ -284,11 +332,21 @@ func TestResourceBuilderNoOverride(t *testing.T) {
 	rb.SetServiceNamespace("service.namespace-val")
 
 	res := rb.Emit()
-	assert.Equal(t, 9, res.Attributes().Len())
+	assert.Equal(t, 11, res.Attributes().Len())
+	hostAddressAttrVal, ok := res.Attributes().Get("host.address")
+	assert.True(t, ok)
+	if ok {
+		assert.Equal(t, "host.address-val", hostAddressAttrVal.Str())
+	}
 	hostNameAttrVal, ok := res.Attributes().Get("host.name")
 	assert.True(t, ok)
 	if ok {
 		assert.Equal(t, "host.name-val", hostNameAttrVal.Str())
+	}
+	hostPortAttrVal, ok := res.Attributes().Get("host.port")
+	assert.True(t, ok)
+	if ok {
+		assert.EqualValues(t, 9, hostPortAttrVal.Int())
 	}
 	oracleDbHostingTypeAttrVal, ok := res.Attributes().Get("oracle.db.hosting_type")
 	assert.True(t, ok)

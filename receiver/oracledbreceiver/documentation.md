@@ -1809,7 +1809,9 @@ Wait chain data from V$WAIT_CHAINS showing blocking sessions and deadlock cycles
 
 | Name | Description | Values | Enabled | Semantic Convention | Stability |
 | ---- | ----------- | ------ | ------- | ------------------- | --------- |
+| host.address | The host name or IP address of the Oracle Server. | Any Str | true | - | - |
 | host.name | The host name of Oracle Server | Any Str | true | - | - |
+| host.port | The port number of the Oracle Server. | Any Int | true | - | - |
 | oracle.db.hosting_type | The hosting environment of the Oracle instance. One of "self-managed", "rds", or "oci". | Any Str | true | - | - |
 | oracle.db.open_mode | The open mode of the Oracle database (e.g. "READ WRITE", "READ ONLY", "MOUNTED"). | Any Str | true | - | - |
 | oracle.db.role | The database role of the Oracle instance (e.g. "PRIMARY", "PHYSICAL STANDBY"). | Any Str | true | - | - |
