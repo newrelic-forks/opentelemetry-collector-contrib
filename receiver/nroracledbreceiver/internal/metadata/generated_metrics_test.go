@@ -815,7 +815,9 @@ func TestMetricsBuilder(t *testing.T) {
 			}
 
 			rb := mb.NewResourceBuilder()
+			rb.SetHostAddress("host.address-val")
 			rb.SetHostName("host.name-val")
+			rb.SetHostPort(9)
 			rb.SetOracleDbHostingType("oracle.db.hosting_type-val")
 			rb.SetOracleDbOpenMode("oracle.db.open_mode-val")
 			rb.SetOracleDbRole("oracle.db.role-val")

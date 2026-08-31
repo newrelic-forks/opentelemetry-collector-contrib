@@ -13,7 +13,9 @@ func TestResourceBuilder(t *testing.T) {
 		t.Run(tt, func(t *testing.T) {
 			cfg := loadResourceAttributesConfig(t, tt)
 			rb := NewResourceBuilder(cfg)
+			rb.SetHostAddress("host.address-val")
 			rb.SetHostName("host.name-val")
+			rb.SetHostPort(9)
 			rb.SetOracleDbHostingType("oracle.db.hosting_type-val")
 			rb.SetOracleDbOpenMode("oracle.db.open_mode-val")
 			rb.SetOracleDbRole("oracle.db.role-val")
@@ -26,19 +28,29 @@ func TestResourceBuilder(t *testing.T) {
 
 			switch tt {
 			case "default":
-				assert.Equal(t, 7, res.Attributes().Len())
+				assert.Equal(t, 9, res.Attributes().Len())
 			case "all_set":
-				assert.Equal(t, 7, res.Attributes().Len())
+				assert.Equal(t, 9, res.Attributes().Len())
 			case "none_set":
 				assert.Equal(t, 0, res.Attributes().Len())
 				return
 			default:
 				assert.Failf(t, "unexpected test case: %s", tt)
 			}
+			hostAddressAttrVal, ok := res.Attributes().Get("host.address")
+			assert.True(t, ok)
+			if ok {
+				assert.Equal(t, "host.address-val", hostAddressAttrVal.Str())
+			}
 			hostNameAttrVal, ok := res.Attributes().Get("host.name")
 			assert.True(t, ok)
 			if ok {
 				assert.Equal(t, "host.name-val", hostNameAttrVal.Str())
+			}
+			hostPortAttrVal, ok := res.Attributes().Get("host.port")
+			assert.True(t, ok)
+			if ok {
+				assert.EqualValues(t, 9, hostPortAttrVal.Int())
 			}
 			oracleDbHostingTypeAttrVal, ok := res.Attributes().Get("oracle.db.hosting_type")
 			assert.True(t, ok)

@@ -2365,6 +2365,15 @@ func (s *oracleScraper) setupResourceBuilder(rb *metadata.ResourceBuilder) *meta
 	rb.SetOracledbInstanceName(s.instanceName)
 	rb.SetHostName(s.hostName)
 	rb.SetServiceInstanceID(s.serviceInstanceID)
+
+	hostAddress, hostPort, err := net.SplitHostPort(s.hostName)
+	if err != nil {
+		hostAddress = s.hostName
+	} else if port, err := strconv.ParseInt(hostPort, 10, 32); err == nil {
+		rb.SetHostPort(port)
+	}
+	rb.SetHostAddress(hostAddress)
+
 	if s.instanceInfo.dbVersion != "" {
 		rb.SetOracleDbVersion(s.instanceInfo.dbVersion)
 	}
