@@ -167,20 +167,10 @@ func (m *mySQLScraper) scrape(context.Context) (pmetric.Metrics, error) {
 	}
 
 	now := pcommon.NewTimestampFromTime(time.Now())
+	errs := &scrapererror.ScrapeErrors{}
 
 	// collect innodb metrics.
-	innodbStats, innoErr := m.sqlclient.getInnodbStats()
-	if innoErr != nil {
-		m.logger.Error("Failed to fetch InnoDB stats", zap.Error(innoErr))
-	}
-
-	errs := &scrapererror.ScrapeErrors{}
-	for k, v := range innodbStats {
-		if k != "buffer_pool_size" {
-			continue
-		}
-		addPartialIfError(errs, m.mb.RecordMysqlBufferPoolLimitDataPoint(now, v))
-	}
+	m.scrapeInnodbStats(now, errs)
 
 	// collect io_waits metrics.
 	m.scrapeTableIoWaitsStats(now, errs)
@@ -601,7 +591,42 @@ func (m *mySQLScraper) scrapeGlobalStats(now pcommon.Timestamp, errs *scrapererr
 	}
 }
 
+// innodbStatsMetricsEnabled reports whether getInnodbStats' one metric is enabled.
+func (m *mySQLScraper) innodbStatsMetricsEnabled() bool {
+	return m.config.MetricsBuilderConfig.Metrics.MysqlBufferPoolLimit.Enabled
+}
+
+func (m *mySQLScraper) scrapeInnodbStats(now pcommon.Timestamp, errs *scrapererror.ScrapeErrors) {
+	if !m.innodbStatsMetricsEnabled() {
+		return
+	}
+
+	innodbStats, err := m.sqlclient.getInnodbStats()
+	if err != nil {
+		m.logger.Error("Failed to fetch InnoDB stats", zap.Error(err))
+		return
+	}
+
+	for k, v := range innodbStats {
+		if k != "buffer_pool_size" {
+			continue
+		}
+		addPartialIfError(errs, m.mb.RecordMysqlBufferPoolLimitDataPoint(now, v))
+	}
+}
+
+// tableStatsMetricsEnabled reports whether any of the 3 metrics fed by
+// getTableStats are enabled.
+func (m *mySQLScraper) tableStatsMetricsEnabled() bool {
+	cfg := m.config.MetricsBuilderConfig.Metrics
+	return cfg.MysqlTableRows.Enabled || cfg.MysqlTableAverageRowLength.Enabled || cfg.MysqlTableSize.Enabled
+}
+
 func (m *mySQLScraper) scrapeTableStats(now pcommon.Timestamp, errs *scrapererror.ScrapeErrors) {
+	if !m.tableStatsMetricsEnabled() {
+		return
+	}
+
 	tableStats, err := m.sqlclient.getTableStats()
 	if err != nil {
 		m.logger.Error("Failed to fetch table size stats", zap.Error(err))
@@ -619,7 +644,18 @@ func (m *mySQLScraper) scrapeTableStats(now pcommon.Timestamp, errs *scrapererro
 	}
 }
 
+// tableIoWaitsMetricsEnabled reports whether either of the 2 metrics fed by
+// getTableIoWaitsStats is enabled.
+func (m *mySQLScraper) tableIoWaitsMetricsEnabled() bool {
+	cfg := m.config.MetricsBuilderConfig.Metrics
+	return cfg.MysqlTableIoWaitCount.Enabled || cfg.MysqlTableIoWaitTime.Enabled
+}
+
 func (m *mySQLScraper) scrapeTableIoWaitsStats(now pcommon.Timestamp, errs *scrapererror.ScrapeErrors) {
+	if !m.tableIoWaitsMetricsEnabled() {
+		return
+	}
+
 	tableIoWaitsStats, err := m.sqlclient.getTableIoWaitsStats()
 	if err != nil {
 		m.logger.Error("Failed to fetch table io_waits stats", zap.Error(err))
@@ -651,7 +687,18 @@ func (m *mySQLScraper) scrapeTableIoWaitsStats(now pcommon.Timestamp, errs *scra
 	}
 }
 
+// indexIoWaitsMetricsEnabled reports whether either of the 2 metrics fed by
+// getIndexIoWaitsStats is enabled.
+func (m *mySQLScraper) indexIoWaitsMetricsEnabled() bool {
+	cfg := m.config.MetricsBuilderConfig.Metrics
+	return cfg.MysqlIndexIoWaitCount.Enabled || cfg.MysqlIndexIoWaitTime.Enabled
+}
+
 func (m *mySQLScraper) scrapeIndexIoWaitsStats(now pcommon.Timestamp, errs *scrapererror.ScrapeErrors) {
+	if !m.indexIoWaitsMetricsEnabled() {
+		return
+	}
+
 	indexIoWaitsStats, err := m.sqlclient.getIndexIoWaitsStats()
 	if err != nil {
 		m.logger.Error("Failed to fetch index io_waits stats", zap.Error(err))
@@ -683,7 +730,18 @@ func (m *mySQLScraper) scrapeIndexIoWaitsStats(now pcommon.Timestamp, errs *scra
 	}
 }
 
+// statementEventsMetricsEnabled reports whether either of the 2 metrics fed
+// by getStatementEventsStats is enabled.
+func (m *mySQLScraper) statementEventsMetricsEnabled() bool {
+	cfg := m.config.MetricsBuilderConfig.Metrics
+	return cfg.MysqlStatementEventCount.Enabled || cfg.MysqlStatementEventWaitTime.Enabled
+}
+
 func (m *mySQLScraper) scrapeStatementEventsStats(now pcommon.Timestamp, errs *scrapererror.ScrapeErrors) {
+	if !m.statementEventsMetricsEnabled() {
+		return
+	}
+
 	statementEventsStats, err := m.sqlclient.getStatementEventsStats()
 	if err != nil {
 		m.logger.Error("Failed to fetch statement events stats", zap.Error(err))
@@ -708,7 +766,19 @@ func (m *mySQLScraper) scrapeStatementEventsStats(now pcommon.Timestamp, errs *s
 	}
 }
 
+// tableLockWaitEventMetricsEnabled reports whether any of the 4 metrics fed
+// by getTableLockWaitEventStats are enabled.
+func (m *mySQLScraper) tableLockWaitEventMetricsEnabled() bool {
+	cfg := m.config.MetricsBuilderConfig.Metrics
+	return cfg.MysqlTableLockWaitReadCount.Enabled || cfg.MysqlTableLockWaitReadTime.Enabled ||
+		cfg.MysqlTableLockWaitWriteCount.Enabled || cfg.MysqlTableLockWaitWriteTime.Enabled
+}
+
 func (m *mySQLScraper) scrapeTableLockWaitEventStats(now pcommon.Timestamp, errs *scrapererror.ScrapeErrors) {
+	if !m.tableLockWaitEventMetricsEnabled() {
+		return
+	}
+
 	tableLockWaitEventStats, err := m.sqlclient.getTableLockWaitEventStats()
 	if err != nil {
 		m.logger.Error("Failed to fetch index io_waits stats", zap.Error(err))
@@ -748,7 +818,18 @@ func (m *mySQLScraper) scrapeTableLockWaitEventStats(now pcommon.Timestamp, errs
 	}
 }
 
+// replicaStatusMetricsEnabled reports whether any of the 3 metrics fed by
+// getReplicaStatusStats are enabled.
+func (m *mySQLScraper) replicaStatusMetricsEnabled() bool {
+	cfg := m.config.MetricsBuilderConfig.Metrics
+	return cfg.MysqlReplicaTimeBehindSource.Enabled || cfg.MysqlReplicaSQLDelay.Enabled || cfg.MysqlReplicaThreadRunning.Enabled
+}
+
 func (m *mySQLScraper) scrapeReplicaStatusStats(now pcommon.Timestamp) {
+	if !m.replicaStatusMetricsEnabled() {
+		return
+	}
+
 	replicaStatusStats, err := m.sqlclient.getReplicaStatusStats(m.detectedVersion.supportsReplicaStatus())
 	if err != nil {
 		m.logger.Info("Failed to fetch replica status stats", zap.Error(err))
