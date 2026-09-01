@@ -14,6 +14,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"text/template"
@@ -383,6 +384,173 @@ func TestScraperSkipsServerWideQueriesForDisabledMetrics(t *testing.T) {
 			listClient.AssertNotCalled(t, tc.mockMethod, mock.Anything)
 		})
 	}
+}
+
+// queryGuard pairs one query-enablement guard method (the extracted
+// *MetricsEnabled methods in scraper.go) with the exact set of MetricsConfig
+// field names it must check. name is used only for test names and failure
+// messages; guard is the real method value, called directly rather than
+// looked up by reflection (reflect.Value.MethodByName cannot see unexported
+// methods, which every guard is, by Go's own naming convention).
+type queryGuard struct {
+	name   string
+	guard  func(*postgreSQLScraper) bool
+	fields []string
+}
+
+// queryGuards is the single source of truth TestQueryGuardsCoverEveryMetric
+// checks against reflection over MetricsConfig, so a metric added to
+// metadata.yaml without also being added here — or added here but not to its
+// guard's || chain in scraper.go — fails loudly instead of silently riding
+// along on a sibling metric that happens to already be enabled by default
+// (the gap this test exists to close; see PR discussion on upstream
+// open-telemetry/opentelemetry-collector-contrib#49086 for the original
+// report of this class of bug).
+var queryGuards = []queryGuard{
+	{"backendsMetricsEnabled", (*postgreSQLScraper).backendsMetricsEnabled, []string{"PostgresqlBackends"}},
+	{"dbSizeMetricsEnabled", (*postgreSQLScraper).dbSizeMetricsEnabled, []string{"PostgresqlDbSize"}},
+	{"databaseConflictsMetricsEnabled", (*postgreSQLScraper).databaseConflictsMetricsEnabled, []string{"PostgresqlQueryConflicts"}},
+	{"executionTimeMetricsEnabled", (*postgreSQLScraper).executionTimeMetricsEnabled, []string{"PostgresqlQueryExecutionTime"}},
+	{"blocksReadMetricsEnabled", (*postgreSQLScraper).blocksReadMetricsEnabled, []string{"PostgresqlBlocksRead"}},
+	{"indexMetricsEnabled", (*postgreSQLScraper).indexMetricsEnabled, []string{"PostgresqlIndexScans", "PostgresqlIndexSize"}},
+	{"functionCallsMetricsEnabled", (*postgreSQLScraper).functionCallsMetricsEnabled, []string{"PostgresqlFunctionCalls"}},
+	{"databaseLocksMetricsEnabled", (*postgreSQLScraper).databaseLocksMetricsEnabled, []string{"PostgresqlDatabaseLocks"}},
+	{"maxConnectionsMetricsEnabled", (*postgreSQLScraper).maxConnectionsMetricsEnabled, []string{"PostgresqlConnectionMax"}},
+	{"walAgeMetricsEnabled", (*postgreSQLScraper).walAgeMetricsEnabled, []string{"PostgresqlWalAge"}},
+	{"databaseStatsMetricsEnabled", (*postgreSQLScraper).databaseStatsMetricsEnabled, []string{
+		"PostgresqlCommits", "PostgresqlRollbacks", "PostgresqlDeadlocks",
+		"PostgresqlTempFiles", "PostgresqlTempIo", "PostgresqlTupUpdated",
+		"PostgresqlTupReturned", "PostgresqlTupFetched", "PostgresqlTupInserted",
+		"PostgresqlTupDeleted", "PostgresqlBlksHit", "PostgresqlBlksRead",
+	}},
+	// tableCountMetricsEnabled subsumes perTableFieldsMetricsEnabled (it's
+	// perTableFieldsMetricsEnabled() || table.count), so table.count alone is
+	// listed here; the 5 per-table fields are covered by the
+	// perTableFieldsMetricsEnabled entry below.
+	{"tableCountMetricsEnabled", (*postgreSQLScraper).tableCountMetricsEnabled, []string{"PostgresqlTableCount"}},
+	{"perTableFieldsMetricsEnabled", (*postgreSQLScraper).perTableFieldsMetricsEnabled, []string{
+		"PostgresqlRows", "PostgresqlOperations", "PostgresqlTableSize",
+		"PostgresqlTableVacuumCount", "PostgresqlSequentialScans",
+	}},
+	{"vectorSearchMetricsEnabled", (*postgreSQLScraper).vectorSearchMetricsEnabled, []string{
+		"PostgresqlVectorSearchCalls", "PostgresqlVectorSearchDuration", "PostgresqlVectorSearchRowsReturned",
+	}},
+	{"vectorInsertMetricsEnabled", (*postgreSQLScraper).vectorInsertMetricsEnabled, []string{
+		"PostgresqlVectorInsertRows", "PostgresqlVectorInsertDuration",
+	}},
+	{"bgWriterMetricsEnabled", (*postgreSQLScraper).bgWriterMetricsEnabled, []string{
+		"PostgresqlBgwriterBuffersAllocated", "PostgresqlBgwriterBuffersWrites",
+		"PostgresqlBgwriterCheckpointCount", "PostgresqlBgwriterDuration", "PostgresqlBgwriterMaxwritten",
+	}},
+	{"replicationMetricsEnabled", (*postgreSQLScraper).replicationMetricsEnabled, []string{
+		"PostgresqlReplicationDataDelay", "PostgresqlWalDelay", "PostgresqlWalLag",
+	}},
+}
+
+// notQueryGated lists MetricsConfig fields that are fed by data computed
+// without a skippable query — there is nothing to guard, so they are exempt
+// from queryGuards by design, not by oversight.
+var notQueryGated = map[string]string{
+	// Always derived from len(databases), never its own query.
+	"PostgresqlDatabaseCount": "recordDatabase computes it from len(databases), no separate query to skip",
+}
+
+// TestQueryGuardsCoverEveryMetric is the completeness check the *MetricsEnabled
+// extraction (scraper.go) needs but couldn't get from
+// TestScraperSkipsServerWideQueriesForDisabledMetrics /
+// TestScraperRunsQueriesWhenAnyFedMetricIsEnabled alone: those tests only prove
+// that *some* metric in a guard's || chain works, so a metric that is added to
+// metadata.yaml, wired into a query's data path, but never added to that
+// query's guard would still pass every existing test — as long as a sibling
+// metric fed by the same query happens to be enabled by default, the query
+// keeps running and the new metric keeps getting emitted in every test, and
+// nothing ever notices the guard itself is wrong.
+//
+// This test closes that gap by (1) reflecting over every field in
+// metadata.MetricsConfig, and (2) for every field listed in queryGuards,
+// actually calling its guard method with that one field enabled and every
+// other metric in the entire config disabled. A field present in
+// MetricsConfig but missing from both queryGuards and notQueryGated fails as
+// soon as reflection finds it; a field listed in queryGuards but never added
+// to its guard method's own || chain in scraper.go fails because the guard
+// returns false even though the mapped field is the only one enabled.
+func TestQueryGuardsCoverEveryMetric(t *testing.T) {
+	allFields := reflect.VisibleFields(reflect.TypeFor[metadata.MetricsConfig]())
+
+	seen := map[string]queryGuard{} // field name -> owning guard, to catch duplicates across guards
+	for _, qg := range queryGuards {
+		for _, f := range qg.fields {
+			if prior, ok := seen[f]; ok {
+				t.Fatalf("metric field %q is listed under both %q and %q in queryGuards — a metric belongs to exactly one query/guard", f, prior.name, qg.name)
+			}
+			seen[f] = qg
+		}
+	}
+
+	for _, sf := range allFields {
+		fieldName := sf.Name
+		if reason, ok := notQueryGated[fieldName]; ok {
+			t.Logf("skipping %s: not query-gated (%s)", fieldName, reason)
+			continue
+		}
+
+		qg, ok := seen[fieldName]
+		if !ok {
+			t.Fatalf(
+				"metric field %q on metadata.MetricsConfig has no entry in queryGuards and is not listed in "+
+					"notQueryGated in scraper_test.go. If this metric is newly added: find the query guard method "+
+					"in scraper.go that should skip its feeding query when nothing consumes it (or add a new one), "+
+					"add this field's Enabled check to that guard's || chain, and add the field name here under "+
+					"the right entry in queryGuards. If this metric's data is never gated by a skippable query, "+
+					"add it to notQueryGated instead with a one-line reason.",
+				fieldName,
+			)
+		}
+
+		t.Run(fieldName, func(t *testing.T) {
+			cfg := allMetricsDisabledConfig()
+			enableMetricField(cfg, fieldName)
+
+			scraper := &postgreSQLScraper{config: cfg}
+			enabled := qg.guard(scraper)
+
+			require.True(t, enabled,
+				"enabling only %s left %s() returning false — %s's Enabled check is missing from that guard's "+
+					"|| chain in scraper.go, so its feeding query would be skipped even when this metric alone is enabled",
+				fieldName, qg.name, fieldName,
+			)
+		})
+	}
+}
+
+// allMetricsDisabledConfig returns a Config with every metric in
+// MetricsBuilderConfig.Metrics set to Enabled: false, via reflection so this
+// stays correct as metrics are added without needing per-metric maintenance.
+func allMetricsDisabledConfig() *Config {
+	cfg := createDefaultConfig().(*Config)
+	v := reflect.ValueOf(&cfg.MetricsBuilderConfig.Metrics).Elem()
+	for i := 0; i < v.NumField(); i++ {
+		enabledField := v.Field(i).FieldByName("Enabled")
+		if enabledField.IsValid() && enabledField.CanSet() {
+			enabledField.SetBool(false)
+		}
+	}
+	return cfg
+}
+
+// enableMetricField sets MetricsBuilderConfig.Metrics.<fieldName>.Enabled = true
+// via reflection, given the exported MetricsConfig field name.
+func enableMetricField(cfg *Config, fieldName string) {
+	v := reflect.ValueOf(&cfg.MetricsBuilderConfig.Metrics).Elem()
+	f := v.FieldByName(fieldName)
+	if !f.IsValid() {
+		panic(fmt.Sprintf("enableMetricField: no such MetricsConfig field %q", fieldName))
+	}
+	enabledField := f.FieldByName("Enabled")
+	if !enabledField.IsValid() || !enabledField.CanSet() {
+		panic(fmt.Sprintf("enableMetricField: field %q has no settable Enabled bool", fieldName))
+	}
+	enabledField.SetBool(true)
 }
 
 func TestScraperWithExecutionTime(t *testing.T) {

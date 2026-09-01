@@ -640,6 +640,50 @@ func (p *postgreSQLScraper) shutdown(_ context.Context) error {
 	return nil
 }
 
+// backendsMetricsEnabled reports whether getBackends' one metric is enabled.
+func (p *postgreSQLScraper) backendsMetricsEnabled() bool {
+	return p.config.MetricsBuilderConfig.Metrics.PostgresqlBackends.Enabled
+}
+
+// dbSizeMetricsEnabled reports whether getDatabaseSize's one metric is enabled.
+func (p *postgreSQLScraper) dbSizeMetricsEnabled() bool {
+	return p.config.MetricsBuilderConfig.Metrics.PostgresqlDbSize.Enabled
+}
+
+// databaseStatsMetricsEnabled reports whether any of the 11 metrics fed by
+// retrieveDatabaseStats (pg_stat_database) are enabled.
+func (p *postgreSQLScraper) databaseStatsMetricsEnabled() bool {
+	m := p.config.MetricsBuilderConfig.Metrics
+	return m.PostgresqlCommits.Enabled ||
+		m.PostgresqlRollbacks.Enabled ||
+		m.PostgresqlDeadlocks.Enabled ||
+		m.PostgresqlTempFiles.Enabled ||
+		m.PostgresqlTempIo.Enabled ||
+		m.PostgresqlTupUpdated.Enabled ||
+		m.PostgresqlTupReturned.Enabled ||
+		m.PostgresqlTupFetched.Enabled ||
+		m.PostgresqlTupInserted.Enabled ||
+		m.PostgresqlTupDeleted.Enabled ||
+		m.PostgresqlBlksHit.Enabled ||
+		m.PostgresqlBlksRead.Enabled
+}
+
+// databaseConflictsMetricsEnabled reports whether getDatabaseConflicts' one metric
+// is enabled. pg_stat_database_conflicts is queried separately since its counters
+// are only populated on standby servers and would otherwise add an unnecessary
+// query on every scrape.
+func (p *postgreSQLScraper) databaseConflictsMetricsEnabled() bool {
+	return p.config.MetricsBuilderConfig.Metrics.PostgresqlQueryConflicts.Enabled
+}
+
+// executionTimeMetricsEnabled reports whether getExecutionTime's one metric is
+// enabled. pg_stat_statements is queried separately since it requires the
+// pg_stat_statements extension and would otherwise add an unnecessary query (that
+// errors when the extension is absent) on every scrape.
+func (p *postgreSQLScraper) executionTimeMetricsEnabled() bool {
+	return p.config.MetricsBuilderConfig.Metrics.PostgresqlQueryExecutionTime.Enabled
+}
+
 func (p *postgreSQLScraper) retrieveDBMetrics(
 	ctx context.Context,
 	listClient client,
@@ -649,47 +693,27 @@ func (p *postgreSQLScraper) retrieveDBMetrics(
 ) {
 	wg := &sync.WaitGroup{}
 
-	// Skip if postgresql.backends is disabled.
-	if p.config.MetricsBuilderConfig.Metrics.PostgresqlBackends.Enabled {
+	if p.backendsMetricsEnabled() {
 		wg.Add(1)
 		go p.retrieveBackends(ctx, wg, listClient, databases, r, errs)
 	}
 
-	// Skip if postgresql.db_size is disabled.
-	if p.config.MetricsBuilderConfig.Metrics.PostgresqlDbSize.Enabled {
+	if p.dbSizeMetricsEnabled() {
 		wg.Add(1)
 		go p.retrieveDatabaseSize(ctx, wg, listClient, databases, r, errs)
 	}
 
-	// Skip if none of the metrics this query feeds are enabled.
-	if p.config.MetricsBuilderConfig.Metrics.PostgresqlCommits.Enabled ||
-		p.config.MetricsBuilderConfig.Metrics.PostgresqlRollbacks.Enabled ||
-		p.config.MetricsBuilderConfig.Metrics.PostgresqlDeadlocks.Enabled ||
-		p.config.MetricsBuilderConfig.Metrics.PostgresqlTempFiles.Enabled ||
-		p.config.MetricsBuilderConfig.Metrics.PostgresqlTempIo.Enabled ||
-		p.config.MetricsBuilderConfig.Metrics.PostgresqlTupUpdated.Enabled ||
-		p.config.MetricsBuilderConfig.Metrics.PostgresqlTupReturned.Enabled ||
-		p.config.MetricsBuilderConfig.Metrics.PostgresqlTupFetched.Enabled ||
-		p.config.MetricsBuilderConfig.Metrics.PostgresqlTupInserted.Enabled ||
-		p.config.MetricsBuilderConfig.Metrics.PostgresqlTupDeleted.Enabled ||
-		p.config.MetricsBuilderConfig.Metrics.PostgresqlBlksHit.Enabled ||
-		p.config.MetricsBuilderConfig.Metrics.PostgresqlBlksRead.Enabled {
+	if p.databaseStatsMetricsEnabled() {
 		wg.Add(1)
 		go p.retrieveDatabaseStats(ctx, wg, listClient, databases, r, errs)
 	}
 
-	// pg_stat_database_conflicts is queried separately and only when the metric is
-	// enabled, since the counters are only populated on standby servers and would
-	// otherwise add an unnecessary query on every scrape.
-	if p.config.MetricsBuilderConfig.Metrics.PostgresqlQueryConflicts.Enabled {
+	if p.databaseConflictsMetricsEnabled() {
 		wg.Add(1)
 		go p.retrieveDatabaseConflicts(ctx, wg, listClient, databases, r, errs)
 	}
 
-	// pg_stat_statements is queried separately and only when the metric is enabled, since it
-	// requires the pg_stat_statements extension and would otherwise add an unnecessary query
-	// (that errors when the extension is absent) on every scrape.
-	if p.config.MetricsBuilderConfig.Metrics.PostgresqlQueryExecutionTime.Enabled {
+	if p.executionTimeMetricsEnabled() {
 		wg.Add(1)
 		go p.retrieveExecutionTime(ctx, wg, listClient, databases, r, errs)
 	}
@@ -744,10 +768,32 @@ func formatNamespace(database, schema string) string {
 	return database + "|" + schema
 }
 
+// blocksReadMetricsEnabled reports whether getBlocksReadByTable's one metric is enabled.
+func (p *postgreSQLScraper) blocksReadMetricsEnabled() bool {
+	return p.config.MetricsBuilderConfig.Metrics.PostgresqlBlocksRead.Enabled
+}
+
+// perTableFieldsMetricsEnabled reports whether any of the 5 metrics fed by
+// getDatabaseTableMetrics' per-table fields (rows, operations, size, vacuum
+// count, sequential scans) are enabled.
+func (p *postgreSQLScraper) perTableFieldsMetricsEnabled() bool {
+	m := p.config.MetricsBuilderConfig.Metrics
+	return m.PostgresqlRows.Enabled ||
+		m.PostgresqlOperations.Enabled ||
+		m.PostgresqlTableSize.Enabled ||
+		m.PostgresqlTableVacuumCount.Enabled ||
+		m.PostgresqlSequentialScans.Enabled
+}
+
+// tableCountMetricsEnabled reports whether postgresql.table.count is enabled, in
+// addition to whatever perTableFieldsMetricsEnabled already covers.
+func (p *postgreSQLScraper) tableCountMetricsEnabled() bool {
+	return p.perTableFieldsMetricsEnabled() || p.config.MetricsBuilderConfig.Metrics.PostgresqlTableCount.Enabled
+}
+
 func (p *postgreSQLScraper) collectTables(ctx context.Context, now pcommon.Timestamp, dbClient client, db string, errs *errsMux) int64 {
-	// Skip if postgresql.blocks_read is disabled.
 	var blockReads map[tableIdentifier]tableIOStats
-	if p.config.MetricsBuilderConfig.Metrics.PostgresqlBlocksRead.Enabled {
+	if p.blocksReadMetricsEnabled() {
 		var err error
 		blockReads, err = dbClient.getBlocksReadByTable(ctx, db)
 		if err != nil {
@@ -755,13 +801,8 @@ func (p *postgreSQLScraper) collectTables(ctx context.Context, now pcommon.Times
 		}
 	}
 
-	// Skip if none of the metrics this query feeds are enabled.
-	needsPerTableFields := p.config.MetricsBuilderConfig.Metrics.PostgresqlRows.Enabled ||
-		p.config.MetricsBuilderConfig.Metrics.PostgresqlOperations.Enabled ||
-		p.config.MetricsBuilderConfig.Metrics.PostgresqlTableSize.Enabled ||
-		p.config.MetricsBuilderConfig.Metrics.PostgresqlTableVacuumCount.Enabled ||
-		p.config.MetricsBuilderConfig.Metrics.PostgresqlSequentialScans.Enabled
-	needsTableMetrics := needsPerTableFields || p.config.MetricsBuilderConfig.Metrics.PostgresqlTableCount.Enabled
+	needsPerTableFields := p.perTableFieldsMetricsEnabled()
+	needsTableMetrics := p.tableCountMetricsEnabled()
 
 	var tableMetrics map[tableIdentifier]tableStats
 	var numTables int64
@@ -823,6 +864,13 @@ func (p *postgreSQLScraper) collectTables(ctx context.Context, now pcommon.Times
 	return numTables
 }
 
+// indexMetricsEnabled reports whether either of the 2 metrics fed by
+// getIndexStats is enabled.
+func (p *postgreSQLScraper) indexMetricsEnabled() bool {
+	m := p.config.MetricsBuilderConfig.Metrics
+	return m.PostgresqlIndexScans.Enabled || m.PostgresqlIndexSize.Enabled
+}
+
 func (p *postgreSQLScraper) collectIndexes(
 	ctx context.Context,
 	now pcommon.Timestamp,
@@ -830,9 +878,7 @@ func (p *postgreSQLScraper) collectIndexes(
 	database string,
 	errs *errsMux,
 ) {
-	// Skip if none of the metrics this query feeds are enabled.
-	if !p.config.MetricsBuilderConfig.Metrics.PostgresqlIndexScans.Enabled &&
-		!p.config.MetricsBuilderConfig.Metrics.PostgresqlIndexSize.Enabled {
+	if !p.indexMetricsEnabled() {
 		return
 	}
 
@@ -859,6 +905,11 @@ func (p *postgreSQLScraper) collectIndexes(
 	}
 }
 
+// functionCallsMetricsEnabled reports whether getFunctionStats' one metric is enabled.
+func (p *postgreSQLScraper) functionCallsMetricsEnabled() bool {
+	return p.config.MetricsBuilderConfig.Metrics.PostgresqlFunctionCalls.Enabled
+}
+
 func (p *postgreSQLScraper) collectFunctions(
 	ctx context.Context,
 	now pcommon.Timestamp,
@@ -866,8 +917,7 @@ func (p *postgreSQLScraper) collectFunctions(
 	database string,
 	errs *errsMux,
 ) {
-	// Skip if postgresql.function.calls is disabled.
-	if !p.config.MetricsBuilderConfig.Metrics.PostgresqlFunctionCalls.Enabled {
+	if !p.functionCallsMetricsEnabled() {
 		return
 	}
 
@@ -916,6 +966,17 @@ func (p *postgreSQLScraper) collectVectorStats(
 	p.mb.EmitForResource(metadata.WithResource(rb.Emit()))
 }
 
+// vectorSearchMetricsEnabled reports whether any of the 3 metrics fed by
+// getVectorSearchStats are enabled. All 3 are opt-in and derived from the same
+// pg_stat_statements query, so the query is skipped entirely unless at least one
+// of them is enabled.
+func (p *postgreSQLScraper) vectorSearchMetricsEnabled() bool {
+	m := p.config.MetricsBuilderConfig.Metrics
+	return m.PostgresqlVectorSearchCalls.Enabled ||
+		m.PostgresqlVectorSearchDuration.Enabled ||
+		m.PostgresqlVectorSearchRowsReturned.Enabled
+}
+
 // recordVectorSearchStats records the vector search metrics into the metrics builder and reports
 // whether any datapoints were recorded. It does not emit a ResourceMetrics itself; collectVectorStats
 // performs the consolidated emit.
@@ -926,11 +987,7 @@ func (p *postgreSQLScraper) recordVectorSearchStats(
 	database string,
 	errs *errsMux,
 ) bool {
-	// All metrics are opt-in and derived from the same pg_stat_statements query, so skip
-	// the collection entirely unless at least one of them is enabled.
-	if !p.config.MetricsBuilderConfig.Metrics.PostgresqlVectorSearchCalls.Enabled &&
-		!p.config.MetricsBuilderConfig.Metrics.PostgresqlVectorSearchDuration.Enabled &&
-		!p.config.MetricsBuilderConfig.Metrics.PostgresqlVectorSearchRowsReturned.Enabled {
+	if !p.vectorSearchMetricsEnabled() {
 		return false
 	}
 
@@ -958,6 +1015,15 @@ func (p *postgreSQLScraper) recordVectorSearchStats(
 	return recorded
 }
 
+// vectorInsertMetricsEnabled reports whether either of the 2 metrics fed by
+// getVectorInsertStats is enabled. Both are opt-in and derived from the same
+// pg_stat_statements query, so the query is skipped entirely unless at least one
+// of them is enabled.
+func (p *postgreSQLScraper) vectorInsertMetricsEnabled() bool {
+	m := p.config.MetricsBuilderConfig.Metrics
+	return m.PostgresqlVectorInsertRows.Enabled || m.PostgresqlVectorInsertDuration.Enabled
+}
+
 // recordVectorInsertStats records the vector insert metrics into the metrics builder and reports
 // whether any datapoints were recorded. Like recordVectorSearchStats it does not emit a
 // ResourceMetrics itself; collectVectorStats performs the consolidated emit.
@@ -968,10 +1034,7 @@ func (p *postgreSQLScraper) recordVectorInsertStats(
 	database string,
 	errs *errsMux,
 ) bool {
-	// Both metrics are opt-in and derived from the same pg_stat_statements query, so skip
-	// the collection entirely unless at least one of them is enabled.
-	if !p.config.MetricsBuilderConfig.Metrics.PostgresqlVectorInsertRows.Enabled &&
-		!p.config.MetricsBuilderConfig.Metrics.PostgresqlVectorInsertDuration.Enabled {
+	if !p.vectorInsertMetricsEnabled() {
 		return false
 	}
 
@@ -991,18 +1054,24 @@ func (p *postgreSQLScraper) recordVectorInsertStats(
 	return recorded
 }
 
+// bgWriterMetricsEnabled reports whether any of the 5 metrics fed by
+// getBGWriterStats are enabled.
+func (p *postgreSQLScraper) bgWriterMetricsEnabled() bool {
+	m := p.config.MetricsBuilderConfig.Metrics
+	return m.PostgresqlBgwriterBuffersAllocated.Enabled ||
+		m.PostgresqlBgwriterBuffersWrites.Enabled ||
+		m.PostgresqlBgwriterCheckpointCount.Enabled ||
+		m.PostgresqlBgwriterDuration.Enabled ||
+		m.PostgresqlBgwriterMaxwritten.Enabled
+}
+
 func (p *postgreSQLScraper) collectBGWriterStats(
 	ctx context.Context,
 	now pcommon.Timestamp,
 	client client,
 	errs *errsMux,
 ) {
-	// Skip if none of the metrics this query feeds are enabled.
-	if !p.config.MetricsBuilderConfig.Metrics.PostgresqlBgwriterBuffersAllocated.Enabled &&
-		!p.config.MetricsBuilderConfig.Metrics.PostgresqlBgwriterBuffersWrites.Enabled &&
-		!p.config.MetricsBuilderConfig.Metrics.PostgresqlBgwriterCheckpointCount.Enabled &&
-		!p.config.MetricsBuilderConfig.Metrics.PostgresqlBgwriterDuration.Enabled &&
-		!p.config.MetricsBuilderConfig.Metrics.PostgresqlBgwriterMaxwritten.Enabled {
+	if !p.bgWriterMetricsEnabled() {
 		return
 	}
 
@@ -1032,6 +1101,14 @@ func (p *postgreSQLScraper) collectBGWriterStats(
 	p.mb.RecordPostgresqlBgwriterMaxwrittenDataPoint(now, bgStats.maxWritten)
 }
 
+// databaseLocksMetricsEnabled reports whether postgresql.database.locks is
+// enabled. Shared by collectDatabaseLocks (getDatabaseLocks) and
+// collectSharedRelationLocks (getSharedRelationLocks), the two queries that
+// together feed this one metric.
+func (p *postgreSQLScraper) databaseLocksMetricsEnabled() bool {
+	return p.config.MetricsBuilderConfig.Metrics.PostgresqlDatabaseLocks.Enabled
+}
+
 // collectDatabaseLocks collects the locks on relations local to the connected database
 func (p *postgreSQLScraper) collectDatabaseLocks(
 	ctx context.Context,
@@ -1040,8 +1117,7 @@ func (p *postgreSQLScraper) collectDatabaseLocks(
 	database string,
 	errs *errsMux,
 ) {
-	// Skip if postgresql.database.locks is disabled.
-	if !p.config.MetricsBuilderConfig.Metrics.PostgresqlDatabaseLocks.Enabled {
+	if !p.databaseLocksMetricsEnabled() {
 		return
 	}
 
@@ -1062,8 +1138,7 @@ func (p *postgreSQLScraper) collectSharedRelationLocks(
 	client client,
 	errs *errsMux,
 ) {
-	// Skip if postgresql.database.locks is disabled.
-	if !p.config.MetricsBuilderConfig.Metrics.PostgresqlDatabaseLocks.Enabled {
+	if !p.databaseLocksMetricsEnabled() {
 		return
 	}
 
@@ -1079,14 +1154,18 @@ func (p *postgreSQLScraper) collectSharedRelationLocks(
 	}
 }
 
+// maxConnectionsMetricsEnabled reports whether getMaxConnections' one metric is enabled.
+func (p *postgreSQLScraper) maxConnectionsMetricsEnabled() bool {
+	return p.config.MetricsBuilderConfig.Metrics.PostgresqlConnectionMax.Enabled
+}
+
 func (p *postgreSQLScraper) collectMaxConnections(
 	ctx context.Context,
 	now pcommon.Timestamp,
 	client client,
 	errs *errsMux,
 ) {
-	// Skip if postgresql.connection.max is disabled.
-	if !p.config.MetricsBuilderConfig.Metrics.PostgresqlConnectionMax.Enabled {
+	if !p.maxConnectionsMetricsEnabled() {
 		return
 	}
 
@@ -1098,16 +1177,22 @@ func (p *postgreSQLScraper) collectMaxConnections(
 	p.mb.RecordPostgresqlConnectionMaxDataPoint(now, mc)
 }
 
+// replicationMetricsEnabled reports whether any of the 3 metrics fed by
+// getReplicationStats are enabled (wal.delay/wal.lag naming depends on a feature gate).
+func (p *postgreSQLScraper) replicationMetricsEnabled() bool {
+	m := p.config.MetricsBuilderConfig.Metrics
+	return m.PostgresqlReplicationDataDelay.Enabled ||
+		m.PostgresqlWalDelay.Enabled ||
+		m.PostgresqlWalLag.Enabled
+}
+
 func (p *postgreSQLScraper) collectReplicationStats(
 	ctx context.Context,
 	now pcommon.Timestamp,
 	client client,
 	errs *errsMux,
 ) {
-	// Skip if none of the metrics this query feeds are enabled (wal.delay/wal.lag naming depends on a feature gate).
-	if !p.config.MetricsBuilderConfig.Metrics.PostgresqlReplicationDataDelay.Enabled &&
-		!p.config.MetricsBuilderConfig.Metrics.PostgresqlWalDelay.Enabled &&
-		!p.config.MetricsBuilderConfig.Metrics.PostgresqlWalLag.Enabled {
+	if !p.replicationMetricsEnabled() {
 		return
 	}
 
@@ -1144,14 +1229,18 @@ func (p *postgreSQLScraper) collectReplicationStats(
 	}
 }
 
+// walAgeMetricsEnabled reports whether getLatestWalAgeSeconds' one metric is enabled.
+func (p *postgreSQLScraper) walAgeMetricsEnabled() bool {
+	return p.config.MetricsBuilderConfig.Metrics.PostgresqlWalAge.Enabled
+}
+
 func (p *postgreSQLScraper) collectWalAge(
 	ctx context.Context,
 	now pcommon.Timestamp,
 	client client,
 	errs *errsMux,
 ) {
-	// Skip if postgresql.wal.age is disabled.
-	if !p.config.MetricsBuilderConfig.Metrics.PostgresqlWalAge.Enabled {
+	if !p.walAgeMetricsEnabled() {
 		return
 	}
 
