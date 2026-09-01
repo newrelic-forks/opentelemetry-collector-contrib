@@ -385,6 +385,46 @@ func TestScrapeQuerySamplesTimerStart(t *testing.T) {
 	})
 }
 
+func TestSanitizeWaitTime(t *testing.T) {
+	scraper := newMySQLScraper(receivertest.NewNopSettings(metadata.Type), createDefaultConfig().(*Config), newCache[int64](100), newTTLCache[string](0, time.Hour*24*365*10))
+
+	t.Run("io: passes through a plausible wait time unchanged", func(t *testing.T) {
+		assert.InDelta(t, 2.5, scraper.sanitizeWaitTime(2.5, "io", "table/sql/handler"), 0.0001)
+	})
+
+	t.Run("io: passes through exactly the ceiling", func(t *testing.T) {
+		assert.InDelta(t, maxPlausibleIOSyncWaitSeconds, scraper.sanitizeWaitTime(maxPlausibleIOSyncWaitSeconds, "io", "table/sql/handler"), 0.0001)
+	})
+
+	t.Run("io: clamps a reading just past the ceiling to zero", func(t *testing.T) {
+		assert.Equal(t, 0.0, scraper.sanitizeWaitTime(maxPlausibleIOSyncWaitSeconds+0.001, "io", "redo_log_flush"))
+	})
+
+	t.Run("io: clamps the Aurora redo_log_flush overflow case to zero", func(t *testing.T) {
+		// 2^64 picoseconds / 1e12 -- the exact garbage value this fix exists for.
+		assert.Equal(t, 0.0, scraper.sanitizeWaitTime(18446744.073709551616, "io", "redo_log_flush"))
+	})
+
+	t.Run("synch: clamps a reading past the tight ceiling to zero", func(t *testing.T) {
+		assert.Equal(t, 0.0, scraper.sanitizeWaitTime(maxPlausibleIOSyncWaitSeconds+0.001, "synch", "mutex/innodb/checkpoint_state"))
+	})
+
+	t.Run("lock: a real long lock wait survives unclamped, not zeroed", func(t *testing.T) {
+		// Well past the io/synch ceiling, but a lock wait this long can be a
+		// genuine blocking incident -- mysql.blocking.* exists to surface
+		// exactly this, so it must not be silently zeroed.
+		assert.InDelta(t, 300.0, scraper.sanitizeWaitTime(300.0, "lock", "table/sql/handler"), 0.0001)
+	})
+
+	t.Run("lock: the far-more-permissive backstop still catches overflow-scale garbage", func(t *testing.T) {
+		assert.Equal(t, 0.0, scraper.sanitizeWaitTime(18446744.073709551616, "lock", "table/sql/handler"))
+	})
+
+	t.Run("zero wait time is untouched", func(t *testing.T) {
+		assert.Equal(t, 0.0, scraper.sanitizeWaitTime(0, "CPU", "CPU"))
+	})
+}
+
 func TestScrapeQuerySamplesBlockers(t *testing.T) {
 	cfg := createDefaultConfig().(*Config)
 	cfg.Username = "otel"
