@@ -744,7 +744,7 @@ func formatNamespace(database, schema string) string {
 	return database + "|" + schema
 }
 
-func (p *postgreSQLScraper) collectTables(ctx context.Context, now pcommon.Timestamp, dbClient client, db string, errs *errsMux) (numTables int64) {
+func (p *postgreSQLScraper) collectTables(ctx context.Context, now pcommon.Timestamp, dbClient client, db string, errs *errsMux) int64 {
 	// Skip if postgresql.blocks_read is disabled.
 	var blockReads map[tableIdentifier]tableIOStats
 	if p.config.MetricsBuilderConfig.Metrics.PostgresqlBlocksRead.Enabled {
@@ -756,16 +756,27 @@ func (p *postgreSQLScraper) collectTables(ctx context.Context, now pcommon.Times
 	}
 
 	// Skip if none of the metrics this query feeds are enabled.
-	needsTableMetrics := p.config.MetricsBuilderConfig.Metrics.PostgresqlRows.Enabled ||
+	needsPerTableFields := p.config.MetricsBuilderConfig.Metrics.PostgresqlRows.Enabled ||
 		p.config.MetricsBuilderConfig.Metrics.PostgresqlOperations.Enabled ||
 		p.config.MetricsBuilderConfig.Metrics.PostgresqlTableSize.Enabled ||
 		p.config.MetricsBuilderConfig.Metrics.PostgresqlTableVacuumCount.Enabled ||
-		p.config.MetricsBuilderConfig.Metrics.PostgresqlSequentialScans.Enabled ||
-		p.config.MetricsBuilderConfig.Metrics.PostgresqlTableCount.Enabled
+		p.config.MetricsBuilderConfig.Metrics.PostgresqlSequentialScans.Enabled
+	needsTableMetrics := needsPerTableFields || p.config.MetricsBuilderConfig.Metrics.PostgresqlTableCount.Enabled
+
 	var tableMetrics map[tableIdentifier]tableStats
-	if needsTableMetrics {
+	var numTables int64
+	switch {
+	case needsPerTableFields:
 		var err error
 		tableMetrics, err = dbClient.getDatabaseTableMetrics(ctx, db)
+		if err != nil {
+			errs.addPartial(err)
+		}
+		numTables = int64(len(tableMetrics))
+	case needsTableMetrics:
+		// table.count is the only enabled table metric — use the cheap count.
+		var err error
+		numTables, err = dbClient.getTableCount(ctx)
 		if err != nil {
 			errs.addPartial(err)
 		}
@@ -809,7 +820,7 @@ func (p *postgreSQLScraper) collectTables(ctx context.Context, now pcommon.Times
 			p.mb.EmitForResource(metadata.WithResource(rb.Emit()))
 		}
 	}
-	return int64(len(tableMetrics))
+	return numTables
 }
 
 func (p *postgreSQLScraper) collectIndexes(

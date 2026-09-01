@@ -243,7 +243,7 @@ func TestScraperSkipsQueriesForDisabledMetrics(t *testing.T) {
 	require.False(t, cfg.MetricsBuilderConfig.Metrics.PostgresqlSequentialScans.Enabled)
 	require.False(t, cfg.MetricsBuilderConfig.Metrics.PostgresqlFunctionCalls.Enabled)
 	require.False(t, cfg.MetricsBuilderConfig.Metrics.PostgresqlDatabaseLocks.Enabled)
-	// postgresql.table.count stays enabled, so getDatabaseTableMetrics still runs for its row count.
+	// table.count stays enabled, now satisfied by the cheap getTableCount query.
 	require.True(t, cfg.MetricsBuilderConfig.Metrics.PostgresqlTableCount.Enabled)
 
 	scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, factory, newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
@@ -261,7 +261,8 @@ func TestScraperSkipsQueriesForDisabledMetrics(t *testing.T) {
 	dbClient := dbClientAny.(*mockClient)
 
 	// Queries with no remaining enabled consumer must not run.
-	dbClient.AssertNumberOfCalls(t, "getDatabaseTableMetrics", 1)
+	dbClient.AssertNumberOfCalls(t, "getTableCount", 1)
+	dbClient.AssertNotCalled(t, "getDatabaseTableMetrics", mock.Anything, mock.Anything)
 	dbClient.AssertNotCalled(t, "getBlocksReadByTable", mock.Anything, mock.Anything)
 	dbClient.AssertNotCalled(t, "getIndexStats", mock.Anything, mock.Anything)
 	dbClient.AssertNotCalled(t, "getFunctionStats", mock.Anything, mock.Anything)
@@ -2644,6 +2645,11 @@ func (m *mockClient) getDatabaseTableMetrics(ctx context.Context, database strin
 	return args.Get(0).(map[tableIdentifier]tableStats), args.Error(1)
 }
 
+func (m *mockClient) getTableCount(ctx context.Context) (int64, error) {
+	args := m.Called(ctx)
+	return args.Get(0).(int64), args.Error(1)
+}
+
 func (m *mockClient) getBlocksReadByTable(ctx context.Context, database string) (map[tableIdentifier]tableIOStats, error) {
 	args := m.Called(ctx, database)
 	return args.Get(0).(map[tableIdentifier]tableIOStats), args.Error(1)
@@ -2875,6 +2881,8 @@ func (m *mockClient) initMocks(database, schema string, databases []string, inde
 		}
 
 		m.On("getDatabaseTableMetrics", mock.Anything, database).Return(tableMetrics, nil)
+		// Matches len(tableMetrics) for consistency.
+		m.On("getTableCount", mock.Anything).Return(int64(len(tableMetrics)), nil)
 		m.On("getBlocksReadByTable", mock.Anything, database).Return(blocksMetrics, nil)
 
 		index1 := database + "_test1_pkey"
