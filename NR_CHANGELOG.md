@@ -5,6 +5,18 @@ including confirmation of which breaking changes from [CHANGELOG.md](./CHANGELOG
 
 <!-- next version -->
 
+## Unreleased
+
+### 🧰 Bug fixes 🧰
+
+- `receiver/nrpostgresql`: Disabling a per-table or per-index metric now also skips the query
+  that fed it, instead of still running the query and discarding the result.
+
+### 💡 Enhancements 💡
+
+- `receiver/nrpostgresql`: `postgresql.table.count` alone now uses a cheap `COUNT(*)` instead of
+  the full per-table query.
+
 ## v0.158.3
 
 ### 🧰 Bug fixes 🧰
