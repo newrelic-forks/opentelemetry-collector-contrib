@@ -13,6 +13,14 @@ including confirmation of which breaking changes from [CHANGELOG.md](./CHANGELOG
   lock-wait, replica status, InnoDB, table io_waits, or index io_waits query groups now also
   skips the underlying query, instead of still running it and discarding the result.
 
+- `receiver/nrpostgresql`: Disabling a per-table or per-index metric now also skips the query
+  that fed it, instead of still running the query and discarding the result.
+
+### 💡 Enhancements 💡
+
+- `receiver/nrpostgresql`: `postgresql.table.count` alone now uses a cheap `COUNT(*)` instead of
+  the full per-table query.
+
 ## v0.158.3
 
 ### 🧰 Bug fixes 🧰
