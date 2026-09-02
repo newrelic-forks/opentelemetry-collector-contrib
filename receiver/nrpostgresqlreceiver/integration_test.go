@@ -140,7 +140,6 @@ func tableCountEquivalenceTest(image string) func(*testing.T) {
 		count, err := dbClient.getTableCount(ctx)
 		require.NoError(t, err)
 
-		// Confirms the fixture's partition and materialized view are actually present.
 		assert.Greater(t, len(tableMetrics), 2, "fixture should include partitions and materialized views, not just plain tables")
 		assert.Equal(t, int64(len(tableMetrics)), count, "cheap table count must equal the full per-table query's row count")
 	}

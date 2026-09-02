@@ -640,18 +640,14 @@ func (p *postgreSQLScraper) shutdown(_ context.Context) error {
 	return nil
 }
 
-// backendsMetricsEnabled reports whether getBackends' one metric is enabled.
 func (p *postgreSQLScraper) backendsMetricsEnabled() bool {
 	return p.config.MetricsBuilderConfig.Metrics.PostgresqlBackends.Enabled
 }
 
-// dbSizeMetricsEnabled reports whether getDatabaseSize's one metric is enabled.
 func (p *postgreSQLScraper) dbSizeMetricsEnabled() bool {
 	return p.config.MetricsBuilderConfig.Metrics.PostgresqlDbSize.Enabled
 }
 
-// databaseStatsMetricsEnabled reports whether any of the 11 metrics fed by
-// retrieveDatabaseStats (pg_stat_database) are enabled.
 func (p *postgreSQLScraper) databaseStatsMetricsEnabled() bool {
 	m := p.config.MetricsBuilderConfig.Metrics
 	return m.PostgresqlCommits.Enabled ||
@@ -668,18 +664,14 @@ func (p *postgreSQLScraper) databaseStatsMetricsEnabled() bool {
 		m.PostgresqlBlksRead.Enabled
 }
 
-// databaseConflictsMetricsEnabled reports whether getDatabaseConflicts' one metric
-// is enabled. pg_stat_database_conflicts is queried separately since its counters
-// are only populated on standby servers and would otherwise add an unnecessary
-// query on every scrape.
+// pg_stat_database_conflicts counters are only populated on standby servers, so
+// this is checked separately to avoid an unnecessary query on primaries.
 func (p *postgreSQLScraper) databaseConflictsMetricsEnabled() bool {
 	return p.config.MetricsBuilderConfig.Metrics.PostgresqlQueryConflicts.Enabled
 }
 
-// executionTimeMetricsEnabled reports whether getExecutionTime's one metric is
-// enabled. pg_stat_statements is queried separately since it requires the
-// pg_stat_statements extension and would otherwise add an unnecessary query (that
-// errors when the extension is absent) on every scrape.
+// pg_stat_statements requires an extension that may not be installed, so this is
+// checked separately to avoid an unnecessary erroring query when it's absent.
 func (p *postgreSQLScraper) executionTimeMetricsEnabled() bool {
 	return p.config.MetricsBuilderConfig.Metrics.PostgresqlQueryExecutionTime.Enabled
 }
@@ -768,14 +760,10 @@ func formatNamespace(database, schema string) string {
 	return database + "|" + schema
 }
 
-// blocksReadMetricsEnabled reports whether getBlocksReadByTable's one metric is enabled.
 func (p *postgreSQLScraper) blocksReadMetricsEnabled() bool {
 	return p.config.MetricsBuilderConfig.Metrics.PostgresqlBlocksRead.Enabled
 }
 
-// perTableFieldsMetricsEnabled reports whether any of the 5 metrics fed by
-// getDatabaseTableMetrics' per-table fields (rows, operations, size, vacuum
-// count, sequential scans) are enabled.
 func (p *postgreSQLScraper) perTableFieldsMetricsEnabled() bool {
 	m := p.config.MetricsBuilderConfig.Metrics
 	return m.PostgresqlRows.Enabled ||
@@ -785,8 +773,8 @@ func (p *postgreSQLScraper) perTableFieldsMetricsEnabled() bool {
 		m.PostgresqlSequentialScans.Enabled
 }
 
-// tableCountMetricsEnabled reports whether postgresql.table.count is enabled, in
-// addition to whatever perTableFieldsMetricsEnabled already covers.
+// Also true whenever perTableFieldsMetricsEnabled is, since the full per-table
+// query already produces the count as a side effect.
 func (p *postgreSQLScraper) tableCountMetricsEnabled() bool {
 	return p.perTableFieldsMetricsEnabled() || p.config.MetricsBuilderConfig.Metrics.PostgresqlTableCount.Enabled
 }
@@ -864,8 +852,6 @@ func (p *postgreSQLScraper) collectTables(ctx context.Context, now pcommon.Times
 	return numTables
 }
 
-// indexMetricsEnabled reports whether either of the 2 metrics fed by
-// getIndexStats is enabled.
 func (p *postgreSQLScraper) indexMetricsEnabled() bool {
 	m := p.config.MetricsBuilderConfig.Metrics
 	return m.PostgresqlIndexScans.Enabled || m.PostgresqlIndexSize.Enabled
@@ -905,7 +891,6 @@ func (p *postgreSQLScraper) collectIndexes(
 	}
 }
 
-// functionCallsMetricsEnabled reports whether getFunctionStats' one metric is enabled.
 func (p *postgreSQLScraper) functionCallsMetricsEnabled() bool {
 	return p.config.MetricsBuilderConfig.Metrics.PostgresqlFunctionCalls.Enabled
 }
@@ -1054,8 +1039,6 @@ func (p *postgreSQLScraper) recordVectorInsertStats(
 	return recorded
 }
 
-// bgWriterMetricsEnabled reports whether any of the 5 metrics fed by
-// getBGWriterStats are enabled.
 func (p *postgreSQLScraper) bgWriterMetricsEnabled() bool {
 	m := p.config.MetricsBuilderConfig.Metrics
 	return m.PostgresqlBgwriterBuffersAllocated.Enabled ||
@@ -1101,10 +1084,7 @@ func (p *postgreSQLScraper) collectBGWriterStats(
 	p.mb.RecordPostgresqlBgwriterMaxwrittenDataPoint(now, bgStats.maxWritten)
 }
 
-// databaseLocksMetricsEnabled reports whether postgresql.database.locks is
-// enabled. Shared by collectDatabaseLocks (getDatabaseLocks) and
-// collectSharedRelationLocks (getSharedRelationLocks), the two queries that
-// together feed this one metric.
+// Shared by collectDatabaseLocks and collectSharedRelationLocks, which both feed this one metric.
 func (p *postgreSQLScraper) databaseLocksMetricsEnabled() bool {
 	return p.config.MetricsBuilderConfig.Metrics.PostgresqlDatabaseLocks.Enabled
 }
@@ -1154,7 +1134,6 @@ func (p *postgreSQLScraper) collectSharedRelationLocks(
 	}
 }
 
-// maxConnectionsMetricsEnabled reports whether getMaxConnections' one metric is enabled.
 func (p *postgreSQLScraper) maxConnectionsMetricsEnabled() bool {
 	return p.config.MetricsBuilderConfig.Metrics.PostgresqlConnectionMax.Enabled
 }
@@ -1177,8 +1156,7 @@ func (p *postgreSQLScraper) collectMaxConnections(
 	p.mb.RecordPostgresqlConnectionMaxDataPoint(now, mc)
 }
 
-// replicationMetricsEnabled reports whether any of the 3 metrics fed by
-// getReplicationStats are enabled (wal.delay/wal.lag naming depends on a feature gate).
+// wal.delay/wal.lag naming depends on a feature gate; both are checked here.
 func (p *postgreSQLScraper) replicationMetricsEnabled() bool {
 	m := p.config.MetricsBuilderConfig.Metrics
 	return m.PostgresqlReplicationDataDelay.Enabled ||
@@ -1229,7 +1207,6 @@ func (p *postgreSQLScraper) collectReplicationStats(
 	}
 }
 
-// walAgeMetricsEnabled reports whether getLatestWalAgeSeconds' one metric is enabled.
 func (p *postgreSQLScraper) walAgeMetricsEnabled() bool {
 	return p.config.MetricsBuilderConfig.Metrics.PostgresqlWalAge.Enabled
 }

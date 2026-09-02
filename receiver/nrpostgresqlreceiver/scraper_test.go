@@ -226,7 +226,6 @@ func TestScraper(t *testing.T) {
 	runTest(false, "expected.yaml")
 }
 
-// TestScraperSkipsQueriesForDisabledMetrics verifies table/index/function/lock queries are skipped when every metric they feed is disabled.
 func TestScraperSkipsQueriesForDisabledMetrics(t *testing.T) {
 	factory := new(mockClientFactory)
 	factory.initMocks([]string{"otel"})
@@ -271,7 +270,6 @@ func TestScraperSkipsQueriesForDisabledMetrics(t *testing.T) {
 	listClient.AssertNotCalled(t, "getSharedRelationLocks", mock.Anything)
 }
 
-// TestScraperRunsQueriesWhenAnyFedMetricIsEnabled verifies a query still runs when at least one of the metrics it feeds is enabled.
 func TestScraperRunsQueriesWhenAnyFedMetricIsEnabled(t *testing.T) {
 	factory := new(mockClientFactory)
 	factory.initMocks([]string{"otel"})
@@ -386,26 +384,15 @@ func TestScraperSkipsServerWideQueriesForDisabledMetrics(t *testing.T) {
 	}
 }
 
-// queryGuard pairs one query-enablement guard method (the extracted
-// *MetricsEnabled methods in scraper.go) with the exact set of MetricsConfig
-// field names it must check. name is used only for test names and failure
-// messages; guard is the real method value, called directly rather than
-// looked up by reflection (reflect.Value.MethodByName cannot see unexported
-// methods, which every guard is, by Go's own naming convention).
+// queryGuard maps one *MetricsEnabled guard method (scraper.go) to the
+// MetricsConfig fields it checks. guard is called directly, not looked up by
+// name, since reflect.Value.MethodByName can't see unexported methods.
 type queryGuard struct {
 	name   string
 	guard  func(*postgreSQLScraper) bool
 	fields []string
 }
 
-// queryGuards is the single source of truth TestQueryGuardsCoverEveryMetric
-// checks against reflection over MetricsConfig, so a metric added to
-// metadata.yaml without also being added here — or added here but not to its
-// guard's || chain in scraper.go — fails loudly instead of silently riding
-// along on a sibling metric that happens to already be enabled by default
-// (the gap this test exists to close; see PR discussion on upstream
-// open-telemetry/opentelemetry-collector-contrib#49086 for the original
-// report of this class of bug).
 var queryGuards = []queryGuard{
 	{"backendsMetricsEnabled", (*postgreSQLScraper).backendsMetricsEnabled, []string{"PostgresqlBackends"}},
 	{"dbSizeMetricsEnabled", (*postgreSQLScraper).dbSizeMetricsEnabled, []string{"PostgresqlDbSize"}},
@@ -423,10 +410,6 @@ var queryGuards = []queryGuard{
 		"PostgresqlTupReturned", "PostgresqlTupFetched", "PostgresqlTupInserted",
 		"PostgresqlTupDeleted", "PostgresqlBlksHit", "PostgresqlBlksRead",
 	}},
-	// tableCountMetricsEnabled subsumes perTableFieldsMetricsEnabled (it's
-	// perTableFieldsMetricsEnabled() || table.count), so table.count alone is
-	// listed here; the 5 per-table fields are covered by the
-	// perTableFieldsMetricsEnabled entry below.
 	{"tableCountMetricsEnabled", (*postgreSQLScraper).tableCountMetricsEnabled, []string{"PostgresqlTableCount"}},
 	{"perTableFieldsMetricsEnabled", (*postgreSQLScraper).perTableFieldsMetricsEnabled, []string{
 		"PostgresqlRows", "PostgresqlOperations", "PostgresqlTableSize",
@@ -447,33 +430,15 @@ var queryGuards = []queryGuard{
 	}},
 }
 
-// notQueryGated lists MetricsConfig fields that are fed by data computed
-// without a skippable query — there is nothing to guard, so they are exempt
-// from queryGuards by design, not by oversight.
+// notQueryGated lists MetricsConfig fields with no skippable query to guard.
 var notQueryGated = map[string]string{
-	// Always derived from len(databases), never its own query.
 	"PostgresqlDatabaseCount": "recordDatabase computes it from len(databases), no separate query to skip",
 }
 
-// TestQueryGuardsCoverEveryMetric is the completeness check the *MetricsEnabled
-// extraction (scraper.go) needs but couldn't get from
-// TestScraperSkipsServerWideQueriesForDisabledMetrics /
-// TestScraperRunsQueriesWhenAnyFedMetricIsEnabled alone: those tests only prove
-// that *some* metric in a guard's || chain works, so a metric that is added to
-// metadata.yaml, wired into a query's data path, but never added to that
-// query's guard would still pass every existing test — as long as a sibling
-// metric fed by the same query happens to be enabled by default, the query
-// keeps running and the new metric keeps getting emitted in every test, and
-// nothing ever notices the guard itself is wrong.
-//
-// This test closes that gap by (1) reflecting over every field in
-// metadata.MetricsConfig, and (2) for every field listed in queryGuards,
-// actually calling its guard method with that one field enabled and every
-// other metric in the entire config disabled. A field present in
-// MetricsConfig but missing from both queryGuards and notQueryGated fails as
-// soon as reflection finds it; a field listed in queryGuards but never added
-// to its guard method's own || chain in scraper.go fails because the guard
-// returns false even though the mapped field is the only one enabled.
+// TestQueryGuardsCoverEveryMetric guards against a metric being wired into a
+// query's data path without being added to that query's guard: enabling only
+// one metric at a time (all others disabled) and asserting its guard returns
+// true catches that, where tests that just disable-one-of-many wouldn't.
 func TestQueryGuardsCoverEveryMetric(t *testing.T) {
 	allFields := reflect.VisibleFields(reflect.TypeFor[metadata.MetricsConfig]())
 
@@ -523,9 +488,6 @@ func TestQueryGuardsCoverEveryMetric(t *testing.T) {
 	}
 }
 
-// allMetricsDisabledConfig returns a Config with every metric in
-// MetricsBuilderConfig.Metrics set to Enabled: false, via reflection so this
-// stays correct as metrics are added without needing per-metric maintenance.
 func allMetricsDisabledConfig() *Config {
 	cfg := createDefaultConfig().(*Config)
 	v := reflect.ValueOf(&cfg.MetricsBuilderConfig.Metrics).Elem()
@@ -538,8 +500,6 @@ func allMetricsDisabledConfig() *Config {
 	return cfg
 }
 
-// enableMetricField sets MetricsBuilderConfig.Metrics.<fieldName>.Enabled = true
-// via reflection, given the exported MetricsConfig field name.
 func enableMetricField(cfg *Config, fieldName string) {
 	v := reflect.ValueOf(&cfg.MetricsBuilderConfig.Metrics).Elem()
 	f := v.FieldByName(fieldName)
@@ -3049,7 +3009,6 @@ func (m *mockClient) initMocks(database, schema string, databases []string, inde
 		}
 
 		m.On("getDatabaseTableMetrics", mock.Anything, database).Return(tableMetrics, nil)
-		// Matches len(tableMetrics) for consistency.
 		m.On("getTableCount", mock.Anything).Return(int64(len(tableMetrics)), nil)
 		m.On("getBlocksReadByTable", mock.Anything, database).Return(blocksMetrics, nil)
 

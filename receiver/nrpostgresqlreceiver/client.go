@@ -802,9 +802,8 @@ WHERE l.relation IS NULL;`
 	return ts, errors
 }
 
-// getTableCount is a cheap COUNT(*) alternative to getDatabaseTableMetrics,
-// used when postgresql.table.count is the only enabled table metric. Must
-// return the same count as len(getDatabaseTableMetrics).
+// getTableCount is a cheap COUNT(*) alternative to getDatabaseTableMetrics;
+// must return the same count as len(getDatabaseTableMetrics).
 func (c *postgreSQLClient) getTableCount(ctx context.Context) (int64, error) {
 	version, err := c.getVersion(ctx)
 	if err != nil {
