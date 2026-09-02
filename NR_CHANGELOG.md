@@ -9,6 +9,10 @@ including confirmation of which breaking changes from [CHANGELOG.md](./CHANGELOG
 
 ### 🧰 Bug fixes 🧰
 
+- `receiver/nrmysql`: Disabling every metric fed by the table stats, statement events, table
+  lock-wait, replica status, InnoDB, table io_waits, or index io_waits query groups now also
+  skips the underlying query, instead of still running it and discarding the result.
+
 - `receiver/nrpostgresql`: Disabling a per-table or per-index metric now also skips the query
   that fed it, instead of still running the query and discarding the result.
 
