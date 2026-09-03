@@ -4875,12 +4875,16 @@ func (ec *EventConfig) Unmarshal(parser *confmap.Conf) error {
 
 // EventsConfig provides config for nrsqlserver events.
 type EventsConfig struct {
-	DbServerQuerySample EventConfig `mapstructure:"db.server.query_sample"`
-	DbServerTopQuery    EventConfig `mapstructure:"db.server.top_query"`
+	DbServerProcedureMetrics EventConfig `mapstructure:"db.server.procedure_metrics"`
+	DbServerQuerySample      EventConfig `mapstructure:"db.server.query_sample"`
+	DbServerTopQuery         EventConfig `mapstructure:"db.server.top_query"`
 }
 
 func DefaultEventsConfig() EventsConfig {
 	return EventsConfig{
+		DbServerProcedureMetrics: EventConfig{
+			Enabled: false,
+		},
 		DbServerQuerySample: EventConfig{
 			Enabled: false,
 		},

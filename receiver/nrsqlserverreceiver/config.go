@@ -39,6 +39,10 @@ type ConnectionPool struct {
 	_ struct{}
 }
 
+type ProcedureMetrics struct {
+	TopProcedureCount int64 `mapstructure:"top_procedure_count"`
+}
+
 type TopQueryCollection struct {
 	// Enabled enables the collection of the top queries by the execution time.
 	// It will collect the top N queries based on totalElapsedTimeDiffs during the last collection interval.
@@ -64,6 +68,8 @@ type Config struct {
 	TopQueryCollection TopQueryCollection `mapstructure:"top_query_collection"`
 
 	QuerySample QuerySample `mapstructure:"query_sample_collection"`
+
+	ProcedureMetrics ProcedureMetrics `mapstructure:"procedure_metrics"`
 
 	// ConnectionPool tunes the shared database connection pool used by all
 	// scrapers of this receiver.
