@@ -310,6 +310,78 @@ metrics:
     enabled: true
 ```
 
+### oracledb.asm.disk.errors
+
+Count of I/O errors on an ASM disk.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
+| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
+| {error} | Sum | Int | Cumulative | true | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracledb.asm.disk_group.name | The name of the ASM diskgroup. | Any Str | Recommended | - |
+| oracledb.asm.disk.name | The name of the ASM disk. | Any Str | Recommended | - |
+| disk.io.direction | Direction of the storage I/O operation. | Str: ``read``, ``write`` | Recommended | - |
+
+### oracledb.asm.disk_group.capacity
+
+Total space in an ASM diskgroup.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| By | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracledb.asm.disk_group.name | The name of the ASM diskgroup. | Any Str | Recommended | - |
+
+### oracledb.asm.disk_group.free
+
+Free space in an ASM diskgroup.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| By | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracledb.asm.disk_group.name | The name of the ASM diskgroup. | Any Str | Recommended | - |
+
+### oracledb.asm.disk_group.offline_disks
+
+Count of disks currently offline within an ASM diskgroup.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {disk} | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracledb.asm.disk_group.name | The name of the ASM diskgroup. | Any Str | Recommended | - |
+
+### oracledb.asm.disk_group.usable_free
+
+Free space that can safely be used for files after accounting for ASM redundancy and required mirror recovery capacity.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| By | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracledb.asm.disk_group.name | The name of the ASM diskgroup. | Any Str | Recommended | - |
+
 ### oracledb.buffer.inspected
 
 Number of buffers inspected from the end of the LRU queue while a process searched for a reusable buffer, grouped by buffer state.
@@ -1630,35 +1702,6 @@ events:
     enabled: true
 ```
 
-### db.server.procedure_metrics
-
-Aggregated performance metrics for stored procedures, derived from V$SQL grouped by PROGRAM_ID and joined to DBA_PROCEDURES, with delta computation on cumulative counters. Correlates with db.server.top_query and db.server.query_sample via oracledb.procedure_id.
-
-#### Attributes
-
-| Name | Description | Values | Semantic Convention |
-| ---- | ----------- | ------ | ------------------- |
-| db.system.name | The database management system (DBMS) product as identified by the client instrumentation. | Any Str | - |
-| db.namespace | The database name. | Any Str | - |
-| db.server.name | The name of the server hosting the database. | Any Str | - |
-| oracle.db.service | The Oracle service name associated with the database connection. | Any Str | - |
-| oracledb.procedure_id | The identifier of the stored procedure or function being executed by the query. | Any Int | - |
-| oracledb.procedure_name | Name of the database object that a query is accessing. | Any Str | - |
-| oracledb.procedure_type | Type of the database object that a query is accessing. | Any Str | - |
-| oracledb.procedure.schema_name | The schema (owner) of the stored procedure or function. | Any Str | - |
-| oracledb.procedure_execution_count | The number of times the stored procedure has been executed, derived from the minimum statement execution count across all statements in the procedure (reporting delta). Please note, this is best effort and may not be accurate in some scenarios. Use with caution. | Any Int | - |
-| oracledb.cpu_time | Total time (in seconds) that the CPU spent actively processing a query, excluding time spent waiting (reporting delta). | Any Double | - |
-| oracledb.elapsed_time | The total time (in seconds) taken by a query from start to finish, including CPU time and all types of waits (reporting delta). | Any Double | - |
-| oracledb.procedure.avg_elapsed_time | Average elapsed time (in seconds) per procedure execution, computed as the elapsed time delta divided by the execution count delta for the aggregation interval. | Any Double | - |
-| oracledb.buffer_gets | Number of logical reads (i.e., buffer cache accesses) performed by a query (reporting delta). | Any Int | - |
-| oracledb.disk_reads | The number of physical reads a query performs — that is, the number of data blocks read from disk (reporting delta). | Any Int | - |
-| oracledb.direct_writes | The number of direct path write operations, where data is written directly to disk from user memory (reporting delta). | Any Int | - |
-| oracledb.rows_processed | The total number of rows that a query has read, returned, or affected during its execution (reporting delta). | Any Int | - |
-| oracledb.physical_read_bytes | The total number of bytes read from disk by a query (reporting delta). | Any Int | - |
-| oracledb.physical_write_bytes | The total number of bytes written to disk by a query (reporting delta). | Any Int | - |
-| oracledb.procedure.first_load_time | Earliest load time across the procedure's cached statements, in the server's local timezone. Format: YYYY-MM-DD/HH:MM:SS | Any Str | - |
-| oracledb.procedure.last_active_time | The most recent time any of the procedure's cached statements were active, in ISO 8601 format (UTC). | Any Str | - |
-
 ### db.server.query_sample
 
 sample query
@@ -1676,7 +1719,7 @@ sample query
 | client.port | TCP port used by the client. | Any Int | - |
 | network.peer.address | IP address of the peer client. | Any Str | - |
 | network.peer.port | TCP port used by the peer client. | Any Int | - |
-| oracledb.plan_hash_value | Binary hash value calculated on the query execution plan and used to identify similar query execution plans, reported in the HEX format. | Any Str | - |
+| oracledb.plan_hash_value | Numeric representation of the execution plan. | Any Str | - |
 | oracledb.sql_id | The SQL ID of the query. | Any Str | - |
 | oracledb.child_number | The child number of the query. | Any Str | - |
 | oracledb.child_address | Address of the child cursor. | Any Str | - |
@@ -1697,9 +1740,6 @@ sample query
 | oracledb.osuser | Name of the operating system user that initiated or is running the Oracle database session. | Any Str | - |
 | oracledb.duration_sec | Total time taken by a database query to execute. | Any Double | - |
 | db.query.comment_tags | Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys specified in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
-| query.comments | Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys specified in allowed_comment_keys configuration. Mirrors db.query.comment_tags and is used for correlation with APM traces. | Any Str | - |
-| db.query.comment_tags.nr_service_guid | New Relic service GUID extracted from the filtered db.query.comment_tags. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
-| query.comments.nr_service_guid | New Relic service GUID extracted from the filtered query comments. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Mirrors db.query.comment_tags.nr_service_guid and is used for correlation with APM traces. | Any Str | - |
 | oracledb.query.started | The timestamp when the SQL statement started execution, in ISO 8601 format (UTC). | Any Str | - |
 | oracledb.session.started | The timestamp when the session logged on, in ISO 8601 format (UTC). | Any Str | - |
 | oracledb.session.duration | The total time in seconds that the session has been connected. | Any Double | - |
@@ -1712,8 +1752,6 @@ sample query
 | oracledb.blocking.lock.type | The type of enqueue lock the session is waiting on, extracted from the wait event (e.g., TX for row lock, TM for table lock). Empty when not waiting on a lock. | Any Str | - |
 | oracledb.blocking.object.owner | The owner (schema) of the database object the session is waiting to lock. Empty when no object lock wait is active. | Any Str | - |
 | oracledb.blocking.object.name | The name of the database object the session is waiting to lock. Empty when no object lock wait is active. | Any Str | - |
-| db.query.text.normalized.hash | MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Used for correlation with APM slow query traces. | Any Str | - |
-| oracledb.normalised_sql_hash | MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Mirrors db.query.text.normalized.hash and is used for correlation with APM slow query traces. | Any Str | - |
 
 ### db.server.session.wait_sample
 
@@ -1771,52 +1809,22 @@ Collection of event metrics for top N queries, filtered based on the highest CPU
 | oracledb.procedure_name | Name of the database object that a query is accessing. | Any Str | - |
 | oracledb.procedure_type | Type of the database object that a query is accessing. | Any Str | - |
 | db.query.comment_tags | Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys specified in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
-| query.comments | Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys specified in allowed_comment_keys configuration. Mirrors db.query.comment_tags and is used for correlation with APM traces. | Any Str | - |
-| db.query.comment_tags.nr_service_guid | New Relic service GUID extracted from the filtered db.query.comment_tags. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
-| query.comments.nr_service_guid | New Relic service GUID extracted from the filtered query comments. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Mirrors db.query.comment_tags.nr_service_guid and is used for correlation with APM traces. | Any Str | - |
-| oracledb.plan_hash_value | Binary hash value calculated on the query execution plan and used to identify similar query execution plans, reported in the HEX format. | Any Str | - |
+| oracledb.plan_hash_value | Numeric representation of the execution plan. | Any Str | - |
 | oracledb.plan.first_load | Time at which the plan was first loaded into the library cache, in the server's local timezone. Format: YYYY-MM-DD/HH:MM:SS | Any Str | - |
 | oracledb.plan.last_load | Plan load time in the server's local timezone. Format: YYYY-MM-DD/HH:MM:SS | Any Str | - |
-| db.query.text.normalized.hash | MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Used for correlation with APM slow query traces. | Any Str | - |
-| oracledb.normalised_sql_hash | MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Mirrors db.query.text.normalized.hash and is used for correlation with APM slow query traces. | Any Str | - |
-
-### db.server.wait_chain
-
-Wait chain data from V$WAIT_CHAINS showing blocking sessions and deadlock cycles.
-
-#### Attributes
-
-| Name | Description | Values | Semantic Convention |
-| ---- | ----------- | ------ | ------------------- |
-| db.namespace | The database name. | Any Str | - |
-| oracledb.sid | ID of the Oracle Server session. | Any Str | - |
-| oracledb.serial | Serial number associated with a session. | Any Str | - |
-| oracledb.event | The specific wait event that a query or session is currently experiencing. | Any Str | - |
-| oracledb.chain_id | Identifier of the wait chain from V$WAIT_CHAINS. | Any Int | - |
-| oracledb.chain_is_cycle | Whether this wait chain forms a deadlock cycle (Y/N). | Any Str | - |
-| oracledb.in_wait | Whether the session is currently in a wait state (Y/N). | Any Str | - |
-| oracledb.blocking.wait_duration | The number of seconds this session has been waiting for the current wait event. | Any Int | - |
-| oracledb.num_waiters | Number of sessions waiting on this session. | Any Int | - |
-| oracledb.locked_object_id | Object ID of the locked object, if applicable. | Any Str | - |
-| oracledb.blocking.instance | Instance number of the blocking session in a RAC environment. | Any Str | - |
-| oracledb.blocking.blocker.sid | The session ID (SID) of the immediate blocker of this session. Empty string when the session is not blocked. | Any Str | - |
-| oracledb.blocking.serial | Serial number of the blocking session. | Any Str | - |
-| oracledb.blocking.pdb_name | PDB name of the blocking session. | Any Str | - |
-| oracledb.is_root_blocker | Whether this session is the root blocker in the chain (YES/NO). | Any Str | - |
-| oracledb.blocking_scope | Scope of the blocking relationship (LOCAL or CROSS_INSTANCE). | Any Str | - |
 
 ## Resource Attributes
 
 | Name | Description | Values | Enabled | Semantic Convention | Stability |
 | ---- | ----------- | ------ | ------- | ------------------- | --------- |
-| host.address | The host name or IP address of the Oracle Server. | Any Str | true | - | - |
 | host.name | The host name of Oracle Server | Any Str | true | - | - |
-| host.port | The port number of the Oracle Server. | Any Int | true | - | - |
 | oracle.db.hosting_type | The hosting environment of the Oracle instance. One of "self-managed", "rds", or "oci". | Any Str | true | - | - |
 | oracle.db.open_mode | The open mode of the Oracle database (e.g. "READ WRITE", "READ ONLY", "MOUNTED"). | Any Str | true | - | - |
 | oracle.db.role | The database role of the Oracle instance (e.g. "PRIMARY", "PHYSICAL STANDBY"). | Any Str | true | - | - |
 | oracle.db.version | The Oracle Database version string. | Any Str | true | - | - |
 | oracledb.instance.name | The name of the instance that data is coming from. | Any Str | true | - | - |
+| server.address | Server domain name if available without reverse DNS lookup; otherwise, IP address or UNIX domain socket name. | Any Str | true | - | - |
+| server.port | Server port number. | Any Int | true | - | - |
 | service.instance.id | A unique identifier of the Oracle DB instance in the format host:port/serviceName. (defaults to 'unknown:1521', in case of error in generating this value) | Any Str | true | - | - |
 | service.name | Logical name of the service. When enabled, defaults to unknown_service:oracle. | Any Str | false | - | - |
 | service.namespace | Logical namespace for the service (for example team or environment). When enabled, defaults to an empty string until set via configuration. | Any Str | false | - | - |

@@ -4,9 +4,6 @@ package metadata
 
 import (
 	"context"
-	"testing"
-	"time"
-
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/plog"
@@ -14,6 +11,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
+	"testing"
+	"time"
 )
 
 type eventsTestDataSet int
@@ -31,14 +30,14 @@ func TestLogsBuilderAppendLogRecord(t *testing.T) {
 	lb := NewLogsBuilder(loadLogsBuilderConfig(t, "all_set"), settings)
 
 	rb := lb.NewResourceBuilder()
-	rb.SetHostAddress("host.address-val")
 	rb.SetHostName("host.name-val")
-	rb.SetHostPort(9)
 	rb.SetOracleDbHostingType("oracle.db.hosting_type-val")
 	rb.SetOracleDbOpenMode("oracle.db.open_mode-val")
 	rb.SetOracleDbRole("oracle.db.role-val")
 	rb.SetOracleDbVersion("oracle.db.version-val")
 	rb.SetOracledbInstanceName("oracledb.instance.name-val")
+	rb.SetServerAddress("server.address-val")
+	rb.SetServerPort(11)
 	rb.SetServiceInstanceID("service.instance.id-val")
 	rb.SetServiceName("service.name-val")
 	rb.SetServiceNamespace("service.namespace-val")
@@ -154,14 +153,14 @@ func TestLogsBuilder(t *testing.T) {
 			lb.RecordDbServerWaitChainEvent(ctx, timestamp, "db.namespace-val", "oracledb.sid-val", "oracledb.serial-val", "oracledb.event-val", 17, "oracledb.chain_is_cycle-val", "oracledb.in_wait-val", 31, 20, "oracledb.locked_object_id-val", "oracledb.blocking.instance-val", "oracledb.blocking.blocker.sid-val", "oracledb.blocking.serial-val", "oracledb.blocking.pdb_name-val", "oracledb.is_root_blocker-val", "oracledb.blocking_scope-val")
 
 			rb := lb.NewResourceBuilder()
-			rb.SetHostAddress("host.address-val")
 			rb.SetHostName("host.name-val")
-			rb.SetHostPort(9)
 			rb.SetOracleDbHostingType("oracle.db.hosting_type-val")
 			rb.SetOracleDbOpenMode("oracle.db.open_mode-val")
 			rb.SetOracleDbRole("oracle.db.role-val")
 			rb.SetOracleDbVersion("oracle.db.version-val")
 			rb.SetOracledbInstanceName("oracledb.instance.name-val")
+			rb.SetServerAddress("server.address-val")
+			rb.SetServerPort(11)
 			rb.SetServiceInstanceID("service.instance.id-val")
 			rb.SetServiceName("service.name-val")
 			rb.SetServiceNamespace("service.namespace-val")

@@ -7,9 +7,6 @@ resourceLogs:
         - key: host.name
           value:
             stringValue: ""
-        - key: host.address
-          value:
-            stringValue: ""
         - key: service.instance.id
           value:
             stringValue: oraclehost:1521/ORCL
@@ -45,7 +42,7 @@ resourceLogs:
                   intValue: "54440"
               - key: oracledb.plan_hash_value
                 value:
-                  stringValue: "34313939393139353638"
+                  stringValue: "4199919568"
               - key: oracledb.sql_id
                 value:
                   stringValue: 48bc50b6fuz4y
@@ -106,10 +103,13 @@ resourceLogs:
               - key: db.query.comment_tags
                 value:
                   stringValue: ""
-              - key: db.query.comment_tags.nr_service_guid
+              - key: query.comments
                 value:
                   stringValue: ""
               - key: db.query.comment_tags.nr_service_guid
+                value:
+                  stringValue: ""
+              - key: query.comments.nr_service_guid
                 value:
                   stringValue: ""
               - key: oracledb.query.started
@@ -157,7 +157,7 @@ resourceLogs:
             body: {}
             eventName: db.server.query_sample
             spanId: a7ad6b7169203331
-            timeUnixNano: "1779182973079606000"
+            timeUnixNano: "1788424095473134000"
             traceId: 0af7651916cd43dd8448eb211c80319c
         scope:
           name: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/oracledbreceiver
