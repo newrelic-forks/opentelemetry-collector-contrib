@@ -62,6 +62,9 @@ func createDefaultConfig() component.Config {
 			TopQueryCount:       250,
 			CollectionInterval:  time.Minute,
 		},
+		ProcedureMetrics: ProcedureMetrics{
+			TopProcedureCount: 250,
+		},
 	}
 }
 
@@ -116,6 +119,10 @@ func setupLogQueries(cfg *Config) []string {
 
 	if cfg.LogsBuilderConfig.Events.DbServerTopQuery.Enabled {
 		queries = append(queries, getSQLServerQueryTextAndPlanQuery())
+	}
+
+	if cfg.LogsBuilderConfig.Events.DbServerProcedureMetrics.Enabled {
+		queries = append(queries, getSQLServerProcedureMetricsQuery(cfg.ProcedureMetrics.TopProcedureCount, cfg.InstanceName))
 	}
 
 	return queries
@@ -337,6 +344,10 @@ func setupSQLServerLogsScrapers(params receiver.Settings, cfg *Config) ([]*sqlSe
 
 		if query == getSQLServerQuerySamplesQuery() {
 			cache = newCache(1)
+		}
+
+		if query == getSQLServerProcedureMetricsQuery(cfg.ProcedureMetrics.TopProcedureCount, cfg.InstanceName) {
+			cache = newCache(int(cfg.ProcedureMetrics.TopProcedureCount * 7 * 2))
 		}
 
 		sqlServerScraper := newSQLServerScraper(id, query,
