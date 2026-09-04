@@ -126,6 +126,9 @@ attributes:
   oracledb.blocking.blocker.state:
     description: The status of the blocking session relationship (e.g. VALID, NOT IN WAIT, GLOBAL, NO HOLDER, UNKNOWN).
     type: string
+  oracledb.blocking.instance:
+    description: Instance number of the blocking session in a RAC environment.
+    type: string
   oracledb.blocking.lock.mode:
     description: The lock mode being requested by the blocked session (e.g., ROW SHARE, ROW EXCLUSIVE, SHARE, SHARE ROW EXCLUSIVE, EXCLUSIVE). Empty when not waiting on a lock.
     type: string
@@ -138,12 +141,21 @@ attributes:
   oracledb.blocking.object.owner:
     description: The owner (schema) of the database object the session is waiting to lock. Empty when no object lock wait is active.
     type: string
+  oracledb.blocking.pdb_name:
+    description: PDB name of the blocking session.
+    type: string
+  oracledb.blocking.serial:
+    description: Serial number of the blocking session.
+    type: string
   oracledb.blocking.start_time:
     description: Estimated UTC timestamp of when the blocking wait began, derived from SYSDATE - SECONDS_IN_WAIT. RFC3339 format.
     type: string
   oracledb.blocking.wait_duration:
     description: The number of seconds this session has been waiting for the current wait event.
     type: int
+  oracledb.blocking_scope:
+    description: Scope of the blocking relationship (LOCAL or CROSS_INSTANCE).
+    type: string
   oracledb.buffer.state:
     description: The state of a buffer encountered while inspecting the LRU queue for a reusable buffer (free = a reusable buffer that was skipped; dirty = a dirty buffer found).
     type: string
@@ -155,6 +167,12 @@ attributes:
     description: Type of call reported by Oracle.
     type: string
     enum: [recursive, user]
+  oracledb.chain_id:
+    description: Identifier of the wait chain from V$WAIT_CHAINS.
+    type: int
+  oracledb.chain_is_cycle:
+    description: Whether this wait chain forms a deadlock cycle (Y/N).
+    type: string
   oracledb.child_address:
     description: Address of the child cursor.
     type: string
@@ -199,9 +217,21 @@ attributes:
   oracledb.executions:
     description: The number of times a specific SQL query has been executed (reporting delta).
     type: int
+  oracledb.in_wait:
+    description: Whether the session is currently in a wait state (Y/N).
+    type: string
+  oracledb.is_root_blocker:
+    description: Whether this session is the root blocker in the chain (YES/NO).
+    type: string
+  oracledb.locked_object_id:
+    description: Object ID of the locked object, if applicable.
+    type: string
   oracledb.module:
     description: Logical module name of the client application that initiated a query or session.
     type: string
+  oracledb.num_waiters:
+    description: Number of sessions waiting on this session.
+    type: int
   oracledb.osuser:
     description: Name of the operating system user that initiated or is running the Oracle database session.
     type: string
@@ -478,6 +508,26 @@ events:
       - oracledb.plan_hash_value
       - oracledb.plan.first_load
       - oracledb.plan.last_load
+  db.server.wait_chain:
+    enabled: false
+    description: Wait chain data from V$WAIT_CHAINS showing blocking sessions and deadlock cycles.
+    attributes:
+      - db.namespace
+      - oracledb.sid
+      - oracledb.serial
+      - oracledb.event
+      - oracledb.chain_id
+      - oracledb.chain_is_cycle
+      - oracledb.in_wait
+      - oracledb.blocking.wait_duration
+      - oracledb.num_waiters
+      - oracledb.locked_object_id
+      - oracledb.blocking.instance
+      - oracledb.blocking.blocker.sid
+      - oracledb.blocking.serial
+      - oracledb.blocking.pdb_name
+      - oracledb.is_root_blocker
+      - oracledb.blocking_scope
 metrics:
   oracledb.asm.disk.errors:
     attributes: [oracledb.asm.disk_group.name, oracledb.asm.disk.name, disk.io.direction]

@@ -1813,6 +1813,31 @@ Collection of event metrics for top N queries, filtered based on the highest CPU
 | oracledb.plan.first_load | Time at which the plan was first loaded into the library cache, in the server's local timezone. Format: YYYY-MM-DD/HH:MM:SS | Any Str | - |
 | oracledb.plan.last_load | Plan load time in the server's local timezone. Format: YYYY-MM-DD/HH:MM:SS | Any Str | - |
 
+### db.server.wait_chain
+
+Wait chain data from V$WAIT_CHAINS showing blocking sessions and deadlock cycles.
+
+#### Attributes
+
+| Name | Description | Values | Semantic Convention |
+| ---- | ----------- | ------ | ------------------- |
+| db.namespace | The database name. | Any Str | - |
+| oracledb.sid | ID of the Oracle Server session. | Any Str | - |
+| oracledb.serial | Serial number associated with a session. | Any Str | - |
+| oracledb.event | The specific wait event that a query or session is currently experiencing. | Any Str | - |
+| oracledb.chain_id | Identifier of the wait chain from V$WAIT_CHAINS. | Any Int | - |
+| oracledb.chain_is_cycle | Whether this wait chain forms a deadlock cycle (Y/N). | Any Str | - |
+| oracledb.in_wait | Whether the session is currently in a wait state (Y/N). | Any Str | - |
+| oracledb.blocking.wait_duration | The number of seconds this session has been waiting for the current wait event. | Any Int | - |
+| oracledb.num_waiters | Number of sessions waiting on this session. | Any Int | - |
+| oracledb.locked_object_id | Object ID of the locked object, if applicable. | Any Str | - |
+| oracledb.blocking.instance | Instance number of the blocking session in a RAC environment. | Any Str | - |
+| oracledb.blocking.blocker.sid | The session ID (SID) of the immediate blocker of this session. Empty string when the session is not blocked. | Any Str | - |
+| oracledb.blocking.serial | Serial number of the blocking session. | Any Str | - |
+| oracledb.blocking.pdb_name | PDB name of the blocking session. | Any Str | - |
+| oracledb.is_root_blocker | Whether this session is the root blocker in the chain (YES/NO). | Any Str | - |
+| oracledb.blocking_scope | Scope of the blocking relationship (LOCAL or CROSS_INSTANCE). | Any Str | - |
+
 ## Resource Attributes
 
 | Name | Description | Values | Enabled | Semantic Convention | Stability |

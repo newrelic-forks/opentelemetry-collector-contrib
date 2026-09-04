@@ -370,6 +370,8 @@ all_set:
       enabled: true
     db.server.top_query:
       enabled: true
+    db.server.wait_chain:
+      enabled: true
   resource_attributes:
     host.name:
       enabled: true
@@ -760,6 +762,8 @@ reaggregate_set:
       enabled: true
     db.server.top_query:
       enabled: true
+    db.server.wait_chain:
+      enabled: true
   resource_attributes:
     host.name:
       enabled: true
@@ -1149,6 +1153,8 @@ none_set:
     db.server.session.wait_sample:
       enabled: false
     db.server.top_query:
+      enabled: false
+    db.server.wait_chain:
       enabled: false
   resource_attributes:
     host.name:
