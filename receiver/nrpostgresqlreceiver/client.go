@@ -198,9 +198,164 @@ func (c *postgreSQLClient) probeExplainFunction(ctx context.Context, quotedFunct
 // normalizing a literal interval. $N isn't a real bind param, so PREPARE rejects it as-is.
 var intervalParamPattern = regexp.MustCompile(`(?i)INTERVAL\s+(\$\d+)`)
 
-// rewriteIntervalParams rewrites "INTERVAL $N" to "$N::interval" so PREPARE accepts it.
+// rewriteIntervalParams rewrites "INTERVAL $N" to "$N::interval" so PREPARE accepts it. Matches
+// inside a single-quoted string literal, a double-quoted identifier, or a comment are left alone,
+// since the query text there is data, not the SQL keyword this rewrite targets.
 func rewriteIntervalParams(query string) string {
-	return intervalParamPattern.ReplaceAllString(query, "$1::interval")
+	matches := intervalParamPattern.FindAllStringSubmatchIndex(query, -1)
+	if len(matches) == 0 {
+		return query
+	}
+
+	protected := quotedAndCommentSpans(query)
+
+	var out strings.Builder
+	last := 0
+	for _, m := range matches {
+		if withinAnySpan(protected, m[0]) {
+			continue
+		}
+		out.WriteString(query[last:m[0]])
+		out.WriteString(query[m[2]:m[3]])
+		out.WriteString("::interval")
+		last = m[1]
+	}
+	out.WriteString(query[last:])
+	return out.String()
+}
+
+// quotedAndCommentSpans returns the byte ranges of query that are inside a single-quoted string
+// literal (including an E'...' string, where a backslash escapes the next byte), a double-quoted
+// identifier, a dollar-quoted string, a line comment, or a (possibly nested) block comment, so a
+// caller can skip rewriting text found there. Ranges are ordered and non-overlapping; an
+// unterminated construct protects to the end of the string.
+func quotedAndCommentSpans(query string) [][2]int {
+	var spans [][2]int
+	for i := 0; i < len(query); {
+		end, ok := quotedOrCommentSpanAt(query, i)
+		if !ok {
+			i++
+			continue
+		}
+		spans = append(spans, [2]int{i, end})
+		i = end
+	}
+	return spans
+}
+
+// quotedOrCommentSpanAt reports the end of the protected region starting at i, or false when
+// nothing protected starts there.
+func quotedOrCommentSpanAt(query string, i int) (int, bool) {
+	switch {
+	case query[i] == '\'':
+		return endOfQuoted(query, i, escapesWithBackslash(query, i)), true
+	case query[i] == '"':
+		return endOfQuoted(query, i, false), true
+	case strings.HasPrefix(query[i:], "--"):
+		if nl := strings.IndexByte(query[i:], '\n'); nl != -1 {
+			return i + nl, true
+		}
+		return len(query), true
+	case strings.HasPrefix(query[i:], "/*"):
+		return endOfBlockComment(query, i), true
+	case query[i] == '$':
+		if tag, ok := dollarQuoteTag(query, i); ok {
+			return endOfDollarQuoted(query, i, tag), true
+		}
+		return 0, false
+	default:
+		return 0, false
+	}
+}
+
+// endOfQuoted returns the index just past the quote that closes the run opening at start, or
+// len(query) when it is unterminated. A doubled quote (”) is an escaped quote and continues the
+// run rather than closing it.
+func endOfQuoted(query string, start int, backslashEscapes bool) int {
+	quote := query[start]
+	for i := start + 1; i < len(query); {
+		switch {
+		case backslashEscapes && query[i] == '\\':
+			i += 2
+		case query[i] != quote:
+			i++
+		case i+1 < len(query) && query[i+1] == quote:
+			i += 2
+		default:
+			return i + 1
+		}
+	}
+	return len(query)
+}
+
+// escapesWithBackslash reports whether the single-quoted literal opening at start is an E'...'
+// string, the only form where a backslash escapes the next byte. The E must not be the tail of a
+// longer identifier (e.g. the "e" in "tare").
+func escapesWithBackslash(query string, start int) bool {
+	if start == 0 || (query[start-1] != 'E' && query[start-1] != 'e') {
+		return false
+	}
+	return start < 2 || !isIdentifierByte(query[start-2])
+}
+
+// endOfBlockComment returns the index just past the "*/" that closes the comment opening at
+// start, or len(query) when it is unterminated. Block comments nest, hence the depth counter.
+func endOfBlockComment(query string, start int) int {
+	depth := 0
+	for i := start; i+1 < len(query); {
+		switch query[i : i+2] {
+		case "/*":
+			depth++
+			i += 2
+		case "*/":
+			depth--
+			if depth == 0 {
+				return i + 2
+			}
+			i += 2
+		default:
+			i++
+		}
+	}
+	return len(query)
+}
+
+// dollarQuoteTag returns the full delimiter, both dollar signs included, of the dollar-quoted
+// string at start. A tag is empty or an identifier not starting with a digit, so "$1" is not one.
+func dollarQuoteTag(query string, start int) (string, bool) {
+	for i := start + 1; i < len(query); i++ {
+		if query[i] == '$' {
+			return query[start : i+1], true
+		}
+		if !isIdentifierByte(query[i]) || (i == start+1 && query[i] >= '0' && query[i] <= '9') {
+			return "", false
+		}
+	}
+	return "", false
+}
+
+// endOfDollarQuoted returns the index just past the closing tag of the dollar-quoted string
+// opening at start, or len(query) when it is unterminated.
+func endOfDollarQuoted(query string, start int, tag string) int {
+	body := start + len(tag)
+	if offset := strings.Index(query[body:], tag); offset != -1 {
+		return body + offset + len(tag)
+	}
+	return len(query)
+}
+
+func isIdentifierByte(b byte) bool {
+	return b == '_' || b >= '0' && b <= '9' || b >= 'a' && b <= 'z' || b >= 'A' && b <= 'Z'
+}
+
+// withinAnySpan reports whether offset falls inside one of spans.
+func withinAnySpan(spans [][2]int, offset int) bool {
+	for _, s := range spans {
+		if offset >= s[0] && offset < s[1] {
+			return true
+		}
+	}
+	return false
 }
 
 // explainQuery implements client.

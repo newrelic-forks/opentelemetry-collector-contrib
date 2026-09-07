@@ -1617,11 +1617,177 @@ func TestRewriteIntervalParams(t *testing.T) {
 			query:    "SELECT interval_seconds FROM orders WHERE id = $1",
 			expected: "SELECT interval_seconds FROM orders WHERE id = $1",
 		},
+		{
+			// The pattern would otherwise match "interval $1" here, corrupting a string literal
+			// that merely mentions the word rather than using it as the SQL keyword.
+			name:     "interval keyword inside a string literal is left alone",
+			query:    "SELECT * FROM t WHERE msg = 'waited an interval $1 to run'",
+			expected: "SELECT * FROM t WHERE msg = 'waited an interval $1 to run'",
+		},
+		{
+			name:     "interval keyword inside a doubled-quote string literal is left alone",
+			query:    "SELECT * FROM t WHERE msg = 'it''s an interval $1 wait'",
+			expected: "SELECT * FROM t WHERE msg = 'it''s an interval $1 wait'",
+		},
+		{
+			name:     "interval keyword inside a quoted identifier is left alone",
+			query:    `SELECT * FROM t WHERE "my interval $1" = $2`,
+			expected: `SELECT * FROM t WHERE "my interval $1" = $2`,
+		},
+		{
+			name:     "interval keyword inside a line comment is left alone",
+			query:    "SELECT * FROM t -- interval $1\nWHERE id = $2",
+			expected: "SELECT * FROM t -- interval $1\nWHERE id = $2",
+		},
+		{
+			name:     "interval keyword inside a block comment is left alone",
+			query:    "SELECT /* interval $1 */ * FROM t WHERE id = $2",
+			expected: "SELECT /* interval $1 */ * FROM t WHERE id = $2",
+		},
+		{
+			// A protected span earlier in the query must not suppress a real rewrite later on.
+			name:     "a protected span does not block a later real rewrite",
+			query:    "SELECT * FROM t WHERE msg = 'interval $1' AND created_at > NOW() - INTERVAL $2",
+			expected: "SELECT * FROM t WHERE msg = 'interval $1' AND created_at > NOW() - $2::interval",
+		},
+		{
+			name:     "exact bare interval literal in a string is left alone",
+			query:    "SELECT * FROM t WHERE msg = 'interval $1'",
+			expected: "SELECT * FROM t WHERE msg = 'interval $1'",
+		},
+		{
+			name:     "doubled quote inside a literal does not end the protected span",
+			query:    "SELECT * FROM t WHERE msg = 'it''s an interval $1'",
+			expected: "SELECT * FROM t WHERE msg = 'it''s an interval $1'",
+		},
+		{
+			name:     "escaped quote in an E string does not end the protected span",
+			query:    `SELECT * FROM t WHERE msg = E'x\' interval $1'`,
+			expected: `SELECT * FROM t WHERE msg = E'x\' interval $1'`,
+		},
+		{
+			name:     "type name inside a nested block comment is left alone",
+			query:    "SELECT /* a /* interval $1 */ b */ * FROM t WHERE id = $2",
+			expected: "SELECT /* a /* interval $1 */ b */ * FROM t WHERE id = $2",
+		},
+		{
+			name:     "type name inside a dollar quoted string is left alone",
+			query:    "SELECT $tag$ interval $1 $tag$ FROM t",
+			expected: "SELECT $tag$ interval $1 $tag$ FROM t",
+		},
+		{
+			name:     "type name inside an untagged dollar quoted string is left alone",
+			query:    "SELECT $$ interval $1 $$ FROM t",
+			expected: "SELECT $$ interval $1 $$ FROM t",
+		},
+		{
+			// A parameter placeholder like "$2" must not be mistaken for the start of a
+			// dollar-quoted string, since a digit can never open one.
+			name:     "a parameter placeholder does not open a dollar quote",
+			query:    "SELECT $2 FROM t WHERE created_at > NOW() - INTERVAL $1",
+			expected: "SELECT $2 FROM t WHERE created_at > NOW() - $1::interval",
+		},
+		{
+			name:     "unterminated string literal protects to the end",
+			query:    "SELECT * FROM t WHERE msg = 'interval $1",
+			expected: "SELECT * FROM t WHERE msg = 'interval $1",
+		},
+		{
+			name:     "unterminated block comment protects to the end",
+			query:    "SELECT /* interval $1",
+			expected: "SELECT /* interval $1",
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			assert.Equal(t, tc.expected, rewriteIntervalParams(tc.query))
+		})
+	}
+}
+
+func TestQuotedAndCommentSpans(t *testing.T) {
+	testCases := []struct {
+		name string
+		// query marks the expected spans inline: every byte covered by a protected span is
+		// written as one of the marker runes below in want, and every other byte as a dot. That
+		// keeps offsets readable next to the query instead of listing index pairs.
+		query string
+		want  string
+	}{
+		{
+			name:  "no protected regions",
+			query: "SELECT a FROM t WHERE id = $1",
+			want:  ".............................",
+		},
+		{
+			name:  "string literal",
+			query: "SELECT 'abc' FROM t",
+			want:  ".......XXXXX.......",
+		},
+		{
+			name:  "doubled quote continues the literal",
+			query: "SELECT 'it''s' FROM t",
+			want:  ".......XXXXXXX.......",
+		},
+		{
+			name:  "backslash escape only applies to an E string",
+			query: `SELECT E'a\'b' , 'c'`,
+			want:  "........XXXXXX...XXX",
+		},
+		{
+			name:  "a word ending in e does not introduce an E string",
+			query: `SELECT tare'a\'`,
+			want:  "...........XXXX",
+		},
+		{
+			name:  "quoted identifier",
+			query: `SELECT "col" FROM t`,
+			want:  ".......XXXXX.......",
+		},
+		{
+			name:  "line comment stops at the newline",
+			query: "SELECT a -- note\nFROM t",
+			want:  ".........XXXXXXX.......",
+		},
+		{
+			name:  "block comments nest",
+			query: "SELECT /* a /* b */ c */ 1",
+			want:  ".......XXXXXXXXXXXXXXXXX..",
+		},
+		{
+			name:  "dollar quoted string",
+			query: "SELECT $t$ a $t$ FROM x",
+			want:  ".......XXXXXXXXX.......",
+		},
+		{
+			name:  "a parameter placeholder does not open a dollar quote",
+			query: "SELECT $1 FROM t WHERE b = $2",
+			want:  ".............................",
+		},
+		{
+			name:  "unterminated literal protects to the end",
+			query: "SELECT 'abc FROM t",
+			want:  ".......XXXXXXXXXXX",
+		},
+		{
+			name:  "unterminated block comment protects to the end",
+			query: "SELECT /* abc FROM t",
+			want:  ".......XXXXXXXXXXXXX",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Len(t, tc.want, len(tc.query), "the want mask must be as long as the query")
+
+			got := []byte(strings.Repeat(".", len(tc.query)))
+			for _, span := range quotedAndCommentSpans(tc.query) {
+				for i := span[0]; i < span[1]; i++ {
+					got[i] = 'X'
+				}
+			}
+			assert.Equal(t, tc.want, string(got), "query: %s", tc.query)
 		})
 	}
 }
