@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -169,6 +170,339 @@ func TestScrape(t *testing.T) {
 		// and the other failure comes from a row that fails to parse as a number
 		require.Equal(t, 5, partialError.Failed, "Expected partial error count to be 5")
 	})
+}
+
+// newEmptyMockScraper builds a scraper wired to a mockClient whose fixture
+// files are all present-but-empty, so any guarded query that does run
+// returns zero rows without error. Guards are exercised purely via cfg's
+// MetricsBuilderConfig.Metrics before scrape() is called.
+func newEmptyMockScraper(cfg *Config) (*mySQLScraper, *mockClient) {
+	scraper := newMySQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, newCache[int64](100), newTTLCache[string](0, time.Hour*24*365*10))
+	client := &mockClient{
+		globalStatsFile:             "global_stats_oob",
+		innodbStatsFile:             "innodb_stats_empty",
+		tableIoWaitsFile:            "table_io_waits_stats_empty",
+		indexIoWaitsFile:            "index_io_waits_stats_empty",
+		tableStatsFile:              "table_stats_empty",
+		statementEventsFile:         "statement_events_empty",
+		tableLockWaitEventStatsFile: "table_lock_wait_event_stats_empty",
+		replicaStatusFile:           "replica_stats_empty",
+	}
+	scraper.sqlclient = client
+	return scraper, client
+}
+
+// TestScraperSkipsQueriesForDisabledMetrics verifies that each of the 7
+// query-issuing scrape functions gated in this change skips its underlying
+// client call entirely when every metric it feeds is disabled, instead of
+// running the query and only suppressing the recorded datapoint.
+func TestScraperSkipsQueriesForDisabledMetrics(t *testing.T) {
+	tests := []struct {
+		name           string
+		disableMetrics func(*Config)
+		callCount      func(*mockClient) int
+	}{
+		{
+			name: "getTableStats skipped when table.rows/average_row_length/size all disabled",
+			disableMetrics: func(cfg *Config) {
+				cfg.MetricsBuilderConfig.Metrics.MysqlTableRows.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.MysqlTableAverageRowLength.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.MysqlTableSize.Enabled = false
+			},
+			callCount: func(c *mockClient) int { return c.tableStatsCallCount },
+		},
+		{
+			name: "getStatementEventsStats skipped when statement_event.count/wait.time both disabled",
+			disableMetrics: func(cfg *Config) {
+				cfg.MetricsBuilderConfig.Metrics.MysqlStatementEventCount.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.MysqlStatementEventWaitTime.Enabled = false
+			},
+			callCount: func(c *mockClient) int { return c.statementEventsCallCount },
+		},
+		{
+			name: "getTableLockWaitEventStats skipped when all 4 lock_wait metrics disabled",
+			disableMetrics: func(cfg *Config) {
+				cfg.MetricsBuilderConfig.Metrics.MysqlTableLockWaitReadCount.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.MysqlTableLockWaitReadTime.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.MysqlTableLockWaitWriteCount.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.MysqlTableLockWaitWriteTime.Enabled = false
+			},
+			callCount: func(c *mockClient) int { return c.tableLockWaitEventStatsCallCount },
+		},
+		{
+			name: "getReplicaStatusStats skipped when all 3 replica metrics disabled",
+			disableMetrics: func(cfg *Config) {
+				cfg.MetricsBuilderConfig.Metrics.MysqlReplicaTimeBehindSource.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.MysqlReplicaSQLDelay.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.MysqlReplicaThreadRunning.Enabled = false
+			},
+			callCount: func(c *mockClient) int { return c.replicaStatusCallCount },
+		},
+		{
+			name: "getInnodbStats skipped when buffer_pool.limit disabled",
+			disableMetrics: func(cfg *Config) {
+				cfg.MetricsBuilderConfig.Metrics.MysqlBufferPoolLimit.Enabled = false
+			},
+			callCount: func(c *mockClient) int { return c.innodbStatsCallCount },
+		},
+		{
+			name: "getTableIoWaitsStats skipped when table.io.wait.count/time both disabled",
+			disableMetrics: func(cfg *Config) {
+				cfg.MetricsBuilderConfig.Metrics.MysqlTableIoWaitCount.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.MysqlTableIoWaitTime.Enabled = false
+			},
+			callCount: func(c *mockClient) int { return c.tableIoWaitsCallCount },
+		},
+		{
+			name: "getIndexIoWaitsStats skipped when index.io.wait.count/time both disabled",
+			disableMetrics: func(cfg *Config) {
+				cfg.MetricsBuilderConfig.Metrics.MysqlIndexIoWaitCount.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.MysqlIndexIoWaitTime.Enabled = false
+			},
+			callCount: func(c *mockClient) int { return c.indexIoWaitsCallCount },
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := createDefaultConfig().(*Config)
+			cfg.Username = "otel"
+			cfg.Password = "otel"
+			cfg.AddrConfig = confignet.AddrConfig{Endpoint: "localhost:3306"}
+			tc.disableMetrics(cfg)
+
+			scraper, client := newEmptyMockScraper(cfg)
+
+			_, err := scraper.scrape(t.Context())
+			require.NoError(t, err)
+
+			require.Equal(t, 0, tc.callCount(client), "query must not run when every metric it feeds is disabled")
+		})
+	}
+}
+
+// TestScraperRunsQueryWhenAnyFedMetricEnabled verifies each guarded query still
+// runs as soon as at least one of the metrics it feeds is enabled, so the guard
+// never suppresses a query some enabled metric still depends on.
+func TestScraperRunsQueryWhenAnyFedMetricEnabled(t *testing.T) {
+	tests := []struct {
+		name          string
+		enableOneOf   func(*Config)
+		callCount     func(*mockClient) int
+		otherDisabled func(*Config)
+	}{
+		{
+			name:        "getTableStats runs when only table.size is enabled",
+			enableOneOf: func(cfg *Config) { cfg.MetricsBuilderConfig.Metrics.MysqlTableSize.Enabled = true },
+			otherDisabled: func(cfg *Config) {
+				cfg.MetricsBuilderConfig.Metrics.MysqlTableRows.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.MysqlTableAverageRowLength.Enabled = false
+			},
+			callCount: func(c *mockClient) int { return c.tableStatsCallCount },
+		},
+		{
+			name:        "getStatementEventsStats runs when only statement_event.wait.time is enabled",
+			enableOneOf: func(cfg *Config) { cfg.MetricsBuilderConfig.Metrics.MysqlStatementEventWaitTime.Enabled = true },
+			otherDisabled: func(cfg *Config) {
+				cfg.MetricsBuilderConfig.Metrics.MysqlStatementEventCount.Enabled = false
+			},
+			callCount: func(c *mockClient) int { return c.statementEventsCallCount },
+		},
+		{
+			name:        "getTableLockWaitEventStats runs when only lock_wait.write.count is enabled",
+			enableOneOf: func(cfg *Config) { cfg.MetricsBuilderConfig.Metrics.MysqlTableLockWaitWriteCount.Enabled = true },
+			otherDisabled: func(cfg *Config) {
+				cfg.MetricsBuilderConfig.Metrics.MysqlTableLockWaitReadCount.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.MysqlTableLockWaitReadTime.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.MysqlTableLockWaitWriteTime.Enabled = false
+			},
+			callCount: func(c *mockClient) int { return c.tableLockWaitEventStatsCallCount },
+		},
+		{
+			name:        "getReplicaStatusStats runs when only replica.thread.running is enabled",
+			enableOneOf: func(cfg *Config) { cfg.MetricsBuilderConfig.Metrics.MysqlReplicaThreadRunning.Enabled = true },
+			otherDisabled: func(cfg *Config) {
+				cfg.MetricsBuilderConfig.Metrics.MysqlReplicaTimeBehindSource.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.MysqlReplicaSQLDelay.Enabled = false
+			},
+			callCount: func(c *mockClient) int { return c.replicaStatusCallCount },
+		},
+		{
+			name:          "getInnodbStats runs when buffer_pool.limit stays enabled (its only metric)",
+			enableOneOf:   func(*Config) {},
+			otherDisabled: func(*Config) {},
+			callCount:     func(c *mockClient) int { return c.innodbStatsCallCount },
+		},
+		{
+			name:        "getTableIoWaitsStats runs when only table.io.wait.time is enabled",
+			enableOneOf: func(*Config) {},
+			otherDisabled: func(cfg *Config) {
+				cfg.MetricsBuilderConfig.Metrics.MysqlTableIoWaitCount.Enabled = false
+			},
+			callCount: func(c *mockClient) int { return c.tableIoWaitsCallCount },
+		},
+		{
+			name:        "getIndexIoWaitsStats runs when only index.io.wait.time is enabled",
+			enableOneOf: func(*Config) {},
+			otherDisabled: func(cfg *Config) {
+				cfg.MetricsBuilderConfig.Metrics.MysqlIndexIoWaitCount.Enabled = false
+			},
+			callCount: func(c *mockClient) int { return c.indexIoWaitsCallCount },
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := createDefaultConfig().(*Config)
+			cfg.Username = "otel"
+			cfg.Password = "otel"
+			cfg.AddrConfig = confignet.AddrConfig{Endpoint: "localhost:3306"}
+			tc.enableOneOf(cfg)
+			tc.otherDisabled(cfg)
+
+			scraper, client := newEmptyMockScraper(cfg)
+
+			_, err := scraper.scrape(t.Context())
+			require.NoError(t, err)
+
+			require.Equal(t, 1, tc.callCount(client), "query must still run when at least one fed metric is enabled")
+		})
+	}
+}
+
+// queryGuard pairs one query-enablement guard method with the exact set of
+// MetricsConfig field names it must check, so TestQueryGuardsCoverEveryMetric
+// can confirm each guard's || chain truly depends on every field it claims to
+// cover, and that no metric was added to metadata.yaml without either a guard
+// or an explicit, reasoned exemption in notQueryGated.
+type queryGuard struct {
+	name   string
+	guard  func(*mySQLScraper) bool
+	fields []string
+}
+
+var queryGuards = []queryGuard{
+	{"tableStatsMetricsEnabled", (*mySQLScraper).tableStatsMetricsEnabled, []string{
+		"MysqlTableRows", "MysqlTableAverageRowLength", "MysqlTableSize",
+	}},
+	{"statementEventsMetricsEnabled", (*mySQLScraper).statementEventsMetricsEnabled, []string{
+		"MysqlStatementEventCount", "MysqlStatementEventWaitTime",
+	}},
+	{"tableLockWaitEventMetricsEnabled", (*mySQLScraper).tableLockWaitEventMetricsEnabled, []string{
+		"MysqlTableLockWaitReadCount", "MysqlTableLockWaitReadTime",
+		"MysqlTableLockWaitWriteCount", "MysqlTableLockWaitWriteTime",
+	}},
+	{"replicaStatusMetricsEnabled", (*mySQLScraper).replicaStatusMetricsEnabled, []string{
+		"MysqlReplicaTimeBehindSource", "MysqlReplicaSQLDelay", "MysqlReplicaThreadRunning",
+	}},
+	{"innodbStatsMetricsEnabled", (*mySQLScraper).innodbStatsMetricsEnabled, []string{
+		"MysqlBufferPoolLimit",
+	}},
+	{"tableIoWaitsMetricsEnabled", (*mySQLScraper).tableIoWaitsMetricsEnabled, []string{
+		"MysqlTableIoWaitCount", "MysqlTableIoWaitTime",
+	}},
+	{"indexIoWaitsMetricsEnabled", (*mySQLScraper).indexIoWaitsMetricsEnabled, []string{
+		"MysqlIndexIoWaitCount", "MysqlIndexIoWaitTime",
+	}},
+}
+
+// notQueryGated lists every MetricsConfig field not covered by queryGuards,
+// each with a reason it's exempt by design rather than by oversight. All 38 are
+// fed solely by getGlobalStats (SHOW GLOBAL STATUS): that single query already
+// feeds ~30+ metrics with deliberately mixed enabled defaults, so an OR-chain
+// guard would almost never trip in practice (see the scope decision recorded in
+// the PR description / investigation doc) and is intentionally left ungated,
+// consistent with this receiver family's own precedent of never gating a query
+// this large (nrpostgresqlreceiver's biggest gated batch is 11 metrics).
+var notQueryGated = map[string]string{
+	"MysqlBufferPoolDataPages":    "fed by always-run getGlobalStats via recordDataPages; not query-gated per scope decision",
+	"MysqlBufferPoolOperations":   "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlBufferPoolPageFlushes":  "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlBufferPoolPages":        "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlBufferPoolUsage":        "fed by always-run getGlobalStats via recordDataUsage; not query-gated per scope decision",
+	"MysqlClientNetworkIo":        "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlCommands":               "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlConnectionCount":        "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlConnectionErrors":       "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlDoubleWrites":           "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlFileOpen":               "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlHandlers":               "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlInnodbDataFileIo":       "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlInnodbOperationPending": "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlJoins":                  "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlLocks":                  "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlLogOperations":          "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlMaxUsedConnections":     "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlMysqlxConnections":      "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlMysqlxWorkerThreads":    "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlOpenedResources":        "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlOperations":             "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlPageOperations":         "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlPageSize":               "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlPreparedStatements":     "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlQueryClientCount":       "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlQueryCount":             "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlQuerySlowCount":         "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlReplicaTempTableOpen":   "fed by always-run getGlobalStats via recordReplicaOpenTempTables, which already has its own internal enabled-check; the underlying query itself is not query-gated per scope decision",
+	"MysqlRowLocks":               "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlRowOperations":          "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlSorts":                  "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlTableOpen":              "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlTableOpenCache":         "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlThreadSlowLaunch":       "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlThreads":                "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlTmpResources":           "fed by always-run getGlobalStats; not query-gated per scope decision",
+	"MysqlUptime":                 "fed by always-run getGlobalStats; not query-gated per scope decision",
+}
+
+// TestQueryGuardsCoverEveryMetric reflects over every field in
+// metadata.MetricsConfig and, for each one, enables it alone (all siblings
+// disabled) to prove its owning guard actually depends on it. This closes the
+// gap TestScraperSkipsQueriesForDisabledMetrics/TestScraperRunsQueryWhenAnyFedMetricEnabled
+// leave open: those only prove *some* metric in a guard's chain works, so a
+// metric wired into a query's data path but never added to that query's guard
+// would still pass every existing test, riding along on a sibling metric that
+// happens to already be enabled by default.
+func TestQueryGuardsCoverEveryMetric(t *testing.T) {
+	fieldToGuard := map[string]queryGuard{}
+	for _, g := range queryGuards {
+		for _, f := range g.fields {
+			fieldToGuard[f] = g
+		}
+	}
+
+	cfgType := reflect.TypeFor[metadata.MetricsConfig]()
+	for i := 0; i < cfgType.NumField(); i++ {
+		fieldName := cfgType.Field(i).Name
+
+		t.Run(fieldName, func(t *testing.T) {
+			g, guarded := fieldToGuard[fieldName]
+			if !guarded {
+				reason, exempt := notQueryGated[fieldName]
+				require.True(t, exempt, "field %s is neither in queryGuards nor notQueryGated: add it to one", fieldName)
+				t.Skipf("not query-gated: %s", reason)
+				return
+			}
+
+			cfg := createDefaultConfig().(*Config)
+			// Disable every field this guard checks, then re-enable only fieldName,
+			// proving the guard's chain actually reads it rather than riding along
+			// on a sibling that happens to already be enabled by default.
+			mv := reflect.ValueOf(&cfg.MetricsBuilderConfig.Metrics).Elem()
+			for _, f := range g.fields {
+				mv.FieldByName(f).FieldByName("Enabled").SetBool(false)
+			}
+			mv.FieldByName(fieldName).FieldByName("Enabled").SetBool(true)
+
+			scraper := newMySQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, newCache[int64](100), newTTLCache[string](0, time.Hour*24*365*10))
+			require.True(t, g.guard(scraper), "guard %s must return true when only %s is enabled", g.name, fieldName)
+		})
+	}
+
+	// Sanity check: every field in metadata.MetricsConfig is accounted for by
+	// exactly one of queryGuards or notQueryGated, with no overlap.
+	require.Len(t, fieldToGuard, cfgType.NumField()-len(notQueryGated),
+		"queryGuards and notQueryGated together should exactly partition MetricsConfig's fields")
 }
 
 func TestScrapeBufferPoolPagesMiscOutOfBounds(t *testing.T) {
@@ -680,6 +1014,17 @@ type mockClient struct {
 	explainQueryCallCount int
 	// explainQueryCalls records the digestText and sampleStatement args for each call.
 	explainQueryCalls []explainQueryCall
+
+	// The following call counts are incremented by their respective getXxx
+	// methods. Tests use them to assert a query was (or wasn't) issued when
+	// every metric it feeds is disabled.
+	innodbStatsCallCount             int
+	tableStatsCallCount              int
+	tableIoWaitsCallCount            int
+	indexIoWaitsCallCount            int
+	statementEventsCallCount         int
+	tableLockWaitEventStatsCallCount int
+	replicaStatusCallCount           int
 }
 
 type queryPlanSpyClient struct {
@@ -736,10 +1081,12 @@ func (c *mockClient) getGlobalStats() (map[string]string, error) {
 }
 
 func (c *mockClient) getInnodbStats() (map[string]string, error) {
+	c.innodbStatsCallCount++
 	return readFile(c.innodbStatsFile)
 }
 
 func (c *mockClient) getTableStats() ([]tableStats, error) {
+	c.tableStatsCallCount++
 	var stats []tableStats
 	file, err := os.Open(filepath.Join("testdata", "scraper", c.tableStatsFile+".txt"))
 	if err != nil {
@@ -764,6 +1111,7 @@ func (c *mockClient) getTableStats() ([]tableStats, error) {
 }
 
 func (c *mockClient) getTableIoWaitsStats() ([]tableIoWaitsStats, error) {
+	c.tableIoWaitsCallCount++
 	var stats []tableIoWaitsStats
 	file, err := os.Open(filepath.Join("testdata", "scraper", c.tableIoWaitsFile+".txt"))
 	if err != nil {
@@ -793,6 +1141,7 @@ func (c *mockClient) getTableIoWaitsStats() ([]tableIoWaitsStats, error) {
 }
 
 func (c *mockClient) getIndexIoWaitsStats() ([]indexIoWaitsStats, error) {
+	c.indexIoWaitsCallCount++
 	var stats []indexIoWaitsStats
 	file, err := os.Open(filepath.Join("testdata", "scraper", c.indexIoWaitsFile+".txt"))
 	if err != nil {
@@ -823,6 +1172,7 @@ func (c *mockClient) getIndexIoWaitsStats() ([]indexIoWaitsStats, error) {
 }
 
 func (c *mockClient) getStatementEventsStats() ([]statementEventStats, error) {
+	c.statementEventsCallCount++
 	var stats []statementEventStats
 	file, err := os.Open(filepath.Join("testdata", "scraper", c.statementEventsFile+".txt"))
 	if err != nil {
@@ -856,6 +1206,7 @@ func (c *mockClient) getStatementEventsStats() ([]statementEventStats, error) {
 }
 
 func (c *mockClient) getTableLockWaitEventStats() ([]tableLockWaitEventStats, error) {
+	c.tableLockWaitEventStatsCallCount++
 	var stats []tableLockWaitEventStats
 	file, err := os.Open(filepath.Join("testdata", "scraper", c.tableLockWaitEventStatsFile+".txt"))
 	if err != nil {
@@ -897,6 +1248,7 @@ func (c *mockClient) getTableLockWaitEventStats() ([]tableLockWaitEventStats, er
 }
 
 func (c *mockClient) getReplicaStatusStats(_ bool) ([]replicaStatusStats, error) {
+	c.replicaStatusCallCount++
 	var stats []replicaStatusStats
 	file, err := os.Open(filepath.Join("testdata", "scraper", c.replicaStatusFile+".txt"))
 	if err != nil {
