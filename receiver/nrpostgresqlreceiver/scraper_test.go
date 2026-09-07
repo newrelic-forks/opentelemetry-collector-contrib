@@ -1856,6 +1856,16 @@ func TestIsExplainableQuery(t *testing.T) {
 		{name: "legitimate trailing semicolon", query: "SELECT * FROM users;", expected: true},
 		{name: "semicolon inside string literal", query: "UPDATE users SET note = 'a; b' WHERE id = 1", expected: true},
 		{name: "escaped quote with semicolon inside string literal", query: "UPDATE users SET note = 'it''s; done' WHERE id = 1", expected: true},
+
+		// EXTRACT($N FROM ...) — pg_stat_statements normalizes EXTRACT's keyword argument
+		// (e.g. EPOCH) into an unpreparable $N; these must be skipped, not explained.
+		{name: "EXTRACT with normalized field keyword", query: "SELECT EXTRACT($1 FROM query_start) FROM pg_stat_activity", expected: false},
+		{name: "EXTRACT with normalized field keyword, extra whitespace", query: "SELECT EXTRACT( $1  FROM  query_start)", expected: false},
+		{name: "EXTRACT lowercase", query: "select extract($1 from query_start)", expected: false},
+		{name: "EXTRACT with literal keyword is still explainable", query: "SELECT EXTRACT(EPOCH FROM query_start) FROM pg_stat_activity WHERE pid = $1", expected: true},
+		{name: "EXTRACT as part of identifier, not a function call", query: "SELECT extract_data FROM users WHERE id = $1", expected: true},
+		{name: "EXTRACT($N FROM ...) text inside a string literal is not the SQL keyword", query: "SELECT * FROM t WHERE msg = 'EXTRACT($1 FROM x)' AND id = $2", expected: true},
+		{name: "EXTRACT($N FROM ...) text inside a line comment is not the SQL keyword", query: "SELECT * FROM t -- EXTRACT($1 FROM x)\nWHERE id = $2", expected: true},
 	}
 
 	for _, tc := range testCases {

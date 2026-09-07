@@ -146,7 +146,7 @@ func isExplainableQuery(query string) bool {
 		return false
 	}
 
-	return !hasEmbeddedStatementSeparator(trimmed)
+	return !hasEmbeddedStatementSeparator(trimmed) && !hasUnpreparableExtractParam(trimmed)
 }
 
 // hasEmbeddedStatementSeparator reports whether query contains a ';' that terminates a
@@ -222,6 +222,32 @@ func rewriteIntervalParams(query string) string {
 	}
 	out.WriteString(query[last:])
 	return out.String()
+}
+
+// extractParamPattern matches "EXTRACT($N FROM ...)", the shape pg_stat_statements produces
+// when it normalizes a literal field keyword (e.g. EPOCH) inside EXTRACT. EXTRACT's first
+// argument is a fixed keyword position, not an expression, so $N is never valid there —
+// unlike INTERVAL $N (see rewriteIntervalParams above), there's no safe rewrite back to the
+// original keyword, so the query must be skipped instead.
+var extractParamPattern = regexp.MustCompile(`(?i)EXTRACT\s*\(\s*\$\d+\s+FROM`)
+
+// hasUnpreparableExtractParam reports whether query contains EXTRACT($N FROM ...) outside
+// any string literal, quoted identifier, or comment — a pg_stat_statements normalization of
+// a literal field keyword that PostgreSQL's parser rejects unconditionally in EXTRACT's
+// keyword position.
+func hasUnpreparableExtractParam(query string) bool {
+	matches := extractParamPattern.FindAllStringIndex(query, -1)
+	if len(matches) == 0 {
+		return false
+	}
+
+	protected := quotedAndCommentSpans(query)
+	for _, m := range matches {
+		if !withinAnySpan(protected, m[0]) {
+			return true
+		}
+	}
+	return false
 }
 
 // quotedAndCommentSpans returns the byte ranges of query that are inside a single-quoted string
