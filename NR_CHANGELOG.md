@@ -17,6 +17,11 @@ including confirmation of which breaking changes from [CHANGELOG.md](./CHANGELOG
   conventions. To keep the legacy shape, disable the gate explicitly:
   `--feature-gates=-receiver.nrpostgresql.useOTelSemconv`.
 
+- `receiver/nrpostgresql`: the `db.server.query_sample` log event's `postgresql.backend_start` and
+  `postgresql.session_duration` attributes are renamed to `postgresql.backend.connection.start` and
+  `postgresql.session.duration`, matching this receiver's existing dotted-namespace attribute
+  convention (e.g. `postgresql.blocking.start_time`).
+
 ### 🧰 Bug fixes 🧰
 
 - `receiver/nrmysql`: Disabling every metric fed by the table stats, statement events, table
