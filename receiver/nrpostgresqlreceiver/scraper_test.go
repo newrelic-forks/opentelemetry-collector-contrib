@@ -14,6 +14,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"text/template"
@@ -223,6 +224,293 @@ func TestScraper(t *testing.T) {
 
 	runTest(true, "expected_schemaattr.yaml")
 	runTest(false, "expected.yaml")
+}
+
+func TestScraperSkipsQueriesForDisabledMetrics(t *testing.T) {
+	factory := new(mockClientFactory)
+	factory.initMocks([]string{"otel"})
+
+	cfg := createDefaultConfig().(*Config)
+	cfg.Databases = []string{"otel"}
+	// rows/operations/table.size/table.vacuum.count/blocks_read/index.scans/index.size default to enabled; disable them for this test.
+	cfg.MetricsBuilderConfig.Metrics.PostgresqlRows.Enabled = false
+	cfg.MetricsBuilderConfig.Metrics.PostgresqlOperations.Enabled = false
+	cfg.MetricsBuilderConfig.Metrics.PostgresqlTableSize.Enabled = false
+	cfg.MetricsBuilderConfig.Metrics.PostgresqlTableVacuumCount.Enabled = false
+	cfg.MetricsBuilderConfig.Metrics.PostgresqlBlocksRead.Enabled = false
+	cfg.MetricsBuilderConfig.Metrics.PostgresqlIndexScans.Enabled = false
+	cfg.MetricsBuilderConfig.Metrics.PostgresqlIndexSize.Enabled = false
+	require.False(t, cfg.MetricsBuilderConfig.Metrics.PostgresqlSequentialScans.Enabled)
+	require.False(t, cfg.MetricsBuilderConfig.Metrics.PostgresqlFunctionCalls.Enabled)
+	require.False(t, cfg.MetricsBuilderConfig.Metrics.PostgresqlDatabaseLocks.Enabled)
+	// table.count stays enabled, now satisfied by the cheap getTableCount query.
+	require.True(t, cfg.MetricsBuilderConfig.Metrics.PostgresqlTableCount.Enabled)
+
+	scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, factory, newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
+	require.NoError(t, err)
+
+	_, err = scraper.scrape(t.Context())
+	require.NoError(t, err)
+
+	listClientAny, clientErr := factory.getClient(t.Context(), defaultPostgreSQLDatabase)
+	require.NoError(t, clientErr)
+	listClient := listClientAny.(*mockClient)
+
+	dbClientAny, clientErr := factory.getClient(t.Context(), "otel")
+	require.NoError(t, clientErr)
+	dbClient := dbClientAny.(*mockClient)
+
+	// Queries with no remaining enabled consumer must not run.
+	dbClient.AssertNumberOfCalls(t, "getTableCount", 1)
+	dbClient.AssertNotCalled(t, "getDatabaseTableMetrics", mock.Anything, mock.Anything)
+	dbClient.AssertNotCalled(t, "getBlocksReadByTable", mock.Anything, mock.Anything)
+	dbClient.AssertNotCalled(t, "getIndexStats", mock.Anything, mock.Anything)
+	dbClient.AssertNotCalled(t, "getFunctionStats", mock.Anything, mock.Anything)
+	dbClient.AssertNotCalled(t, "getDatabaseLocks", mock.Anything)
+	listClient.AssertNotCalled(t, "getServerScopedLocks", mock.Anything)
+}
+
+func TestScraperRunsQueriesWhenAnyFedMetricIsEnabled(t *testing.T) {
+	factory := new(mockClientFactory)
+	factory.initMocks([]string{"otel"})
+
+	cfg := createDefaultConfig().(*Config)
+	cfg.Databases = []string{"otel"}
+	// Disable one of the two metrics fed by getIndexStats; the other stays enabled.
+	cfg.MetricsBuilderConfig.Metrics.PostgresqlIndexScans.Enabled = false
+	require.True(t, cfg.MetricsBuilderConfig.Metrics.PostgresqlIndexSize.Enabled)
+
+	scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, factory, newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
+	require.NoError(t, err)
+
+	_, err = scraper.scrape(t.Context())
+	require.NoError(t, err)
+
+	dbClientAny, clientErr := factory.getClient(t.Context(), "otel")
+	require.NoError(t, clientErr)
+	dbClient := dbClientAny.(*mockClient)
+
+	dbClient.AssertNumberOfCalls(t, "getIndexStats", 1)
+}
+
+// TestScraperSkipsServerWideQueriesForDisabledMetrics verifies the once-per-scrape (not once-per-database) queries are also skipped when disabled.
+func TestScraperSkipsServerWideQueriesForDisabledMetrics(t *testing.T) {
+	tests := []struct {
+		name           string
+		disableMetrics func(*Config)
+		mockMethod     string
+	}{
+		{
+			name:           "getBackends skipped when postgresql.backends disabled",
+			disableMetrics: func(cfg *Config) { cfg.MetricsBuilderConfig.Metrics.PostgresqlBackends.Enabled = false },
+			mockMethod:     "getBackends",
+		},
+		{
+			name:           "getDatabaseSize skipped when postgresql.db_size disabled",
+			disableMetrics: func(cfg *Config) { cfg.MetricsBuilderConfig.Metrics.PostgresqlDbSize.Enabled = false },
+			mockMethod:     "getDatabaseSize",
+		},
+		{
+			name: "getDatabaseStats skipped when all 11 metrics it feeds are disabled",
+			disableMetrics: func(cfg *Config) {
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlCommits.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlRollbacks.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlDeadlocks.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlTempFiles.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlTempIo.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlTupUpdated.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlTupReturned.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlTupFetched.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlTupInserted.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlTupDeleted.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlBlksHit.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlBlksRead.Enabled = false
+			},
+			mockMethod: "getDatabaseStats",
+		},
+		{
+			name: "getBGWriterStats skipped when all 5 bgwriter metrics are disabled",
+			disableMetrics: func(cfg *Config) {
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlBgwriterBuffersAllocated.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlBgwriterBuffersWrites.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlBgwriterCheckpointCount.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlBgwriterDuration.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlBgwriterMaxwritten.Enabled = false
+			},
+			mockMethod: "getBGWriterStats",
+		},
+		{
+			name:           "getMaxConnections skipped when postgresql.connection.max disabled",
+			disableMetrics: func(cfg *Config) { cfg.MetricsBuilderConfig.Metrics.PostgresqlConnectionMax.Enabled = false },
+			mockMethod:     "getMaxConnections",
+		},
+		{
+			name: "getReplicationStats skipped when data_delay and both wal lag metrics are disabled",
+			disableMetrics: func(cfg *Config) {
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlReplicationDataDelay.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlWalDelay.Enabled = false
+				cfg.MetricsBuilderConfig.Metrics.PostgresqlWalLag.Enabled = false
+			},
+			mockMethod: "getReplicationStats",
+		},
+		{
+			name:           "getLatestWalAgeSeconds skipped when postgresql.wal.age disabled",
+			disableMetrics: func(cfg *Config) { cfg.MetricsBuilderConfig.Metrics.PostgresqlWalAge.Enabled = false },
+			mockMethod:     "getLatestWalAgeSeconds",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			factory := new(mockClientFactory)
+			factory.initMocks([]string{"otel"})
+
+			cfg := createDefaultConfig().(*Config)
+			cfg.Databases = []string{"otel"}
+			tc.disableMetrics(cfg)
+
+			scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, factory, newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
+			require.NoError(t, err)
+
+			_, err = scraper.scrape(t.Context())
+			require.NoError(t, err)
+
+			listClientAny, clientErr := factory.getClient(t.Context(), defaultPostgreSQLDatabase)
+			require.NoError(t, clientErr)
+			listClient := listClientAny.(*mockClient)
+
+			listClient.AssertNotCalled(t, tc.mockMethod, mock.Anything)
+		})
+	}
+}
+
+// queryGuard maps one *MetricsEnabled guard method (scraper.go) to the
+// MetricsConfig fields it checks. guard is called directly, not looked up by
+// name, since reflect.Value.MethodByName can't see unexported methods.
+type queryGuard struct {
+	name   string
+	guard  func(*postgreSQLScraper) bool
+	fields []string
+}
+
+var queryGuards = []queryGuard{
+	{"backendsMetricsEnabled", (*postgreSQLScraper).backendsMetricsEnabled, []string{"PostgresqlBackends"}},
+	{"dbSizeMetricsEnabled", (*postgreSQLScraper).dbSizeMetricsEnabled, []string{"PostgresqlDbSize"}},
+	{"databaseConflictsMetricsEnabled", (*postgreSQLScraper).databaseConflictsMetricsEnabled, []string{"PostgresqlQueryConflicts"}},
+	{"executionTimeMetricsEnabled", (*postgreSQLScraper).executionTimeMetricsEnabled, []string{"PostgresqlQueryExecutionTime"}},
+	{"blocksReadMetricsEnabled", (*postgreSQLScraper).blocksReadMetricsEnabled, []string{"PostgresqlBlocksRead"}},
+	{"indexMetricsEnabled", (*postgreSQLScraper).indexMetricsEnabled, []string{"PostgresqlIndexScans", "PostgresqlIndexSize"}},
+	{"functionCallsMetricsEnabled", (*postgreSQLScraper).functionCallsMetricsEnabled, []string{"PostgresqlFunctionCalls"}},
+	{"databaseLocksMetricsEnabled", (*postgreSQLScraper).databaseLocksMetricsEnabled, []string{"PostgresqlDatabaseLocks"}},
+	{"maxConnectionsMetricsEnabled", (*postgreSQLScraper).maxConnectionsMetricsEnabled, []string{"PostgresqlConnectionMax"}},
+	{"walAgeMetricsEnabled", (*postgreSQLScraper).walAgeMetricsEnabled, []string{"PostgresqlWalAge"}},
+	{"databaseStatsMetricsEnabled", (*postgreSQLScraper).databaseStatsMetricsEnabled, []string{
+		"PostgresqlCommits", "PostgresqlRollbacks", "PostgresqlDeadlocks",
+		"PostgresqlTempFiles", "PostgresqlTempIo", "PostgresqlTupUpdated",
+		"PostgresqlTupReturned", "PostgresqlTupFetched", "PostgresqlTupInserted",
+		"PostgresqlTupDeleted", "PostgresqlBlksHit", "PostgresqlBlksRead",
+	}},
+	{"tableCountMetricsEnabled", (*postgreSQLScraper).tableCountMetricsEnabled, []string{"PostgresqlTableCount"}},
+	{"perTableFieldsMetricsEnabled", (*postgreSQLScraper).perTableFieldsMetricsEnabled, []string{
+		"PostgresqlRows", "PostgresqlOperations", "PostgresqlTableSize",
+		"PostgresqlTableVacuumCount", "PostgresqlSequentialScans",
+	}},
+	{"vectorSearchMetricsEnabled", (*postgreSQLScraper).vectorSearchMetricsEnabled, []string{
+		"PostgresqlVectorSearchCalls", "PostgresqlVectorSearchDuration", "PostgresqlVectorSearchRowsReturned",
+	}},
+	{"vectorInsertMetricsEnabled", (*postgreSQLScraper).vectorInsertMetricsEnabled, []string{
+		"PostgresqlVectorInsertRows", "PostgresqlVectorInsertDuration",
+	}},
+	{"bgWriterMetricsEnabled", (*postgreSQLScraper).bgWriterMetricsEnabled, []string{
+		"PostgresqlBgwriterBuffersAllocated", "PostgresqlBgwriterBuffersWrites",
+		"PostgresqlBgwriterCheckpointCount", "PostgresqlBgwriterDuration", "PostgresqlBgwriterMaxwritten",
+	}},
+	{"replicationMetricsEnabled", (*postgreSQLScraper).replicationMetricsEnabled, []string{
+		"PostgresqlReplicationDataDelay", "PostgresqlWalDelay", "PostgresqlWalLag",
+	}},
+}
+
+// notQueryGated lists MetricsConfig fields with no skippable query to guard.
+var notQueryGated = map[string]string{
+	"PostgresqlDatabaseCount": "recordDatabase computes it from len(databases), no separate query to skip",
+}
+
+// TestQueryGuardsCoverEveryMetric guards against a metric being wired into a
+// query's data path without being added to that query's guard: enabling only
+// one metric at a time (all others disabled) and asserting its guard returns
+// true catches that, where tests that just disable-one-of-many wouldn't.
+func TestQueryGuardsCoverEveryMetric(t *testing.T) {
+	allFields := reflect.VisibleFields(reflect.TypeFor[metadata.MetricsConfig]())
+
+	seen := map[string]queryGuard{} // field name -> owning guard, to catch duplicates across guards
+	for _, qg := range queryGuards {
+		for _, f := range qg.fields {
+			if prior, ok := seen[f]; ok {
+				t.Fatalf("metric field %q is listed under both %q and %q in queryGuards — a metric belongs to exactly one query/guard", f, prior.name, qg.name)
+			}
+			seen[f] = qg
+		}
+	}
+
+	for _, sf := range allFields {
+		fieldName := sf.Name
+		if reason, ok := notQueryGated[fieldName]; ok {
+			t.Logf("skipping %s: not query-gated (%s)", fieldName, reason)
+			continue
+		}
+
+		qg, ok := seen[fieldName]
+		if !ok {
+			t.Fatalf(
+				"metric field %q on metadata.MetricsConfig has no entry in queryGuards and is not listed in "+
+					"notQueryGated in scraper_test.go. If this metric is newly added: find the query guard method "+
+					"in scraper.go that should skip its feeding query when nothing consumes it (or add a new one), "+
+					"add this field's Enabled check to that guard's || chain, and add the field name here under "+
+					"the right entry in queryGuards. If this metric's data is never gated by a skippable query, "+
+					"add it to notQueryGated instead with a one-line reason.",
+				fieldName,
+			)
+		}
+
+		t.Run(fieldName, func(t *testing.T) {
+			cfg := allMetricsDisabledConfig()
+			enableMetricField(cfg, fieldName)
+
+			scraper := &postgreSQLScraper{config: cfg}
+			enabled := qg.guard(scraper)
+
+			require.True(t, enabled,
+				"enabling only %s left %s() returning false — %s's Enabled check is missing from that guard's "+
+					"|| chain in scraper.go, so its feeding query would be skipped even when this metric alone is enabled",
+				fieldName, qg.name, fieldName,
+			)
+		})
+	}
+}
+
+func allMetricsDisabledConfig() *Config {
+	cfg := createDefaultConfig().(*Config)
+	v := reflect.ValueOf(&cfg.MetricsBuilderConfig.Metrics).Elem()
+	for i := 0; i < v.NumField(); i++ {
+		enabledField := v.Field(i).FieldByName("Enabled")
+		if enabledField.IsValid() && enabledField.CanSet() {
+			enabledField.SetBool(false)
+		}
+	}
+	return cfg
+}
+
+func enableMetricField(cfg *Config, fieldName string) {
+	v := reflect.ValueOf(&cfg.MetricsBuilderConfig.Metrics).Elem()
+	f := v.FieldByName(fieldName)
+	if !f.IsValid() {
+		panic(fmt.Sprintf("enableMetricField: no such MetricsConfig field %q", fieldName))
+	}
+	enabledField := f.FieldByName("Enabled")
+	if !enabledField.IsValid() || !enabledField.CanSet() {
+		panic(fmt.Sprintf("enableMetricField: field %q has no settable Enabled bool", fieldName))
+	}
+	enabledField.SetBool(true)
 }
 
 func TestScraperWithExecutionTime(t *testing.T) {
@@ -854,6 +1142,7 @@ func TestQuerySampleTemplateRendering(t *testing.T) {
 			params: map[string]any{
 				"limit":                int64(50),
 				"newestQueryTimestamp": 999999.555,
+				"excludedDatabases":    "",
 			},
 		},
 		{
@@ -861,6 +1150,7 @@ func TestQuerySampleTemplateRendering(t *testing.T) {
 			params: map[string]any{
 				"limit":                int64(10),
 				"newestQueryTimestamp": float64(0),
+				"excludedDatabases":    "",
 			},
 		},
 	}
@@ -1329,11 +1619,177 @@ func TestRewriteIntervalParams(t *testing.T) {
 			query:    "SELECT interval_seconds FROM orders WHERE id = $1",
 			expected: "SELECT interval_seconds FROM orders WHERE id = $1",
 		},
+		{
+			// The pattern would otherwise match "interval $1" here, corrupting a string literal
+			// that merely mentions the word rather than using it as the SQL keyword.
+			name:     "interval keyword inside a string literal is left alone",
+			query:    "SELECT * FROM t WHERE msg = 'waited an interval $1 to run'",
+			expected: "SELECT * FROM t WHERE msg = 'waited an interval $1 to run'",
+		},
+		{
+			name:     "interval keyword inside a doubled-quote string literal is left alone",
+			query:    "SELECT * FROM t WHERE msg = 'it''s an interval $1 wait'",
+			expected: "SELECT * FROM t WHERE msg = 'it''s an interval $1 wait'",
+		},
+		{
+			name:     "interval keyword inside a quoted identifier is left alone",
+			query:    `SELECT * FROM t WHERE "my interval $1" = $2`,
+			expected: `SELECT * FROM t WHERE "my interval $1" = $2`,
+		},
+		{
+			name:     "interval keyword inside a line comment is left alone",
+			query:    "SELECT * FROM t -- interval $1\nWHERE id = $2",
+			expected: "SELECT * FROM t -- interval $1\nWHERE id = $2",
+		},
+		{
+			name:     "interval keyword inside a block comment is left alone",
+			query:    "SELECT /* interval $1 */ * FROM t WHERE id = $2",
+			expected: "SELECT /* interval $1 */ * FROM t WHERE id = $2",
+		},
+		{
+			// A protected span earlier in the query must not suppress a real rewrite later on.
+			name:     "a protected span does not block a later real rewrite",
+			query:    "SELECT * FROM t WHERE msg = 'interval $1' AND created_at > NOW() - INTERVAL $2",
+			expected: "SELECT * FROM t WHERE msg = 'interval $1' AND created_at > NOW() - $2::interval",
+		},
+		{
+			name:     "exact bare interval literal in a string is left alone",
+			query:    "SELECT * FROM t WHERE msg = 'interval $1'",
+			expected: "SELECT * FROM t WHERE msg = 'interval $1'",
+		},
+		{
+			name:     "doubled quote inside a literal does not end the protected span",
+			query:    "SELECT * FROM t WHERE msg = 'it''s an interval $1'",
+			expected: "SELECT * FROM t WHERE msg = 'it''s an interval $1'",
+		},
+		{
+			name:     "escaped quote in an E string does not end the protected span",
+			query:    `SELECT * FROM t WHERE msg = E'x\' interval $1'`,
+			expected: `SELECT * FROM t WHERE msg = E'x\' interval $1'`,
+		},
+		{
+			name:     "type name inside a nested block comment is left alone",
+			query:    "SELECT /* a /* interval $1 */ b */ * FROM t WHERE id = $2",
+			expected: "SELECT /* a /* interval $1 */ b */ * FROM t WHERE id = $2",
+		},
+		{
+			name:     "type name inside a dollar quoted string is left alone",
+			query:    "SELECT $tag$ interval $1 $tag$ FROM t",
+			expected: "SELECT $tag$ interval $1 $tag$ FROM t",
+		},
+		{
+			name:     "type name inside an untagged dollar quoted string is left alone",
+			query:    "SELECT $$ interval $1 $$ FROM t",
+			expected: "SELECT $$ interval $1 $$ FROM t",
+		},
+		{
+			// A parameter placeholder like "$2" must not be mistaken for the start of a
+			// dollar-quoted string, since a digit can never open one.
+			name:     "a parameter placeholder does not open a dollar quote",
+			query:    "SELECT $2 FROM t WHERE created_at > NOW() - INTERVAL $1",
+			expected: "SELECT $2 FROM t WHERE created_at > NOW() - $1::interval",
+		},
+		{
+			name:     "unterminated string literal protects to the end",
+			query:    "SELECT * FROM t WHERE msg = 'interval $1",
+			expected: "SELECT * FROM t WHERE msg = 'interval $1",
+		},
+		{
+			name:     "unterminated block comment protects to the end",
+			query:    "SELECT /* interval $1",
+			expected: "SELECT /* interval $1",
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			assert.Equal(t, tc.expected, rewriteIntervalParams(tc.query))
+		})
+	}
+}
+
+func TestQuotedAndCommentSpans(t *testing.T) {
+	testCases := []struct {
+		name string
+		// query marks the expected spans inline: every byte covered by a protected span is
+		// written as one of the marker runes below in want, and every other byte as a dot. That
+		// keeps offsets readable next to the query instead of listing index pairs.
+		query string
+		want  string
+	}{
+		{
+			name:  "no protected regions",
+			query: "SELECT a FROM t WHERE id = $1",
+			want:  ".............................",
+		},
+		{
+			name:  "string literal",
+			query: "SELECT 'abc' FROM t",
+			want:  ".......XXXXX.......",
+		},
+		{
+			name:  "doubled quote continues the literal",
+			query: "SELECT 'it''s' FROM t",
+			want:  ".......XXXXXXX.......",
+		},
+		{
+			name:  "backslash escape only applies to an E string",
+			query: `SELECT E'a\'b' , 'c'`,
+			want:  "........XXXXXX...XXX",
+		},
+		{
+			name:  "a word ending in e does not introduce an E string",
+			query: `SELECT tare'a\'`,
+			want:  "...........XXXX",
+		},
+		{
+			name:  "quoted identifier",
+			query: `SELECT "col" FROM t`,
+			want:  ".......XXXXX.......",
+		},
+		{
+			name:  "line comment stops at the newline",
+			query: "SELECT a -- note\nFROM t",
+			want:  ".........XXXXXXX.......",
+		},
+		{
+			name:  "block comments nest",
+			query: "SELECT /* a /* b */ c */ 1",
+			want:  ".......XXXXXXXXXXXXXXXXX..",
+		},
+		{
+			name:  "dollar quoted string",
+			query: "SELECT $t$ a $t$ FROM x",
+			want:  ".......XXXXXXXXX.......",
+		},
+		{
+			name:  "a parameter placeholder does not open a dollar quote",
+			query: "SELECT $1 FROM t WHERE b = $2",
+			want:  ".............................",
+		},
+		{
+			name:  "unterminated literal protects to the end",
+			query: "SELECT 'abc FROM t",
+			want:  ".......XXXXXXXXXXX",
+		},
+		{
+			name:  "unterminated block comment protects to the end",
+			query: "SELECT /* abc FROM t",
+			want:  ".......XXXXXXXXXXXXX",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Len(t, tc.want, len(tc.query), "the want mask must be as long as the query")
+
+			got := []byte(strings.Repeat(".", len(tc.query)))
+			for _, span := range quotedAndCommentSpans(tc.query) {
+				for i := span[0]; i < span[1]; i++ {
+					got[i] = 'X'
+				}
+			}
+			assert.Equal(t, tc.want, string(got), "query: %s", tc.query)
 		})
 	}
 }
@@ -2413,7 +2869,7 @@ func (m *mockClient) probeExplainFunction(ctx context.Context, quotedFunctionNam
 }
 
 // getTopQuery implements client.
-func (*mockClient) getTopQuery(context.Context, int64, []string, *zap.Logger) ([]map[string]any, error) {
+func (*mockClient) getTopQuery(context.Context, int64, []string, []string, *zap.Logger) ([]map[string]any, error) {
 	panic("unimplemented")
 }
 
@@ -2434,7 +2890,7 @@ func (m mockSimpleClientFactory) getClient(context.Context, string) (client, err
 }
 
 // getQuerySamples implements client.
-func (*mockClient) getQuerySamples(context.Context, int64, float64, []string, *zap.Logger) ([]map[string]any, float64, error) {
+func (*mockClient) getQuerySamples(context.Context, int64, float64, []string, []string, *zap.Logger) ([]map[string]any, float64, error) {
 	panic("this should not be invoked")
 }
 
@@ -2465,7 +2921,7 @@ func (m *mockClient) getDatabaseLocks(ctx context.Context) ([]databaseLocks, err
 	return args.Get(0).([]databaseLocks), args.Error(1)
 }
 
-func (m *mockClient) getSharedRelationLocks(ctx context.Context) ([]databaseLocks, error) {
+func (m *mockClient) getServerScopedLocks(ctx context.Context) ([]databaseLocks, error) {
 	args := m.Called(ctx)
 	return args.Get(0).([]databaseLocks), args.Error(1)
 }
@@ -2483,6 +2939,11 @@ func (m *mockClient) getDatabaseSize(_ context.Context, databases []string) (map
 func (m *mockClient) getDatabaseTableMetrics(ctx context.Context, database string) (map[tableIdentifier]tableStats, error) {
 	args := m.Called(ctx, database)
 	return args.Get(0).(map[tableIdentifier]tableStats), args.Error(1)
+}
+
+func (m *mockClient) getTableCount(ctx context.Context) (int64, error) {
+	args := m.Called(ctx)
+	return args.Get(0).(int64), args.Error(1)
 }
 
 func (m *mockClient) getBlocksReadByTable(ctx context.Context, database string) (map[tableIdentifier]tableIOStats, error) {
@@ -2622,7 +3083,7 @@ func (m *mockClient) initMocks(database, schema string, databases []string, inde
 		}, nil)
 		m.On("getMaxConnections", mock.Anything).Return(int64(100), nil)
 		m.On("getLatestWalAgeSeconds", mock.Anything).Return(int64(3600), nil)
-		m.On("getSharedRelationLocks", mock.Anything).Return([]databaseLocks{
+		m.On("getServerScopedLocks", mock.Anything).Return([]databaseLocks{
 			{
 				relation: "pg_database",
 				mode:     "AccessShareLock",
@@ -2716,6 +3177,7 @@ func (m *mockClient) initMocks(database, schema string, databases []string, inde
 		}
 
 		m.On("getDatabaseTableMetrics", mock.Anything, database).Return(tableMetrics, nil)
+		m.On("getTableCount", mock.Anything).Return(int64(len(tableMetrics)), nil)
 		m.On("getBlocksReadByTable", mock.Anything, database).Return(blocksMetrics, nil)
 
 		index1 := database + "_test1_pkey"

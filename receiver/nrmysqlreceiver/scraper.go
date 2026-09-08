@@ -10,6 +10,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"net"
 	"os"
@@ -44,6 +45,7 @@ var otelUUIDv5Namespace = uuid.MustParse("4d63009a-8d0f-11ee-aad7-4c796ed8e320")
 
 type mySQLScraper struct {
 	sqlclient              client
+	clientFactory          mySQLClientFactory
 	logger                 *zap.Logger
 	config                 *Config
 	mb                     *metadata.MetricsBuilder
@@ -66,14 +68,23 @@ type mySQLScraper struct {
 func newMySQLScraper(
 	settings receiver.Settings,
 	config *Config,
+	clientFactory mySQLClientFactory,
 	cache *lru.Cache[string, int64],
 	queryPlanCache *expirable.LRU[string, string],
-) *mySQLScraper {
+) (*mySQLScraper, error) {
+	if clientFactory == nil {
+		var err error
+		clientFactory, err = newClientFactory(config, settings.ID)
+		if err != nil {
+			return nil, err
+		}
+	}
 	seed := resolveServiceInstanceSeed(config.AddrConfig.Endpoint, settings.Logger)
 	serviceInstanceID := uuid.NewSHA1(otelUUIDv5Namespace, []byte(seed)).String()
 	return &mySQLScraper{
 		logger:                 settings.Logger,
 		config:                 config,
+		clientFactory:          clientFactory,
 		mb:                     metadata.NewMetricsBuilder(config.MetricsBuilderConfig, settings),
 		lb:                     metadata.NewLogsBuilder(config.LogsBuilderConfig, settings),
 		cache:                  cache,
@@ -81,7 +92,7 @@ func newMySQLScraper(
 		obfuscator:             newObfuscator(),
 		lastExecutionTimestamp: time.Unix(0, 0),
 		serviceInstanceID:      serviceInstanceID,
-	}
+	}, nil
 }
 
 // resolveServiceInstanceSeed returns the endpoint string to use as the UUID v5
@@ -111,17 +122,24 @@ func resolveServiceInstanceSeed(endpoint string, logger *zap.Logger) string {
 }
 
 // start starts the scraper by initializing the db client connection.
-func (m *mySQLScraper) start(_ context.Context, _ component.Host) error {
-	sqlclient, err := newMySQLClient(m.config)
+func (m *mySQLScraper) start(ctx context.Context, host component.Host) error {
+	var extensions map[component.ID]component.Component
+	if host != nil {
+		extensions = host.GetExtensions()
+	}
+	provider, err := m.config.resolveCredentialProvider(extensions)
+	if err != nil {
+		return err
+	}
+	if provider != nil {
+		m.clientFactory.setCredentialProvider(provider)
+	}
+
+	sqlclient, err := m.clientFactory.connect(ctx)
 	if err != nil {
 		return err
 	}
 
-	err = sqlclient.Connect()
-	if err != nil {
-		_ = sqlclient.Close()
-		return err
-	}
 	m.sqlclient = sqlclient
 	m.detectedVersion = m.sqlclient.getDBVersion()
 	m.logDetectedVersion(m.detectedVersion)
@@ -167,20 +185,11 @@ func (m *mySQLScraper) scrape(context.Context) (pmetric.Metrics, error) {
 	}
 
 	now := pcommon.NewTimestampFromTime(time.Now())
+	errs := &scrapererror.ScrapeErrors{}
 
 	// collect innodb metrics.
-	innodbStats, innoErr := m.sqlclient.getInnodbStats()
-	if innoErr != nil {
-		m.logger.Error("Failed to fetch InnoDB stats", zap.Error(innoErr))
-	}
-
-	errs := &scrapererror.ScrapeErrors{}
-	for k, v := range innodbStats {
-		if k != "buffer_pool_size" {
-			continue
-		}
-		addPartialIfError(errs, m.mb.RecordMysqlBufferPoolLimitDataPoint(now, v))
-	}
+	m.scrapeInnodbStats(now, errs)
+	m.scrapeInnodbTransactionStats(now, errs)
 
 	// collect io_waits metrics.
 	m.scrapeTableIoWaitsStats(now, errs)
@@ -454,6 +463,20 @@ func (m *mySQLScraper) scrapeGlobalStats(now pcommon.Timestamp, errs *scrapererr
 		case "Innodb_os_log_fsyncs":
 			addPartialIfError(errs, m.mb.RecordMysqlLogOperationsDataPoint(now, v, metadata.AttributeLogOperationsFsyncs))
 
+		// myisam.key_cache
+		case "Key_blocks_used":
+			addPartialIfError(errs, m.mb.RecordMysqlMyisamKeyCacheBlockUsedMaxDataPoint(now, v))
+		case "Key_blocks_unused":
+			addPartialIfError(errs, m.mb.RecordMysqlMyisamKeyCacheBlockUnusedDataPoint(now, v))
+		case "Key_read_requests":
+			addPartialIfError(errs, m.mb.RecordMysqlMyisamKeyCacheRequestDataPoint(now, v, metadata.AttributeMysqlMyisamKeyCacheOperationTypeRead))
+		case "Key_reads":
+			addPartialIfError(errs, m.mb.RecordMysqlMyisamKeyCacheDiskOperationDataPoint(now, v, metadata.AttributeMysqlMyisamKeyCacheOperationTypeRead))
+		case "Key_write_requests":
+			addPartialIfError(errs, m.mb.RecordMysqlMyisamKeyCacheRequestDataPoint(now, v, metadata.AttributeMysqlMyisamKeyCacheOperationTypeWrite))
+		case "Key_writes":
+			addPartialIfError(errs, m.mb.RecordMysqlMyisamKeyCacheDiskOperationDataPoint(now, v, metadata.AttributeMysqlMyisamKeyCacheOperationTypeWrite))
+
 		// innodb.data_file.io
 		case "Innodb_data_read":
 			addPartialIfError(errs, m.mb.RecordMysqlInnodbDataFileIoDataPoint(now, v, metadata.AttributeDiskIoDirectionRead))
@@ -487,6 +510,12 @@ func (m *mySQLScraper) scrapeGlobalStats(now pcommon.Timestamp, errs *scrapererr
 				metadata.AttributePageOperationsWritten))
 
 		// row_locks
+		case "Innodb_row_lock_current_waits":
+			addPartialIfError(errs, m.mb.RecordMysqlInnodbRowLockWaitCountDataPoint(now, v))
+		case "Innodb_row_lock_time_avg":
+			addPartialIfError(errs, m.recordInnodbRowLockWaitDurationAvg(now, v))
+		case "Innodb_row_lock_time_max":
+			addPartialIfError(errs, m.recordInnodbRowLockWaitDurationMax(now, v))
 		case "Innodb_row_lock_waits":
 			addPartialIfError(errs, m.mb.RecordMysqlRowLocksDataPoint(now, v, metadata.AttributeRowLocksWaits))
 		case "Innodb_row_lock_time":
@@ -601,7 +630,42 @@ func (m *mySQLScraper) scrapeGlobalStats(now pcommon.Timestamp, errs *scrapererr
 	}
 }
 
+// innodbStatsMetricsEnabled reports whether getInnodbStats' one metric is enabled.
+func (m *mySQLScraper) innodbStatsMetricsEnabled() bool {
+	return m.config.MetricsBuilderConfig.Metrics.MysqlBufferPoolLimit.Enabled
+}
+
+func (m *mySQLScraper) scrapeInnodbStats(now pcommon.Timestamp, errs *scrapererror.ScrapeErrors) {
+	if !m.innodbStatsMetricsEnabled() {
+		return
+	}
+
+	innodbStats, err := m.sqlclient.getInnodbStats()
+	if err != nil {
+		m.logger.Error("Failed to fetch InnoDB stats", zap.Error(err))
+		return
+	}
+
+	for k, v := range innodbStats {
+		if k != "buffer_pool_size" {
+			continue
+		}
+		addPartialIfError(errs, m.mb.RecordMysqlBufferPoolLimitDataPoint(now, v))
+	}
+}
+
+// tableStatsMetricsEnabled reports whether any of the 3 metrics fed by
+// getTableStats are enabled.
+func (m *mySQLScraper) tableStatsMetricsEnabled() bool {
+	cfg := m.config.MetricsBuilderConfig.Metrics
+	return cfg.MysqlTableRows.Enabled || cfg.MysqlTableAverageRowLength.Enabled || cfg.MysqlTableSize.Enabled
+}
+
 func (m *mySQLScraper) scrapeTableStats(now pcommon.Timestamp, errs *scrapererror.ScrapeErrors) {
+	if !m.tableStatsMetricsEnabled() {
+		return
+	}
+
 	tableStats, err := m.sqlclient.getTableStats()
 	if err != nil {
 		m.logger.Error("Failed to fetch table size stats", zap.Error(err))
@@ -619,7 +683,51 @@ func (m *mySQLScraper) scrapeTableStats(now pcommon.Timestamp, errs *scrapererro
 	}
 }
 
+// tableIoWaitsMetricsEnabled reports whether either of the 2 metrics fed by
+// getTableIoWaitsStats is enabled.
+func (m *mySQLScraper) tableIoWaitsMetricsEnabled() bool {
+	cfg := m.config.MetricsBuilderConfig.Metrics
+	return cfg.MysqlTableIoWaitCount.Enabled || cfg.MysqlTableIoWaitTime.Enabled
+}
+
+// innodbTransactionStatsMetricsEnabled reports whether any of the 3 metrics fed by
+// getInnodbTransactionStats are enabled.
+func (m *mySQLScraper) innodbTransactionStatsMetricsEnabled() bool {
+	cfg := m.config.MetricsBuilderConfig.Metrics
+	return cfg.MysqlInnodbHistoryListLength.Enabled ||
+		cfg.MysqlInnodbTransactionActiveCount.Enabled ||
+		cfg.MysqlInnodbTransactionActiveDurationMax.Enabled
+}
+
+func (m *mySQLScraper) scrapeInnodbTransactionStats(now pcommon.Timestamp, errs *scrapererror.ScrapeErrors) {
+	if !m.innodbTransactionStatsMetricsEnabled() {
+		return
+	}
+
+	metrics := m.config.MetricsBuilderConfig.Metrics
+	stats, err := m.sqlclient.getInnodbTransactionStats()
+	if err != nil {
+		m.logger.Error("Failed to fetch InnoDB transaction stats", zap.Error(err))
+		errs.AddPartial(1, err)
+		return
+	}
+
+	if metrics.MysqlInnodbHistoryListLength.Enabled {
+		m.mb.RecordMysqlInnodbHistoryListLengthDataPoint(now, stats.historyListLength)
+	}
+	if metrics.MysqlInnodbTransactionActiveCount.Enabled {
+		m.mb.RecordMysqlInnodbTransactionActiveCountDataPoint(now, stats.activeTransactions)
+	}
+	if metrics.MysqlInnodbTransactionActiveDurationMax.Enabled {
+		m.mb.RecordMysqlInnodbTransactionActiveDurationMaxDataPoint(now, stats.maxActiveTransactionDuration)
+	}
+}
+
 func (m *mySQLScraper) scrapeTableIoWaitsStats(now pcommon.Timestamp, errs *scrapererror.ScrapeErrors) {
+	if !m.tableIoWaitsMetricsEnabled() {
+		return
+	}
+
 	tableIoWaitsStats, err := m.sqlclient.getTableIoWaitsStats()
 	if err != nil {
 		m.logger.Error("Failed to fetch table io_waits stats", zap.Error(err))
@@ -651,7 +759,18 @@ func (m *mySQLScraper) scrapeTableIoWaitsStats(now pcommon.Timestamp, errs *scra
 	}
 }
 
+// indexIoWaitsMetricsEnabled reports whether either of the 2 metrics fed by
+// getIndexIoWaitsStats is enabled.
+func (m *mySQLScraper) indexIoWaitsMetricsEnabled() bool {
+	cfg := m.config.MetricsBuilderConfig.Metrics
+	return cfg.MysqlIndexIoWaitCount.Enabled || cfg.MysqlIndexIoWaitTime.Enabled
+}
+
 func (m *mySQLScraper) scrapeIndexIoWaitsStats(now pcommon.Timestamp, errs *scrapererror.ScrapeErrors) {
+	if !m.indexIoWaitsMetricsEnabled() {
+		return
+	}
+
 	indexIoWaitsStats, err := m.sqlclient.getIndexIoWaitsStats()
 	if err != nil {
 		m.logger.Error("Failed to fetch index io_waits stats", zap.Error(err))
@@ -683,7 +802,18 @@ func (m *mySQLScraper) scrapeIndexIoWaitsStats(now pcommon.Timestamp, errs *scra
 	}
 }
 
+// statementEventsMetricsEnabled reports whether either of the 2 metrics fed
+// by getStatementEventsStats is enabled.
+func (m *mySQLScraper) statementEventsMetricsEnabled() bool {
+	cfg := m.config.MetricsBuilderConfig.Metrics
+	return cfg.MysqlStatementEventCount.Enabled || cfg.MysqlStatementEventWaitTime.Enabled
+}
+
 func (m *mySQLScraper) scrapeStatementEventsStats(now pcommon.Timestamp, errs *scrapererror.ScrapeErrors) {
+	if !m.statementEventsMetricsEnabled() {
+		return
+	}
+
 	statementEventsStats, err := m.sqlclient.getStatementEventsStats()
 	if err != nil {
 		m.logger.Error("Failed to fetch statement events stats", zap.Error(err))
@@ -708,7 +838,19 @@ func (m *mySQLScraper) scrapeStatementEventsStats(now pcommon.Timestamp, errs *s
 	}
 }
 
+// tableLockWaitEventMetricsEnabled reports whether any of the 4 metrics fed
+// by getTableLockWaitEventStats are enabled.
+func (m *mySQLScraper) tableLockWaitEventMetricsEnabled() bool {
+	cfg := m.config.MetricsBuilderConfig.Metrics
+	return cfg.MysqlTableLockWaitReadCount.Enabled || cfg.MysqlTableLockWaitReadTime.Enabled ||
+		cfg.MysqlTableLockWaitWriteCount.Enabled || cfg.MysqlTableLockWaitWriteTime.Enabled
+}
+
 func (m *mySQLScraper) scrapeTableLockWaitEventStats(now pcommon.Timestamp, errs *scrapererror.ScrapeErrors) {
+	if !m.tableLockWaitEventMetricsEnabled() {
+		return
+	}
+
 	tableLockWaitEventStats, err := m.sqlclient.getTableLockWaitEventStats()
 	if err != nil {
 		m.logger.Error("Failed to fetch index io_waits stats", zap.Error(err))
@@ -748,7 +890,18 @@ func (m *mySQLScraper) scrapeTableLockWaitEventStats(now pcommon.Timestamp, errs
 	}
 }
 
+// replicaStatusMetricsEnabled reports whether any of the 3 metrics fed by
+// getReplicaStatusStats are enabled.
+func (m *mySQLScraper) replicaStatusMetricsEnabled() bool {
+	cfg := m.config.MetricsBuilderConfig.Metrics
+	return cfg.MysqlReplicaTimeBehindSource.Enabled || cfg.MysqlReplicaSQLDelay.Enabled || cfg.MysqlReplicaThreadRunning.Enabled
+}
+
 func (m *mySQLScraper) scrapeReplicaStatusStats(now pcommon.Timestamp) {
+	if !m.replicaStatusMetricsEnabled() {
+		return
+	}
+
 	replicaStatusStats, err := m.sqlclient.getReplicaStatusStats(m.detectedVersion.supportsReplicaStatus())
 	if err != nil {
 		m.logger.Info("Failed to fetch replica status stats", zap.Error(err))
@@ -931,6 +1084,7 @@ func (m *mySQLScraper) scrapeQuerySamples(_ context.Context, now pcommon.Timesta
 		_, normalizedQueryHash := sqlnormalizer.NormalizeSQLAndHash(obfuscatedQuery)
 
 		blockersJSON, blockerCount := m.deriveBlockingCount(sample.blockers)
+		waitTime := m.sanitizeWaitTime(sample.waitTime, sample.waitEventType, sample.waitEvent)
 
 		m.lb.RecordDbServerQuerySampleEvent(
 			recordCtx,
@@ -952,7 +1106,7 @@ func (m *mySQLScraper) scrapeQuerySamples(_ context.Context, now pcommon.Timesta
 			sample.sessionStatus,
 			sample.sessionID,
 			sample.statementTimerWait,
-			sample.waitTime,
+			waitTime,
 			clientAddress,
 			clientPort,
 			networkPeerAddress,
@@ -1025,6 +1179,37 @@ func getDigestTextHash(digestText string) string {
 	return hex.EncodeToString(sum[:])
 }
 
+// maxPlausibleIOSyncWaitSeconds bounds io/synch waits, which should never
+// legitimately be slow. Guards against a wait whose elapsed time is
+// estimated as (now - start) growing unbounded because it never gets marked
+// complete -- observed on Aurora MySQL's redo_log_flush wait, which never
+// resolves the way it does on standalone InnoDB.
+const maxPlausibleIOSyncWaitSeconds = 60.0
+
+// maxPlausibleLockWaitSeconds is far more permissive: lock waits (row/table
+// locks) can legitimately run for minutes -- that's what mysql.blocking.*
+// and "Queries waiting" exist to surface. This only backstops the same
+// overflow class from silently reaching a lock reading too.
+const maxPlausibleLockWaitSeconds = 86400.0
+
+// sanitizeWaitTime clamps an implausible mysql.events_waits_current.timer_wait
+// to zero. The ceiling depends on waitEventType ("io", "lock", "synch") since
+// what counts as implausible differs by wait category.
+func (m *mySQLScraper) sanitizeWaitTime(waitTime float64, waitEventType, waitEvent string) float64 {
+	ceiling := maxPlausibleIOSyncWaitSeconds
+	if waitEventType == "lock" {
+		ceiling = maxPlausibleLockWaitSeconds
+	}
+	if waitTime > ceiling {
+		m.logger.Warn("Discarding implausible mysql.events_waits_current.timer_wait reading",
+			zap.Float64("timer_wait_seconds", waitTime),
+			zap.String("mysql.wait_event_type", waitEventType),
+			zap.String("mysql.wait_event", waitEvent))
+		return 0
+	}
+	return waitTime
+}
+
 // blockerJSONEntry is one element of the raw blockers JSON produced by
 // querySample.tmpl, as read off the wire. SessionID is nil when that
 // blocker's PROCESSLIST_ID couldn't be resolved (a LEFT JOIN miss, e.g. the
@@ -1092,6 +1277,24 @@ func addPartialIfError(errors *scrapererror.ScrapeErrors, err error) {
 	if err != nil {
 		errors.AddPartial(1, err)
 	}
+}
+
+func (m *mySQLScraper) recordInnodbRowLockWaitDurationAvg(now pcommon.Timestamp, value string) error {
+	waitTimeMillis, err := strconv.ParseFloat(value, 64)
+	if err != nil {
+		return fmt.Errorf("failed to parse float64 for MysqlInnodbRowLockWaitDurationAvg, value was %s: %w", value, err)
+	}
+	m.mb.RecordMysqlInnodbRowLockWaitDurationAvgDataPoint(now, waitTimeMillis/1000)
+	return nil
+}
+
+func (m *mySQLScraper) recordInnodbRowLockWaitDurationMax(now pcommon.Timestamp, value string) error {
+	waitTimeMillis, err := strconv.ParseFloat(value, 64)
+	if err != nil {
+		return fmt.Errorf("failed to parse float64 for MysqlInnodbRowLockWaitDurationMax, value was %s: %w", value, err)
+	}
+	m.mb.RecordMysqlInnodbRowLockWaitDurationMaxDataPoint(now, waitTimeMillis/1000)
+	return nil
 }
 
 func (m *mySQLScraper) recordDataPages(now pcommon.Timestamp, globalStats map[string]string, errors *scrapererror.ScrapeErrors) {
