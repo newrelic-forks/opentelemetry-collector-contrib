@@ -273,11 +273,11 @@ connectors:
   # - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/connector/signaltometricsconnector v0.153.0
 
 providers:
-  - gomod: go.opentelemetry.io/collector/confmap/provider/envprovider v1.66.0
-  - gomod: go.opentelemetry.io/collector/confmap/provider/fileprovider v1.66.0
-  - gomod: go.opentelemetry.io/collector/confmap/provider/httpprovider v1.66.0
-  - gomod: go.opentelemetry.io/collector/confmap/provider/httpsprovider v1.66.0
-  - gomod: go.opentelemetry.io/collector/confmap/provider/yamlprovider v1.66.0
+  - gomod: go.opentelemetry.io/collector/confmap/provider/envprovider v1.66.1-0.20260903163450-cc4b33fc673f
+  - gomod: go.opentelemetry.io/collector/confmap/provider/fileprovider v1.66.1-0.20260903163450-cc4b33fc673f
+  - gomod: go.opentelemetry.io/collector/confmap/provider/httpprovider v1.66.1-0.20260903163450-cc4b33fc673f
+  - gomod: go.opentelemetry.io/collector/confmap/provider/httpsprovider v1.66.1-0.20260903163450-cc4b33fc673f
+  - gomod: go.opentelemetry.io/collector/confmap/provider/yamlprovider v1.66.1-0.20260903163450-cc4b33fc673f
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/confmap/provider/aesprovider v0.160.0
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/confmap/provider/s3provider v0.160.0
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/confmap/provider/secretsmanagerprovider v0.160.0
