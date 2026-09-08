@@ -2367,7 +2367,16 @@ func resolveServerEndpoint(hostName string, logger *zap.Logger) (string, int64) 
 
 	host = strings.Trim(strings.TrimSpace(host), "[]")
 
-	if host == "" || strings.EqualFold(host, "localhost") || net.ParseIP(host).IsLoopback() {
+	// An empty host means the connection string could not be parsed (for example a TNS
+	// descriptor). The instance is not known to be co-located with the collector, so the
+	// host stays undetermined rather than being reported as the collector's own hostname.
+	if host == "" {
+		logger.Warn("Could not determine the Oracle host from the connection string; server.address will not be reported",
+			zap.String("hostName", hostName))
+		return "", port
+	}
+
+	if strings.EqualFold(host, "localhost") || net.ParseIP(host).IsLoopback() {
 		hostname, hostnameErr := os.Hostname()
 		if hostnameErr != nil {
 			logger.Warn("Failed resolving loopback to machine hostname for server.address", zap.Error(hostnameErr))
