@@ -47,7 +47,9 @@ const (
 	// containerGrantsProbeSQL detects whether the user has the grants needed
 	// for per-PDB collection. On failure the receiver falls back to the
 	// single-container query set.
-	containerGrantsProbeSQL     = "SELECT 1 FROM v$con_sysstat WHERE ROWNUM = 1"
+	containerGrantsProbeSQL = "SELECT 1 FROM v$con_sysstat WHERE ROWNUM = 1"
+	// A missing grant raises ORA-00942 at parse time, so this is a permission check, not a data check.
+	cdbDictionaryGrantsProbeSQL = "SELECT COUNT(*) FROM (SELECT 1 FROM CDB_PROCEDURES WHERE ROWNUM = 1 UNION ALL SELECT 1 FROM CDB_OBJECTS WHERE ROWNUM = 1)"
 	containerGrantsProbeTimeout = 5 * time.Second
 	// A missing grant raises ORA-00942 at parse time, so this is a permission check, not a data check.
 	cdbDictionaryGrantsProbeSQL = "SELECT COUNT(*) FROM (SELECT 1 FROM CDB_PROCEDURES WHERE ROWNUM = 1 UNION ALL SELECT 1 FROM CDB_OBJECTS WHERE ROWNUM = 1)"
@@ -333,10 +335,14 @@ const (
 var (
 	//go:embed templates/oracleQuerySampleSql.tmpl
 	samplesQuery string
+	//go:embed templates/oracleQuerySampleCDBSql.tmpl
+	samplesCDBQuery string
 	//go:embed templates/oracleQuerySampleStatsSql.tmpl
 	samplesStatsQuery string
 	//go:embed templates/oracleQueryMetricsAndTextSql.tmpl
 	oracleQueryMetricsSQL string
+	//go:embed templates/oracleQueryMetricsAndTextCDBSql.tmpl
+	oracleQueryMetricsCDBSQL string
 	//go:embed templates/oracleQueryPlanSql.tmpl
 	oracleQueryPlanDataSQL string
 	//go:embed templates/oracleSessionEventSql.tmpl
@@ -378,7 +384,7 @@ type oracleScraper struct {
 	// isCDBRoot is true when connected to a CDB root (Oracle 12c+); enables per-PDB queries.
 	isCDBRoot bool
 	// useCDBDictionaryViews enables container-qualified dictionary joins in the event queries. Separate from
-	// isCDBRoot because the CDB_* dictionary views are granted separately from the per-PDB metric views.
+	// isCDBRoot because the per-PDB metric views and the cross-container dictionary views are granted separately.
 	useCDBDictionaryViews    bool
 	oracleQueryMetricsClient dbClient
 	oraclePlanDataClient     dbClient
@@ -499,8 +505,21 @@ func (s *oracleScraper) buildProcedureMetricsSQL() string {
 	return oracleProcedureMetricsSQL
 }
 
+func (s *oracleScraper) buildTopQuerySQL() string {
+	if s.useCDBDictionaryViews {
+		return oracleQueryMetricsCDBSQL
+	}
+	return oracleQueryMetricsSQL
+}
+
+func (s *oracleScraper) buildQuerySampleSQL() string {
+	if s.useCDBDictionaryViews {
+		return samplesCDBQuery
+	}
+	return samplesQuery
+}
+
 func (s *oracleScraper) start(ctx context.Context, _ component.Host) error {
-	s.startTime = pcommon.NewTimestampFromTime(time.Now())
 	var err error
 	s.db, err = s.dbProviderFunc()
 	if err != nil {
@@ -540,7 +559,7 @@ func (s *oracleScraper) start(ctx context.Context, _ component.Host) error {
 	}
 	s.tablespaceUsageClient = s.clientProviderFunc(s.db, s.buildTablespaceSQL(), s.logger)
 	s.systemResourceLimitsClient = s.clientProviderFunc(s.db, systemResourceLimitsSQL, s.logger)
-	s.samplesQueryClient = s.clientProviderFunc(s.db, samplesQuery, s.logger)
+	s.samplesQueryClient = s.clientProviderFunc(s.db, s.buildQuerySampleSQL(), s.logger)
 	s.sessionEventClient = s.clientProviderFunc(s.db, sessionEventQuery, s.logger)
 	s.waitChainClient = s.clientProviderFunc(s.db, waitChainQuery, s.logger)
 	s.dataDictHitRatioClient = s.clientProviderFunc(s.db, dataDictHitRatioSQL, s.logger)
@@ -1927,7 +1946,7 @@ func (s *oracleScraper) scrapeLogs(ctx context.Context) (plog.Logs, error) {
 func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Logs, collectionTime time.Time, lookbackTimeSeconds int) error {
 	var errs []error
 	// get metrics and query texts from DB
-	s.oracleQueryMetricsClient = s.clientProviderFunc(s.db, oracleQueryMetricsSQL, s.logger)
+	s.oracleQueryMetricsClient = s.clientProviderFunc(s.db, s.buildTopQuerySQL(), s.logger)
 	metricRows, metricError := s.oracleQueryMetricsClient.metricRows(ctx, lookbackTimeSeconds, s.topQueryCollectCfg.MaxQuerySampleCount)
 
 	if metricError != nil {
