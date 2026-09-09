@@ -2871,13 +2871,13 @@ func newProcedureMetricsScraper(t *testing.T, dbclientFn func(db *sql.DB, s stri
 
 	logsCfg := metadata.DefaultLogsBuilderConfig()
 	logsCfg.ResourceAttributes.HostName.Enabled = true
-	logsCfg.Events.DbServerProcedureMetrics.Enabled = true
+	logsCfg.Events.DbServerTopProcedure.Enabled = true
 	metricsCfg := metadata.NewDefaultMetricsBuilderConfig()
 
 	lruCache, err := lru.New[string, map[string]int64](500)
 	require.NoError(t, err)
 	if seed != nil {
-		lruCache.Add("98765:ORCLPDB1", seed)
+		lruCache.Add("98765:ORCLPDB1:ORCLPDB1", seed)
 	}
 
 	scrpr := &oracleScraper{
@@ -2892,7 +2892,7 @@ func newProcedureMetricsScraper(t *testing.T, dbclientFn func(db *sql.DB, s stri
 		metricsBuilderConfig: metricsCfg,
 		logsBuilderConfig:    logsCfg,
 		procedureMetricCache: lruCache,
-		procedureMetricsCfg:  ProcedureMetrics{TopProcedureCount: 250},
+		procedureMetricsCfg:  ProcedureMetrics{MaxProcedureSampleCount: 1000, TopProcedureCount: 250},
 		instanceName:         "oraclehost:1521/ORCL",
 		hostName:             "oraclehost:1521",
 		obfuscator:           newObfuscator(),
@@ -3080,7 +3080,7 @@ func TestScraper_ScrapeProcedureMetricsLogs(t *testing.T) {
 			expectedLogs, readErr := golden.ReadLogs(expectedProcedureMetricsFile)
 			require.NoError(t, readErr)
 			require.NoError(t, plogtest.CompareLogs(expectedLogs, logs, plogtest.IgnoreTimestamp()))
-			assert.Equal(t, "db.server.procedure_metrics", logs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0).EventName())
+			assert.Equal(t, "db.server.top_procedure", logs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0).EventName())
 			assert.False(t, scrpr.lastProcedureMetricsTimestamp.IsZero(), "lastProcedureMetricsTimestamp hasn't set after a successful collection.")
 		})
 	}
@@ -3105,16 +3105,13 @@ func TestProcedureMetricsFirstScrapeSeedsCacheOnly(t *testing.T) {
 
 // TestProcedureMetricsDiscardedWhenExecutionCountUnchanged verifies rows with a
 // zero execution-count delta are dropped rather than emitted as empty events.
-func TestProcedureMetricsDiscardedWhenExecutionCountUnchanged(t *testing.T) {
-	// Seed the cache with the same cumulative EXECUTIONS as the fixture row so
-	// the delta is zero.
-	unchanged := make(map[string]int64, len(procedureCacheValue))
-	for k, v := range procedureCacheValue {
-		unchanged[k] = v
-	}
-	unchanged["EXECUTIONS"] = 300413
+func TestProcedureMetricsEmittedWhenExecutionCountStalls(t *testing.T) {
+	// MIN(EXECUTIONS) can hold flat while the procedure is busy, so a zero execution delta must
+	// not drop a procedure whose CPU and elapsed time moved.
+	stalled := maps.Clone(procedureCacheValue)
+	stalled["EXECUTIONS"] = 300413
 
-	scrpr := newProcedureMetricsScraper(t, procedureMetricsDbClientFn(t), unchanged)
+	scrpr := newProcedureMetricsScraper(t, procedureMetricsDbClientFn(t), stalled)
 
 	require.NoError(t, scrpr.start(t.Context(), componenttest.NewNopHost()))
 	defer func() {
@@ -3123,7 +3120,12 @@ func TestProcedureMetricsDiscardedWhenExecutionCountUnchanged(t *testing.T) {
 
 	logs, err := scrpr.scrapeLogs(t.Context())
 	require.NoError(t, err)
-	assert.Equal(t, 0, logs.ResourceLogs().Len(), "no log records should be emitted when execution count delta is zero")
+	require.Equal(t, 1, logs.ResourceLogs().Len())
+
+	attrs := logs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0).Attributes().AsRaw()
+	assert.Equal(t, int64(0), attrs["oracledb.procedure_execution_count"])
+	assert.Zero(t, attrs["oracledb.procedure.avg_duration"],
+		"avg must be suppressed rather than divided by a zero execution delta")
 }
 
 // TestProcedureMetricsDiscardedOnPossiblePurge verifies that a negative delta —
@@ -3131,10 +3133,7 @@ func TestProcedureMetricsDiscardedWhenExecutionCountUnchanged(t *testing.T) {
 // instead of emitting a bogus negative value.
 func TestProcedureMetricsDiscardedOnPossiblePurge(t *testing.T) {
 	// Seed with cumulative values HIGHER than the fixture row, so deltas go negative.
-	purged := make(map[string]int64, len(procedureCacheValue))
-	for k, v := range procedureCacheValue {
-		purged[k] = v
-	}
+	purged := maps.Clone(procedureCacheValue)
 	purged["EXECUTIONS"] = 100
 	purged["BUFFER_GETS"] = 999999999
 

@@ -10,6 +10,12 @@ resourceLogs:
         - key: service.instance.id
           value:
             stringValue: oraclehost:1521/ORCL
+        - key: host.port
+          value:
+            intValue: "1521"
+        - key: host.address
+          value:
+            stringValue: oraclehost
     scopeLogs:
       - logRecords:
           - attributes:
@@ -46,7 +52,7 @@ resourceLogs:
               - key: oracledb.elapsed_time
                 value:
                   doubleValue: 61
-              - key: oracledb.procedure.avg_elapsed_time
+              - key: oracledb.procedure.avg_duration
                 value:
                   doubleValue: 0.00061
               - key: oracledb.buffer_gets
@@ -74,8 +80,8 @@ resourceLogs:
                 value:
                   stringValue: "2026-01-01T12:00:00Z"
             body: {}
-            eventName: db.server.procedure_metrics
-            timeUnixNano: "1787566322241343000"
+            eventName: db.server.top_procedure
+            timeUnixNano: "1788961767595214000"
         scope:
           name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nroracledbreceiver
           version: latest
