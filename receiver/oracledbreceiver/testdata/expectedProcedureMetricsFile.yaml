@@ -36,7 +36,7 @@ resourceLogs:
                   intValue: "98765"
               - key: oracledb.procedure_name
                 value:
-                  stringValue: MY_PROCEDURE
+                  stringValue: ADMIN.MY_PROCEDURE
               - key: oracledb.procedure_type
                 value:
                   stringValue: PROCEDURE
@@ -52,7 +52,7 @@ resourceLogs:
               - key: oracledb.elapsed_time
                 value:
                   doubleValue: 61
-              - key: oracledb.procedure.avg_elapsed_time
+              - key: oracledb.procedure.avg_duration
                 value:
                   doubleValue: 0.00061
               - key: oracledb.buffer_gets
@@ -80,7 +80,7 @@ resourceLogs:
                 value:
                   stringValue: "2026-01-01T12:00:00Z"
             body: {}
-            eventName: db.server.procedure_metrics
+            eventName: db.server.top_procedure
             timeUnixNano: "1787566322241343000"
         scope:
           name: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/oracledbreceiver
