@@ -4,9 +4,6 @@ package metadata
 
 import (
 	"context"
-	"testing"
-	"time"
-
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/plog"
@@ -14,6 +11,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
+	"testing"
+	"time"
 )
 
 type eventsTestDataSet int
@@ -138,6 +137,9 @@ func TestLogsBuilder(t *testing.T) {
 			allEventsCount := 0
 
 			allEventsCount++
+			lb.RecordDbServerProcedureMetricsEvent(ctx, timestamp, "db.system.name-val", "db.namespace-val", "server.address-val", 11, "sqlserver.procedure_id-val", "sqlserver.procedure_name-val", "sqlserver.procedure.schema_name-val", "sqlserver.procedure.database_name-val", 35, 27.100000, 28.100000, 29, 30, 30, 32, 39.100000, 39.100000, 39.100000, "sqlserver.procedure.last_execution_time-val")
+
+			allEventsCount++
 			lb.RecordDbServerQuerySampleEvent(ctx, timestamp, "client.address-val", 11, "db.namespace-val", "db.query.text-val", "db.system.name-val", "network.peer.address-val", 17, 29, "sqlserver.blocking.start_time-val", "sqlserver.client.app.name-val", "sqlserver.context_info-val", "sqlserver.command-val", 18.100000, 27, 35.100000, 22.100000, 23, 32, 26.100000, "sqlserver.query_hash-val", "sqlserver.query_plan_hash-val", "sqlserver.query_start-val", 15, "sqlserver.request_status-val", "sqlserver.wait.resource.id-val", "sqlserver.wait.resource.type-val", 19, 26.100000, "sqlserver.session.start_time-val", 20, "sqlserver.session_status-val", 28.100000, 24, 37, "sqlserver.wait_resource-val", 19.100000, "sqlserver.wait_type-val", 16, "user.name-val", "sqlserver.procedure_id-val", "sqlserver.procedure_name-val", "db.query.full_text-val", "db.query.comment_tags.nr_service_guid-val", "db.query.text.normalized.hash-val")
 
 			allEventsCount++
@@ -176,6 +178,70 @@ func TestLogsBuilder(t *testing.T) {
 			validatedEvents := make(map[string]bool)
 			for i := 0; i < lrs.Len(); i++ {
 				switch lrs.At(i).EventName() {
+				case "db.server.procedure_metrics":
+					assert.False(t, validatedEvents["db.server.procedure_metrics"], "Found a duplicate in the events slice: db.server.procedure_metrics")
+					validatedEvents["db.server.procedure_metrics"] = true
+					lr := lrs.At(i)
+					assert.Equal(t, timestamp, lr.Timestamp())
+					assert.Equal(t, pcommon.TraceID(traceID), lr.TraceID())
+					assert.Equal(t, pcommon.SpanID(spanID), lr.SpanID())
+					attrVal, ok := lr.Attributes().Get("db.system.name")
+					assert.True(t, ok)
+					assert.Equal(t, "db.system.name-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("db.namespace")
+					assert.True(t, ok)
+					assert.Equal(t, "db.namespace-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("server.address")
+					assert.True(t, ok)
+					assert.Equal(t, "server.address-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("server.port")
+					assert.True(t, ok)
+					assert.EqualValues(t, 11, attrVal.Int())
+					attrVal, ok = lr.Attributes().Get("sqlserver.procedure_id")
+					assert.True(t, ok)
+					assert.Equal(t, "sqlserver.procedure_id-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("sqlserver.procedure_name")
+					assert.True(t, ok)
+					assert.Equal(t, "sqlserver.procedure_name-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("sqlserver.procedure.schema_name")
+					assert.True(t, ok)
+					assert.Equal(t, "sqlserver.procedure.schema_name-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("sqlserver.procedure.database_name")
+					assert.True(t, ok)
+					assert.Equal(t, "sqlserver.procedure.database_name-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("sqlserver.procedure_execution_count")
+					assert.True(t, ok)
+					assert.EqualValues(t, 35, attrVal.Int())
+					attrVal, ok = lr.Attributes().Get("sqlserver.total_worker_time")
+					assert.True(t, ok)
+					assert.Equal(t, 27.100000, attrVal.Double())
+					attrVal, ok = lr.Attributes().Get("sqlserver.total_elapsed_time")
+					assert.True(t, ok)
+					assert.Equal(t, 28.100000, attrVal.Double())
+					attrVal, ok = lr.Attributes().Get("sqlserver.total_logical_reads")
+					assert.True(t, ok)
+					assert.EqualValues(t, 29, attrVal.Int())
+					attrVal, ok = lr.Attributes().Get("sqlserver.total_logical_writes")
+					assert.True(t, ok)
+					assert.EqualValues(t, 30, attrVal.Int())
+					attrVal, ok = lr.Attributes().Get("sqlserver.total_physical_reads")
+					assert.True(t, ok)
+					assert.EqualValues(t, 30, attrVal.Int())
+					attrVal, ok = lr.Attributes().Get("sqlserver.procedure.total_spills")
+					assert.True(t, ok)
+					assert.EqualValues(t, 32, attrVal.Int())
+					attrVal, ok = lr.Attributes().Get("sqlserver.procedure.avg_elapsed_time_ms")
+					assert.True(t, ok)
+					assert.Equal(t, 39.100000, attrVal.Double())
+					attrVal, ok = lr.Attributes().Get("sqlserver.procedure.max_elapsed_time_ms")
+					assert.True(t, ok)
+					assert.Equal(t, 39.100000, attrVal.Double())
+					attrVal, ok = lr.Attributes().Get("sqlserver.procedure.min_elapsed_time_ms")
+					assert.True(t, ok)
+					assert.Equal(t, 39.100000, attrVal.Double())
+					attrVal, ok = lr.Attributes().Get("sqlserver.procedure.last_execution_time")
+					assert.True(t, ok)
+					assert.Equal(t, "sqlserver.procedure.last_execution_time-val", attrVal.Str())
 				case "db.server.query_sample":
 					assert.False(t, validatedEvents["db.server.query_sample"], "Found a duplicate in the events slice: db.server.query_sample")
 					validatedEvents["db.server.query_sample"] = true

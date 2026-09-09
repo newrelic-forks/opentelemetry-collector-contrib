@@ -339,6 +339,34 @@ attributes:
     requirement_level: recommended
     enum: [guided, misguided]
   # Stored Procedures
+  sqlserver.procedure.avg_elapsed_time_ms:
+    description: Average elapsed time per execution in milliseconds.
+    type: double
+    requirement_level: recommended
+  sqlserver.procedure.database_name:
+    description: Database containing the stored procedure.
+    type: string
+    requirement_level: recommended
+  sqlserver.procedure.last_execution_time:
+    description: ISO 8601 timestamp of the last execution of the procedure.
+    type: string
+    requirement_level: recommended
+  sqlserver.procedure.max_elapsed_time_ms:
+    description: Maximum elapsed time across executions in milliseconds.
+    type: double
+    requirement_level: recommended
+  sqlserver.procedure.min_elapsed_time_ms:
+    description: Minimum elapsed time across executions in milliseconds.
+    type: double
+    requirement_level: recommended
+  sqlserver.procedure.schema_name:
+    description: Schema of the stored procedure.
+    type: string
+    requirement_level: recommended
+  sqlserver.procedure.total_spills:
+    description: Total tempdb spills caused by the procedure, reported in delta value.
+    type: int
+    requirement_level: recommended
   sqlserver.procedure_execution_count:
     description: Number of times that the procedure has been executed since it was last compiled, reported in delta value.
     type: int
@@ -542,6 +570,30 @@ attributes:
   # attributes for events
   ## common
 events:
+  db.server.procedure_metrics:
+    enabled: false
+    description: Aggregated performance metrics for stored procedures, with delta computation on cumulative counters.
+    attributes:
+      - db.system.name
+      - db.namespace
+      - server.address
+      - server.port
+      - sqlserver.procedure_id
+      - sqlserver.procedure_name
+      - sqlserver.procedure.schema_name
+      - sqlserver.procedure.database_name
+      - sqlserver.procedure_execution_count
+      - sqlserver.total_worker_time
+      - sqlserver.total_elapsed_time
+      - sqlserver.total_logical_reads
+      - sqlserver.total_logical_writes
+      - sqlserver.total_physical_reads
+      - sqlserver.procedure.total_spills
+      - sqlserver.procedure.avg_elapsed_time_ms
+      - sqlserver.procedure.max_elapsed_time_ms
+      - sqlserver.procedure.min_elapsed_time_ms
+      - sqlserver.procedure.last_execution_time
+
   db.server.query_sample:
     enabled: false
     description: query sample
