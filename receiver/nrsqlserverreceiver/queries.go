@@ -462,15 +462,15 @@ func getSQLServerPropertiesQuery(instanceName string) string {
 	return fmt.Sprintf(sqlServerProperties, "")
 }
 
-//go:embed templates/procedureMetricsQuery.tmpl
-var sqlServerProcedureMetricsQueryTemplate string
+//go:embed templates/topProcedureQuery.tmpl
+var sqlServerTopProcedureQueryTemplate string
 
-func getSQLServerProcedureMetricsQuery(topCount int64, instanceName string) string {
+func getSQLServerTopProcedureQuery(instanceName string) string {
 	instanceFilter := ""
 	if instanceName != "" {
 		instanceFilter = fmt.Sprintf("  AND @@SERVERNAME = '%s'", instanceName)
 	}
-	return fmt.Sprintf(sqlServerProcedureMetricsQueryTemplate, topCount, instanceFilter)
+	return fmt.Sprintf(sqlServerTopProcedureQueryTemplate, instanceFilter)
 }
 
 //go:embed templates/dbQueryAndTextQuery.tmpl

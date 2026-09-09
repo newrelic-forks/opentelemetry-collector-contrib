@@ -1713,34 +1713,6 @@ events:
     enabled: true
 ```
 
-### db.server.procedure_metrics
-
-Aggregated performance metrics for stored procedures, with delta computation on cumulative counters.
-
-#### Attributes
-
-| Name | Description | Values | Semantic Convention |
-| ---- | ----------- | ------ | ------------------- |
-| db.system.name | The database management system (DBMS) product as identified by the client instrumentation. | Any Str | - |
-| db.namespace | The database name. | Any Str | - |
-| server.address | The network address of the server hosting the database. | Any Str | - |
-| server.port | The port number on which the server is listening. | Any Int | - |
-| sqlserver.procedure_id | The SQL Server ID of the stored procedure, if any | Any Str | - |
-| sqlserver.procedure_name | The name of the stored procedure, if any | Any Str | - |
-| sqlserver.procedure.schema_name | Schema of the stored procedure. | Any Str | - |
-| sqlserver.procedure.database_name | Database containing the stored procedure. | Any Str | - |
-| sqlserver.procedure_execution_count | Number of times that the procedure has been executed since it was last compiled, reported in delta value. | Any Int | - |
-| sqlserver.total_worker_time | Total amount of CPU time that was consumed by executions of this plan since it was compiled, reported in delta seconds. | Any Double | - |
-| sqlserver.total_elapsed_time | Total elapsed time for completed executions of this plan, reported in delta seconds. | Any Double | - |
-| sqlserver.total_logical_reads | Total number of logical reads performed by executions of this plan since it was compiled, reported in delta value. | Any Int | - |
-| sqlserver.total_logical_writes | Total number of logical writes performed by executions of this plan since it was compiled, reported in delta value. | Any Int | - |
-| sqlserver.total_physical_reads | Total number of physical reads performed by executions of this plan since it was compiled, reported in delta value. | Any Int | - |
-| sqlserver.procedure.total_spills | Total tempdb spills caused by the procedure, reported in delta value. | Any Int | - |
-| sqlserver.procedure.avg_elapsed_time_ms | Average elapsed time per execution in milliseconds. | Any Double | - |
-| sqlserver.procedure.max_elapsed_time_ms | Maximum elapsed time across executions in milliseconds. | Any Double | - |
-| sqlserver.procedure.min_elapsed_time_ms | Minimum elapsed time across executions in milliseconds. | Any Double | - |
-| sqlserver.procedure.last_execution_time | ISO 8601 timestamp of the last execution of the procedure. | Any Str | - |
-
 ### db.server.query_sample
 
 query sample
@@ -1793,6 +1765,34 @@ query sample
 | db.query.full_text | The full text of the SQL batch or stored procedure from which the statement was extracted. Only populated when collect_full_query_text is enabled. | Any Str | - |
 | db.query.comment_tags.nr_service_guid | New Relic service GUID extracted from the filtered query comments. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
 | db.query.text.normalized.hash | MD5 hash of the normalized full SQL query text. Used for correlation with APM slow query traces. Only populated when collect_full_query_text is enabled. | Any Str | - |
+
+### db.server.top_procedure
+
+Aggregated performance metrics for the top stored procedures by elapsed time, read from sys.dm_exec_procedure_stats with delta computation on the cumulative counters.
+
+#### Attributes
+
+| Name | Description | Values | Semantic Convention |
+| ---- | ----------- | ------ | ------------------- |
+| db.system.name | The database management system (DBMS) product as identified by the client instrumentation. | Any Str | - |
+| db.namespace | The database name. | Any Str | - |
+| server.address | The network address of the server hosting the database. | Any Str | - |
+| server.port | The port number on which the server is listening. | Any Int | - |
+| sqlserver.procedure_id | The SQL Server ID of the stored procedure, if any | Any Str | - |
+| sqlserver.procedure_name | The name of the stored procedure, if any | Any Str | - |
+| sqlserver.procedure.schema_name | Schema of the stored procedure. | Any Str | - |
+| sqlserver.procedure.database_name | Database containing the stored procedure. | Any Str | - |
+| sqlserver.procedure_execution_count | Number of times that the procedure has been executed since it was last compiled, reported in delta value. | Any Int | - |
+| sqlserver.total_worker_time | Total amount of CPU time that was consumed by executions of this plan since it was compiled, reported in delta seconds. | Any Double | - |
+| sqlserver.total_elapsed_time | Total elapsed time for completed executions of this plan, reported in delta seconds. | Any Double | - |
+| sqlserver.total_logical_reads | Total number of logical reads performed by executions of this plan since it was compiled, reported in delta value. | Any Int | - |
+| sqlserver.total_logical_writes | Total number of logical writes performed by executions of this plan since it was compiled, reported in delta value. | Any Int | - |
+| sqlserver.total_physical_reads | Total number of physical reads performed by executions of this plan since it was compiled, reported in delta value. | Any Int | - |
+| sqlserver.procedure.tempdb.spilled_pages | Pages spilled to tempdb by the procedure over the collection interval, reported as a delta. | Any Int | - |
+| sqlserver.procedure.avg_duration | Average elapsed time per execution over the collection interval, in seconds. Computed as the elapsed time delta divided by the execution count delta. | Any Double | - |
+| sqlserver.procedure.max_duration | Longest elapsed time for a single execution of the procedure, in seconds. Reported as-is from sys.dm_exec_procedure_stats and covers the whole period the plan has been cached, so unlike the other durations it is not a delta. | Any Double | - |
+| sqlserver.procedure.min_duration | Shortest elapsed time for a single execution of the procedure, in seconds. Reported as-is from sys.dm_exec_procedure_stats and covers the whole period the plan has been cached, so unlike the other durations it is not a delta. | Any Double | - |
+| sqlserver.procedure.last_execution_time | ISO 8601 timestamp of the last execution of the procedure. | Any Str | - |
 
 ### db.server.top_query
 

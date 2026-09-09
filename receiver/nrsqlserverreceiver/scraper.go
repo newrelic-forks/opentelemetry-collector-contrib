@@ -189,10 +189,14 @@ func (s *sqlServerScraperHelper) ScrapeLogs(ctx context.Context) (plog.Logs, err
 	case getSQLServerQuerySamplesQuery():
 		isQuerySample = true
 		resources, err = s.recordDatabaseSampleQuery(ctx)
-	case getSQLServerProcedureMetricsQuery(s.config.ProcedureMetrics.TopProcedureCount, s.config.InstanceName):
-		resources, err = s.recordDatabaseProcedureMetrics(ctx)
+	case getSQLServerTopProcedureQuery(s.config.InstanceName):
+		if int(math.Ceil(time.Since(s.lastExecutionTimestamp).Seconds())) < int(s.config.TopProcedureCollection.CollectionInterval.Seconds()) {
+			s.logger.Debug("Skipping the collection of top procedures because the current time has not yet exceeded the last execution time plus the specified collection interval")
+			return plog.NewLogs(), nil
+		}
+		resources, err = s.recordDatabaseTopProcedure(ctx)
 		if err != nil {
-			s.logger.Error("ProcedureMetrics: scrape failed", zap.Error(err))
+			s.logger.Error("TopProcedure: scrape failed", zap.Error(err))
 		}
 	default:
 		return plog.Logs{}, fmt.Errorf("Attempted to get logs from unsupported query: %s", s.sqlQuery)
@@ -3015,9 +3019,9 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 	return resources, errors.Join(errs...)
 }
 
-// recordDatabaseProcedureMetrics collects stored procedure performance metrics
+// recordDatabaseTopProcedure collects stored procedure performance metrics
 // from sys.dm_exec_procedure_stats with delta computation on cumulative counters.
-func (s *sqlServerScraperHelper) recordDatabaseProcedureMetrics(ctx context.Context) (pcommon.Resource, error) {
+func (s *sqlServerScraperHelper) recordDatabaseTopProcedure(ctx context.Context) (pcommon.Resource, error) {
 	const (
 		colDatabaseName     = "database_name"
 		colSchemaName       = "schema_name"
@@ -3036,7 +3040,8 @@ func (s *sqlServerScraperHelper) recordDatabaseProcedureMetrics(ctx context.Cont
 		colLastExecTime     = "last_execution_time"
 	)
 
-	rows, err := s.client.QueryRows(ctx)
+	rows, err := s.client.QueryRows(ctx,
+		sql.Named("maxSampleCount", s.config.TopProcedureCollection.MaxProcedureSampleCount))
 	if err != nil {
 		s.logger.Error("ProcedureMetrics: QueryRows failed", zap.Error(err))
 		return pcommon.Resource{}, err
@@ -3045,7 +3050,10 @@ func (s *sqlServerScraperHelper) recordDatabaseProcedureMetrics(ctx context.Cont
 	var resources pcommon.Resource
 	var resourcesAdded bool
 	var errs []error
-	timestamp := pcommon.NewTimestampFromTime(time.Now())
+	now := time.Now()
+	timestamp := pcommon.NewTimestampFromTime(now)
+	// Set even on a seeding scrape so the next run's delta window matches the interval.
+	s.lastExecutionTimestamp = now
 	dbSystemName := "mssql"
 
 	for _, row := range rows {
@@ -3086,18 +3094,18 @@ func (s *sqlServerScraperHelper) recordDatabaseProcedureMetrics(ctx context.Cont
 		// total_worker_time and total_elapsed_time are in microseconds from the DMV
 		totalWorkerTimeSec := float64(workerTimeDelta) / 1_000_000
 		totalElapsedTimeSec := float64(elapsedTimeDelta) / 1_000_000
-		avgElapsedTimeMs := float64(elapsedTimeDelta) / float64(execCountDelta) / 1_000.0
+		avgElapsedTimeSec := float64(elapsedTimeDelta) / float64(execCountDelta) / 1_000_000
 
-		// min/max are point-in-time values from the DMV (microseconds), convert to ms
-		minElapsedTimeMs := float64(minElapsedTimeRaw.(int64)) / 1_000.0
-		maxElapsedTimeMs := float64(maxElapsedTimeRaw.(int64)) / 1_000.0
+		// min/max are point-in-time values from the DMV (microseconds), convert to seconds
+		minElapsedTimeSec := float64(minElapsedTimeRaw.(int64)) / 1_000_000
+		maxElapsedTimeSec := float64(maxElapsedTimeRaw.(int64)) / 1_000_000
 
 		if !resourcesAdded {
 			resources = s.setupResourceBuilder(s.lb.NewResourceBuilder(), row).Emit()
 			resourcesAdded = true
 		}
 
-		s.lb.RecordDbServerProcedureMetricsEvent(
+		s.lb.RecordDbServerTopProcedureEvent(
 			context.Background(),
 			timestamp,
 			dbSystemName,
@@ -3115,9 +3123,9 @@ func (s *sqlServerScraperHelper) recordDatabaseProcedureMetrics(ctx context.Cont
 			logWritesDelta,
 			physReadsDelta,
 			spillsDelta,
-			avgElapsedTimeMs,
-			maxElapsedTimeMs,
-			minElapsedTimeMs,
+			avgElapsedTimeSec,
+			maxElapsedTimeSec,
+			minElapsedTimeSec,
 			row[colLastExecTime],
 		)
 	}
