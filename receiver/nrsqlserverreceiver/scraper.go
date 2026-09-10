@@ -3094,7 +3094,6 @@ func (s *sqlServerScraperHelper) recordDatabaseTopProcedure(ctx context.Context)
 		// total_worker_time and total_elapsed_time are in microseconds from the DMV
 		totalWorkerTimeSec := float64(workerTimeDelta) / 1_000_000
 		totalElapsedTimeSec := float64(elapsedTimeDelta) / 1_000_000
-		avgElapsedTimeSec := float64(elapsedTimeDelta) / float64(execCountDelta) / 1_000_000
 
 		// min/max are point-in-time values from the DMV (microseconds), convert to seconds
 		minElapsedTimeSec := float64(minElapsedTimeRaw.(int64)) / 1_000_000
@@ -3123,7 +3122,6 @@ func (s *sqlServerScraperHelper) recordDatabaseTopProcedure(ctx context.Context)
 			logWritesDelta,
 			physReadsDelta,
 			spillsDelta,
-			avgElapsedTimeSec,
 			maxElapsedTimeSec,
 			minElapsedTimeSec,
 			row[colLastExecTime],
