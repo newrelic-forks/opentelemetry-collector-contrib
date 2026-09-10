@@ -353,6 +353,8 @@ all_set:
       enabled: true
     db.server.session.wait_sample:
       enabled: true
+    db.server.top_procedure:
+      enabled: true
     db.server.top_query:
       enabled: true
   resource_attributes:
@@ -728,6 +730,8 @@ reaggregate_set:
       enabled: true
     db.server.session.wait_sample:
       enabled: true
+    db.server.top_procedure:
+      enabled: true
     db.server.top_query:
       enabled: true
   resource_attributes:
@@ -1102,6 +1106,8 @@ none_set:
     db.server.query_sample:
       enabled: false
     db.server.session.wait_sample:
+      enabled: false
+    db.server.top_procedure:
       enabled: false
     db.server.top_query:
       enabled: false

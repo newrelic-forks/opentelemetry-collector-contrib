@@ -2751,14 +2751,17 @@ func TestCalculateLookbackSeconds(t *testing.T) {
 	collectionInterval := 20 * time.Second
 	vsqlRefreshLagSec := 10 * time.Second
 	expectedMinimumLookbackTime := int((collectionInterval + vsqlRefreshLagSec).Seconds())
-	currentCollectionTime := time.Now()
 
-	scrpr := oracleScraper{
-		lastExecutionTimestamp: currentCollectionTime.Add(-collectionInterval),
-	}
-	lookbackTime := scrpr.calculateLookbackSeconds()
+	lookbackTime := calculateLookbackSeconds(time.Now().Add(-collectionInterval), collectionInterval)
 
 	assert.LessOrEqual(t, expectedMinimumLookbackTime, lookbackTime, "`lookbackTime` should be minimum %d", expectedMinimumLookbackTime)
+}
+
+// A zero timestamp must report a full interval so the first scrape collects immediately.
+func TestCalculateLookbackSecondsFirstScrape(t *testing.T) {
+	collectionInterval := 60 * time.Second
+
+	assert.Equal(t, int(collectionInterval.Seconds()), calculateLookbackSeconds(time.Time{}, collectionInterval))
 }
 
 func TestScraper_ScrapeSGAInfo(t *testing.T) {
