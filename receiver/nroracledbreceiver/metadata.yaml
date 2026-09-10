@@ -227,7 +227,7 @@ attributes:
     description: Binary hash value calculated on the query execution plan and used to identify similar query execution plans, reported in the HEX format.
     type: string
   oracledb.procedure.first_load_time:
-    description: "Earliest load time across the procedure's cached statements, in the server's local timezone. Format: YYYY-MM-DD/HH:MM:SS"
+    description: "Earliest load time across the procedure's cached statements, in ISO 8601 format (UTC)."
     type: string
   oracledb.procedure.last_active_time:
     description: "The most recent time any of the procedure's cached statements were active, in ISO 8601 format (UTC)."
