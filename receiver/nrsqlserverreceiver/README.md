@@ -46,6 +46,18 @@ When configured to directly connect to the SQL Server instance, the user must ha
    - `VIEW ANY DEFINITION` — makes the index, object, and schema catalog views visible in
      every database so the physical stats query can resolve index metadata.
 
+4. To collect the `db.server.top_procedure` event, `VIEW ANY DEFINITION` is also required.
+   The query resolves each procedure's schema and name with `OBJECT_SCHEMA_NAME` and
+   `OBJECT_NAME` across databases, and both return `NULL` without metadata visibility in the
+   target database. Rows that cannot be resolved are skipped, so a login missing this grant
+   sees procedures silently absent rather than an error. Procedures in the system databases
+   (`master`, `tempdb`, `model`, `msdb`) are never reported.
+
+> [!NOTE]
+> `db.server.top_procedure` requires SQL Server 2017 CU3 or later, where
+> `sys.dm_exec_procedure_stats.total_spills` became available. On older builds the event
+> reports nothing and logs an error; the other events are unaffected.
+
 ## Configuration
 
 The following is a generic configuration that can be used for the default logs and metrics scraped
@@ -65,6 +77,8 @@ sqlserver:
       enabled: true
     db.server.top_query:
       enabled: true
+    db.server.top_procedure:
+      enabled: true
   top_query_collection:                        # this collection exports the most expensive queries as logs
     lookback_time: 60s                         # which time window should we look for the top queries
     max_query_sample_count: 1000               # maximum number query we store in cache for top queries.
@@ -72,6 +86,10 @@ sqlserver:
     collection_interval: 60s                   # collection interval for top query collection specifically
   query_sample_collection:                     # this collection exports the currently (relate to the query time) executing queries as logs
     max_rows_per_query: 100                    # the maximum number of samples to return for one single query.
+  top_procedure_collection:                    # this collection exports aggregated stored procedure statistics as logs
+    max_procedure_sample_count: 1000           # maximum number of procedures to consider as candidates in a single run.
+    top_procedure_count: 250                   # The maximum number of procedures to report in a single run.
+    collection_interval: 60s                   # collection interval for top procedure collection specifically
 ```
 
 The following settings are optional:
@@ -121,6 +139,21 @@ Top-Query collection specific options (only useful when top-query collection are
 
 Query sample collection related options (only useful when query sample is enabled)
 - `max_rows_per_query`: (optional, default = `100`) use this to limit rows returned by the sampling query.
+
+- `top_procedure_collection` (optional): Tunes the `db.server.top_procedure` event.
+  - `max_procedure_sample_count` (default = `1000`, max `10000`): How many procedures to read from
+    `sys.dm_exec_procedure_stats` as candidates each run.
+  - `top_procedure_count` (default = `250`): How many of those candidates to report, chosen by the
+    elapsed time each procedure accrued since the previous run. Must not exceed
+    `max_procedure_sample_count`.
+  - `collection_interval` (default = `60s`): The interval at which top procedures should be
+    emitted by this receiver, independently of the global `collection_interval`. As with
+    `top_query_collection.collection_interval`, this only guarantees the event is collected at most
+    once per interval: the scraper still runs on the global interval and skips the collection until
+    this much time has passed since the last one, so a value below the global interval has no
+    effect. It also sets the window the reported deltas cover, so raising it rolls the counters up
+    over a longer period.
+
 Example:
 
 ```yaml
