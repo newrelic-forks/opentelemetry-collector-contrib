@@ -40,7 +40,7 @@ resourceLogs:
               - key: oracledb.procedure_type
                 value:
                   stringValue: PROCEDURE
-              - key: oracledb.procedure.schema_name
+              - key: oracledb.procedure.schema.name
                 value:
                   stringValue: ADMIN
               - key: oracledb.procedure_execution_count
@@ -52,9 +52,6 @@ resourceLogs:
               - key: oracledb.elapsed_time
                 value:
                   doubleValue: 61
-              - key: oracledb.procedure.avg_duration
-                value:
-                  doubleValue: 0.00061
               - key: oracledb.buffer_gets
                 value:
                   intValue: "189417"

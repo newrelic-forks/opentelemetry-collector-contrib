@@ -20,10 +20,9 @@ subtext: |
   object ids are unique only within a container. From a CDB root, `db.server.top_query` and
   `db.server.query_sample` could therefore report a wrong or empty `oracledb.procedure_name` and
   blocked-object owner/name, and merge procedure execution counts across PDBs. These events now read
-  `CDB_PROCEDURES`/`CDB_OBJECTS` matched on `CON_ID` when the grants for those views are present.
-  The grants are probed once at startup; when they are missing the receiver warns and keeps using the
-  `DBA_*` views, so no existing deployment needs new grants to keep working. Non-CDB and direct-PDB
-  connections are unchanged.
+  `CDB_PROCEDURES`/`CDB_OBJECTS` matched on `CON_ID`, which requires granting SELECT on both views
+  with `CONTAINER=ALL` (already covered by `SELECT_CATALOG_ROLE`). Non-CDB and direct-PDB connections
+  are unchanged.
 
 # If your change doesn't affect end users or the exported elements of any package,
 # you should instead start your pull request title with [chore] or use the "Skip Changelog" label.

@@ -225,6 +225,47 @@ Captures per-session wait event statistics from `V$SESSION_EVENT`:
 GRANT SELECT ON V_$SESSION_EVENT TO <username>;  -- Wait event names, counts, and durations
 ```
 
+#### `db.server.top_procedure`
+
+Captures aggregated performance metrics for stored procedures, derived by grouping `V$SQL` by
+`PROGRAM_ID` and joining to `DBA_PROCEDURES`. Correlates with `db.server.top_query` and
+`db.server.query_sample` via the `oracledb.procedure_id` attribute:
+
+```sql
+GRANT SELECT ON V_$SQL TO <username>;            -- Aggregated procedure execution/resource stats
+GRANT SELECT ON DBA_PROCEDURES TO <username>;    -- Stored procedure metadata (owner, name, type)
+```
+
+Cumulative counters are converted to per-scrape deltas. Rows are fetched up to
+`max_procedure_sample_count`, ranked in the collector by elapsed-time delta, and truncated to
+`top_procedure_count`. The fetch limit is deliberately larger than the reported set: ranking on
+deltas over a wider pool is what lets a procedure that is hot only in the current interval —
+newly deployed, a month-end batch, something that just started misbehaving — reach the report
+even though its lifetime totals are modest.
+
+A negative delta on any of the summed resource counters means a cursor aged out of the shared
+pool, so the row is discarded rather than emitted as a bogus value.
+
+> [!NOTE]
+> Oracle exposes no per-procedure cumulative execution counter, so
+> `oracledb.procedure_execution_count` is derived as the *minimum* statement execution count
+> across the procedure's cached statements. This is best effort: a newly loaded child cursor
+> starts at 1 and pulls the minimum down, and a statement in a branch that did not run holds it
+> flat. The receiver therefore treats this counter separately from the resource counters — it is
+> clamped to 0 instead of discarding the row. Resource counters (CPU, elapsed time, reads, writes, rows) are
+> summed across the procedure's statements and are not subject to this caveat.
+
+On a CDB-root connection the receiver reads `CDB_PROCEDURES` matched on `CON_ID`, so PDB-owned
+procedures are attributed to the right container. That needs container-wide `SELECT`:
+
+```sql
+GRANT SELECT ON CDB_PROCEDURES TO <username> CONTAINER=ALL;
+```
+
+`SELECT_CATALOG_ROLE` already includes it. The grant is probed once at startup; without it the
+receiver warns and falls back to `DBA_PROCEDURES`, which from a CDB root reports root-container
+procedures only. Non-CDB and direct-PDB connections need nothing extra.
+
 ### CDB-root connections and container-scoped dictionary views
 
 `DBA_*` dictionary views only expose the container you are connected to, while the `V$` views

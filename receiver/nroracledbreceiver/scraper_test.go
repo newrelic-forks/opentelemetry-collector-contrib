@@ -3124,8 +3124,6 @@ func TestProcedureMetricsEmittedWhenExecutionCountStalls(t *testing.T) {
 
 	attrs := logs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0).Attributes().AsRaw()
 	assert.Equal(t, int64(0), attrs["oracledb.procedure_execution_count"])
-	assert.Zero(t, attrs["oracledb.procedure.avg_duration"],
-		"avg must be suppressed rather than divided by a zero execution delta")
 }
 
 // TestProcedureMetricsDiscardedOnPossiblePurge verifies that a negative delta —

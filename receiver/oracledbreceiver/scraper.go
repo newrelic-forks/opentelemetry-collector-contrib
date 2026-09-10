@@ -49,9 +49,9 @@ const (
 	// single-container query set.
 	containerGrantsProbeSQL = "SELECT 1 FROM v$con_sysstat WHERE ROWNUM = 1"
 	// A missing grant raises ORA-00942 at parse time, so this is a permission check, not a data check.
-	cdbDictionaryGrantsProbeSQL = "SELECT COUNT(*) FROM (SELECT 1 FROM CDB_PROCEDURES WHERE ROWNUM = 1 UNION ALL SELECT 1 FROM CDB_OBJECTS WHERE ROWNUM = 1)"
+	cdbDictionaryGrantsProbeSQL = "SELECT 1 FROM CDB_PROCEDURES WHERE ROWNUM = 1"
 	containerGrantsProbeTimeout = 5 * time.Second
-	
+
 	// V$SYSMETRIC metric_name values (group_id=2, 60-second interval)
 	sysmetricBufferCacheHitRatio      = "Buffer Cache Hit Ratio"
 	sysmetricHostCPUUtilization       = "Host CPU Utilization (%)"
@@ -382,7 +382,7 @@ type oracleScraper struct {
 	// isCDBRoot is true when connected to a CDB root (Oracle 12c+); enables per-PDB queries.
 	isCDBRoot bool
 	// useCDBDictionaryViews enables container-qualified dictionary joins in the event queries. Separate from
-	// isCDBRoot because the per-PDB metric views and the cross-container dictionary views are granted separately.
+	// isCDBRoot because the CDB_* dictionary views are granted separately from the per-PDB metric views.
 	useCDBDictionaryViews    bool
 	oracleQueryMetricsClient dbClient
 	oraclePlanDataClient     dbClient
@@ -1697,7 +1697,7 @@ func (s *oracleScraper) hasCDBDictionaryGrants(ctx context.Context, probe dbClie
 	probeCtx, cancel := context.WithTimeout(ctx, containerGrantsProbeTimeout)
 	defer cancel()
 	if _, err := probe.metricRows(probeCtx); err != nil {
-		s.logger.Warn("oracledbreceiver: CDB_PROCEDURES/CDB_OBJECTS not readable; falling back to DBA_* dictionary views, which cannot attribute PDB-owned objects from a CDB root. See the receiver README 'CDB-root connections' section.",
+		s.logger.Warn("oracledbreceiver: CDB_PROCEDURES not readable; falling back to DBA_* dictionary views, which cannot attribute PDB-owned objects from a CDB root. See the receiver README 'CDB-root connections' section.",
 			zap.Error(err))
 		return false
 	}
@@ -2129,8 +2129,6 @@ type procedureMetricCacheHit struct {
 	firstLoadTime  string
 	lastActiveTime string
 	metrics        map[string]int64
-	// executionCountTrusted is false when MIN(EXECUTIONS) did not advance; derived values are then suppressed.
-	executionCountTrusted bool
 }
 
 // getProcedureResourceMetricNames returns the SUM()-based counters, where a negative delta means a cursor purge.
@@ -2164,6 +2162,7 @@ func (s *oracleScraper) collectProcedureMetrics(ctx context.Context, logs plog.L
 
 	metricNames := getProcedureMetricNames()
 	resourceMetricNames := getProcedureResourceMetricNames()
+	var discardedHits int
 	var hits []procedureMetricCacheHit
 	for _, row := range metricRows {
 		newCacheVal := make(map[string]int64, len(metricNames))
@@ -2213,16 +2212,24 @@ func (s *oracleScraper) collectProcedureMetrics(ctx context.Context, logs plog.L
 			// MIN() across cached statements, not a cumulative counter: a new child cursor starts at 1 and pulls
 			// it down, which is not a purge. Clamped rather than discarding every metric for the procedure.
 			execDelta := newCacheVal[queryExecutionMetric] - oldCacheVal[queryExecutionMetric]
-			hit.executionCountTrusted = execDelta > 0
 			hit.metrics[queryExecutionMetric] = max(execDelta, 0)
 
 			// Gated on the resource counters; gating on the execution heuristic drops procedures that burned CPU.
-			if !possiblePurge && (hit.metrics[elapsedTimeMetric] > 0 || hit.metrics[cpuTimeMetric] > 0) {
+			switch {
+			case possiblePurge:
+				discardedHits++
+			case hit.metrics[elapsedTimeMetric] > 0 || hit.metrics[cpuTimeMetric] > 0:
 				hits = append(hits, hit)
 			}
 		}
 		s.procedureMetricCache.Add(cacheKey, newCacheVal)
 	}
+
+	// The counters are a SUM() across a program unit's child cursors, so one cursor aging out of the
+	// shared pool discards the procedure's whole interval. Logged before the early return, since an
+	// all-discarded scrape is otherwise indistinguishable from no procedure having run.
+	s.logger.Debug("Procedure cache hits", zap.Int("row-count", len(metricRows)),
+		zap.Int("hit-count", len(hits)), zap.Int("discarded-hit-count", discardedHits))
 
 	if len(hits) == 0 {
 		return errors.Join(errs...)
@@ -2242,12 +2249,6 @@ func (s *oracleScraper) collectProcedureMetrics(ctx context.Context, logs plog.L
 	for i := range hits {
 		hit := &hits[i]
 
-		// Suppressed when the execution count did not advance, rather than dividing by an untrustworthy count.
-		var avgElapsedTime float64
-		if hit.executionCountTrusted {
-			avgElapsedTime = asFloatInSeconds(hit.metrics[elapsedTimeMetric]) / float64(hit.metrics[queryExecutionMetric])
-		}
-
 		s.lb.RecordDbServerTopProcedureEvent(context.Background(),
 			pcommon.NewTimestampFromTime(collectionTime),
 			dbSystemNameVal,
@@ -2261,7 +2262,6 @@ func (s *oracleScraper) collectProcedureMetrics(ctx context.Context, logs plog.L
 			hit.metrics[queryExecutionMetric],
 			asFloatInSeconds(hit.metrics[cpuTimeMetric]),
 			asFloatInSeconds(hit.metrics[elapsedTimeMetric]),
-			avgElapsedTime,
 			hit.metrics[bufferGetsMetric],
 			hit.metrics[queryDiskReadsMetric],
 			hit.metrics[queryDirectWritesMetric],
