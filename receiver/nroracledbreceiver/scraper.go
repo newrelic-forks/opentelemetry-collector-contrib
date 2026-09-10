@@ -1926,8 +1926,6 @@ type procedureMetricCacheHit struct {
 	firstLoadTime  string
 	lastActiveTime string
 	metrics        map[string]int64
-	// executionCountTrusted is false when MIN(EXECUTIONS) did not advance; derived values are then suppressed.
-	executionCountTrusted bool
 }
 
 // getProcedureResourceMetricNames returns the SUM()-based counters, where a negative delta means a cursor purge.
@@ -2005,7 +2003,6 @@ func (s *oracleScraper) collectProcedureMetrics(ctx context.Context, logs plog.L
 			// MIN() across cached statements, not a cumulative counter: a new child cursor starts at 1 and pulls
 			// it down, which is not a purge. Clamped rather than discarding every metric for the procedure.
 			execDelta := newCacheVal[queryExecutionMetric] - oldCacheVal[queryExecutionMetric]
-			hit.executionCountTrusted = execDelta > 0
 			hit.metrics[queryExecutionMetric] = max(execDelta, 0)
 
 			// Gated on the resource counters; gating on the execution heuristic drops procedures that burned CPU.
@@ -2039,12 +2036,6 @@ func (s *oracleScraper) collectProcedureMetrics(ctx context.Context, logs plog.L
 	for i := range hits {
 		hit := &hits[i]
 
-		// Suppressed when the execution count did not advance, rather than dividing by an untrustworthy count.
-		var avgElapsedTime float64
-		if hit.executionCountTrusted {
-			avgElapsedTime = asFloatInSeconds(hit.metrics[elapsedTimeMetric]) / float64(hit.metrics[queryExecutionMetric])
-		}
-
 		s.lb.RecordDbServerTopProcedureEvent(context.Background(),
 			pcommon.NewTimestampFromTime(collectionTime),
 			dbSystemNameVal,
@@ -2058,7 +2049,6 @@ func (s *oracleScraper) collectProcedureMetrics(ctx context.Context, logs plog.L
 			hit.metrics[queryExecutionMetric],
 			asFloatInSeconds(hit.metrics[cpuTimeMetric]),
 			asFloatInSeconds(hit.metrics[elapsedTimeMetric]),
-			avgElapsedTime,
 			hit.metrics[bufferGetsMetric],
 			hit.metrics[queryDiskReadsMetric],
 			hit.metrics[queryDirectWritesMetric],
