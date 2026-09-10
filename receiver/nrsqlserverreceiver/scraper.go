@@ -3040,6 +3040,8 @@ func (s *sqlServerScraperHelper) recordDatabaseTopProcedure(ctx context.Context)
 		colLastExecTime     = "last_execution_time"
 	)
 
+	dbSystemName := "microsoft.sql_server"
+
 	rows, err := s.client.QueryRows(ctx,
 		sql.Named("maxSampleCount", s.config.TopProcedureCollection.MaxProcedureSampleCount))
 	if err != nil {
@@ -3047,57 +3049,91 @@ func (s *sqlServerScraperHelper) recordDatabaseTopProcedure(ctx context.Context)
 		return pcommon.Resource{}, err
 	}
 
-	var resources pcommon.Resource
-	var resourcesAdded bool
 	var errs []error
-	now := time.Now()
-	timestamp := pcommon.NewTimestampFromTime(now)
-	// Set even on a seeding scrape so the next run's delta window matches the interval.
-	s.lastExecutionTimestamp = now
-	dbSystemName := "mssql"
 
+	type procedureRow struct {
+		row    sqlquery.StringMap
+		deltas map[string]int64
+		minRaw int64
+		maxRaw int64
+	}
+
+	deltaColumns := []string{
+		colExecutionCount, colTotalWorkerTime, colTotalElapsedTime, colTotalPhysReads,
+		colTotalLogReads, colTotalLogWrites, colTotalSpills,
+	}
+
+	// The query orders by cumulative elapsed time, which covers the whole period the plan
+	// has been cached rather than this interval, so it is only a prefilter. Rank the
+	// candidates by their elapsed-time delta instead so the procedures reported are the
+	// ones that were actually active since the last scrape.
+	candidates := make([]procedureRow, 0, len(rows))
 	for _, row := range rows {
 		procedureID := row[colProcedureID]
 		databaseID := row[colDatabaseID]
 
-		executionCountRaw := s.retrieveValue(row, colExecutionCount, &errs, retrieveInt)
-		totalWorkerTimeRaw := s.retrieveValue(row, colTotalWorkerTime, &errs, retrieveInt)
-		totalElapsedTimeRaw := s.retrieveValue(row, colTotalElapsedTime, &errs, retrieveInt)
-		totalPhysReadsRaw := s.retrieveValue(row, colTotalPhysReads, &errs, retrieveInt)
-		totalLogReadsRaw := s.retrieveValue(row, colTotalLogReads, &errs, retrieveInt)
-		totalLogWritesRaw := s.retrieveValue(row, colTotalLogWrites, &errs, retrieveInt)
-		totalSpillsRaw := s.retrieveValue(row, colTotalSpills, &errs, retrieveInt)
 		minElapsedTimeRaw := s.retrieveValue(row, colMinElapsedTime, &errs, retrieveInt)
 		maxElapsedTimeRaw := s.retrieveValue(row, colMaxElapsedTime, &errs, retrieveInt)
-
-		if executionCountRaw == nil || totalElapsedTimeRaw == nil {
-			s.logger.Warn("ProcedureMetrics: skipping row due to nil executionCount or elapsedTime",
+		if minElapsedTimeRaw == nil || maxElapsedTimeRaw == nil {
+			s.logger.Warn("ProcedureMetrics: skipping row due to nil minElapsedTime or maxElapsedTime",
 				zap.String("procedure_id", procedureID), zap.String("database_id", databaseID))
 			continue
 		}
 
-		// Delta computation using cacheAndDiff with procedureID as the prefix key
-		// and databaseID as queryHash to form unique composite keys.
-		cached, execCountDelta := s.cacheAndDiff(databaseID, procedureID, "0", colExecutionCount, executionCountRaw.(int64))
-		_, workerTimeDelta := s.cacheAndDiff(databaseID, procedureID, "0", colTotalWorkerTime, totalWorkerTimeRaw.(int64))
-		_, elapsedTimeDelta := s.cacheAndDiff(databaseID, procedureID, "0", colTotalElapsedTime, totalElapsedTimeRaw.(int64))
-		_, physReadsDelta := s.cacheAndDiff(databaseID, procedureID, "0", colTotalPhysReads, totalPhysReadsRaw.(int64))
-		_, logReadsDelta := s.cacheAndDiff(databaseID, procedureID, "0", colTotalLogReads, totalLogReadsRaw.(int64))
-		_, logWritesDelta := s.cacheAndDiff(databaseID, procedureID, "0", colTotalLogWrites, totalLogWritesRaw.(int64))
-		_, spillsDelta := s.cacheAndDiff(databaseID, procedureID, "0", colTotalSpills, totalSpillsRaw.(int64))
+		deltas := make(map[string]int64, len(deltaColumns))
+		seeded, parseFailed := false, false
+		for _, column := range deltaColumns {
+			value := s.retrieveValue(row, column, &errs, retrieveInt)
+			if value == nil {
+				parseFailed = true
+				break
+			}
+			cached, delta := s.cacheAndDiff(databaseID, procedureID, "0", column, value.(int64))
+			if !cached {
+				seeded = true
+			}
+			deltas[column] = delta
+		}
 
-		if !cached || execCountDelta == 0 {
+		// An uncached counter means this is the first scrape for the procedure, so there is
+		// no prior value to diff against and the row only seeds the cache. A zero execution
+		// delta means the procedure has not run since the last scrape.
+		if parseFailed || seeded || deltas[colExecutionCount] == 0 {
 			continue
 		}
 
-		// Compute derived metrics
+		candidates = append(candidates, procedureRow{
+			row:    row,
+			deltas: deltas,
+			minRaw: minElapsedTimeRaw.(int64),
+			maxRaw: maxElapsedTimeRaw.(int64),
+		})
+	}
+
+	sort.SliceStable(candidates, func(i, j int) bool {
+		return candidates[i].deltas[colTotalElapsedTime] > candidates[j].deltas[colTotalElapsedTime]
+	})
+	if len(candidates) > int(s.config.TopProcedureCollection.TopProcedureCount) {
+		candidates = candidates[:s.config.TopProcedureCollection.TopProcedureCount]
+	}
+
+	var resources pcommon.Resource
+	var resourcesAdded bool
+	now := time.Now()
+	timestamp := pcommon.NewTimestampFromTime(now)
+	// Set even on a seeding scrape so the next run's delta window matches the interval.
+	s.lastExecutionTimestamp = now
+
+	for _, candidate := range candidates {
+		row, deltas := candidate.row, candidate.deltas
+
 		// total_worker_time and total_elapsed_time are in microseconds from the DMV
-		totalWorkerTimeSec := float64(workerTimeDelta) / 1_000_000
-		totalElapsedTimeSec := float64(elapsedTimeDelta) / 1_000_000
+		totalWorkerTimeSec := float64(deltas[colTotalWorkerTime]) / 1_000_000
+		totalElapsedTimeSec := float64(deltas[colTotalElapsedTime]) / 1_000_000
 
 		// min/max are point-in-time values from the DMV (microseconds), convert to seconds
-		minElapsedTimeSec := float64(minElapsedTimeRaw.(int64)) / 1_000_000
-		maxElapsedTimeSec := float64(maxElapsedTimeRaw.(int64)) / 1_000_000
+		minElapsedTimeSec := float64(candidate.minRaw) / 1_000_000
+		maxElapsedTimeSec := float64(candidate.maxRaw) / 1_000_000
 
 		if !resourcesAdded {
 			resources = s.setupResourceBuilder(s.lb.NewResourceBuilder(), row).Emit()
@@ -3111,17 +3147,17 @@ func (s *sqlServerScraperHelper) recordDatabaseTopProcedure(ctx context.Context)
 			row[colDatabaseName],
 			s.config.Server,
 			int64(s.config.Port),
-			procedureID,
+			row[colProcedureID],
 			row[colProcedureName],
 			row[colSchemaName],
 			row[colDatabaseName],
-			execCountDelta,
+			deltas[colExecutionCount],
 			totalWorkerTimeSec,
 			totalElapsedTimeSec,
-			logReadsDelta,
-			logWritesDelta,
-			physReadsDelta,
-			spillsDelta,
+			deltas[colTotalLogReads],
+			deltas[colTotalLogWrites],
+			deltas[colTotalPhysReads],
+			deltas[colTotalSpills],
 			maxElapsedTimeSec,
 			minElapsedTimeSec,
 			row[colLastExecTime],
