@@ -279,7 +279,7 @@ func (p *postgreSQLScraper) scrape(ctx context.Context) (pmetric.Metrics, error)
 	p.collectWalAge(ctx, now, listClient, &errs)
 	p.collectReplicationStats(ctx, now, listClient, &errs)
 	p.collectMaxConnections(ctx, now, listClient, &errs)
-	p.collectSharedRelationLocks(ctx, now, listClient, &errs)
+	p.collectServerScopedLocks(ctx, now, listClient, &errs)
 
 	if p.useOTelSemconv {
 		rb := p.setupSemconvResourceBuilder(p.mb.NewResourceBuilder())
@@ -1109,7 +1109,7 @@ func (p *postgreSQLScraper) collectBGWriterStats(
 	p.mb.RecordPostgresqlBgwriterMaxwrittenDataPoint(now, bgStats.maxWritten)
 }
 
-// Shared by collectDatabaseLocks and collectSharedRelationLocks, which both feed this one metric.
+// Shared by collectDatabaseLocks and collectServerScopedLocks, which both feed this one metric.
 func (p *postgreSQLScraper) databaseLocksMetricsEnabled() bool {
 	return p.config.MetricsBuilderConfig.Metrics.PostgresqlDatabaseLocks.Enabled
 }
@@ -1137,7 +1137,9 @@ func (p *postgreSQLScraper) collectDatabaseLocks(
 	}
 }
 
-func (p *postgreSQLScraper) collectSharedRelationLocks(
+// collectServerScopedLocks collects the locks that belong to no single database:
+// locks on shared catalogs and locks whose target is a transaction ID.
+func (p *postgreSQLScraper) collectServerScopedLocks(
 	ctx context.Context,
 	now pcommon.Timestamp,
 	client client,

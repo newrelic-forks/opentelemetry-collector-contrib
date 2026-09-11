@@ -30,8 +30,13 @@ Phase 3 can run to completion on its own; Phase 4 requires a stop.
 
 ## Environment quirks (same as sync-and-port-nr-receivers)
 
-- `go` is often NOT on PATH in the tool shell. Use `/usr/local/go/bin/go`.
+- Run `which go` before assuming a path. On this host it is `/opt/homebrew/bin/go` and IS on PATH;
+  `/usr/local/go/bin/go` does not exist. Prepend PATH rather than hardcoding a guessed path.
 - Do NOT `cd` inside compound commands. Use `go <cmd> -C <dir>` and absolute paths.
+- `origin` has both a `main` and a `MAIN` branch, which collide on a case-insensitive filesystem, so
+  `origin/main` may be unresolvable locally. Use `upstream/main` instead.
+- Lint with the linter CI pins (v2.13.1 via `internal/tools/go.mod`), i.e. `make -C <mod> lint`; a
+  stale local `golangci-lint` v1.x reports "clean" on code CI rejects.
 - Tag names follow `<module-path>/vX.Y.Z`, e.g. `internal/nrcommon/v0.157.1`,
   `receiver/nrsqlserverreceiver/v0.157.1` — this is the existing convention (`git tag -l` to confirm
   before assuming a format). Do not invent a different tag shape.
@@ -81,15 +86,26 @@ it is still a legitimate release; do not skip it because "nothing changed."
      no exceptions; every nr-prefixed receiver depends on `nrcommon`.
    - Also bump `nrsqlquery` if the receiver depends on it — check with `grep nrsqlquery
      <receiver>/go.mod` first, not every receiver does (e.g. `nroracledbreceiver` doesn't).
-   - Check the base receiver's own `pkg/*` deps for the SAME versioned (not pseudo-versioned)
-     contrib packages the fork also depends on — `pkg/golden`, `pkg/pdatatest`,
-     `pkg/winperfcounters` (sqlserver only), and any others: `grep 'opentelemetry-collector-contrib/pkg/'
-     receiver/<base>/go.mod` vs the fork's. These carry real version numbers (e.g. `v0.157.0`), NOT
-     pseudo-versions, so they drift silently and sync-and-port's pseudo-version alignment step does
-     NOT catch them — this is a distinct check every cycle, not covered elsewhere. Bump any that
-     lag behind base with `go mod edit -C <receiver> -require=.../pkg/<name>@<exact-version-from-base-go.mod>`
-     — read the version string directly from the base receiver's `go.mod`, don't assume it ends
-     `.0` (it has so far, but that's an observation, not a guarantee).
+   - Check the base receiver's own deps for the SAME versioned (not pseudo-versioned) contrib packages
+     the fork also depends on. **This is NOT limited to `pkg/*`** — it covers `config/*` and
+     `extension/*` too. An earlier version of this step listed only `pkg/golden`, `pkg/pdatatest`,
+     `pkg/winperfcounters`, and `config/configdbauth` drifted unnoticed as a result. Enumerate them
+     all rather than working from a list, per module, and diff fork against base:
+     ```
+     grep -oE 'github\.com/open-telemetry/opentelemetry-collector-contrib/[a-z/]+ v[0-9]+\.[0-9]+\.[0-9]+' <mod>/go.mod
+     ```
+     These carry real version numbers (e.g. `v0.157.0`), NOT pseudo-versions, so they drift silently
+     and sync-and-port's pseudo-version alignment step does NOT catch them — a distinct check every
+     cycle, not covered elsewhere. Bump any that lag behind base with
+     `go mod edit -C <receiver> -require=.../<path>@<exact-version-from-base-go.mod>` — read the
+     version string directly from the base receiver's `go.mod`, don't assume it ends `.0` (it has so
+     far, but that's an observation, not a guarantee).
+   - **A local `replace … => ../../<path>` directive hides this drift from every gate.** Build, test,
+     lint and `go mod tidy` all resolve through the replace and pass green with a stale `require`
+     version, so nothing fails to warn you. Only the published module graph — what NRDOT resolves —
+     sees the wrong version. That is exactly why this must be an explicit checklist item and cannot be
+     left to "the gates would have caught it." In the 2026-09 cycle six requires were a full minor
+     behind (`pkg/pdatatest` ×4, `pkg/winperfcounters`, `config/configdbauth`) with all gates green.
    - `go mod tidy -C <receiver>` — should produce zero *unexpected* diff (the version bumps
      themselves are expected; anything beyond that needs investigation).
    - `go build -C <receiver> ./...` and `go test -C <receiver> ./...` — green.
