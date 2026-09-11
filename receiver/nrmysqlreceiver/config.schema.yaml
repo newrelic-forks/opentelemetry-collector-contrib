@@ -49,6 +49,8 @@ properties:
     type: boolean
   database:
     type: string
+  db_auth:
+    $ref: /config/configdbauth.id
   explain_mode:
     description: 'ExplainMode selects how execution plans are retrieved: "inline" (default, direct EXPLAIN on the monitoring connection) or "procedure" (CALL the <schema>.explain_statement SQL SECURITY DEFINER procedure, so write statements can be explained without granting DML to the monitoring user).'
     type: string

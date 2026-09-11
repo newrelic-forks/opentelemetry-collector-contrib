@@ -6233,8 +6233,8 @@ type metricSqlserverLockTimeoutRate struct {
 // init fills sqlserver.lock.timeout.rate metric with initial data.
 func (m *metricSqlserverLockTimeoutRate) init() {
 	m.data.SetName("sqlserver.lock.timeout.rate")
-	m.data.SetDescription("Total number of lock timeouts.")
-	m.data.SetUnit("{timeouts}/s")
+	m.data.SetDescription("Number of lock timeouts per second.")
+	m.data.SetUnit("{timeout}/s")
 	m.data.SetEmptyGauge()
 	m.data.Gauge().DataPoints().EnsureCapacity(m.capacity)
 }

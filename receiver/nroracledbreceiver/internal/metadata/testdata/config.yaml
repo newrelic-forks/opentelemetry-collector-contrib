@@ -1,6 +1,21 @@
 default:
 all_set:
   metrics:
+    oracledb.asm.disk.errors:
+      enabled: true
+      attributes: ["oracledb.asm.disk_group.name","oracledb.asm.disk.name","disk.io.direction"]
+    oracledb.asm.disk_group.capacity:
+      enabled: true
+      attributes: ["oracledb.asm.disk_group.name"]
+    oracledb.asm.disk_group.free:
+      enabled: true
+      attributes: ["oracledb.asm.disk_group.name"]
+    oracledb.asm.disk_group.offline_disks:
+      enabled: true
+      attributes: ["oracledb.asm.disk_group.name"]
+    oracledb.asm.disk_group.usable_free:
+      enabled: true
+      attributes: ["oracledb.asm.disk_group.name"]
     oracledb.buffer.inspected:
       enabled: true
       attributes: ["oracledb.buffer.state"]
@@ -369,9 +384,28 @@ all_set:
     oracledb.instance.name:
       enabled: true
     service.instance.id:
+      enabled: true
+    service.name:
+      enabled: true
+    service.namespace:
       enabled: true
 reaggregate_set:
   metrics:
+    oracledb.asm.disk.errors:
+      enabled: true
+      attributes: []
+    oracledb.asm.disk_group.capacity:
+      enabled: true
+      attributes: []
+    oracledb.asm.disk_group.free:
+      enabled: true
+      attributes: []
+    oracledb.asm.disk_group.offline_disks:
+      enabled: true
+      attributes: []
+    oracledb.asm.disk_group.usable_free:
+      enabled: true
+      attributes: []
     oracledb.buffer.inspected:
       enabled: true
       attributes: []
@@ -741,8 +775,27 @@ reaggregate_set:
       enabled: true
     service.instance.id:
       enabled: true
+    service.name:
+      enabled: true
+    service.namespace:
+      enabled: true
 none_set:
   metrics:
+    oracledb.asm.disk.errors:
+      enabled: false
+      attributes: ["oracledb.asm.disk_group.name","oracledb.asm.disk.name","disk.io.direction"]
+    oracledb.asm.disk_group.capacity:
+      enabled: false
+      attributes: ["oracledb.asm.disk_group.name"]
+    oracledb.asm.disk_group.free:
+      enabled: false
+      attributes: ["oracledb.asm.disk_group.name"]
+    oracledb.asm.disk_group.offline_disks:
+      enabled: false
+      attributes: ["oracledb.asm.disk_group.name"]
+    oracledb.asm.disk_group.usable_free:
+      enabled: false
+      attributes: ["oracledb.asm.disk_group.name"]
     oracledb.buffer.inspected:
       enabled: false
       attributes: ["oracledb.buffer.state"]
@@ -1111,6 +1164,10 @@ none_set:
     oracledb.instance.name:
       enabled: false
     service.instance.id:
+      enabled: false
+    service.name:
+      enabled: false
+    service.namespace:
       enabled: false
 filter_set_include:
   resource_attributes:
@@ -1151,6 +1208,18 @@ filter_set_include:
       events_include:
         - regexp: ".*"
     service.instance.id:
+      enabled: true
+      metrics_include:
+        - regexp: ".*"
+      events_include:
+        - regexp: ".*"
+    service.name:
+      enabled: true
+      metrics_include:
+        - regexp: ".*"
+      events_include:
+        - regexp: ".*"
+    service.namespace:
       enabled: true
       metrics_include:
         - regexp: ".*"
@@ -1200,3 +1269,15 @@ filter_set_exclude:
         - strict: "service.instance.id-val"
       events_exclude:
         - strict: "service.instance.id-val"
+    service.name:
+      enabled: true
+      metrics_exclude:
+        - strict: "service.name-val"
+      events_exclude:
+        - strict: "service.name-val"
+    service.namespace:
+      enabled: true
+      metrics_exclude:
+        - strict: "service.namespace-val"
+      events_exclude:
+        - strict: "service.namespace-val"

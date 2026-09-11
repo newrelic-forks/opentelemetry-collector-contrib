@@ -34,7 +34,7 @@ resource_attributes:
     enabled: true
     type: int
   service.instance.id:
-    description: A unique identifier of the SQL Server instance in the format host:port. In Windows Performance Counter mode the host is derived from computer_name (falling back to the collector host when monitoring locally), with a default port of 1433.
+    description: A unique identifier of the SQL Server instance. When using direct connection settings, the format is host:port. When using a datasource, the format is host\instance for a named instance and host:port otherwise; the port defaults to 1433 when omitted. In Windows Performance Counter mode, the format remains host:1433; host is computer_name for remote monitoring, or the local collector host when monitoring locally.
     enabled: true
     type: string
   service.name:
@@ -1100,6 +1100,7 @@ metrics:
       value_type: int
       input_type: string
     attributes: [db.namespace, sqlserver.index.id, sqlserver.object.name, sqlserver.schema.name]
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.index.search.rate:
     enabled: false
     description: Total number of index searches.
@@ -1203,12 +1204,13 @@ metrics:
     extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.lock.timeout.rate:
     enabled: false
-    description: Total number of lock timeouts.
+    description: Number of lock timeouts per second.
     stability: development
-    unit: "{timeouts}/s"
+    unit: "{timeout}/s"
     gauge:
       value_type: double
     attributes: [sqlserver.lock.timeout.type]
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.lock.wait.count:
     enabled: false
     description: Cumulative count of lock waits that occurred.

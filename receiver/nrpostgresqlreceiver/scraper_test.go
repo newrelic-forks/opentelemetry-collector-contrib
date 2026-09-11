@@ -267,7 +267,7 @@ func TestScraperSkipsQueriesForDisabledMetrics(t *testing.T) {
 	dbClient.AssertNotCalled(t, "getIndexStats", mock.Anything, mock.Anything)
 	dbClient.AssertNotCalled(t, "getFunctionStats", mock.Anything, mock.Anything)
 	dbClient.AssertNotCalled(t, "getDatabaseLocks", mock.Anything)
-	listClient.AssertNotCalled(t, "getSharedRelationLocks", mock.Anything)
+	listClient.AssertNotCalled(t, "getServerScopedLocks", mock.Anything)
 }
 
 func TestScraperRunsQueriesWhenAnyFedMetricIsEnabled(t *testing.T) {
@@ -491,8 +491,8 @@ func TestQueryGuardsCoverEveryMetric(t *testing.T) {
 func allMetricsDisabledConfig() *Config {
 	cfg := createDefaultConfig().(*Config)
 	v := reflect.ValueOf(&cfg.MetricsBuilderConfig.Metrics).Elem()
-	for i := 0; i < v.NumField(); i++ {
-		enabledField := v.Field(i).FieldByName("Enabled")
+	for _, fieldValue := range v.Fields() {
+		enabledField := fieldValue.FieldByName("Enabled")
 		if enabledField.IsValid() && enabledField.CanSet() {
 			enabledField.SetBool(false)
 		}
@@ -1142,6 +1142,7 @@ func TestQuerySampleTemplateRendering(t *testing.T) {
 			params: map[string]any{
 				"limit":                int64(50),
 				"newestQueryTimestamp": 999999.555,
+				"excludedDatabases":    "",
 			},
 		},
 		{
@@ -1149,6 +1150,7 @@ func TestQuerySampleTemplateRendering(t *testing.T) {
 			params: map[string]any{
 				"limit":                int64(10),
 				"newestQueryTimestamp": float64(0),
+				"excludedDatabases":    "",
 			},
 		},
 	}
@@ -2867,7 +2869,7 @@ func (m *mockClient) probeExplainFunction(ctx context.Context, quotedFunctionNam
 }
 
 // getTopQuery implements client.
-func (*mockClient) getTopQuery(context.Context, int64, []string, *zap.Logger) ([]map[string]any, error) {
+func (*mockClient) getTopQuery(context.Context, int64, []string, []string, *zap.Logger) ([]map[string]any, error) {
 	panic("unimplemented")
 }
 
@@ -2888,7 +2890,7 @@ func (m mockSimpleClientFactory) getClient(context.Context, string) (client, err
 }
 
 // getQuerySamples implements client.
-func (*mockClient) getQuerySamples(context.Context, int64, float64, []string, *zap.Logger) ([]map[string]any, float64, error) {
+func (*mockClient) getQuerySamples(context.Context, int64, float64, []string, []string, *zap.Logger) ([]map[string]any, float64, error) {
 	panic("this should not be invoked")
 }
 
@@ -2919,7 +2921,7 @@ func (m *mockClient) getDatabaseLocks(ctx context.Context) ([]databaseLocks, err
 	return args.Get(0).([]databaseLocks), args.Error(1)
 }
 
-func (m *mockClient) getSharedRelationLocks(ctx context.Context) ([]databaseLocks, error) {
+func (m *mockClient) getServerScopedLocks(ctx context.Context) ([]databaseLocks, error) {
 	args := m.Called(ctx)
 	return args.Get(0).([]databaseLocks), args.Error(1)
 }
@@ -3081,7 +3083,7 @@ func (m *mockClient) initMocks(database, schema string, databases []string, inde
 		}, nil)
 		m.On("getMaxConnections", mock.Anything).Return(int64(100), nil)
 		m.On("getLatestWalAgeSeconds", mock.Anything).Return(int64(3600), nil)
-		m.On("getSharedRelationLocks", mock.Anything).Return([]databaseLocks{
+		m.On("getServerScopedLocks", mock.Anything).Return([]databaseLocks{
 			{
 				relation: "pg_database",
 				mode:     "AccessShareLock",

@@ -6,7 +6,7 @@ resourceMetrics:
             stringValue: postgres
     scopeMetrics:
       - metrics:
-          - description: The number of backends.
+          - description: The number of backend processes associated with each database. Counts backends across all connection states (active, idle, idle-in-transaction) and all backend types, including non-client backends such as autovacuum and parallel workers.
             name: postgresql.backends
             sum:
               aggregationTemporality: 2
@@ -483,7 +483,7 @@ resourceMetrics:
             stringValue: otel
     scopeMetrics:
       - metrics:
-          - description: The number of backends.
+          - description: The number of backend processes associated with each database. Counts backends across all connection states (active, idle, idle-in-transaction) and all backend types, including non-client backends such as autovacuum and parallel workers.
             name: postgresql.backends
             sum:
               aggregationTemporality: 2
@@ -1028,7 +1028,7 @@ resourceMetrics:
             stringValue: otel2
     scopeMetrics:
       - metrics:
-          - description: The number of backends.
+          - description: The number of backend processes associated with each database. Counts backends across all connection states (active, idle, idle-in-transaction) and all backend types, including non-client backends such as autovacuum and parallel workers.
             name: postgresql.backends
             sum:
               aggregationTemporality: 2
@@ -1431,7 +1431,7 @@ resourceMetrics:
                   startTimeUnixNano: "1706802467703361527"
                   timeUnixNano: "1706802526712082422"
             unit: '{databases}'
-          - description: The number of database locks.
+          - description: The number of database locks, including those held by the receiver's own connections.
             gauge:
               dataPoints:
                 - asInt: "1"
