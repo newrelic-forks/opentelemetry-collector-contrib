@@ -897,6 +897,8 @@ This metric is only available when the receiver is configured to directly connec
 
 Total number of records in the index.
 
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
 | {record} | Gauge | Int | Development |
@@ -1041,11 +1043,13 @@ This metric is only available when the receiver is configured to directly connec
 
 ### sqlserver.lock.timeout.rate
 
-Total number of lock timeouts.
+Number of lock timeouts per second.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
-| {timeouts}/s | Gauge | Double | Development |
+| {timeout}/s | Gauge | Double | Development |
 
 #### Attributes
 

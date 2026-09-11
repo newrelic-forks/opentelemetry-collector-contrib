@@ -268,7 +268,7 @@ attributes:
     description: The type of event for which the backend is waiting, if any; otherwise NULL.
     type: string
   relation:
-    description: OID of the relation targeted by the lock, or null if the target is not a relation or part of a relation.
+    description: The name of the relation (table, index, view, etc.) targeted by the lock, or empty if the target is not a relation or part of a relation.
     type: string
     requirement_level: recommended
   replication_client:
@@ -361,7 +361,7 @@ events:
 metrics:
   postgresql.backends:
     enabled: true
-    description: The number of backends.
+    description: The number of backend processes associated with each database. Counts backends across all connection states (active, idle, idle-in-transaction) and all backend types, including non-client backends such as autovacuum and parallel workers.
     stability: development
     unit: "1"
     sum:
@@ -478,7 +478,7 @@ metrics:
     unit: "{databases}"
   postgresql.database.locks:
     enabled: false
-    description: The number of database locks.
+    description: The number of database locks, including those held by the receiver's own connections.
     stability: development
     unit: "{lock}"
     gauge:

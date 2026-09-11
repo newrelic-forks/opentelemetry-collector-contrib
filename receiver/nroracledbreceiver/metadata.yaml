@@ -44,6 +44,14 @@ resource_attributes:
     description: A unique identifier of the Oracle DB instance in the format host:port/serviceName. (defaults to 'unknown:1521', in case of error in generating this value)
     enabled: true
     type: string
+  service.name:
+    description: "Logical name of the service. When enabled, defaults to unknown_service:oracle."
+    enabled: false
+    type: string
+  service.namespace:
+    description: Logical namespace for the service (for example team or environment). When enabled, defaults to an empty string until set via configuration.
+    enabled: false
+    type: string
 
 attributes:
   client.address:
@@ -90,7 +98,7 @@ attributes:
     type: string
     enum: [buffered, total]
   network.io.direction:
-    description: Direction of the SQL*Net network transfer.
+    description: Direction of the network transfer.
     type: string
     enum: [receive, transmit]
   network.peer.address:
@@ -295,7 +303,7 @@ attributes:
     description: "The timestamp when the session logged on, in ISO 8601 format (UTC)."
     type: string
   oracledb.session.type:
-    description: Class of session the database time is attributed to.
+    description: Class of session the activity is attributed to.
     type: string
     enum: [background, foreground]
   oracledb.session.wait.state:

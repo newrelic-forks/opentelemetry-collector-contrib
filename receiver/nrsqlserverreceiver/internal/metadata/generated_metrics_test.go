@@ -2611,8 +2611,8 @@ func TestMetricsBuilder(t *testing.T) {
 					validatedMetrics["sqlserver.lock.timeout.rate"] = true
 					assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
 					assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
-					assert.Equal(t, "Total number of lock timeouts.", mi.Description())
-					assert.Equal(t, "{timeouts}/s", mi.Unit())
+					assert.Equal(t, "Number of lock timeouts per second.", mi.Description())
+					assert.Equal(t, "{timeout}/s", mi.Unit())
 					dp := mi.Gauge().DataPoints().At(0)
 					assert.Equal(t, start, dp.StartTimestamp())
 					assert.Equal(t, ts, dp.Timestamp())

@@ -1100,6 +1100,7 @@ metrics:
       value_type: int
       input_type: string
     attributes: [db.namespace, sqlserver.index.id, sqlserver.object.name, sqlserver.schema.name]
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.index.search.rate:
     enabled: false
     description: Total number of index searches.
@@ -1203,12 +1204,13 @@ metrics:
     extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.lock.timeout.rate:
     enabled: false
-    description: Total number of lock timeouts.
+    description: Number of lock timeouts per second.
     stability: development
-    unit: "{timeouts}/s"
+    unit: "{timeout}/s"
     gauge:
       value_type: double
     attributes: [sqlserver.lock.timeout.type]
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.lock.wait.count:
     enabled: false
     description: Cumulative count of lock waits that occurred.
