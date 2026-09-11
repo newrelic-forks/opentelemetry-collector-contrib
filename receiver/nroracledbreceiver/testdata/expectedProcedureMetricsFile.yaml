@@ -34,7 +34,7 @@ resourceLogs:
               - key: oracledb.procedure_type
                 value:
                   stringValue: PROCEDURE
-              - key: oracledb.procedure.schema_name
+              - key: oracledb.procedure.schema.name
                 value:
                   stringValue: ADMIN
               - key: oracledb.procedure_execution_count
@@ -46,9 +46,6 @@ resourceLogs:
               - key: oracledb.elapsed_time
                 value:
                   doubleValue: 61
-              - key: oracledb.procedure.avg_duration
-                value:
-                  doubleValue: 0.00061
               - key: oracledb.buffer_gets
                 value:
                   intValue: "189417"
@@ -69,7 +66,7 @@ resourceLogs:
                   intValue: "6"
               - key: oracledb.procedure.first_load_time
                 value:
-                  stringValue: 2025-12-31/23:00:00
+                  stringValue: 2025-12-31T23:00:00Z
               - key: oracledb.procedure.last_active_time
                 value:
                   stringValue: "2026-01-01T12:00:00Z"

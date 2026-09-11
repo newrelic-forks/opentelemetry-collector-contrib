@@ -45,7 +45,12 @@ const (
 	// containerGrantsProbeSQL detects whether the user has the grants needed
 	// for per-PDB collection. On failure the receiver falls back to the
 	// single-container query set.
-	containerGrantsProbeSQL     = "SELECT 1 FROM v$con_sysstat WHERE ROWNUM = 1"
+	containerGrantsProbeSQL = "SELECT 1 FROM v$con_sysstat WHERE ROWNUM = 1"
+	// A missing grant raises ORA-00942 at parse time, so this is a permission check, not a data check.
+	// top_query and top_procedure only join against CDB_PROCEDURES, so they are probed separately from
+	// query_sample, which additionally needs CDB_OBJECTS.
+	cdbProceduresGrantProbeSQL  = "SELECT 1 FROM CDB_PROCEDURES WHERE ROWNUM = 1"
+	cdbDictionaryGrantsProbeSQL = "SELECT COUNT(*) FROM (SELECT 1 FROM CDB_PROCEDURES WHERE ROWNUM = 1 UNION ALL SELECT 1 FROM CDB_OBJECTS WHERE ROWNUM = 1)"
 	containerGrantsProbeTimeout = 5 * time.Second
 
 	// V$SYSMETRIC metric_name values (group_id=2, 60-second interval)
@@ -344,7 +349,14 @@ type oracleScraper struct {
 	systemResourceLimitsClient dbClient
 	sessionCountClient         dbClient
 	// isCDBRoot is true when connected to a CDB root (Oracle 12c+); enables per-PDB queries.
-	isCDBRoot                bool
+	isCDBRoot bool
+	// useCDBProceduresView enables the CDB_PROCEDURES-qualified join for top_query and top_procedure. Separate
+	// from isCDBRoot because the per-PDB metric views and the cross-container dictionary views are granted
+	// separately.
+	useCDBProceduresView bool
+	// useCDBDictionaryViews additionally enables the CDB_OBJECTS-qualified join needed by query_sample. It
+	// requires CDB_PROCEDURES and CDB_OBJECTS, a strict superset of useCDBProceduresView's grant.
+	useCDBDictionaryViews    bool
 	oracleQueryMetricsClient dbClient
 	oraclePlanDataClient     dbClient
 	samplesQueryClient       dbClient
@@ -443,21 +455,21 @@ func (s *oracleScraper) buildTablespaceSQL() string {
 }
 
 func (s *oracleScraper) buildProcedureMetricsSQL() string {
-	if s.isCDBRoot {
+	if s.useCDBProceduresView {
 		return oracleProcedureMetricsCDBSQL
 	}
 	return oracleProcedureMetricsSQL
 }
 
 func (s *oracleScraper) buildTopQuerySQL() string {
-	if s.isCDBRoot {
+	if s.useCDBProceduresView {
 		return oracleQueryMetricsCDBSQL
 	}
 	return oracleQueryMetricsSQL
 }
 
 func (s *oracleScraper) buildQuerySampleSQL() string {
-	if s.isCDBRoot {
+	if s.useCDBDictionaryViews {
 		return samplesCDBQuery
 	}
 	return samplesQuery
@@ -495,6 +507,20 @@ func (s *oracleScraper) start(ctx context.Context, _ component.Host) error {
 	} else {
 		s.statsClient = s.clientProviderFunc(s.db, statsSQL, s.logger)
 		s.sessionCountClient = s.clientProviderFunc(s.db, sessionCountSQL, s.logger)
+	}
+	// Granted separately from the per-PDB metric views probed above; without them the DBA_* variants still work.
+	s.useCDBProceduresView = s.instanceInfo.isCDB && !s.instanceInfo.connectedToPDB &&
+		s.hasCDBDictionaryGrants(ctx, s.clientProviderFunc(s.db, cdbProceduresGrantProbeSQL, s.logger),
+			"oracledbreceiver: CDB_PROCEDURES not readable; falling back to DBA_PROCEDURES, which cannot attribute PDB-owned procedures from a CDB root. See the receiver README 'CDB-root connections' section.")
+	if s.useCDBProceduresView {
+		s.logger.Debug("oracledbreceiver: using CDB_PROCEDURES for container-qualified procedure lookups")
+	}
+	// query_sample additionally joins CDB_OBJECTS, so it is gated on a separate, stricter probe.
+	s.useCDBDictionaryViews = s.instanceInfo.isCDB && !s.instanceInfo.connectedToPDB &&
+		s.hasCDBDictionaryGrants(ctx, s.clientProviderFunc(s.db, cdbDictionaryGrantsProbeSQL, s.logger),
+			"oracledbreceiver: CDB_PROCEDURES/CDB_OBJECTS not readable; falling back to DBA_* dictionary views, which cannot attribute PDB-owned objects from a CDB root. See the receiver README 'CDB-root connections' section.")
+	if s.useCDBDictionaryViews {
+		s.logger.Debug("oracledbreceiver: using container-qualified dictionary joins for query-sample collection")
 	}
 	s.tablespaceUsageClient = s.clientProviderFunc(s.db, s.buildTablespaceSQL(), s.logger)
 	s.systemResourceLimitsClient = s.clientProviderFunc(s.db, systemResourceLimitsSQL, s.logger)
@@ -1511,6 +1537,18 @@ func (s *oracleScraper) hasContainerGrants(ctx context.Context, probe dbClient) 
 	return true
 }
 
+// hasCDBDictionaryGrants reports whether the cross-container dictionary view(s) probed by probe are readable;
+// any error means no, and logs warnMsg to point operators at the fallback and the README.
+func (s *oracleScraper) hasCDBDictionaryGrants(ctx context.Context, probe dbClient, warnMsg string) bool {
+	probeCtx, cancel := context.WithTimeout(ctx, containerGrantsProbeTimeout)
+	defer cancel()
+	if _, err := probe.metricRows(probeCtx); err != nil {
+		s.logger.Warn(warnMsg, zap.Error(err))
+		return false
+	}
+	return true
+}
+
 func (s *oracleScraper) recordSysmetric(now pcommon.Timestamp, metricName string, val float64, pdbName string) {
 	switch metricName {
 	case sysmetricBufferCacheHitRatio:
@@ -1926,8 +1964,6 @@ type procedureMetricCacheHit struct {
 	firstLoadTime  string
 	lastActiveTime string
 	metrics        map[string]int64
-	// executionCountTrusted is false when MIN(EXECUTIONS) did not advance; derived values are then suppressed.
-	executionCountTrusted bool
 }
 
 // getProcedureResourceMetricNames returns the SUM()-based counters, where a negative delta means a cursor purge.
@@ -1945,20 +1981,22 @@ func getProcedureMetricNames() []string {
 
 func (s *oracleScraper) collectProcedureMetrics(ctx context.Context, logs plog.Logs, collectionTime time.Time, lookbackTimeSeconds int) error {
 	var errs []error
+	// Pool is wider than the reported set: ranking happens below over deltas, not over lifetime totals in SQL.
 	s.oracleProcedureMetricsClient = s.clientProviderFunc(s.db, s.buildProcedureMetricsSQL(), s.logger)
 	metricRows, metricError := s.oracleProcedureMetricsClient.metricRows(ctx, lookbackTimeSeconds, s.procedureMetricsCfg.MaxProcedureSampleCount)
 
 	if metricError != nil {
 		return fmt.Errorf("error executing oracleProcedureMetricsSQL: %w", metricError)
 	}
+	// Nothing was active in the lookback window; normal on an idle instance, so not a scrape error.
 	if len(metricRows) == 0 {
 		return nil
 	}
 
 	metricNames := getProcedureMetricNames()
 	resourceMetricNames := getProcedureResourceMetricNames()
-	var hits []procedureMetricCacheHit
 	var discardedHits int
+	var hits []procedureMetricCacheHit
 	for _, row := range metricRows {
 		newCacheVal := make(map[string]int64, len(metricNames))
 		for _, columnName := range metricNames {
@@ -1974,6 +2012,8 @@ func (s *oracleScraper) collectProcedureMetrics(ctx context.Context, logs plog.L
 		// SERVICE is part of the row grain, so it must be in the key: one procedure driven through two services
 		// returns two rows per result set, and a coarser key diffs them against each other.
 		cacheKey := fmt.Sprintf("%v:%v:%v", row[objectIDAttr], row[dbNamespaceAttr], row[serviceAttr])
+		// if we have a cache hit and the procedure doesn't belong to top N, cache is updated anyway
+		// as a result, once it finally makes its way to the top N procedures, only the latest delta will be sent downstream
 		if oldCacheVal, ok := s.procedureMetricCache.Get(cacheKey); ok {
 			hit := procedureMetricCacheHit{
 				schemaName:     row[schemaNameAttr],
@@ -2005,32 +2045,35 @@ func (s *oracleScraper) collectProcedureMetrics(ctx context.Context, logs plog.L
 			// MIN() across cached statements, not a cumulative counter: a new child cursor starts at 1 and pulls
 			// it down, which is not a purge. Clamped rather than discarding every metric for the procedure.
 			execDelta := newCacheVal[queryExecutionMetric] - oldCacheVal[queryExecutionMetric]
-			hit.executionCountTrusted = execDelta > 0
 			hit.metrics[queryExecutionMetric] = max(execDelta, 0)
 
 			// Gated on the resource counters; gating on the execution heuristic drops procedures that burned CPU.
-			if !possiblePurge && (hit.metrics[elapsedTimeMetric] > 0 || hit.metrics[cpuTimeMetric] > 0) {
-				hits = append(hits, hit)
-			} else {
+			switch {
+			case possiblePurge:
 				discardedHits++
+			case hit.metrics[elapsedTimeMetric] > 0 || hit.metrics[cpuTimeMetric] > 0:
+				hits = append(hits, hit)
 			}
 		}
 		s.procedureMetricCache.Add(cacheKey, newCacheVal)
 	}
 
-	s.logger.Debug("Procedure metrics scrape summary",
-		zap.Int("rows-from-db", len(metricRows)),
-		zap.Int("deltas-to-emit", len(hits)),
-		zap.Int("discarded", discardedHits))
+	// The counters are a SUM() across a program unit's child cursors, so one cursor aging out of the
+	// shared pool discards the procedure's whole interval. Logged before the early return, since an
+	// all-discarded scrape is otherwise indistinguishable from no procedure having run.
+	s.logger.Debug("Procedure cache hits", zap.Int("row-count", len(metricRows)),
+		zap.Int("hit-count", len(hits)), zap.Int("discarded-hit-count", discardedHits))
 
 	if len(hits) == 0 {
 		return errors.Join(errs...)
 	}
 
+	// order by elapsed time delta, descending
 	sort.Slice(hits, func(i, j int) bool {
 		return hits[i].metrics[elapsedTimeMetric] > hits[j].metrics[elapsedTimeMetric]
 	})
 
+	// keep at most maxHitSize
 	maxHitsSize := min(len(hits), int(s.procedureMetricsCfg.TopProcedureCount))
 	hits = hits[:maxHitsSize]
 
@@ -2038,12 +2081,6 @@ func (s *oracleScraper) collectProcedureMetrics(ctx context.Context, logs plog.L
 
 	for i := range hits {
 		hit := &hits[i]
-
-		// Suppressed when the execution count did not advance, rather than dividing by an untrustworthy count.
-		var avgElapsedTime float64
-		if hit.executionCountTrusted {
-			avgElapsedTime = asFloatInSeconds(hit.metrics[elapsedTimeMetric]) / float64(hit.metrics[queryExecutionMetric])
-		}
 
 		s.lb.RecordDbServerTopProcedureEvent(context.Background(),
 			pcommon.NewTimestampFromTime(collectionTime),
@@ -2058,7 +2095,6 @@ func (s *oracleScraper) collectProcedureMetrics(ctx context.Context, logs plog.L
 			hit.metrics[queryExecutionMetric],
 			asFloatInSeconds(hit.metrics[cpuTimeMetric]),
 			asFloatInSeconds(hit.metrics[elapsedTimeMetric]),
-			avgElapsedTime,
 			hit.metrics[bufferGetsMetric],
 			hit.metrics[queryDiskReadsMetric],
 			hit.metrics[queryDirectWritesMetric],
