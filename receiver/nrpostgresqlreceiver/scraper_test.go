@@ -185,6 +185,7 @@ func TestScraper(t *testing.T) {
 
 	runTest := func(separateSchemaAttr bool, file string) {
 		defer testutil.SetFeatureGateForTest(t, metadata.ReceiverNrpostgresqlSeparateSchemaAttrFeatureGate, separateSchemaAttr)()
+		defer testutil.SetFeatureGateForTest(t, metadata.ReceiverNrpostgresqlUseOTelSemconvFeatureGate, false)()
 
 		cfg := createDefaultConfig().(*Config)
 		cfg.Databases = []string{"otel"}
@@ -519,6 +520,7 @@ func TestScraperWithExecutionTime(t *testing.T) {
 
 	runTest := func(separateSchemaAttr bool, file string) {
 		defer testutil.SetFeatureGateForTest(t, metadata.ReceiverNrpostgresqlSeparateSchemaAttrFeatureGate, separateSchemaAttr)()
+		defer testutil.SetFeatureGateForTest(t, metadata.ReceiverNrpostgresqlUseOTelSemconvFeatureGate, false)()
 
 		cfg := createDefaultConfig().(*Config)
 		cfg.Databases = []string{"otel"}
@@ -549,6 +551,7 @@ func TestScraperNoDatabaseSingle(t *testing.T) {
 
 	runTest := func(separateSchemaAttr bool, file, fileDefault string) {
 		defer testutil.SetFeatureGateForTest(t, metadata.ReceiverNrpostgresqlSeparateSchemaAttrFeatureGate, separateSchemaAttr)()
+		defer testutil.SetFeatureGateForTest(t, metadata.ReceiverNrpostgresqlUseOTelSemconvFeatureGate, false)()
 
 		cfg := createDefaultConfig().(*Config)
 
@@ -647,6 +650,7 @@ func TestScraperNoDatabaseMultipleWithoutPreciseLag(t *testing.T) {
 
 	runTest := func(separateSchemaAttr bool, file string) {
 		defer testutil.SetFeatureGateForTest(t, metadata.ReceiverNrpostgresqlSeparateSchemaAttrFeatureGate, separateSchemaAttr)()
+		defer testutil.SetFeatureGateForTest(t, metadata.ReceiverNrpostgresqlUseOTelSemconvFeatureGate, false)()
 		defer testutil.SetFeatureGateForTest(t, metadata.PostgresqlreceiverPreciselagmetricsFeatureGate, false)()
 
 		cfg := createDefaultConfig().(*Config)
@@ -769,6 +773,7 @@ func TestScraperWithResourceAttributeFeatureGate(t *testing.T) {
 
 	runTest := func(separateSchemaAttr bool, file string) {
 		defer testutil.SetFeatureGateForTest(t, metadata.ReceiverNrpostgresqlSeparateSchemaAttrFeatureGate, separateSchemaAttr)()
+		defer testutil.SetFeatureGateForTest(t, metadata.ReceiverNrpostgresqlUseOTelSemconvFeatureGate, false)()
 
 		cfg := createDefaultConfig().(*Config)
 
@@ -824,6 +829,7 @@ func TestScraperWithResourceAttributeFeatureGateSingle(t *testing.T) {
 
 	runTest := func(separateSchemaAttr bool, file string) {
 		defer testutil.SetFeatureGateForTest(t, metadata.ReceiverNrpostgresqlSeparateSchemaAttrFeatureGate, separateSchemaAttr)()
+		defer testutil.SetFeatureGateForTest(t, metadata.ReceiverNrpostgresqlUseOTelSemconvFeatureGate, false)()
 
 		cfg := createDefaultConfig().(*Config)
 
@@ -890,6 +896,7 @@ func TestScraperExcludeDatabase(t *testing.T) {
 
 	runTest := func(separateSchemaAttr bool, file string) {
 		defer testutil.SetFeatureGateForTest(t, metadata.ReceiverNrpostgresqlSeparateSchemaAttrFeatureGate, separateSchemaAttr)()
+		defer testutil.SetFeatureGateForTest(t, metadata.ReceiverNrpostgresqlUseOTelSemconvFeatureGate, false)()
 
 		cfg := createDefaultConfig().(*Config)
 		cfg.ExcludeDatabases = []string{"open"}
@@ -972,6 +979,8 @@ func newQuerySampleRows(t *testing.T, values map[string]any) *sqlmock.Rows {
 }
 
 func TestScrapeQuerySample(t *testing.T) {
+	defer testutil.SetFeatureGateForTest(t, metadata.ReceiverNrpostgresqlUseOTelSemconvFeatureGate, false)()
+
 	cfg := createDefaultConfig().(*Config)
 	cfg.Databases = []string{}
 	cfg.LogsBuilderConfig.Events.DbServerQuerySample.Enabled = true
@@ -1404,6 +1413,8 @@ func TestScrapeQuerySampleMultiBlocker(t *testing.T) {
 var expectedScrapeTopQuery string
 
 func TestScrapeTopQueries(t *testing.T) {
+	defer testutil.SetFeatureGateForTest(t, metadata.ReceiverNrpostgresqlUseOTelSemconvFeatureGate, false)()
+
 	cfg := createDefaultConfig().(*Config)
 	cfg.Databases = []string{}
 	cfg.LogsBuilderConfig.Events.DbServerTopQuery.Enabled = true

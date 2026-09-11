@@ -7,6 +7,21 @@ including confirmation of which breaking changes from [CHANGELOG.md](./CHANGELOG
 
 ## Unreleased
 
+### 🛑 Breaking changes 🛑
+
+- `receiver/nrpostgresql`: `receiver.nrpostgresql.useOTelSemconv` is now Beta and **enabled by
+  default** (was Alpha, disabled). Resource attributes emitted by default switch from the legacy
+  per-entity model (`postgresql.database.name`, `.table.name`, `.index.name`, `.schema.name`, one
+  resource per database/table/index) to a single per-server resource with `server.address`,
+  `server.port`, and a UUID v5 `service.instance.id`, aligning with OpenTelemetry semantic
+  conventions. To keep the legacy shape, disable the gate explicitly:
+  `--feature-gates=-receiver.nrpostgresql.useOTelSemconv`.
+
+- `receiver/nrpostgresql`: the `db.server.query_sample` log event's `postgresql.backend_start` and
+  `postgresql.session_duration` attributes are renamed to `postgresql.backend.connection.start` and
+  `postgresql.session.duration`, matching this receiver's existing dotted-namespace attribute
+  convention (e.g. `postgresql.blocking.start_time`).
+
 ### 🧰 Bug fixes 🧰
 
 - `receiver/nrmysql`: Disabling every metric fed by the table stats, statement events, table
