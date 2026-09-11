@@ -5797,6 +5797,7 @@ func (ec *EventConfig) Unmarshal(parser *confmap.Conf) error {
 type EventsConfig struct {
 	DbServerQuerySample       EventConfig `mapstructure:"db.server.query_sample"`
 	DbServerSessionWaitSample EventConfig `mapstructure:"db.server.session.wait_sample"`
+	DbServerTopProcedure      EventConfig `mapstructure:"db.server.top_procedure"`
 	DbServerTopQuery          EventConfig `mapstructure:"db.server.top_query"`
 }
 
@@ -5806,6 +5807,9 @@ func DefaultEventsConfig() EventsConfig {
 			Enabled: false,
 		},
 		DbServerSessionWaitSample: EventConfig{
+			Enabled: false,
+		},
+		DbServerTopProcedure: EventConfig{
 			Enabled: false,
 		},
 		DbServerTopQuery: EventConfig{
