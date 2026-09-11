@@ -519,8 +519,8 @@ func TestQueryGuardsCoverEveryMetric(t *testing.T) {
 	}
 
 	cfgType := reflect.TypeFor[metadata.MetricsConfig]()
-	for i := 0; i < cfgType.NumField(); i++ {
-		fieldName := cfgType.Field(i).Name
+	for field := range cfgType.Fields() {
+		fieldName := field.Name
 
 		t.Run(fieldName, func(t *testing.T) {
 			g, guarded := fieldToGuard[fieldName]

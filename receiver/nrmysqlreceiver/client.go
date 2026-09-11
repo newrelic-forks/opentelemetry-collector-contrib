@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-version"
-	"go.opentelemetry.io/collector/component"
 	semconv "go.opentelemetry.io/otel/semconv/v1.41.0"
 	"go.uber.org/zap"
 )
@@ -379,14 +378,6 @@ func newMySQLClientFromDB(db *sql.DB, conf *Config) *mySQLClient {
 		explainMode:                    conf.ExplainMode,
 		explainProc:                    &explainProcCache{available: make(map[string]bool)},
 	}
-}
-
-func newMySQLClient(conf *Config) (client, error) {
-	f, err := newClientFactory(conf, component.MustNewID("nrmysql"))
-	if err != nil {
-		return nil, err
-	}
-	return f.connect(context.Background())
 }
 
 func (c *mySQLClient) Connect() error {
