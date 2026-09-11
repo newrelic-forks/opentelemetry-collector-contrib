@@ -7,7 +7,81 @@ including confirmation of which breaking changes from [CHANGELOG.md](./CHANGELOG
 
 ## Unreleased
 
+## v0.160.0
+
+Synced with upstream contrib v0.160.0.
+
+### 🛑 Breaking changes 🛑
+
+- `receiver/nroracledb`: `oracledb.plan_hash_value` is now the raw Oracle numeric value instead of a
+  hex-encoded string — e.g. `3123456789` where it previously emitted `33313233343536373839`. Anything
+  decoding the hex form must be updated. Adopted from upstream `receiver/oracledb` (#50307).
+
+- `receiver/nrpostgresql`: the `relation` attribute on `postgresql.database.locks` is now the relation
+  NAME (e.g. `orders`) rather than the relation OID, and is an empty string rather than null when the
+  lock target is not a relation. The metric also now reports locks that belong to no single database —
+  transaction-ID locks and other non-relation targets — which were previously dropped entirely, so
+  counts can rise and new series carrying an empty `relation` can appear. Adopted from upstream
+  `receiver/postgresql` (#50008).
+
+- `receiver/nrpostgresql`: `exclude_databases` now also filters the `db.server.query_sample` and
+  `db.server.top_query` collectors. Those two previously ignored it, so excluded databases still
+  produced samples and top queries; they no longer do. Adopted from upstream `receiver/postgresql`
+  (#50056).
+
+- `receiver/nrsqlserver`: `service.instance.id` now uses `host\instance` when the connection is
+  configured through `datasource` with a named instance, instead of collapsing every instance on a
+  host to `host:port`. Deployments monitoring named instances will see the resource identity change.
+  Adopted from upstream `receiver/sqlserver` (#50535).
+
+- `receiver/nrsqlserver`: `sqlserver.lock.timeout.rate`'s unit changed from `{timeouts}/s` to
+  `{timeout}/s`, and its description from "Total number of lock timeouts." to "Number of lock timeouts
+  per second." The emitted value was already per-second — only the unit string and description were
+  wrong. Now matches `sqlserverreceiver`.
+
+- `all`: minimum Go version raised to 1.26 (upstream #50394). **Already matched — no fork change was
+  needed**; every `nr`-prefixed module declares `go 1.26.0`.
+
+No other breaking change in upstream v0.159.0 or v0.160.0 applies to these receivers: neither release
+carried a breaking entry scoped to `receiver/sqlserver`, `receiver/oracledb`, `receiver/postgresql`
+or `receiver/mysql`.
+
+### 🚩 New components 🚩
+
+- `receiver/nroracledb`: 5 opt-in ASM metrics — `oracledb.asm.disk.errors` and
+  `oracledb.asm.disk_group.{capacity,free,offline_disks,usable_free}` — with the
+  `oracledb.asm.disk.name` / `oracledb.asm.disk_group.name` attributes. Both underlying queries
+  return zero rows rather than erroring on instances that do not use ASM. Requires
+  `GRANT SELECT ON V_$ASM_DISKGROUP_STAT` and `V_$ASM_DISK_STAT`. From upstream (#50489).
+
+- `receiver/nrmysql`: 3 opt-in InnoDB row-lock wait metrics —
+  `mysql.innodb.row_lock.wait.count` and `mysql.innodb.row_lock.wait.duration.{avg,max}` (#50172).
+
+- `receiver/nrmysql`: 4 opt-in MyISAM key-cache metrics —
+  `mysql.myisam.key_cache.{block.unused,block.used.max,disk.operation,request}` — with the
+  `mysql.myisam.key_cache.operation.type` (read/write) attribute (#50247).
+
+- `receiver/nrmysql`: 3 opt-in InnoDB transaction metrics — `mysql.innodb.history_list.length`,
+  `mysql.innodb.transaction.active.count` and `mysql.innodb.transaction.active.duration.max`. The
+  query that feeds them is skipped entirely when all three are disabled (#50380).
+
+- `receiver/nrmysql`: `db_auth` configuration for AWS IAM authentication against RDS/Aurora MySQL,
+  via a `dbauth` provider extension. Mutually exclusive with `password` and requires TLS
+  (`tls.insecure: false`). Brings `nrmysql` in line with `nrpostgresql`, which already had it (#50411).
+
 ### 🧰 Bug fixes 🧰
+
+- `receiver/nrmysql`: `mysql.commands` now also reports the `alter_table`, `create_index`,
+  `create_table` and `optimize` command types. Only 6 of upstream's 10 `Com_*` counters were being
+  emitted, so those four command counts were silently missing.
+
+- `receiver/nrsqlserver`: `db.server.query_sample` no longer drops sessions whose SQL text is
+  unavailable — including sessions blocked on schema locks. The query now falls back to
+  `sys.dm_exec_input_buffer` instead of inner-joining `sys.dm_exec_sql_text`. Adopted from upstream
+  (#49984).
+
+- `receiver/nrpostgresql`: top-query collection no longer panics on a type assertion when
+  `pg_stat_statements` still holds rows for a dropped database. Adopted from upstream (#49820).
 
 - `receiver/nrmysql`: Disabling every metric fed by the table stats, statement events, table
   lock-wait, replica status, InnoDB, table io_waits, or index io_waits query groups now also
@@ -20,6 +94,10 @@ including confirmation of which breaking changes from [CHANGELOG.md](./CHANGELOG
 
 - `receiver/nrpostgresql`: `postgresql.table.count` alone now uses a cheap `COUNT(*)` instead of
   the full per-table query.
+
+- `receiver/nroracledb`: added the `service.name` and `service.namespace` resource attributes, both
+  disabled by default, matching the other `nr`-prefixed receivers and `oracledbreceiver`. When
+  enabled, `service.name` defaults to `unknown_service:oracle`.
 
 ## v0.158.3
 

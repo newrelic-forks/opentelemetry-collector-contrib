@@ -9,10 +9,10 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/lib/pq v1.12.3
-	github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon v0.158.0
-	github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrsqlquery v0.158.0
+	github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon v0.160.0
+	github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrsqlquery v0.160.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/golden v0.160.0
-	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatatest v0.158.0
+	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatatest v0.160.0
 	github.com/stretchr/testify v1.12.1
 	github.com/testcontainers/testcontainers-go v0.43.0
 	github.com/tj/assert v0.0.3
@@ -85,7 +85,7 @@ require (
 	github.com/moby/term v0.5.2 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
-	github.com/open-telemetry/opentelemetry-collector-contrib/config/configdbauth v0.158.0
+	github.com/open-telemetry/opentelemetry-collector-contrib/config/configdbauth v0.160.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/extension/dbauth v0.160.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatautil v0.160.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
