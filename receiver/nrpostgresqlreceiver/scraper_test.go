@@ -1578,82 +1578,227 @@ func TestScrapeTopQueriesViaFunction(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestRewriteIntervalParams(t *testing.T) {
+func TestRepairNormalizedQuery(t *testing.T) {
 	testCases := []struct {
 		name     string
 		query    string
 		expected string
 	}{
 		{
-			name:     "no interval, unchanged",
+			name:     "no repair needed, unchanged",
 			query:    "SELECT * FROM orders WHERE id = $1",
 			expected: "SELECT * FROM orders WHERE id = $1",
 		},
+
+		// EXTRACT($N FROM ...) -- pg_stat_statements normalizes EXTRACT's keyword argument
+		// (e.g. EPOCH) into an unpreparable $N; rewritten to a call that does take one.
 		{
-			// Shape pg_stat_statements produces from a literal interval like "INTERVAL '30 days'".
-			name:     "single normalized interval",
-			query:    "SELECT * FROM orders WHERE created_at > NOW() - INTERVAL $1",
-			expected: "SELECT * FROM orders WHERE created_at > NOW() - $1::interval",
+			name:     "extract with parameter is rewritten to a function call",
+			query:    "SELECT * FROM orders WHERE EXTRACT($1 FROM order_date) = $2",
+			expected: "SELECT * FROM orders WHERE pg_catalog.extract($1, order_date) = $2",
 		},
 		{
-			name:     "lowercase interval keyword",
-			query:    "SELECT * FROM orders WHERE created_at > NOW() - interval $1",
-			expected: "SELECT * FROM orders WHERE created_at > NOW() - $1::interval",
+			name:     "extract rewrite preserves surrounding parameter numbering",
+			query:    "SELECT CAST($1 AS varchar(50)) FROM orders WHERE EXTRACT($2 FROM order_date) BETWEEN $3 AND $4",
+			expected: "SELECT CAST($1 AS varchar(50)) FROM orders WHERE pg_catalog.extract($2, order_date) BETWEEN $3 AND $4",
 		},
 		{
-			name:     "two normalized intervals in one query",
-			query:    "SELECT * FROM orders WHERE created_at > NOW() - INTERVAL $1 AND shipped_at < NOW() - INTERVAL $2",
-			expected: "SELECT * FROM orders WHERE created_at > NOW() - $1::interval AND shipped_at < NOW() - $2::interval",
+			name:     "extract rewrite is balanced when the source is a nested call",
+			query:    "SELECT EXTRACT($1 FROM greatest(a, b))",
+			expected: "SELECT pg_catalog.extract($1, greatest(a, b))",
 		},
 		{
-			// $1 is a genuine bind parameter, $2 is a normalized literal interval.
-			name:     "real bind parameter alongside a normalized interval",
-			query:    "SELECT * FROM orders WHERE status = $1 AND created_at > NOW() - INTERVAL $2",
-			expected: "SELECT * FROM orders WHERE status = $1 AND created_at > NOW() - $2::interval",
+			name:     "extract rewrite tolerates extra whitespace",
+			query:    "SELECT extract(  $1   FROM   order_date )",
+			expected: "SELECT pg_catalog.extract($1, order_date )",
+		},
+		{
+			name:     "extract rewrite is case insensitive",
+			query:    "SELECT Extract($1 From order_date)",
+			expected: "SELECT pg_catalog.extract($1, order_date)",
+		},
+		{
+			// A word boundary keeps this from matching "EXTRACT" as a suffix of a longer
+			// identifier, e.g. a user-defined function named my_extract.
+			name:     "identifier ending in extract is not mistaken for the keyword",
+			query:    "SELECT my_extract($1 FROM order_date)",
+			expected: "SELECT my_extract($1 FROM order_date)",
+		},
+		{
+			name:     "multiple extracts are all rewritten",
+			query:    "SELECT EXTRACT($1 FROM a), EXTRACT($2 FROM b)",
+			expected: "SELECT pg_catalog.extract($1, a), pg_catalog.extract($2, b)",
+		},
+		{
+			name:     "extract with a literal field is already valid and left alone",
+			query:    "SELECT EXTRACT(YEAR FROM order_date)",
+			expected: "SELECT EXTRACT(YEAR FROM order_date)",
+		},
+		{
+			name:     "extract rewrite reaches a nested extract",
+			query:    "SELECT EXTRACT($1 FROM EXTRACT($2 FROM x))",
+			expected: "SELECT pg_catalog.extract($1, pg_catalog.extract($2, x))",
+		},
+		{
+			name:     "extract as part of an identifier, not a function call",
+			query:    "SELECT extract_data FROM users WHERE id = $1",
+			expected: "SELECT extract_data FROM users WHERE id = $1",
+		},
+
+		// TYPENAME $N -- pg_stat_statements normalizes a typed literal (e.g. INTERVAL '1 day')
+		// the same unpreparable way; rewritten to an explicit CAST.
+		{
+			name:     "typed interval literal is rewritten to a cast",
+			query:    "SELECT now() - interval $1",
+			expected: "SELECT now() - CAST($1 AS interval)",
+		},
+		{
+			name:     "typed timestamp literal is rewritten to a cast",
+			query:    "SELECT * FROM events WHERE created_at > timestamp $1",
+			expected: "SELECT * FROM events WHERE created_at > CAST($1 AS timestamp)",
+		},
+		{
+			name:     "typed timestamptz literal is rewritten to a cast",
+			query:    "SELECT * FROM events WHERE created_at > timestamptz $1",
+			expected: "SELECT * FROM events WHERE created_at > CAST($1 AS timestamptz)",
+		},
+		{
+			name:     "typed date literal is rewritten to a cast",
+			query:    "SELECT * FROM events WHERE created_at > date $1",
+			expected: "SELECT * FROM events WHERE created_at > CAST($1 AS date)",
+		},
+		{
+			name:     "typed time literal is rewritten to a cast",
+			query:    "SELECT * FROM events WHERE created_at > time $1",
+			expected: "SELECT * FROM events WHERE created_at > CAST($1 AS time)",
+		},
+		{
+			name:     "typed timetz literal is rewritten to a cast",
+			query:    "SELECT * FROM events WHERE started_at > timetz $1",
+			expected: "SELECT * FROM events WHERE started_at > CAST($1 AS timetz)",
+		},
+		{
+			name:     "timestamp is not truncated to time when both appear",
+			query:    "SELECT * FROM t WHERE ts > timestamp $1 AND t > time $2",
+			expected: "SELECT * FROM t WHERE ts > CAST($1 AS timestamp) AND t > CAST($2 AS time)",
+		},
+		{
+			name:     "typed literal rewrite is case insensitive",
+			query:    "SELECT now() - INTERVAL $1",
+			expected: "SELECT now() - CAST($1 AS INTERVAL)",
+		},
+		{
+			name:     "multi word timestamp with time zone is rewritten whole",
+			query:    "SELECT * FROM t WHERE ts > timestamp with time zone $1",
+			expected: "SELECT * FROM t WHERE ts > CAST($1 AS timestamp with time zone)",
+		},
+		{
+			name:     "multi word timestamp without time zone is rewritten whole",
+			query:    "SELECT * FROM t WHERE ts > timestamp without time zone $1",
+			expected: "SELECT * FROM t WHERE ts > CAST($1 AS timestamp without time zone)",
+		},
+		{
+			name:     "multi word double precision is rewritten whole",
+			query:    "SELECT * FROM t WHERE d > double precision $1",
+			expected: "SELECT * FROM t WHERE d > CAST($1 AS double precision)",
+		},
+		{
+			name:     "non temporal typed literal is rewritten to a cast",
+			query:    "SELECT * FROM t WHERE total > numeric $1",
+			expected: "SELECT * FROM t WHERE total > CAST($1 AS numeric)",
+		},
+		{
+			name:     "uuid typed literal is rewritten to a cast",
+			query:    "SELECT * FROM t WHERE id = uuid $1",
+			expected: "SELECT * FROM t WHERE id = CAST($1 AS uuid)",
+		},
+		{
+			name:     "single interval field qualifier is kept inside the cast",
+			query:    "SELECT now() - interval $1 day",
+			expected: "SELECT now() - CAST($1 AS interval day)",
+		},
+		{
+			name:     "interval field range qualifier is kept inside the cast",
+			query:    "SELECT now() - interval $1 DAY TO SECOND",
+			expected: "SELECT now() - CAST($1 AS interval DAY TO SECOND)",
+		},
+		{
+			name:     "a word after the parameter that is not a field keyword is left outside the cast",
+			query:    "SELECT * FROM t WHERE ts > timestamp $1 ORDER BY ts",
+			expected: "SELECT * FROM t WHERE ts > CAST($1 AS timestamp) ORDER BY ts",
 		},
 		{
 			// "INTERVAL" as a substring, not the keyword, must not be touched.
-			name:     "INTERVAL as part of a column name, not a keyword",
+			name:     "identifier prefixed with a type name is not rewritten",
 			query:    "SELECT interval_seconds FROM orders WHERE id = $1",
 			expected: "SELECT interval_seconds FROM orders WHERE id = $1",
 		},
 		{
-			// The pattern would otherwise match "interval $1" here, corrupting a string literal
-			// that merely mentions the word rather than using it as the SQL keyword.
-			name:     "interval keyword inside a string literal is left alone",
-			query:    "SELECT * FROM t WHERE msg = 'waited an interval $1 to run'",
-			expected: "SELECT * FROM t WHERE msg = 'waited an interval $1 to run'",
+			// timestamp(3) $1 is still unpreparable; recorded as a known limit rather than a
+			// rewrite that guesses at the modifier.
+			name:     "a type modifier breaks the typed literal form and is left alone",
+			query:    "SELECT * FROM t WHERE ts > timestamp(3) $1",
+			expected: "SELECT * FROM t WHERE ts > timestamp(3) $1",
 		},
+
+		// Both repairs together, and cases that must NOT be rewritten.
 		{
-			name:     "interval keyword inside a doubled-quote string literal is left alone",
-			query:    "SELECT * FROM t WHERE msg = 'it''s an interval $1 wait'",
-			expected: "SELECT * FROM t WHERE msg = 'it''s an interval $1 wait'",
-		},
-		{
-			name:     "interval keyword inside a quoted identifier is left alone",
-			query:    `SELECT * FROM t WHERE "my interval $1" = $2`,
-			expected: `SELECT * FROM t WHERE "my interval $1" = $2`,
-		},
-		{
-			name:     "interval keyword inside a line comment is left alone",
-			query:    "SELECT * FROM t -- interval $1\nWHERE id = $2",
-			expected: "SELECT * FROM t -- interval $1\nWHERE id = $2",
-		},
-		{
-			name:     "interval keyword inside a block comment is left alone",
-			query:    "SELECT /* interval $1 */ * FROM t WHERE id = $2",
-			expected: "SELECT /* interval $1 */ * FROM t WHERE id = $2",
+			name:     "both repairs apply to the same expression",
+			query:    "SELECT EXTRACT($1 FROM timestamp $2)",
+			expected: "SELECT pg_catalog.extract($1, CAST($2 AS timestamp))",
 		},
 		{
 			// A protected span earlier in the query must not suppress a real rewrite later on.
-			name:     "a protected span does not block a later real rewrite",
-			query:    "SELECT * FROM t WHERE msg = 'interval $1' AND created_at > NOW() - INTERVAL $2",
-			expected: "SELECT * FROM t WHERE msg = 'interval $1' AND created_at > NOW() - $2::interval",
+			name:     "a protected span does not suppress a later repair",
+			query:    "SELECT * FROM t WHERE msg = 'interval $1' AND ts > timestamp $2",
+			expected: "SELECT * FROM t WHERE msg = 'interval $1' AND ts > CAST($2 AS timestamp)",
 		},
 		{
-			name:     "exact bare interval literal in a string is left alone",
+			name:     "AT TIME ZONE is already valid and left alone",
+			query:    "SELECT now() AT TIME ZONE $1",
+			expected: "SELECT now() AT TIME ZONE $1",
+		},
+		{
+			name:     "date_part with a parameter is already valid and left alone",
+			query:    "SELECT date_part($1, order_date)",
+			expected: "SELECT date_part($1, order_date)",
+		},
+		{
+			name:     "already valid query is returned unchanged",
+			query:    "SELECT a, b FROM t WHERE id = $1 ORDER BY b DESC",
+			expected: "SELECT a, b FROM t WHERE id = $1 ORDER BY b DESC",
+		},
+
+		// Protected-span guards: string literals, quoted identifiers, and comments.
+		{
+			name:     "quoted identifier that looks like extract is left alone",
+			query:    `SELECT * FROM t WHERE "EXTRACT($1 FROM x)" = $2`,
+			expected: `SELECT * FROM t WHERE "EXTRACT($1 FROM x)" = $2`,
+		},
+		{
+			name:     "string literal that looks like extract is left alone",
+			query:    "SELECT * FROM t WHERE msg = 'EXTRACT($1 FROM x)'",
+			expected: "SELECT * FROM t WHERE msg = 'EXTRACT($1 FROM x)'",
+		},
+		{
+			name:     "quoted identifier that looks like a typed literal is left alone",
+			query:    `SELECT * FROM t WHERE "interval $1" = $2`,
+			expected: `SELECT * FROM t WHERE "interval $1" = $2`,
+		},
+		{
+			name:     "string literal that looks like a typed literal is left alone",
 			query:    "SELECT * FROM t WHERE msg = 'interval $1'",
 			expected: "SELECT * FROM t WHERE msg = 'interval $1'",
+		},
+		{
+			name:     "type name deeper inside a string literal is left alone",
+			query:    "SELECT * FROM t WHERE msg = 'waited an interval $1'",
+			expected: "SELECT * FROM t WHERE msg = 'waited an interval $1'",
+		},
+		{
+			name:     "type name deeper inside a quoted identifier is left alone",
+			query:    `SELECT * FROM t WHERE "my interval $1" = $2`,
+			expected: `SELECT * FROM t WHERE "my interval $1" = $2`,
 		},
 		{
 			name:     "doubled quote inside a literal does not end the protected span",
@@ -1664,6 +1809,16 @@ func TestRewriteIntervalParams(t *testing.T) {
 			name:     "escaped quote in an E string does not end the protected span",
 			query:    `SELECT * FROM t WHERE msg = E'x\' interval $1'`,
 			expected: `SELECT * FROM t WHERE msg = E'x\' interval $1'`,
+		},
+		{
+			name:     "type name inside a line comment is left alone",
+			query:    "SELECT * FROM t WHERE ts > -- interval\n  $1",
+			expected: "SELECT * FROM t WHERE ts > -- interval\n  $1",
+		},
+		{
+			name:     "type name inside a block comment is left alone",
+			query:    "SELECT /* interval $1 */ * FROM t WHERE id = $2",
+			expected: "SELECT /* interval $1 */ * FROM t WHERE id = $2",
 		},
 		{
 			name:     "type name inside a nested block comment is left alone",
@@ -1684,8 +1839,8 @@ func TestRewriteIntervalParams(t *testing.T) {
 			// A parameter placeholder like "$2" must not be mistaken for the start of a
 			// dollar-quoted string, since a digit can never open one.
 			name:     "a parameter placeholder does not open a dollar quote",
-			query:    "SELECT $2 FROM t WHERE created_at > NOW() - INTERVAL $1",
-			expected: "SELECT $2 FROM t WHERE created_at > NOW() - $1::interval",
+			query:    "SELECT $2 FROM t WHERE created_at > NOW() - interval $1",
+			expected: "SELECT $2 FROM t WHERE created_at > NOW() - CAST($1 AS interval)",
 		},
 		{
 			name:     "unterminated string literal protects to the end",
@@ -1701,7 +1856,7 @@ func TestRewriteIntervalParams(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.expected, rewriteIntervalParams(tc.query))
+			assert.Equal(t, tc.expected, repairNormalizedQuery(tc.query))
 		})
 	}
 }
@@ -1856,6 +2011,17 @@ func TestIsExplainableQuery(t *testing.T) {
 		{name: "legitimate trailing semicolon", query: "SELECT * FROM users;", expected: true},
 		{name: "semicolon inside string literal", query: "UPDATE users SET note = 'a; b' WHERE id = 1", expected: true},
 		{name: "escaped quote with semicolon inside string literal", query: "UPDATE users SET note = 'it''s; done' WHERE id = 1", expected: true},
+
+		// EXTRACT($N FROM ...) — pg_stat_statements normalizes EXTRACT's keyword argument
+		// (e.g. EPOCH) into an unpreparable $N, but repairNormalizedQuery fixes that before
+		// PREPARE, so these are explainable like any other SELECT.
+		{name: "EXTRACT with normalized field keyword", query: "SELECT EXTRACT($1 FROM query_start) FROM pg_stat_activity", expected: true},
+		{name: "EXTRACT with normalized field keyword, extra whitespace", query: "SELECT EXTRACT( $1  FROM  query_start)", expected: true},
+		{name: "EXTRACT lowercase", query: "select extract($1 from query_start)", expected: true},
+		{name: "EXTRACT with literal keyword is still explainable", query: "SELECT EXTRACT(EPOCH FROM query_start) FROM pg_stat_activity WHERE pid = $1", expected: true},
+		{name: "EXTRACT as part of identifier, not a function call", query: "SELECT extract_data FROM users WHERE id = $1", expected: true},
+		{name: "EXTRACT($N FROM ...) text inside a string literal is not the SQL keyword", query: "SELECT * FROM t WHERE msg = 'EXTRACT($1 FROM x)' AND id = $2", expected: true},
+		{name: "EXTRACT($N FROM ...) text inside a line comment is not the SQL keyword", query: "SELECT * FROM t -- EXTRACT($1 FROM x)\nWHERE id = $2", expected: true},
 	}
 
 	for _, tc := range testCases {
@@ -1962,7 +2128,7 @@ func TestExplainQuery(t *testing.T) {
 	testCases := []struct {
 		name              string
 		query             string
-		expectedPrepared  string // actual PREPAREd text after rewriteIntervalParams; defaults to query if empty
+		expectedPrepared  string // actual PREPAREd text after repairNormalizedQuery; defaults to query if empty
 		queryID           string
 		normalizedQueryID string
 		paramCount        int
@@ -2033,13 +2199,23 @@ func TestExplainQuery(t *testing.T) {
 			mockPlanResult:    `[{"Plan":{"Node Type":"Seq Scan","Relation Name":"orders"}}]`,
 		},
 		{
-			// $N from a normalized INTERVAL literal; rewriteIntervalParams must fix it before PREPARE.
+			// $N from a normalized INTERVAL literal; repairNormalizedQuery must fix it before PREPARE.
 			name:              "query with normalized literal interval",
 			query:             "SELECT * FROM orders WHERE status = $1 AND created_at > NOW() - INTERVAL $2",
-			expectedPrepared:  "SELECT * FROM orders WHERE status = $1 AND created_at > NOW() - $2::interval",
+			expectedPrepared:  "SELECT * FROM orders WHERE status = $1 AND created_at > NOW() - CAST($2 AS INTERVAL)",
 			queryID:           "20004",
 			normalizedQueryID: "20004",
 			paramCount:        2,
+			mockPlanResult:    `[{"Plan":{"Node Type":"Seq Scan","Relation Name":"orders"}}]`,
+		},
+		{
+			// $N from a normalized EXTRACT field keyword; repairNormalizedQuery must fix it before PREPARE.
+			name:              "query with normalized EXTRACT field keyword",
+			query:             "SELECT * FROM orders WHERE status = $1 AND EXTRACT($2 FROM created_at) = $3",
+			expectedPrepared:  "SELECT * FROM orders WHERE status = $1 AND pg_catalog.extract($2, created_at) = $3",
+			queryID:           "20005",
+			normalizedQueryID: "20005",
+			paramCount:        3,
 			mockPlanResult:    `[{"Plan":{"Node Type":"Seq Scan","Relation Name":"orders"}}]`,
 		},
 	}

@@ -194,34 +194,64 @@ func (c *postgreSQLClient) probeExplainFunction(ctx context.Context, quotedFunct
 	return rows.Close()
 }
 
-// intervalParamPattern matches "INTERVAL $N", a placeholder pg_stat_statements leaves after
-// normalizing a literal interval. $N isn't a real bind param, so PREPARE rejects it as-is.
-var intervalParamPattern = regexp.MustCompile(`(?i)INTERVAL\s+(\$\d+)`)
+// typedLiteralTypeNames lists the built-in type names this repair rewrites, longest spelling
+// first so a multi-word name beats the prefix it starts with. Anything unlisted, including
+// aliases and user-defined types, is left unrewritten.
+const typedLiteralTypeNames = `timestamptz|timestamp\s+with\s+time\s+zone|timestamp\s+without\s+time\s+zone|timestamp|` +
+	`timetz|time\s+with\s+time\s+zone|time\s+without\s+time\s+zone|time|interval|date|` +
+	`double\s+precision|numeric|decimal|real|smallint|integer|bigint|boolean|` +
+	`uuid|jsonb|json|xml|bytea|inet|cidr|macaddr|money|bit\s+varying|bit|` +
+	`character\s+varying|character|varchar|text`
 
-// rewriteIntervalParams rewrites "INTERVAL $N" to "$N::interval" so PREPARE accepts it. Matches
-// inside a single-quoted string literal, a double-quoted identifier, or a comment are left alone,
-// since the query text there is data, not the SQL keyword this rewrite targets.
-func rewriteIntervalParams(query string) string {
-	matches := intervalParamPattern.FindAllStringSubmatchIndex(query, -1)
+// pg_stat_statements substitutes "$N" over the byte ranges of the constants it jumbled without
+// re-parsing, so a parameter can land where the grammar accepts none. Both patterns below fail
+// PREPARE with 42601; both rewrites skip protected spans, so a "$N" that is only text is untouched.
+var (
+	// EXTRACT's field argument is a fixed keyword, not an expression, so the emitted
+	// EXTRACT($1 FROM x) is invalid. pg_catalog.extract($1, x) is the call PostgreSQL's own
+	// parser builds and does take a parameter there. Only the text through FROM is replaced,
+	// so the original closing paren still terminates the call.
+	extractParamPattern = regexp.MustCompile(`(?i)\bEXTRACT\s*\(\s*(\$\d+)\s+FROM\s+`)
+
+	// TYPENAME 'value' requires a literal, so "interval '1 day'" normalizes to the invalid
+	// "interval $1". CAST is used instead of "::" so a multi-word type name or an interval
+	// qualifier still fits; the trailing group only accepts interval keywords so it can't
+	// swallow a following AND/OR/alias.
+	typedLiteralParamPattern = regexp.MustCompile(`(?i)\b(` + typedLiteralTypeNames + `)\s+(\$\d+)\b` +
+		`((?:\s+(?:YEAR|MONTH|DAY|HOUR|MINUTE|SECOND)(?:\s+TO\s+(?:MONTH|DAY|HOUR|MINUTE|SECOND))?)?)`)
+)
+
+// repairNormalizedQuery rewrites the two parameter placements pg_stat_statements can emit but
+// PostgreSQL cannot parse. Queries without them are returned unchanged.
+func repairNormalizedQuery(query string) string {
+	query = replaceOutsideProtectedSpans(query, extractParamPattern, "pg_catalog.extract(${1}, ")
+	query = replaceOutsideProtectedSpans(query, typedLiteralParamPattern, "CAST(${2} AS ${1}${3})")
+	return query
+}
+
+// replaceOutsideProtectedSpans behaves like ReplaceAllString, except a match starting inside a
+// quotedAndCommentSpans range is left alone, since that text is data, not SQL to rewrite.
+func replaceOutsideProtectedSpans(query string, re *regexp.Regexp, repl string) string {
+	matches := re.FindAllStringSubmatchIndex(query, -1)
 	if len(matches) == 0 {
 		return query
 	}
 
 	protected := quotedAndCommentSpans(query)
-
-	var out strings.Builder
+	var out []byte
 	last := 0
 	for _, m := range matches {
 		if withinAnySpan(protected, m[0]) {
 			continue
 		}
-		out.WriteString(query[last:m[0]])
-		out.WriteString(query[m[2]:m[3]])
-		out.WriteString("::interval")
+		out = append(out, query[last:m[0]]...)
+		out = re.ExpandString(out, repl, query, m)
 		last = m[1]
 	}
-	out.WriteString(query[last:])
-	return out.String()
+	if out == nil {
+		return query
+	}
+	return string(append(out, query[last:]...))
 }
 
 // quotedAndCommentSpans returns the byte ranges of query that are inside a single-quoted string
@@ -366,7 +396,7 @@ func (c *postgreSQLClient) explainQuery(query, queryID, explainFunction string, 
 		return "", nil
 	}
 
-	query = rewriteIntervalParams(query)
+	query = repairNormalizedQuery(query)
 
 	if explainFunction != "" {
 		return c.explainQueryViaFunction(query, queryID, explainFunction, logger)
