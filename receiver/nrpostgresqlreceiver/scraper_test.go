@@ -491,8 +491,8 @@ func TestQueryGuardsCoverEveryMetric(t *testing.T) {
 func allMetricsDisabledConfig() *Config {
 	cfg := createDefaultConfig().(*Config)
 	v := reflect.ValueOf(&cfg.MetricsBuilderConfig.Metrics).Elem()
-	for i := 0; i < v.NumField(); i++ {
-		enabledField := v.Field(i).FieldByName("Enabled")
+	for _, fieldValue := range v.Fields() {
+		enabledField := fieldValue.FieldByName("Enabled")
 		if enabledField.IsValid() && enabledField.CanSet() {
 			enabledField.SetBool(false)
 		}

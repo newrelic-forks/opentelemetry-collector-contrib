@@ -430,8 +430,7 @@ func (p *postgreSQLScraper) probeExplainFunctionIfNeeded(ctx context.Context, da
 		return
 	}
 
-	var pqErr *pq.Error
-	if errors.As(err, &pqErr) {
+	if pqErr, ok := errors.AsType[*pq.Error](err); ok {
 		if pqErr.Code == pqerror.UndefinedFunction {
 			p.logger.Warn("EXPLAIN helper function not found, falling back to inline EXPLAIN",
 				zap.String("database", database),
