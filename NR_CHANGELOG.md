@@ -7,6 +7,12 @@ including confirmation of which breaking changes from [CHANGELOG.md](./CHANGELOG
 
 ## Unreleased
 
+### 🧰 Bug fixes 🧰
+
+- `receiver/nrpostgresql`: `postgresql.table.size` now reports a table's total disk usage, including
+  its indexes and TOAST storage, instead of only the main data heap. Adopted from upstream
+  `receiver/postgresql` (#50918).
+
 ## v0.160.0
 
 Synced with upstream contrib v0.160.0.
