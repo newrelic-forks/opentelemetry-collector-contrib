@@ -1800,7 +1800,7 @@ Aggregated performance metrics for the top stored procedures by elapsed time, de
 | oracledb.rows_processed | The total number of rows that a query has read, returned, or affected during its execution (reporting delta). | Any Int | - |
 | oracledb.physical_read_bytes | The total number of bytes read from disk by a query (reporting delta). | Any Int | - |
 | oracledb.physical_write_bytes | The total number of bytes written to disk by a query (reporting delta). | Any Int | - |
-| oracledb.procedure.first_load_time | Earliest load time across the procedure's cached statements, in the server's local timezone. Format: YYYY-MM-DD/HH:MM:SS | Any Str | - |
+| oracledb.procedure.first_load_time | Earliest load time across the procedure's cached statements, in ISO 8601 format (UTC). | Any Str | - |
 | oracledb.procedure.last_active_time | The most recent time any of the procedure's cached statements were active, in ISO 8601 format (UTC). | Any Str | - |
 
 ### db.server.top_query
@@ -1846,8 +1846,8 @@ Collection of event metrics for top N queries, filtered based on the highest CPU
 | db.query.comment_tags.nr_service_guid | New Relic service GUID extracted from the filtered db.query.comment_tags. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
 | query.comments.nr_service_guid | New Relic service GUID extracted from the filtered query comments. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Mirrors db.query.comment_tags.nr_service_guid and is used for correlation with APM traces. | Any Str | - |
 | oracledb.plan_hash_value | Numeric representation of the execution plan. | Any Str | - |
-| oracledb.plan.first_load | Time at which the plan was first loaded into the library cache, in the server's local timezone. Format: YYYY-MM-DD/HH:MM:SS | Any Str | - |
-| oracledb.plan.last_load | Plan load time in the server's local timezone. Format: YYYY-MM-DD/HH:MM:SS | Any Str | - |
+| oracledb.plan.first_load | Time at which the plan was first loaded into the library cache, in ISO 8601 format (UTC). | Any Str | - |
+| oracledb.plan.last_load | Plan load time, in ISO 8601 format (UTC). | Any Str | - |
 | db.query.text.normalized.hash | MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Used for correlation with APM slow query traces. | Any Str | - |
 | oracledb.normalised_sql_hash | MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Mirrors db.query.text.normalized.hash and is used for correlation with APM slow query traces. | Any Str | - |
 

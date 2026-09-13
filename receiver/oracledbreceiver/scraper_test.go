@@ -3018,7 +3018,7 @@ func TestCDBRootDictionaryJoinsMatchOnConID(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			cdbSQL := test.build(&oracleScraper{useCDBDictionaryViews: true})
+			cdbSQL := test.build(&oracleScraper{useCDBProceduresView: true, useCDBDictionaryViews: true})
 			for _, view := range test.cdbViews {
 				assert.Contains(t, cdbSQL, view, "CDB-root variant must read cross-container dictionary views")
 			}
@@ -3027,7 +3027,7 @@ func TestCDBRootDictionaryJoinsMatchOnConID(t *testing.T) {
 					"CDB-root variant must qualify the join/grouping by CON_ID")
 			}
 
-			nonCDBSQL := test.build(&oracleScraper{useCDBDictionaryViews: false})
+			nonCDBSQL := test.build(&oracleScraper{useCDBProceduresView: false, useCDBDictionaryViews: false})
 			assert.Contains(t, nonCDBSQL, test.nonCDBView,
 				"non-root variant should keep the container-local dictionary view")
 			for _, view := range test.cdbViews {
@@ -3064,7 +3064,7 @@ func TestCDBDictionaryGrantsFallback(t *testing.T) {
 			got := scrpr.hasCDBDictionaryGrants(t.Context(), &fakeDbClient{
 				Responses: [][]metricRow{nil},
 				Err:       test.probeErr,
-			})
+			}, "oracledbreceiver: CDB_PROCEDURES/CDB_OBJECTS not readable; falling back to DBA_* dictionary views")
 
 			assert.Equal(t, test.wantCDB, got)
 			assert.Equal(t, test.wantWarns,
@@ -3077,6 +3077,47 @@ func TestCDBDictionaryGrantsFallback(t *testing.T) {
 				assert.Contains(t, scrpr.buildQuerySampleSQL(), "CDB_OBJECTS")
 			} else {
 				assert.Contains(t, scrpr.buildQuerySampleSQL(), "DBA_OBJECTS")
+			}
+		})
+	}
+}
+
+// top_query and top_procedure only join against CDB_PROCEDURES, so they must keep working on a CDB root that
+// has that grant but not CDB_OBJECTS, rather than being gated on query_sample's stricter probe.
+func TestCDBProceduresGrantFallback(t *testing.T) {
+	tests := []struct {
+		name      string
+		probeErr  error
+		wantCDB   bool
+		wantWarns int
+	}{
+		{name: "grant present", probeErr: nil, wantCDB: true},
+		{name: "grant missing falls back", probeErr: errors.New("ORA-00942: table or view does not exist"), wantCDB: false, wantWarns: 1},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			core, observedLogs := observer.New(zapcore.WarnLevel)
+			scrpr := oracleScraper{logger: zap.New(core)}
+
+			got := scrpr.hasCDBDictionaryGrants(t.Context(), &fakeDbClient{
+				Responses: [][]metricRow{nil},
+				Err:       test.probeErr,
+			}, "oracledbreceiver: CDB_PROCEDURES not readable; falling back to DBA_PROCEDURES")
+
+			assert.Equal(t, test.wantCDB, got)
+			assert.Equal(t, test.wantWarns,
+				observedLogs.FilterMessageSnippet("falling back to DBA_PROCEDURES").Len(),
+				"a missing grant must warn and point at the README")
+
+			// The fallback must actually change which views top_query and top_procedure read.
+			scrpr.useCDBProceduresView = got
+			if test.wantCDB {
+				assert.Contains(t, scrpr.buildTopQuerySQL(), "CDB_PROCEDURES")
+				assert.Contains(t, scrpr.buildProcedureMetricsSQL(), "CDB_PROCEDURES")
+			} else {
+				assert.Contains(t, scrpr.buildTopQuerySQL(), "DBA_PROCEDURES")
+				assert.Contains(t, scrpr.buildProcedureMetricsSQL(), "DBA_PROCEDURES")
 			}
 		})
 	}

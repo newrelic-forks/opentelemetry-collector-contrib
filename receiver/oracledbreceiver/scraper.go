@@ -49,7 +49,10 @@ const (
 	// single-container query set.
 	containerGrantsProbeSQL = "SELECT 1 FROM v$con_sysstat WHERE ROWNUM = 1"
 	// A missing grant raises ORA-00942 at parse time, so this is a permission check, not a data check.
-	cdbDictionaryGrantsProbeSQL = "SELECT 1 FROM CDB_PROCEDURES WHERE ROWNUM = 1"
+	// top_query and top_procedure only join against CDB_PROCEDURES, so they are probed separately from
+	// query_sample, which additionally needs CDB_OBJECTS.
+	cdbProceduresGrantProbeSQL  = "SELECT 1 FROM CDB_PROCEDURES WHERE ROWNUM = 1"
+	cdbDictionaryGrantsProbeSQL = "SELECT COUNT(*) FROM (SELECT 1 FROM CDB_PROCEDURES WHERE ROWNUM = 1 UNION ALL SELECT 1 FROM CDB_OBJECTS WHERE ROWNUM = 1)"
 	containerGrantsProbeTimeout = 5 * time.Second
 
 	// V$SYSMETRIC metric_name values (group_id=2, 60-second interval)
@@ -381,8 +384,12 @@ type oracleScraper struct {
 	sessionCountClient         dbClient
 	// isCDBRoot is true when connected to a CDB root (Oracle 12c+); enables per-PDB queries.
 	isCDBRoot bool
-	// useCDBDictionaryViews enables container-qualified dictionary joins in the event queries. Separate from
-	// isCDBRoot because the CDB_* dictionary views are granted separately from the per-PDB metric views.
+	// useCDBProceduresView enables the CDB_PROCEDURES-qualified join for top_query and top_procedure. Separate
+	// from isCDBRoot because the per-PDB metric views and the cross-container dictionary views are granted
+	// separately.
+	useCDBProceduresView bool
+	// useCDBDictionaryViews additionally enables the CDB_OBJECTS-qualified join needed by query_sample. It
+	// requires CDB_PROCEDURES and CDB_OBJECTS, a strict superset of useCDBProceduresView's grant.
 	useCDBDictionaryViews    bool
 	oracleQueryMetricsClient dbClient
 	oraclePlanDataClient     dbClient
@@ -416,12 +423,12 @@ type oracleScraper struct {
 	querySampleCfg           QuerySample
 	sessionWaitEventCfg      SessionWaitEvent
 	serviceInstanceID        string
+	serverAddress            string
+	serverPort               int64
 	lastExecutionTimestamp   time.Time
 
 	waitChainClient               dbClient
 	waitChainCfg                  WaitChain
-	serverAddress                 string
-	serverPort                    int64
 	oracleProcedureMetricsClient  dbClient
 	procedureMetricCache          *lru.Cache[string, map[string]int64]
 	procedureMetricsCfg           ProcedureMetrics
@@ -497,14 +504,14 @@ func (s *oracleScraper) buildTablespaceSQL() string {
 }
 
 func (s *oracleScraper) buildProcedureMetricsSQL() string {
-	if s.useCDBDictionaryViews {
+	if s.useCDBProceduresView {
 		return oracleProcedureMetricsCDBSQL
 	}
 	return oracleProcedureMetricsSQL
 }
 
 func (s *oracleScraper) buildTopQuerySQL() string {
-	if s.useCDBDictionaryViews {
+	if s.useCDBProceduresView {
 		return oracleQueryMetricsCDBSQL
 	}
 	return oracleQueryMetricsSQL
@@ -550,10 +557,18 @@ func (s *oracleScraper) start(ctx context.Context, _ component.Host) error {
 		s.sessionCountClient = s.clientProviderFunc(s.db, sessionCountSQL, s.logger)
 	}
 	// Granted separately from the per-PDB metric views probed above; without them the DBA_* variants still work.
+	s.useCDBProceduresView = s.instanceInfo.isCDB && !s.instanceInfo.connectedToPDB &&
+		s.hasCDBDictionaryGrants(ctx, s.clientProviderFunc(s.db, cdbProceduresGrantProbeSQL, s.logger),
+			"oracledbreceiver: CDB_PROCEDURES not readable; falling back to DBA_PROCEDURES, which cannot attribute PDB-owned procedures from a CDB root. See the receiver README 'CDB-root connections' section.")
+	if s.useCDBProceduresView {
+		s.logger.Debug("oracledbreceiver: using CDB_PROCEDURES for container-qualified procedure lookups")
+	}
+	// query_sample additionally joins CDB_OBJECTS, so it is gated on a separate, stricter probe.
 	s.useCDBDictionaryViews = s.instanceInfo.isCDB && !s.instanceInfo.connectedToPDB &&
-		s.hasCDBDictionaryGrants(ctx, s.clientProviderFunc(s.db, cdbDictionaryGrantsProbeSQL, s.logger))
+		s.hasCDBDictionaryGrants(ctx, s.clientProviderFunc(s.db, cdbDictionaryGrantsProbeSQL, s.logger),
+			"oracledbreceiver: CDB_PROCEDURES/CDB_OBJECTS not readable; falling back to DBA_* dictionary views, which cannot attribute PDB-owned objects from a CDB root. See the receiver README 'CDB-root connections' section.")
 	if s.useCDBDictionaryViews {
-		s.logger.Debug("oracledbreceiver: using container-qualified dictionary joins for event collection")
+		s.logger.Debug("oracledbreceiver: using container-qualified dictionary joins for query-sample collection")
 	}
 	s.tablespaceUsageClient = s.clientProviderFunc(s.db, s.buildTablespaceSQL(), s.logger)
 	s.systemResourceLimitsClient = s.clientProviderFunc(s.db, systemResourceLimitsSQL, s.logger)
@@ -1692,13 +1707,13 @@ func (s *oracleScraper) hasContainerGrants(ctx context.Context, probe dbClient) 
 	return true
 }
 
-// hasCDBDictionaryGrants reports whether the cross-container dictionary views are readable; any error means no.
-func (s *oracleScraper) hasCDBDictionaryGrants(ctx context.Context, probe dbClient) bool {
+// hasCDBDictionaryGrants reports whether the cross-container dictionary view(s) probed by probe are readable;
+// any error means no, and logs warnMsg to point operators at the fallback and the README.
+func (s *oracleScraper) hasCDBDictionaryGrants(ctx context.Context, probe dbClient, warnMsg string) bool {
 	probeCtx, cancel := context.WithTimeout(ctx, containerGrantsProbeTimeout)
 	defer cancel()
 	if _, err := probe.metricRows(probeCtx); err != nil {
-		s.logger.Warn("oracledbreceiver: CDB_PROCEDURES not readable; falling back to DBA_* dictionary views, which cannot attribute PDB-owned objects from a CDB root. See the receiver README 'CDB-root connections' section.",
-			zap.Error(err))
+		s.logger.Warn(warnMsg, zap.Error(err))
 		return false
 	}
 	return true

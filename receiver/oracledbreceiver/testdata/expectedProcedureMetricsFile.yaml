@@ -7,15 +7,15 @@ resourceLogs:
         - key: host.name
           value:
             stringValue: oraclehost:1521
+        - key: service.instance.id
+          value:
+            stringValue: oraclehost:1521/ORCL
         - key: server.address
           value:
             stringValue: oraclehost
         - key: server.port
           value:
             intValue: "1521"
-        - key: service.instance.id
-          value:
-            stringValue: oraclehost:1521/ORCL
     scopeLogs:
       - logRecords:
           - attributes:
@@ -72,7 +72,7 @@ resourceLogs:
                   intValue: "6"
               - key: oracledb.procedure.first_load_time
                 value:
-                  stringValue: 2025-12-31/23:00:00
+                  stringValue: 2025-12-31T23:00:00Z
               - key: oracledb.procedure.last_active_time
                 value:
                   stringValue: "2026-01-01T12:00:00Z"

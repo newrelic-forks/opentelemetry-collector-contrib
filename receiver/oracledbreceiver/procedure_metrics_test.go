@@ -66,6 +66,8 @@ func newProcedureMetricsScraperWithSeeds(t *testing.T, dbclientFn clientProvider
 		}
 	}
 
+	serverAddress, serverPort, serviceInstanceID := resolveInstanceIdentity("oraclehost:1521", "oraclehost:1521/ORCL", zap.NewNop())
+
 	return &oracleScraper{
 		logger: zap.NewNop(),
 		mb:     metadata.NewMetricsBuilder(metricsCfg, receivertest.NewNopSettings(metadata.Type)),
@@ -82,9 +84,9 @@ func newProcedureMetricsScraperWithSeeds(t *testing.T, dbclientFn clientProvider
 		instanceName:         "oraclehost:1521/ORCL",
 		hostName:             "oraclehost:1521",
 		obfuscator:           newObfuscator(),
-		serviceInstanceID:    testInstanceID("oraclehost:1521", "oraclehost:1521/ORCL"),
-		serverAddress:        "oraclehost",
-		serverPort:           1521,
+		serviceInstanceID:    serviceInstanceID,
+		serverAddress:        serverAddress,
+		serverPort:           serverPort,
 	}
 }
 
@@ -105,7 +107,7 @@ func procedureRow(service string, overrides map[string]string) metricRow {
 		"EXECUTIONS": "300413", "CPU_TIME": "39736887", "ELAPSED_TIME": "99172810",
 		"BUFFER_GETS": "3997614", "DISK_READS": "15", "DIRECT_WRITES": "10",
 		"ROWS_PROCESSED": "399856", "PHYSICAL_READ_BYTES": "400", "PHYSICAL_WRITE_BYTES": "18",
-		"FIRST_LOAD_TIME": "2025-12-31/23:00:00", "LAST_ACTIVE_TIME": "2026-01-01T12:00:00Z",
+		"FIRST_LOAD_TIME": "2025-12-31T23:00:00Z", "LAST_ACTIVE_TIME": "2026-01-01T12:00:00Z",
 	}
 	maps.Copy(row, overrides)
 	return row
@@ -144,7 +146,7 @@ func TestBuildProcedureMetricsSQL(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			scrpr := oracleScraper{useCDBDictionaryViews: test.useCDB}
+			scrpr := oracleScraper{useCDBProceduresView: test.useCDB}
 			got := scrpr.buildProcedureMetricsSQL()
 
 			assert.Contains(t, got, test.wantView)
@@ -167,7 +169,7 @@ func TestBuildProcedureMetricsSQL(t *testing.T) {
 // hot only in this interval could never reach the collector's delta ranking.
 func TestProcedureMetricsSQLDoesNotRankInDatabase(t *testing.T) {
 	for _, useCDB := range []bool{true, false} {
-		scrpr := oracleScraper{useCDBDictionaryViews: useCDB}
+		scrpr := oracleScraper{useCDBProceduresView: useCDB}
 
 		assert.NotContains(t, scrpr.buildProcedureMetricsSQL(), "ORDER BY",
 			"ranking must happen in the collector over deltas, not in SQL over cumulative totals")
