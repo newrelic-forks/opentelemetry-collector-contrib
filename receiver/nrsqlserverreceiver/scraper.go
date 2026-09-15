@@ -2497,7 +2497,7 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 						commentText = stripParameterDeclarations(rawFullText[:startPos])
 					}
 				}
-				dbSQLCommentsVal = sqlcomments.ExtractAndFilterComments(commentText, s.config.AllowedCommentKeys)
+				dbSQLCommentsVal = sqlcomments.ExtractAndFilterComments(commentText, s.config.TopQueryCollection.AllowedCommentKeys)
 				nrServiceGUIDVal = sqlcomments.ExtractValueForKey(dbSQLCommentsVal, "nr_service_guid")
 				obfuscated, err := s.obfuscator.obfuscateFullSQLString(rawFullText, stmtStartOff, stmtEndOff)
 				if err != nil {
@@ -2901,7 +2901,7 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 						commentText = stripParameterDeclarations(rawFullText[:startPos])
 					}
 				}
-				dbSQLCommentsVal = sqlcomments.ExtractAndFilterComments(commentText, s.config.AllowedCommentKeys)
+				dbSQLCommentsVal = sqlcomments.ExtractAndFilterComments(commentText, s.config.QuerySample.AllowedCommentKeys)
 				nrServiceGUIDVal = sqlcomments.ExtractValueForKey(dbSQLCommentsVal, "nr_service_guid")
 				obfuscated, err := s.obfuscator.obfuscateFullSQLString(rawFullText, stmtStartOff, stmtEndOff)
 				if err != nil {
