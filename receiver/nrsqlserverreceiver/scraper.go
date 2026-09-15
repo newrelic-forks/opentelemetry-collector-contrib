@@ -2601,6 +2601,7 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 			lastExecutionTimeVal,
 			planCreationTimeVal,
 			fullQueryTextVal,
+			dbSQLCommentsVal,
 			nrServiceGUIDVal,
 			dbQueryTextNormalizedHashVal,
 		)
@@ -2996,6 +2997,7 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 			waitResourceVal, waitTimeSecondVal, waitTypeVal, writesVal, usernameVal,
 			row[storedProcedureID], row[storedProcedureName],
 			fullQueryTextVal,
+			dbSQLCommentsVal,
 			nrServiceGUIDVal, dbQueryTextNormalizedHashVal,
 		)
 

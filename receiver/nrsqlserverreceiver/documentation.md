@@ -1763,7 +1763,8 @@ query sample
 | sqlserver.procedure_id | The SQL Server ID of the stored procedure, if any | Any Str | - |
 | sqlserver.procedure_name | The name of the stored procedure, if any | Any Str | - |
 | db.query.full_text | The full text of the SQL batch or stored procedure from which the statement was extracted. Only populated when collect_full_query_text is enabled. | Any Str | - |
-| db.query.comment_tags.nr_service_guid | New Relic service GUID extracted from the filtered query comments. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
+| db.query.comment_tags | Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys specified in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
+| db.query.comment_tags.nr_service_guid | New Relic service GUID extracted from the filtered db.query.comment_tags. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
 | db.query.text.normalized.hash | MD5 hash of the normalized full SQL query text. Used for correlation with APM slow query traces. Only populated when collect_full_query_text is enabled. | Any Str | - |
 
 ### db.server.top_query
@@ -1794,7 +1795,8 @@ top query
 | sqlserver.query.last_started | Timestamp of when the SQL query last started executing (ISO 8601 format). | Any Str | - |
 | sqlserver.query.plan.creation_time | Timestamp of when the SQL query execution plan was compiled (ISO 8601 format). | Any Str | - |
 | db.query.full_text | The full text of the SQL batch or stored procedure from which the statement was extracted. Only populated when collect_full_query_text is enabled. | Any Str | - |
-| db.query.comment_tags.nr_service_guid | New Relic service GUID extracted from the filtered query comments. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
+| db.query.comment_tags | Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys specified in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
+| db.query.comment_tags.nr_service_guid | New Relic service GUID extracted from the filtered db.query.comment_tags. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
 | db.query.text.normalized.hash | MD5 hash of the normalized full SQL query text. Used for correlation with APM slow query traces. Only populated when collect_full_query_text is enabled. | Any Str | - |
 
 ## Resource Attributes
