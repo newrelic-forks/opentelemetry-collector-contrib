@@ -13,7 +13,8 @@ import (
 )
 
 type QuerySample struct {
-	MaxRowsPerQuery uint64 `mapstructure:"max_rows_per_query"`
+	MaxRowsPerQuery    uint64   `mapstructure:"max_rows_per_query"`
+	AllowedCommentKeys []string `mapstructure:"allowed_comment_keys"`
 
 	// prevent unkeyed literal initialization
 	_ struct{}
@@ -49,6 +50,7 @@ type TopQueryCollection struct {
 	MaxQuerySampleCount uint          `mapstructure:"max_query_sample_count"`
 	TopQueryCount       uint          `mapstructure:"top_query_count"`
 	CollectionInterval  time.Duration `mapstructure:"collection_interval"`
+	AllowedCommentKeys  []string      `mapstructure:"allowed_comment_keys"`
 }
 
 // Config defines configuration for a sqlserver receiver.
@@ -72,8 +74,7 @@ type Config struct {
 	// CollectFullQueryText enables collection of the full SQL batch text (st.text) in addition
 	// to the statement-level substring already captured in db.query.text.
 	// When enabled, db.query.full_text and query.comments are populated in log records.
-	CollectFullQueryText bool     `mapstructure:"collect_full_query_text"`
-	AllowedCommentKeys   []string `mapstructure:"allowed_comment_keys"`
+	CollectFullQueryText bool `mapstructure:"collect_full_query_text"`
 
 	InstanceName string `mapstructure:"instance_name"`
 	ComputerName string `mapstructure:"computer_name"`

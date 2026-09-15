@@ -91,6 +91,9 @@ resourceLogs:
               - key: db.query.full_text
                 value:
                   stringValue: ""
+              - key: db.query.comment_tags
+                value:
+                  stringValue: ""
               - key: db.query.comment_tags.nr_service_guid
                 value:
                   stringValue: ""
@@ -99,7 +102,7 @@ resourceLogs:
                   stringValue: ""
             body: {}
             eventName: db.server.top_query
-            timeUnixNano: "1787579311340943000"
+            timeUnixNano: "1789456212283220000"
         scope:
           name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
           version: latest
