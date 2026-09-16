@@ -239,6 +239,15 @@ sqlserver:
       enabled: false
 ```
 
+`db.system.edition` reports the SQL Server edition (e.g. `"Standard Edition"`, `"Enterprise Edition"`). It is disabled by default and only available in direct connection mode. Enable it via:
+
+```yaml
+sqlserver:
+  resource_attributes:
+    db.system.edition:
+      enabled: true
+```
+
 ## Metrics
 
 Details about the metrics produced by this receiver can be found in [documentation.md](./documentation.md)
