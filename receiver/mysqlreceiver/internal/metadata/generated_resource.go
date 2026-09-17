@@ -21,6 +21,13 @@ func NewResourceBuilder(rac ResourceAttributesConfig) *ResourceBuilder {
 	}
 }
 
+// SetDbSystemEdition sets provided value as "db.system.edition" attribute.
+func (rb *ResourceBuilder) SetDbSystemEdition(val string) {
+	if rb.config.DbSystemEdition.Enabled {
+		rb.res.Attributes().PutStr("db.system.edition", val)
+	}
+}
+
 // SetDbSystemName sets provided value as "db.system.name" attribute.
 func (rb *ResourceBuilder) SetDbSystemName(val string) {
 	if rb.config.DbSystemName.Enabled {

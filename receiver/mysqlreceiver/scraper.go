@@ -252,6 +252,9 @@ func (m *mySQLScraper) setResourceAttributes(rb *metadata.ResourceBuilder) {
 		rb.SetDbSystemName(m.detectedVersion.systemName())
 		rb.SetDbSystemVersion(m.detectedVersion.version.String())
 	}
+	if m.detectedVersion.edition != "" {
+		rb.SetDbSystemEdition(m.detectedVersion.edition)
+	}
 }
 
 func (m *mySQLScraper) scrapeTopQueryFunc(_ context.Context) (plog.Logs, error) {

@@ -58,6 +58,7 @@ const (
 type dbVersion struct {
 	product dbProduct
 	version *version.Version
+	edition string
 }
 
 // isValid reports whether a version was successfully detected.
@@ -433,11 +434,16 @@ func (c *mySQLClient) fetchDBVersion() (dbVersion, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), versionDetectTimeout)
 	defer cancel()
 
-	var versionStr string
-	if err := c.client.QueryRowContext(ctx, "SELECT VERSION();").Scan(&versionStr); err != nil {
+	var versionStr, versionComment string
+	if err := c.client.QueryRowContext(ctx, "SELECT VERSION(), @@version_comment;").Scan(&versionStr, &versionComment); err != nil {
 		return dbVersion{}, err
 	}
-	return parseDBVersion(versionStr)
+	dbVer, err := parseDBVersion(versionStr)
+	if err != nil {
+		return dbVersion{}, err
+	}
+	dbVer.edition = versionComment
+	return dbVer, nil
 }
 
 // mariaDBVersionRe extracts the leading semver triplet from a MariaDB VERSION()
