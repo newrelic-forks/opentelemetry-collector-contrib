@@ -1406,6 +1406,71 @@ func TestSetupResourceBuilder(t *testing.T) {
 	}
 }
 
+func TestDetectSQLServerEdition_WarnOnScanFailure(t *testing.T) {
+	db, err := sql.Open("sqlserver", "sqlserver://sa:invalid@127.0.0.1:1433")
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+
+	core, logs := observer.New(zap.WarnLevel)
+	edition := detectSQLServerEdition(t.Context(), db, zap.New(core))
+
+	assert.Equal(t, "", edition)
+	assert.Equal(t, 1, logs.FilterMessage("sqlserverreceiver: failed to detect SQL Server edition; db.system.edition attribute will not be set").Len())
+}
+
+func TestDetectSQLServerEdition_EmittedInResourceBuilder(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.Server = "testserver.example.com"
+	cfg.Port = 1433
+	settings := receivertest.NewNopSettings(metadata.Type)
+
+	scraper := newSQLServerScraper(
+		settings.ID,
+		"SELECT 1",
+		sqlquery.TelemetryConfig{},
+		func() (*sql.DB, error) { return nil, nil },
+		func(_ sqlquery.Db, _ string, _ *zap.Logger, _ sqlquery.TelemetryConfig) sqlquery.DbClient { return nil },
+		settings,
+		cfg,
+		nil,
+	)
+	scraper.mb = metadata.NewMetricsBuilder(cfg.MetricsBuilderConfig, settings)
+	scraper.dbEdition = "Enterprise Edition (64-bit)"
+
+	row := sqlquery.StringMap{computerNameKey: "test-computer", instanceNameKey: "test-instance"}
+	resource := scraper.setupResourceBuilder(scraper.mb.NewResourceBuilder(), row).Emit()
+
+	edition, exists := resource.Attributes().Get("db.system.edition")
+	assert.True(t, exists)
+	assert.Equal(t, "Enterprise Edition (64-bit)", edition.AsString())
+}
+
+func TestDetectSQLServerEdition_NotEmittedWhenEmpty(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.Server = "testserver.example.com"
+	cfg.Port = 1433
+	settings := receivertest.NewNopSettings(metadata.Type)
+
+	scraper := newSQLServerScraper(
+		settings.ID,
+		"SELECT 1",
+		sqlquery.TelemetryConfig{},
+		func() (*sql.DB, error) { return nil, nil },
+		func(_ sqlquery.Db, _ string, _ *zap.Logger, _ sqlquery.TelemetryConfig) sqlquery.DbClient { return nil },
+		settings,
+		cfg,
+		nil,
+	)
+	scraper.mb = metadata.NewMetricsBuilder(cfg.MetricsBuilderConfig, settings)
+	// dbEdition deliberately left as ""
+
+	row := sqlquery.StringMap{computerNameKey: "test-computer", instanceNameKey: "test-instance"}
+	resource := scraper.setupResourceBuilder(scraper.mb.NewResourceBuilder(), row).Emit()
+
+	_, exists := resource.Attributes().Get("db.system.edition")
+	assert.False(t, exists, "db.system.edition should not be emitted when edition detection failed")
+}
+
 func TestRecordDatabaseSampleQueryUsesResourceBuilderForLogs(t *testing.T) {
 	cfg := createDefaultConfig().(*Config)
 	cfg.DataSource = "sqlserver://testuser:testpass@datasource-host.example.com:1434?database=testdb"
