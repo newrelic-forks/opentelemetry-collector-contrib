@@ -413,7 +413,9 @@ func (s *sqlServerScraperHelper) setupResourceBuilder(rb *metadata.ResourceBuild
 	rb.SetServiceNamespace("")
 	rb.SetServerAddress(s.serverAddress)
 	rb.SetServerPort(s.serverPort)
-	rb.SetDbSystemEdition(s.dbEdition)
+	if s.dbEdition != "" {
+		rb.SetDbSystemEdition(s.dbEdition)
+	}
 
 	return rb
 }
