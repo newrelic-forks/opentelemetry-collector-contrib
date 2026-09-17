@@ -734,7 +734,7 @@ func TestFetchDBVersion_EmptyEditionWhenVersionCommentIsEmpty(t *testing.T) {
 	got, err := c.fetchDBVersion()
 
 	require.NoError(t, err)
-	assert.Equal(t, "", got.edition)
+	assert.Empty(t, got.edition)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
