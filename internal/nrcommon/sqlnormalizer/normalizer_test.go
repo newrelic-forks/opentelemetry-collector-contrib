@@ -395,6 +395,15 @@ func TestNormalizeSQLAndHash_StripsPlaceholdersFromHashInput(t *testing.T) {
 	assert.Equal(t, GenerateMD5Hash("SELECT*FROMUSERSWHEREID="), hash)
 }
 
+func TestNormalizeSQLAndHash_StripsTrailingSemicolonFromHashInput(t *testing.T) {
+	_, hashWithout := NormalizeSQLAndHash("SELECT * FROM users WHERE id = 1")
+	_, hashWith := NormalizeSQLAndHash("SELECT * FROM users WHERE id = 1;")
+	_, hashWithMultiple := NormalizeSQLAndHash("SELECT * FROM users WHERE id = 1;;")
+
+	assert.Equal(t, hashWithout, hashWith)
+	assert.Equal(t, hashWithout, hashWithMultiple)
+}
+
 func TestNormalizeSQLAndHash_EmptyReturnsEmptyHash(t *testing.T) {
 	// Matches Java SqlHashUtil.normalizeAndHash: input that is empty or
 	// normalizes to empty yields an empty hash, not the MD5 of "".
@@ -596,37 +605,6 @@ func TestNormalizeSQL_BooleanLiteralsNormalizeToSameShape(t *testing.T) {
 	withTrue := NormalizeSQL("SELECT * FROM t WHERE active = TRUE")
 	withFalse := NormalizeSQL("SELECT * FROM t WHERE active = FALSE")
 	assert.Equal(t, withTrue, withFalse)
-}
-
-func TestNormalizeSQL_HexLiterals(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		{
-			name:     "uppercase hex literal",
-			input:    "SELECT * FROM t WHERE id = 0x1F4",
-			expected: "SELECT*FROMTWHEREID=?",
-		},
-		{
-			name:     "lowercase hex literal",
-			input:    "SELECT * FROM t WHERE id = 0x1f4",
-			expected: "SELECT*FROMTWHEREID=?",
-		},
-		{
-			name:     "plain zero still works",
-			input:    "SELECT * FROM t WHERE id = 0",
-			expected: "SELECT*FROMTWHEREID=?",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := NormalizeSQL(tt.input)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
 }
 
 func TestNormalizeSQL_MySQLSystemVariables(t *testing.T) {

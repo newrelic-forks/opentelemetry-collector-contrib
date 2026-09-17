@@ -72,10 +72,6 @@ func isIdentifierChar(c byte) bool {
 }
 
 // isHexDigit checks if a character is a hexadecimal digit.
-func isHexDigit(c byte) bool {
-	return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f')
-}
-
 // keywordLiterals are standalone keyword literals normalized like any other
 // literal value. Matched as whole tokens only -- e.g. a column named
 // "trueup" is untouched.
@@ -176,15 +172,6 @@ func skipNumericLiteral(state *sqlNormalizerState) {
 	c := state.current()
 	if c == '-' || c == '+' {
 		state.advance()
-	}
-
-	// Hex literal: 0x1F4 / 0X1f4
-	if state.current() == '0' && state.hasNext() && (state.peek() == 'X' || state.peek() == 'x') {
-		state.advanceBy2() // Skip 0x
-		for state.hasMore() && isHexDigit(state.current()) {
-			state.advance()
-		}
-		return
 	}
 
 	// Skip any digits
@@ -762,6 +749,7 @@ func NormalizeSQLAndHash(sql string) (normalizedSQL, md5Hash string) {
 	// The normalizedSQL value returned to the caller keeps its placeholder
 	// markers; only the hash input is affected.
 	hashInput := strings.ReplaceAll(normalizedSQL, "?", "")
+	hashInput = strings.TrimRight(hashInput, ";")
 	md5Hash = GenerateMD5Hash(hashInput)
 
 	return normalizedSQL, md5Hash
