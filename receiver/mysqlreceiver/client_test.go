@@ -702,6 +702,42 @@ func TestFetchDBVersionTimeout(t *testing.T) {
 	assert.Less(t, elapsed, 10*time.Second, "fetchDBVersion must not block longer than its own timeout")
 }
 
+func TestFetchDBVersion_EditionPopulatedFromVersionComment(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	mock.ExpectQuery(`SELECT VERSION\(\), @@version_comment`).
+		WillReturnRows(sqlmock.NewRows([]string{"VERSION()", "@@version_comment"}).
+			AddRow("8.0.33", "MySQL Community Server - GPL"))
+
+	c := &mySQLClient{client: db}
+	got, err := c.fetchDBVersion()
+
+	require.NoError(t, err)
+	assert.Equal(t, "8.0.33", got.version.String())
+	assert.Equal(t, dbProductMySQL, got.product)
+	assert.Equal(t, "MySQL Community Server - GPL", got.edition)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestFetchDBVersion_EmptyEditionWhenVersionCommentIsEmpty(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	mock.ExpectQuery(`SELECT VERSION\(\), @@version_comment`).
+		WillReturnRows(sqlmock.NewRows([]string{"VERSION()", "@@version_comment"}).
+			AddRow("8.0.33", ""))
+
+	c := &mySQLClient{client: db}
+	got, err := c.fetchDBVersion()
+
+	require.NoError(t, err)
+	assert.Empty(t, got.edition)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 // TestDBVersionHelperMethods verifies isValid and productString across all product/version combinations.
 func TestDBVersionHelperMethods(t *testing.T) {
 	t.Run("isValid returns false for zero value", func(t *testing.T) {

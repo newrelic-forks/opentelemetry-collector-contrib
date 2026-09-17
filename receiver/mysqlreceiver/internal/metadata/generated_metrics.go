@@ -7047,6 +7047,12 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		resourceAttributeIncludeFilter:                make(map[string]filter.Filter),
 		resourceAttributeExcludeFilter:                make(map[string]filter.Filter),
 	}
+	if mbc.ResourceAttributes.DbSystemEdition.MetricsInclude != nil {
+		mb.resourceAttributeIncludeFilter["db.system.edition"] = filter.CreateFilter(mbc.ResourceAttributes.DbSystemEdition.MetricsInclude)
+	}
+	if mbc.ResourceAttributes.DbSystemEdition.MetricsExclude != nil {
+		mb.resourceAttributeExcludeFilter["db.system.edition"] = filter.CreateFilter(mbc.ResourceAttributes.DbSystemEdition.MetricsExclude)
+	}
 	if mbc.ResourceAttributes.DbSystemName.MetricsInclude != nil {
 		mb.resourceAttributeIncludeFilter["db.system.name"] = filter.CreateFilter(mbc.ResourceAttributes.DbSystemName.MetricsInclude)
 	}

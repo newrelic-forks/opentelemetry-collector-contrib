@@ -191,6 +191,8 @@ all_set:
     db.server.top_query:
       enabled: true
   resource_attributes:
+    db.system.edition:
+      enabled: true
     db.system.name:
       enabled: true
     db.system.version:
@@ -395,6 +397,8 @@ reaggregate_set:
     db.server.top_query:
       enabled: true
   resource_attributes:
+    db.system.edition:
+      enabled: true
     db.system.name:
       enabled: true
     db.system.version:
@@ -599,6 +603,8 @@ none_set:
     db.server.top_query:
       enabled: false
   resource_attributes:
+    db.system.edition:
+      enabled: false
     db.system.name:
       enabled: false
     db.system.version:
@@ -613,6 +619,9 @@ none_set:
       enabled: false
 override_set:
   resource_attributes:
+    db.system.edition:
+      enabled: true
+      override_value: "override-db.system.edition"
     db.system.name:
       enabled: true
       override_value: "override-db.system.name"
@@ -633,6 +642,12 @@ override_set:
       override_value: "override-service.namespace"
 filter_set_include:
   resource_attributes:
+    db.system.edition:
+      enabled: true
+      metrics_include:
+        - regexp: ".*"
+      events_include:
+        - regexp: ".*"
     db.system.name:
       enabled: true
       metrics_include:
@@ -671,6 +686,12 @@ filter_set_include:
         - regexp: ".*"
 filter_set_exclude:
   resource_attributes:
+    db.system.edition:
+      enabled: true
+      metrics_exclude:
+        - strict: "db.system.edition-val"
+      events_exclude:
+        - strict: "db.system.edition-val"
     db.system.name:
       enabled: true
       metrics_exclude:
