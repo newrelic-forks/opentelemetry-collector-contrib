@@ -16,6 +16,7 @@ import (
 	"crypto/md5" // #nosec G501 -- MD5 required for hash compatibility with the New Relic Java APM agent, not for security.
 	"encoding/hex"
 	"strings"
+	"unicode"
 )
 
 // sqlNormalizerState holds state during SQL normalization.
@@ -68,6 +69,50 @@ func (s *sqlNormalizerState) advanceBy2() {
 // isIdentifierChar checks if a character is valid in an identifier.
 func isIdentifierChar(c byte) bool {
 	return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
+}
+
+// isHexDigit checks if a character is a hexadecimal digit.
+func isHexDigit(c byte) bool {
+	return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F') || (c >= 'a' && c <= 'f')
+}
+
+// keywordLiterals are standalone keyword literals normalized like any other
+// literal value. Matched as whole tokens only -- e.g. a column named
+// "trueup" is untouched.
+var keywordLiterals = []string{"NULL", "TRUE", "FALSE"}
+
+// isKeywordLiteral checks if current position starts a standalone
+// TRUE/FALSE/NULL keyword literal.
+func isKeywordLiteral(state *sqlNormalizerState) bool {
+	return matchedKeywordLiteralLength(state) > 0
+}
+
+// skipKeywordLiteral skips over a TRUE/FALSE/NULL keyword literal.
+func skipKeywordLiteral(state *sqlNormalizerState) {
+	state.idx += matchedKeywordLiteralLength(state)
+}
+
+// matchedKeywordLiteralLength returns the length of the matched keyword
+// literal at the current position, or 0 if none matches. Requires the
+// keyword to be a complete token: not preceded or followed by another
+// identifier character.
+func matchedKeywordLiteralLength(state *sqlNormalizerState) int {
+	c := state.current()
+	if c != 'N' && c != 'T' && c != 'F' {
+		return 0
+	}
+	if state.idx > 0 && isIdentifierChar(state.sql[state.idx-1]) {
+		return 0
+	}
+	for _, keyword := range keywordLiterals {
+		length := len(keyword)
+		if state.idx+length <= state.length &&
+			state.sql[state.idx:state.idx+length] == keyword &&
+			(state.idx+length == state.length || !isIdentifierChar(state.sql[state.idx+length])) {
+			return length
+		}
+	}
+	return 0
 }
 
 // isNumericLiteral checks if current position is a numeric literal.
@@ -131,6 +176,15 @@ func skipNumericLiteral(state *sqlNormalizerState) {
 	c := state.current()
 	if c == '-' || c == '+' {
 		state.advance()
+	}
+
+	// Hex literal: 0x1F4 / 0X1f4
+	if state.current() == '0' && state.hasNext() && (state.peek() == 'X' || state.peek() == 'x') {
+		state.advanceBy2() // Skip 0x
+		for state.hasMore() && isHexDigit(state.current()) {
+			state.advance()
+		}
+		return
 	}
 
 	// Skip any digits
@@ -207,8 +261,10 @@ func isPlaceholder(state *sqlNormalizerState) bool {
 		return true
 	}
 
-	// SQL Server style: @name or @p1
-	if c == '@' && state.hasNext() && isIdentifierChar(state.peek()) {
+	// SQL Server style: @name or @p1 -- but @@name (MySQL system variable,
+	// e.g. @@GLOBAL.max_connections) is never a bind parameter.
+	if c == '@' && state.hasNext() && isIdentifierChar(state.peek()) &&
+		!(state.idx > 0 && state.sql[state.idx-1] == '@') {
 		return true
 	}
 
@@ -273,6 +329,12 @@ func NormalizeSQL(sql string) string {
 		return ""
 	}
 
+	// Phase 0: Strip non-semantic Unicode format characters (category Cf,
+	// e.g. a zero-width space U+200B). Left in place, these would survive
+	// into the normalized output and cause an otherwise identical statement
+	// to hash differently depending on stray invisible characters.
+	sql = stripInvisibleFormatCharacters(sql)
+
 	// Phase 1: Convert to uppercase (matches Java: sql.toUpperCase(Locale.ROOT))
 	sql = strings.ToUpper(sql)
 
@@ -281,6 +343,18 @@ func NormalizeSQL(sql string) string {
 
 	// Phase 3: Remove comments and strip all whitespace (stripWhitespace=true)
 	return removeCommentsAndNormalizeWhitespace(sql)
+}
+
+// stripInvisibleFormatCharacters removes Unicode category Cf (format)
+// characters, which carry no SQL semantics but would otherwise survive into
+// the normalized output verbatim.
+func stripInvisibleFormatCharacters(sql string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.Is(unicode.Cf, r) {
+			return -1
+		}
+		return r
+	}, sql)
 }
 
 // isPrecededByIn checks if the result is preceded by "IN".
@@ -310,6 +384,83 @@ func isPrecededByIn(result *strings.Builder) bool {
 	}
 
 	return false
+}
+
+// extractFieldKeywords are known PostgreSQL EXTRACT field names
+// (https://www.postgresql.org/docs/current/functions-datetime.html#FUNCTIONS-DATETIME-EXTRACT).
+// They appear as unquoted identifiers in EXTRACT(field FROM source) and must be
+// replaced with '?' the same way go-sqllexer's obfuscate_and_normalize mode does,
+// so that e.g. EXTRACT(YEAR FROM x) and EXTRACT(MONTH FROM x) hash identically.
+var extractFieldKeywords = []string{
+	"EPOCH", "YEAR", "MONTH", "DAY", "DOW", "ISODOW", "DOY", "HOUR", "MINUTE", "SECOND",
+	"MICROSECONDS", "MILLISECONDS", "TIMEZONE", "TIMEZONE_HOUR", "TIMEZONE_MINUTE",
+	"QUARTER", "WEEK", "DECADE", "CENTURY", "MILLENNIUM", "ISOYEAR", "JULIAN",
+}
+
+// isExtractFieldKeyword checks if the current position starts a bare EXTRACT
+// field-name keyword, i.e. is preceded by "EXTRACT(" (allowing whitespace) and
+// matches a known field name.
+func isExtractFieldKeyword(state *sqlNormalizerState, result *strings.Builder) bool {
+	return matchedExtractFieldKeywordLength(state, result) > 0
+}
+
+// skipExtractFieldKeyword skips over a matched EXTRACT field-name keyword.
+func skipExtractFieldKeyword(state *sqlNormalizerState) {
+	state.idx += matchedFieldKeywordLength(state)
+}
+
+func matchedExtractFieldKeywordLength(state *sqlNormalizerState, result *strings.Builder) int {
+	if !isPrecededByExtractOpenParen(result) {
+		return 0
+	}
+	return matchedFieldKeywordLength(state)
+}
+
+// matchedFieldKeywordLength returns the length of the EXTRACT field keyword
+// matched at the current position, or 0 if none matches. Requires a complete
+// standalone token.
+// matchedFieldKeywordLength is only called once isPrecededByExtractOpenParen
+// has confirmed the text immediately before the current position is "("
+// (optionally with whitespace), so the character right before this position
+// is never an identifier character -- no separate left-boundary check needed.
+func matchedFieldKeywordLength(state *sqlNormalizerState) int {
+	for _, keyword := range extractFieldKeywords {
+		length := len(keyword)
+		if state.idx+length <= state.length &&
+			state.sql[state.idx:state.idx+length] == keyword &&
+			(state.idx+length == state.length || !isIdentifierChar(state.sql[state.idx+length])) {
+			return length
+		}
+	}
+	return 0
+}
+
+// isPrecededByExtractOpenParen checks if the result is preceded by "EXTRACT("
+// (allowing whitespace both between EXTRACT and ( and after the open paren).
+func isPrecededByExtractOpenParen(result *strings.Builder) bool {
+	str := result.String()
+	idx := len(str) - 1
+	for idx >= 0 && (str[idx] == ' ' || str[idx] == '\t' || str[idx] == '\n' || str[idx] == '\r') {
+		idx--
+	}
+	if idx < 0 || str[idx] != '(' {
+		return false
+	}
+	idx--
+	for idx >= 0 && (str[idx] == ' ' || str[idx] == '\t' || str[idx] == '\n' || str[idx] == '\r') {
+		idx--
+	}
+
+	const extract = "EXTRACT"
+	end := idx + 1
+	start := end - len(extract)
+	if start < 0 {
+		return false
+	}
+	if str[start:end] != extract {
+		return false
+	}
+	return start == 0 || !isIdentifierChar(str[start-1])
 }
 
 // tryNormalizeInClause tries to normalize an IN clause like IN (1,2,3) or IN (?,?,?) to IN (?).
@@ -400,6 +551,14 @@ func normalizeParametersAndLiterals(sql string) string {
 		case isNumericLiteral(state):
 			// Numeric literals
 			skipNumericLiteral(state)
+			result.WriteByte('?')
+		case isKeywordLiteral(state):
+			// TRUE / FALSE / NULL literals
+			skipKeywordLiteral(state)
+			result.WriteByte('?')
+		case isExtractFieldKeyword(state, &result):
+			// Bare field name in EXTRACT(field FROM ...), e.g. EXTRACT(YEAR FROM x)
+			skipExtractFieldKeyword(state)
 			result.WriteByte('?')
 		case isPlaceholder(state):
 			// Any placeholder type --> ?
@@ -588,7 +747,7 @@ func GenerateMD5Hash(normalizedSQL string) string {
 //	input := "SELECT * FROM users WHERE id = 123 AND name = 'John'"
 //	normalized, hash := NormalizeSQLAndHash(input)
 //	// normalized: "SELECT*FROMUSERSWHEREID=?ANDNAME=?"
-//	// hash: "e78f13a21009ebcb6fdef9e996a24c9d"
+//	// hash: "887ae2820726539177ebad8acac8df79"
 func NormalizeSQLAndHash(sql string) (normalizedSQL, md5Hash string) {
 	normalizedSQL = NormalizeSQL(sql)
 	// Matches Java SqlHashUtil.normalizeAndHash: empty input (or input that
@@ -596,7 +755,14 @@ func NormalizeSQLAndHash(sql string) (normalizedSQL, md5Hash string) {
 	if normalizedSQL == "" {
 		return "", ""
 	}
-	md5Hash = GenerateMD5Hash(normalizedSQL)
+
+	// Strip placeholder markers ('?') before hashing, matching the Java APM
+	// agent. This is equivalent to replacing '?' with a space and removing
+	// whitespace, since NormalizeSQL has already stripped all whitespace.
+	// The normalizedSQL value returned to the caller keeps its placeholder
+	// markers; only the hash input is affected.
+	hashInput := strings.ReplaceAll(normalizedSQL, "?", "")
+	md5Hash = GenerateMD5Hash(hashInput)
 
 	return normalizedSQL, md5Hash
 }

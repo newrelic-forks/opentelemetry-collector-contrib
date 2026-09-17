@@ -144,7 +144,7 @@ resourceLogs:
                   stringValue: ""
               - key: db.query.text.normalized.hash
                 value:
-                  stringValue: 935a5fc83824aadeb67aea0839016db6
+                  stringValue: 2b677fdb234c35c756686ac87ba0f55d
             body: {}
             eventName: db.server.query_sample
             timeUnixNano: "1781146651202789000"
