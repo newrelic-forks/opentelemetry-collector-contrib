@@ -251,7 +251,7 @@ func isPlaceholder(state *sqlNormalizerState) bool {
 	// SQL Server style: @name or @p1 -- but @@name (MySQL system variable,
 	// e.g. @@GLOBAL.max_connections) is never a bind parameter.
 	if c == '@' && state.hasNext() && isIdentifierChar(state.peek()) &&
-		!(state.idx > 0 && state.sql[state.idx-1] == '@') {
+		(state.idx == 0 || state.sql[state.idx-1] != '@') {
 		return true
 	}
 
