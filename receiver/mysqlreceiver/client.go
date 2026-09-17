@@ -426,9 +426,9 @@ func (c *mySQLClient) checkDBAvailability() error {
 	return nil
 }
 
-// fetchDBVersion queries the database for its version string and parses it
-// into a dbVersion. Called once during Connect. A short context timeout
-// prevents a blackholed or slow endpoint from stalling collector startup.
+// fetchDBVersion queries the database for its version string and @@version_comment
+// and parses them into a dbVersion. Called once during Connect. A short context
+// timeout prevents a blackholed or slow endpoint from stalling collector startup.
 func (c *mySQLClient) fetchDBVersion() (dbVersion, error) {
 	const versionDetectTimeout = 5 * time.Second
 	ctx, cancel := context.WithTimeout(context.Background(), versionDetectTimeout)
