@@ -691,13 +691,13 @@ func TestNormalizeSQL_ExtractFieldKeywordsNormalizeToSameShape(t *testing.T) {
 }
 
 func TestNormalizeSQL_StripsInvisibleUnicodeFormatCharacters(t *testing.T) {
-	withZeroWidth := NormalizeSQL("SELECT​* FROM t WHERE id = 1")
+	withZeroWidth := NormalizeSQL("SELECT\u200b* FROM t WHERE id = 1")
 	without := NormalizeSQL("SELECT* FROM t WHERE id = 1")
 	assert.Equal(t, without, withZeroWidth)
 }
 
 func TestNormalizeSQL_OnlyInvisibleCharacterNormalizesToEmpty(t *testing.T) {
-	assert.Equal(t, "", NormalizeSQL("​"))
+	assert.Empty(t, NormalizeSQL("\u200b"))
 }
 
 func TestNormalizeSQL_LeadingWhitespaceBeforeBareParenIsNotIn(t *testing.T) {
