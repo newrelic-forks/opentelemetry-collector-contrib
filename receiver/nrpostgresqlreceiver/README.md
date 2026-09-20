@@ -42,14 +42,14 @@ The monitoring user must be granted `SELECT` on `pg_stat_database`.
 >   - `postgresql.table.name = "table_name"`
 >
 > This ensures reliable correlation of metrics when tables with identical names exist across different schemas.
-> To enable:
+>
+> **Note:** This gate is mutually exclusive with `receiver.postgresql.useOTelSemconv`, which is enabled
+> by default (see [OpenTelemetry semantic conventions feature gate](#opentelemetry-semantic-conventions-feature-gate)
+> below). To enable `separateSchemaAttr`, first disable `useOTelSemconv`:
 >
 > ```bash
-> otelcol-contrib --feature-gates=receiver.postgresql.separateSchemaAttr
+> otelcol-contrib --feature-gates=-receiver.postgresql.useOTelSemconv,receiver.postgresql.separateSchemaAttr
 > ```
->
-> **Note:** This gate is mutually exclusive with `receiver.postgresql.useOTelSemconv`. Both cannot be
-> enabled at the same time.
 >
 > See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/29559 for more details.
 
@@ -453,10 +453,13 @@ receivers:
 
 ## OpenTelemetry semantic conventions feature gate
 
-The feature gate `receiver.postgresql.useOTelSemconv` (alpha, disabled by default) controls the resource model used by this receiver:
+The feature gate `receiver.postgresql.useOTelSemconv` (beta, enabled by default) controls the resource model used by this receiver:
 
-- **Gate disabled (default):** Legacy per-entity resource model. Each database, table, and index emits metrics under a separate resource with `postgresql.database.name`, `postgresql.table.name`, `postgresql.index.name`, and `postgresql.schema.name` as resource attributes. `service.instance.id` is in `host:port` format.
-- **Gate enabled:** Single resource per server. All metrics are emitted under one resource with `server.address`, `server.port`, and `service.instance.id` (UUID v5) as resource attributes, aligning with OpenTelemetry semantic conventions. Metric-level attributes `db.namespace`, `db.collection.name`, and `postgresql.index.name` are present on applicable metrics.
+- **Gate enabled (default):** Single resource per server. All metrics are emitted under one resource with `server.address`, `server.port`, and `service.instance.id` (UUID v5) as resource attributes, aligning with OpenTelemetry semantic conventions. Metric-level attributes `db.namespace`, `db.collection.name`, and `postgresql.index.name` are present on applicable metrics.
+- **Gate disabled:** Legacy per-entity resource model. Each database, table, and index emits metrics under a separate resource with `postgresql.database.name`, `postgresql.table.name`, `postgresql.index.name`, and `postgresql.schema.name` as resource attributes. `service.instance.id` is in `host:port` format. To opt back into this model:
+  ```bash
+  otelcol-contrib --feature-gates=-receiver.postgresql.useOTelSemconv
+  ```
 
 This gate is mutually exclusive with `receiver.postgresql.separateSchemaAttr` — both cannot be enabled simultaneously.
 
