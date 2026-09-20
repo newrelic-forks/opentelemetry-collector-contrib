@@ -4,21 +4,38 @@
 package nrmysqlreceiver // import "github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrmysqlreceiver"
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrmysqlreceiver/internal/metadata"
+	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config/confignet"
 	"go.opentelemetry.io/collector/config/configopaque"
 	"go.opentelemetry.io/collector/config/configtls"
 	"go.opentelemetry.io/collector/confmap"
 	"go.opentelemetry.io/collector/scraper/scraperhelper"
+	"go.uber.org/multierr"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/config/configdbauth"
+	"github.com/open-telemetry/opentelemetry-collector-contrib/extension/dbauth"
 )
 
 const (
 	defaultStatementEventsDigestTextLimit = 120
 	defaultStatementEventsLimit           = 250
 	defaultStatementEventsTimeLimit       = 24 * time.Hour
+)
+
+// Errors for missing required config parameters.
+const (
+	ErrNoUsername          = "invalid config: missing username"
+	ErrTransportsSupported = "invalid config: 'transport' must be 'tcp' or 'unix'"
+	ErrNoEndpoint          = "invalid config: missing endpoint"
+	// #nosec G101 - not hardcoded credentials
+	ErrPasswordAndDBAuth = "invalid config: set either 'password' or 'db_auth', not both"
+	// #nosec G101 - not hardcoded credentials
+	ErrDBAuthRequiresTLS = "invalid config: 'db_auth' requires TLS; set 'tls.insecure' to false"
 )
 
 // EXPLAIN execution modes (see explain_mode config option).
@@ -52,7 +69,8 @@ type Config struct {
 	// direct EXPLAIN on the monitoring connection) or "procedure" (CALL the
 	// <schema>.explain_statement SQL SECURITY DEFINER procedure, so write
 	// statements can be explained without granting DML to the monitoring user).
-	ExplainMode string `mapstructure:"explain_mode"`
+	ExplainMode string          `mapstructure:"explain_mode"`
+	DBAuth      configdbauth.ID `mapstructure:"db_auth,omitempty"`
 }
 
 type TopQueryCollection struct {
@@ -80,12 +98,42 @@ type StatementEventsConfig struct {
 }
 
 func (cfg *Config) Validate() error {
+	var err error
+	if cfg.Username == "" {
+		err = multierr.Append(err, errors.New(ErrNoUsername))
+	}
+
+	dbAuthConfigured := !cfg.DBAuth.IsEmpty()
+	switch {
+	case dbAuthConfigured && cfg.Password != "":
+		err = multierr.Append(err, errors.New(ErrPasswordAndDBAuth))
+	case dbAuthConfigured && cfg.TLS.Insecure:
+		err = multierr.Append(err, errors.New(ErrDBAuthRequiresTLS))
+	}
+
+	switch cfg.AddrConfig.Transport {
+	case confignet.TransportTypeTCP, confignet.TransportTypeUnix:
+		if cfg.AddrConfig.Endpoint == "" {
+			err = multierr.Append(err, errors.New(ErrNoEndpoint))
+		}
+	default:
+		err = multierr.Append(err, errors.New(ErrTransportsSupported))
+	}
+
 	switch cfg.ExplainMode {
 	case "", explainModeInline, explainModeProcedure:
-		return nil
 	default:
-		return fmt.Errorf("invalid explain_mode %q: must be %q or %q", cfg.ExplainMode, explainModeInline, explainModeProcedure)
+		err = multierr.Append(err, fmt.Errorf("invalid explain_mode %q: must be %q or %q", cfg.ExplainMode, explainModeInline, explainModeProcedure))
 	}
+
+	return err
+}
+
+func (cfg *Config) resolveCredentialProvider(extensions map[component.ID]component.Component) (dbauth.Provider, error) {
+	if cfg.DBAuth.IsEmpty() {
+		return nil, nil
+	}
+	return cfg.DBAuth.GetProvider(extensions)
 }
 
 func (cfg *Config) Unmarshal(componentParser *confmap.Conf) error {

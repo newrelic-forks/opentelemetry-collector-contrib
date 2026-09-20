@@ -310,6 +310,78 @@ metrics:
     enabled: true
 ```
 
+### oracledb.asm.disk.errors
+
+Count of I/O errors on an ASM disk.
+
+| Unit | Metric Type | Value Type | Aggregation Temporality | Monotonic | Stability |
+| ---- | ----------- | ---------- | ----------------------- | --------- | --------- |
+| {error} | Sum | Int | Cumulative | true | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracledb.asm.disk_group.name | The name of the ASM diskgroup. | Any Str | Recommended | - |
+| oracledb.asm.disk.name | The name of the ASM disk. | Any Str | Recommended | - |
+| disk.io.direction | Direction of the storage I/O operation. | Str: ``read``, ``write`` | Recommended | - |
+
+### oracledb.asm.disk_group.capacity
+
+Total space in an ASM diskgroup.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| By | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracledb.asm.disk_group.name | The name of the ASM diskgroup. | Any Str | Recommended | - |
+
+### oracledb.asm.disk_group.free
+
+Free space in an ASM diskgroup.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| By | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracledb.asm.disk_group.name | The name of the ASM diskgroup. | Any Str | Recommended | - |
+
+### oracledb.asm.disk_group.offline_disks
+
+Count of disks currently offline within an ASM diskgroup.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {disk} | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracledb.asm.disk_group.name | The name of the ASM diskgroup. | Any Str | Recommended | - |
+
+### oracledb.asm.disk_group.usable_free
+
+Free space that can safely be used for files after accounting for ASM redundancy and required mirror recovery capacity.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| By | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| oracledb.asm.disk_group.name | The name of the ASM diskgroup. | Any Str | Recommended | - |
+
 ### oracledb.buffer.inspected
 
 Number of buffers inspected from the end of the LRU queue while a process searched for a reusable buffer, grouped by buffer state.
@@ -542,7 +614,7 @@ Total wall-clock time spent in database calls.
 
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
-| oracledb.session.type | Class of session the database time is attributed to. | Str: ``background``, ``foreground`` | Recommended | - |
+| oracledb.session.type | Class of session the activity is attributed to. | Str: ``background``, ``foreground`` | Recommended | - |
 
 ### oracledb.db_block_gets
 
@@ -669,7 +741,7 @@ Cumulative time spent transferring current blocks between instances over RAC cac
 
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
-| network.io.direction | Direction of the SQL*Net network transfer. | Str: ``receive``, ``transmit`` | Recommended | - |
+| network.io.direction | Direction of the network transfer. | Str: ``receive``, ``transmit`` | Recommended | - |
 
 ### oracledb.hard_parses.rate
 
@@ -796,7 +868,7 @@ Cumulative time spent on transaction lock activity.
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
 | oracle.db.pdb | The name of the pluggable database (PDB) the data point belongs to. Emit one data point per PDB on CDB-root connections and one per direct-PDB connection; empty otherwise. When disabled, per-PDB collection is skipped and each metric emits a single instance-wide data point. | Any Str | Opt-In | - |
-| oracledb.session.type | Class of session the database time is attributed to. | Str: ``background``, ``foreground`` | Recommended | - |
+| oracledb.session.type | Class of session the activity is attributed to. | Str: ``background``, ``foreground`` | Recommended | - |
 
 ### oracledb.logical_reads.rate
 
@@ -1477,7 +1549,7 @@ Bytes transferred via SQL*Net between Oracle and clients/dblinks. Sourced from v
 
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
-| network.io.direction | Direction of the SQL*Net network transfer. | Str: ``receive``, ``transmit`` | Recommended | - |
+| network.io.direction | Direction of the network transfer. | Str: ``receive``, ``transmit`` | Recommended | - |
 | destination.type | Type of the SQL*Net destination endpoint (client application or remote database link). | Str: ``client``, ``dblink`` | Recommended | - |
 | oracle.db.pdb | The name of the pluggable database (PDB) the data point belongs to. Emit one data point per PDB on CDB-root connections and one per direct-PDB connection; empty otherwise. When disabled, per-PDB collection is skipped and each metric emits a single instance-wide data point. | Any Str | Opt-In | - |
 
@@ -1647,7 +1719,7 @@ sample query
 | client.port | TCP port used by the client. | Any Int | - |
 | network.peer.address | IP address of the peer client. | Any Str | - |
 | network.peer.port | TCP port used by the peer client. | Any Int | - |
-| oracledb.plan_hash_value | Binary hash value calculated on the query execution plan and used to identify similar query execution plans, reported in the HEX format. | Any Str | - |
+| oracledb.plan_hash_value | Numeric representation of the execution plan. | Any Str | - |
 | oracledb.sql_id | The SQL ID of the query. | Any Str | - |
 | oracledb.child_number | The child number of the query. | Any Str | - |
 | oracledb.child_address | Address of the child cursor. | Any Str | - |
@@ -1740,7 +1812,7 @@ Collection of event metrics for top N queries, filtered based on the highest CPU
 | oracledb.procedure_type | Type of the database object that a query is accessing. | Any Str | - |
 | db.query.comment_tags | Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys specified in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
 | db.query.comment_tags.nr_service_guid | New Relic service GUID extracted from the filtered db.query.comment_tags. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
-| oracledb.plan_hash_value | Binary hash value calculated on the query execution plan and used to identify similar query execution plans, reported in the HEX format. | Any Str | - |
+| oracledb.plan_hash_value | Numeric representation of the execution plan. | Any Str | - |
 | oracledb.plan.first_load | Time at which the plan was first loaded into the library cache, in the server's local timezone. Format: YYYY-MM-DD/HH:MM:SS | Any Str | - |
 | oracledb.plan.last_load | Plan load time in the server's local timezone. Format: YYYY-MM-DD/HH:MM:SS | Any Str | - |
 | db.query.text.normalized.hash | MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Used for correlation with APM slow query traces. | Any Str | - |
@@ -1756,3 +1828,5 @@ Collection of event metrics for top N queries, filtered based on the highest CPU
 | oracle.db.version | The Oracle Database version string. | Any Str | true | - | - |
 | oracledb.instance.name | The name of the instance that data is coming from. | Any Str | true | - | - |
 | service.instance.id | A unique identifier of the Oracle DB instance in the format host:port/serviceName. (defaults to 'unknown:1521', in case of error in generating this value) | Any Str | true | - | - |
+| service.name | Logical name of the service. When enabled, defaults to unknown_service:oracle. | Any Str | false | - | - |
+| service.namespace | Logical namespace for the service (for example team or environment). When enabled, defaults to an empty string until set via configuration. | Any Str | false | - | - |

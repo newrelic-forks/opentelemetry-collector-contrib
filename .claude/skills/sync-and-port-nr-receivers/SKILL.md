@@ -24,9 +24,13 @@ pair count elsewhere in this skill):
 | Fork | Base | Metric/attribute prefix | Notes |
 |---|---|---|---|
 | `receiver/nroracledbreceiver` | `receiver/oracledbreceiver` | `oracledb` | has `templates/*.tmpl` SQL templates |
-| `receiver/nrsqlserverreceiver` | `receiver/sqlserverreceiver` | `sqlserver` | has `concurrent_scraper.go`; `TestSetupQueries` metric-count guard |
-| `receiver/nrpostgresqlreceiver` | `receiver/postgresqlreceiver` | `postgresql` | no `templates/`; queries mostly inline in `client.go`/`scraper.go` |
-| `receiver/nrmysqlreceiver` | `receiver/mysqlreceiver` | `mysql` | no `templates/`; queries mostly inline in `client.go`/`scraper.go`; has `explain_mode` fork-specific field |
+| `receiver/nrsqlserverreceiver` | `receiver/sqlserverreceiver` | `sqlserver` | has `templates/*.tmpl`; `concurrent_scraper.go`; `TestSetupQueries` metric-count guard |
+| `receiver/nrpostgresqlreceiver` | `receiver/postgresqlreceiver` | `postgresql` | has `templates/*.tmpl`; some queries also inline in `client.go`/`scraper.go` |
+| `receiver/nrmysqlreceiver` | `receiver/mysqlreceiver` | `mysql` | has `templates/*.tmpl`; some queries also inline in `client.go`/`scraper.go`; has `explain_mode` fork-specific field |
+
+**ALL FOUR forks have a `templates/` directory.** An earlier version of this table claimed nrpostgresql
+and nrmysql had none, so the query-parity step got skipped for them; two of nrpostgresql's four
+templates needed porting in the 2026-09 sync. Never assume — `ls receiver/<fork>/templates/` each cycle.
 
 The parity target is the **computed diff between each fork and its base**, never a specific PR
 number. A PR is just the concrete instance of "what's currently missing." Always recompute.
@@ -49,10 +53,21 @@ number. A PR is just the concrete instance of "what's currently missing." Always
 
 ## Environment quirks (this repo/host)
 
-- `go` is often NOT on PATH in the tool shell. Use `/usr/local/go/bin/go`.
+- Run `which go` before assuming a path. On this host it is `/opt/homebrew/bin/go` and IS on PATH;
+  `/usr/local/go/bin/go` does not exist. If PATH is unreliable in the tool shell, prepend it
+  (`export PATH=/opt/homebrew/bin:$PATH`) rather than hardcoding a guessed absolute path.
 - Do NOT `cd` inside compound commands — it can break PATH. Use `go <cmd> -C <dir>` and absolute paths.
-- `origin/main` mirrors `upstream/main` (the fork's `main` tracks open-telemetry). Either works as the
-  sync source; confirm they're equal first.
+- **`origin` has BOTH a `main` and a `MAIN` branch**, which collide on macOS's case-insensitive
+  filesystem: after `git fetch origin`, `git rev-parse origin/main` fails with "unknown revision"
+  because only one ref file can exist. Use `upstream/main` as the sync source instead. Confirm they
+  match by comparing SHAs: `git ls-remote --heads origin refs/heads/main` vs `git rev-parse upstream/main`.
+- **Lint locally with the PINNED linter, not whatever `golangci-lint` is on PATH.** CI pins v2.13.1 via
+  `internal/tools/go.mod`; a stale local v1.x lacks the `modernize` linter entirely and will report
+  "clean" on code CI rejects. Resolve it the way the Makefile does:
+  `GOOS= GOARCH= go tool -modfile=internal/tools/go.mod -n github.com/golangci/golangci-lint/v2/cmd/golangci-lint`
+  — or just use `make -C <mod> lint`, which does this for you.
+- `gopls` may flag valid Go 1.26 syntax (e.g. `new(expr)`) as an error if the editor's gopls predates
+  1.26. `go build`/`go vet`/`make lint` are the source of truth; upgrade gopls rather than "fixing" code.
 - Never `git commit` the PORT. Provide commit messages; the user commits. NOTE: `git merge` (Phase 1)
   necessarily creates a merge commit — that is expected and fine; it's the port/skill edits that stay
   uncommitted in the working tree. Do not `reset` the merge unless the user asks.
@@ -64,6 +79,27 @@ number. A PR is just the concrete instance of "what's currently missing." Always
   of truth — if it compiles, the IDE error is stale (reload the workspace to clear).
 
 ## Phase 1 — Sync `pre-release` with `origin/main`
+
+**What "Phase 1 is done" means — do not use "behind upstream/main" as the test.** `main` keeps
+receiving commits after a release is tagged, so a completed sync is ALWAYS "behind main" within
+hours. Being 84 commits behind with 10 touching the base receivers is normal and is NOT an
+incomplete sync. The decisive checks are:
+
+```
+git merge-base --is-ancestor v<TARGET> HEAD && echo "target release fully merged"
+git rev-list --count HEAD..v<TARGET>          # must be 0
+git show upstream/main:versions.yaml | grep -A1 contrib-base   # confirms no newer release exists yet
+```
+
+To decide whether a specific upstream commit was in scope, test it against the release tag, not
+against `main`: `git merge-base --is-ancestor <sha> v<TARGET>`. If it is not an ancestor of the tag,
+it is post-release work for the NEXT cycle.
+
+One consequence worth being explicit about: merging `origin/main` pulls in post-release commits too,
+so **the base receivers in your tree are "v<TARGET> + some unreleased commits."** The parity target is
+the POST-MERGE base in your working tree (as Phase 2 says), which means those unreleased changes are
+legitimately in scope for this port — e.g. in the 2026-09 cycle `#50008` and `#50669` were both
+post-v0.160.0 yet correctly ported. Don't reject a delta just because it postdates the tag.
 
 1. `git fetch origin` (and `git fetch upstream`). Confirm `origin/main` == `upstream/main`.
 2. Check divergence: `git rev-list --count pre-release..origin/main` (behind) and the reverse (ahead).
@@ -192,9 +228,18 @@ base's dispatch shape, so copy logic VERBATIM (including value scaling and `meta
 - Note: metrics added as `enabled: false` won't appear in default-config goldens unless the test enables
   them. A golden shift on a DEFAULT run usually means a shared-metric change (new attribute), not the new
   opt-in metrics — confirm the real cause before regenerating.
-- **`config.schema.yaml` is hand-maintained, not generated — `make generate` will NOT fix it if it's stale,
-  and mdatagen happily accepts a stale one without erroring** (this has been missed before; it caused a
-  real, silent gap in the 2026-08 sync). Whenever a Config struct field's embedding style changes (e.g. the
+- **`config.schema.yaml` IS generated — but by a separate root-level target that per-module
+  `make generate` does NOT run, and mdatagen happily accepts a stale one without erroring** (a stale
+  schema caused a real, silent gap in the 2026-08 sync). Regenerate it explicitly after ANY Config
+  struct change, scoped to the nr dirs:
+  ```
+  SG=go.opentelemetry.io/collector/cmd/schemagen@v0.22.1-0.20260615181954-d04d642d0a3e   # see Makefile.Common SCHEMAGEN_PKG
+  for d in internal/nrsqlquery receiver/nr*receiver; do go run "$SG" "$PWD/$d" -o "$PWD/$d"; done
+  git status --short -- '*config.schema.yaml'    # empty = your hand-edit matched the generator
+  ```
+  Do NOT just run the bare root `make generate-schemas`: it computes `SCHEMA_DIRS` across the whole
+  repo and will regenerate every base component's schema too, pulling unrelated upstream drift into
+  your diff. Whenever a Config struct field's embedding style changes (e.g. the
   upstream #49973-style "un-embed locally defined config structs" refactor: anonymous embed →
   named field), the corresponding `config.schema.yaml` must move in lockstep:
   - A field that's still anonymously embedded is referenced from the top-level `allOf:` list
@@ -265,6 +310,90 @@ exists in the fork. This is the final acceptance gate — run it for EVERY pair 
 above that exists in the repo today (`nroracledb`↔`oracledb`, `nrsqlserver`↔`sqlserver`,
 `nrpostgresql`↔`postgresql`, `nrmysql`↔`mysql`), against the WORKING TREE (your uncommitted port),
 not committed refs. Both commands below must print nothing, per pair.
+
+### FIRST: the structural audit (name-only greps are NOT sufficient)
+
+**The grep gates below compare KEY NAMES ONLY. They cannot see a changed description, unit, enum
+value, metric type, or a whole missing section.** In the 2026-09 sync they reported "parity complete"
+while 27 real differences existed, including a `postgresql.database.locks` description change, a
+`relation` description that contradicted the ported SQL (code emitted names, docs still said "OID …
+or null"), 4 `mysql.commands` enum values the fork never emitted (real data loss — the golden went
+6→10 datapoints once fixed), and `service.name`/`service.namespace` missing from `nroracledb` alone.
+
+Run this FIRST, per pair, and classify every row before trusting anything below:
+
+```
+python3 - <<'PY'
+import yaml
+PAIRS=[("nroracledbreceiver","oracledbreceiver"),("nrsqlserverreceiver","sqlserverreceiver"),
+       ("nrpostgresqlreceiver","postgresqlreceiver"),("nrmysqlreceiver","mysqlreceiver")]
+SEC=["attributes","metrics","events","resource_attributes"]   # resource_attributes is easy to forget
+def load(p):
+    with open(p) as f: return yaml.safe_load(f) or {}
+def walk(fv,bv,path,out):
+    if isinstance(fv,dict) and isinstance(bv,dict):
+        for k in sorted(set(fv)|set(bv)):
+            if k not in fv: out.append(("BASE-ONLY",f"{path}.{k}"))
+            elif k not in bv: out.append(("fork-only",f"{path}.{k}"))
+            elif fv[k]!=bv[k]: walk(fv[k],bv[k],f"{path}.{k}",out)
+    elif isinstance(fv,list) and isinstance(bv,list):
+        if [x for x in bv if x not in fv]: out.append(("BASE-ONLY-ITEMS",path))
+        if [x for x in fv if x not in bv]: out.append(("fork-only-items",path))
+    else: out.append(("VALUE-DIFF",path))
+for fork,base in PAIRS:
+    f=load(f"receiver/{fork}/metadata.yaml"); b=load(f"receiver/{base}/metadata.yaml")
+    rows=[]
+    for sec in SEC:
+        fs,bs=f.get(sec) or {},b.get(sec) or {}
+        if not isinstance(fs,dict) or not isinstance(bs,dict): continue
+        for k in sorted(set(bs)-set(fs)): rows.append((sec,k,"MISSING FROM FORK"))
+        for k in sorted(set(bs)&set(fs)):
+            if bs[k]==fs[k]: continue
+            out=[]; walk(fs[k],bs[k],"",out)
+            bad=[f"{t}{p}" for t,p in out if not t.startswith("fork-only")]
+            if bad: rows.append((sec,k,", ".join(bad)))
+    print(f"{fork}: {len(rows)}")
+    for sec,k,d in rows: print(f"    [{sec}] {k} -> {d}")
+PY
+```
+
+Every row is either drift to align to base, or deliberate divergence to record — decide explicitly,
+never leave one unclassified. Classification aid, since "fork wording is different" is NOT
+automatically deliberate:
+
+- `git log -S'<metric.name>' -- receiver/<fork>/metadata.yaml` and
+  `git log -L '/^  <metric.name>:/,+10:receiver/<fork>/metadata.yaml'` find the commit that made the
+  fork differ. A dedicated commit with a reason (e.g. `12a58e59b15` "fix pga memory bug (#225)",
+  which changed `oracledb.pga_memory` from a monotonic sum to a gauge) is DELIBERATE — aligning to
+  base would reintroduce the bug. A change swept in by a bulk porting commit with no stated rationale
+  is probably incidental drift.
+- Compare the value at fork-creation too: if base and fork agreed then and differ now, someone
+  changed one of them on purpose — find out which.
+- **A description that contradicts the fork's own code is always a bug, never divergence.**
+
+### Structural checks the metadata audit does NOT cover
+
+Run these too, per pair — each caught something the metadata audit could not:
+
+```
+# 1. Base .go files with no fork counterpart (base added a whole file, e.g. mysql's client_factory.go)
+comm -23 <(ls receiver/<base>/*.go | xargs -n1 basename | sort) \
+         <(ls receiver/<fork>/*.go | xargs -n1 basename | sort)
+
+# 2. Base-only PRODUCTION functions (exclude _test.go — fork test suites legitimately diverge, and
+#    including them buries the signal under dozens of irrelevant test-name differences)
+comm -23 \
+  <(ls receiver/<base>/*.go | grep -v _test.go | xargs grep -hoE '^func (\([^)]*\) )?[A-Za-z_][A-Za-z0-9_]*' | sed -E 's/^func (\([^)]*\) )?//' | sort -u) \
+  <(ls receiver/<fork>/*.go | grep -v _test.go | xargs grep -hoE '^func (\([^)]*\) )?[A-Za-z_][A-Za-z0-9_]*' | sed -E 's/^func (\([^)]*\) )?//' | sort -u)
+```
+
+For (2), a base-only name can mean three different things — check which before acting: the fork
+genuinely lacks the feature (port it); the fork has the same feature under a different name (leave,
+but record it — e.g. base's `repairNormalizedQuery`/`protectedSpans` cluster vs the fork's
+`rewriteIntervalParams`/`dollarQuoteTag`, two implementations of the same #50669 fix); or you
+half-renamed something during this port (fix it — renaming `getSharedRelationLocks` →
+`getServerScopedLocks` in `client.go` while leaving `collectSharedRelationLocks` in `scraper.go`
+happened in the 2026-09 sync and only this check found it).
 
 ```
 # 1. Every base metric is in the fork (metrics: section only). Empty output = complete.

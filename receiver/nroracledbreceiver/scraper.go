@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	_ "embed"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -235,6 +234,16 @@ const (
 		SELECT s.name AS NAME, s.value AS VALUE, c.name AS PDB_NAME
 		FROM v$con_sysstat s
 		JOIN v$containers c ON s.con_id = c.con_id`
+	// asmDiskgroupSQL and asmDiskSQL are queried from the regular RDBMS connection (no +ASM instance
+	// connection required) and return zero rows, not an error, on instances that don't use ASM.
+	asmDiskgroupSQL = `
+		SELECT NAME, TOTAL_MB, FREE_MB, USABLE_FILE_MB, OFFLINE_DISKS
+		FROM V$ASM_DISKGROUP_STAT`
+	asmDiskSQL = `
+		SELECT dg.NAME AS DISKGROUP_NAME, d.NAME AS DISK_NAME,
+		       d.READ_ERRS, d.WRITE_ERRS
+		FROM V$ASM_DISK_STAT d
+		JOIN V$ASM_DISKGROUP_STAT dg ON d.GROUP_NUMBER = dg.GROUP_NUMBER`
 	dataDictHitRatioSQL = "SELECT (1-(SUM(getmisses)/SUM(gets))) * 100 as DATA_DICTIONARY_HIT_RATIO FROM v$rowcache WHERE getmisses + gets <> 0"
 	osStatSQL           = "SELECT STAT_NAME, VALUE FROM v$osstat WHERE STAT_NAME IN ('LOAD', 'NUM_CPUS', 'PHYSICAL_MEMORY_BYTES')"
 	recycleBinSizeSQL   = "SELECT nvl(SUM(SPACE*(SELECT value FROM v$parameter WHERE name = 'db_block_size')),0) as RECYCLE_BIN_SIZE_BYTES FROM dba_recyclebin"
@@ -254,6 +263,16 @@ const (
 	colUsedDBSize          = "USED_DB_SIZE"
 	colAllocatedDBSize     = "ALLOCATED_DB_SIZE"
 
+	colASMDiskgroupName     = "NAME"
+	colASMFreeMB            = "FREE_MB"
+	colASMTotalMB           = "TOTAL_MB"
+	colASMUsableFreeMB      = "USABLE_FILE_MB"
+	colASMOfflineDisks      = "OFFLINE_DISKS"
+	colASMDiskDiskgroupName = "DISKGROUP_NAME"
+	colASMDiskName          = "DISK_NAME"
+	colASMDiskReadErrs      = "READ_ERRS"
+	colASMDiskWriteErrs     = "WRITE_ERRS"
+
 	// sgaMaxSize is the row name routed to oracledb.sga.limit; other rows
 	// are looked up in sgaComponentNames.
 	sgaMaxSize = "Maximum SGA Size"
@@ -265,6 +284,8 @@ const (
 	serviceAttr      = "SERVICE"
 	dbNamespaceAttr  = "DB_NAMESPACE"
 	dbSystemNameVal  = "oracle"
+
+	defaultServiceName = "unknown_service:oracle"
 
 	queryExecutionMetric        = "EXECUTIONS"
 	elapsedTimeMetric           = "ELAPSED_TIME"
@@ -346,6 +367,8 @@ type oracleScraper struct {
 	recycleBinSizeClient     dbClient
 	sgaInfoClient            dbClient
 	storageUsageClient       dbClient
+	asmDiskgroupClient       dbClient
+	asmDiskClient            dbClient
 	sysmetricClient          dbClient
 	sysmetricCDBClient       dbClient
 	db                       *sql.DB
@@ -470,6 +493,8 @@ func (s *oracleScraper) start(ctx context.Context, _ component.Host) error {
 	s.recycleBinSizeClient = s.clientProviderFunc(s.db, recycleBinSizeSQL, s.logger)
 	s.sgaInfoClient = s.clientProviderFunc(s.db, sgaInfoSQL, s.logger)
 	s.storageUsageClient = s.clientProviderFunc(s.db, storageUsageSQL, s.logger)
+	s.asmDiskgroupClient = s.clientProviderFunc(s.db, asmDiskgroupSQL, s.logger)
+	s.asmDiskClient = s.clientProviderFunc(s.db, asmDiskSQL, s.logger)
 	s.sysmetricClient = s.clientProviderFunc(s.db, sysmetricSQL, s.logger)
 	if s.isCDBRoot {
 		s.sysmetricCDBClient = s.clientProviderFunc(s.db, sysmetricCDBSQL, s.logger)
@@ -1189,6 +1214,8 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 		s.collectSGAInfo(ctx, &scrapeErrors)
 	}
 	s.collectStorageUsage(ctx, &scrapeErrors)
+	s.collectASMDiskgroupMetrics(ctx, &scrapeErrors)
+	s.collectASMDiskMetrics(ctx, &scrapeErrors)
 	s.collectSysMetrics(ctx, &scrapeErrors)
 
 	rb := s.setupResourceBuilder(s.mb.NewResourceBuilder())
@@ -1342,6 +1369,89 @@ func (s *oracleScraper) collectStorageUsage(ctx context.Context, scrapeErrors *[
 		if s.metricsBuilderConfig.Metrics.OracledbStorageUtilization.Enabled && allocatedBytes > 0 {
 			utilization := usedBytes / allocatedBytes
 			s.mb.RecordOracledbStorageUtilizationDataPoint(now, utilization)
+		}
+	}
+}
+
+// collectASMDiskgroupMetrics collects Automatic Storage Management diskgroup capacity and health
+// metrics. Returns zero rows, not an error, on instances that don't use ASM.
+func (s *oracleScraper) collectASMDiskgroupMetrics(ctx context.Context, scrapeErrors *[]error) {
+	if !s.metricsBuilderConfig.Metrics.OracledbAsmDiskGroupFree.Enabled &&
+		!s.metricsBuilderConfig.Metrics.OracledbAsmDiskGroupCapacity.Enabled &&
+		!s.metricsBuilderConfig.Metrics.OracledbAsmDiskGroupUsableFree.Enabled &&
+		!s.metricsBuilderConfig.Metrics.OracledbAsmDiskGroupOfflineDisks.Enabled {
+		return
+	}
+	now := pcommon.NewTimestampFromTime(time.Now())
+	rows, err := s.asmDiskgroupClient.metricRows(ctx)
+	if err != nil {
+		*scrapeErrors = append(*scrapeErrors, fmt.Errorf("error executing %s: %w", asmDiskgroupSQL, err))
+		return
+	}
+	for _, row := range rows {
+		diskgroupName := row[colASMDiskgroupName]
+
+		if s.metricsBuilderConfig.Metrics.OracledbAsmDiskGroupFree.Enabled {
+			freeMB, err := strconv.ParseInt(row[colASMFreeMB], 10, 64)
+			if err != nil {
+				*scrapeErrors = append(*scrapeErrors, fmt.Errorf("failed to parse int64 for OracledbAsmDiskGroupFree, value was %s: %w", row[colASMFreeMB], err))
+			} else {
+				s.mb.RecordOracledbAsmDiskGroupFreeDataPoint(now, freeMB*1024*1024, diskgroupName)
+			}
+		}
+
+		if s.metricsBuilderConfig.Metrics.OracledbAsmDiskGroupCapacity.Enabled {
+			totalMB, err := strconv.ParseInt(row[colASMTotalMB], 10, 64)
+			if err != nil {
+				*scrapeErrors = append(*scrapeErrors, fmt.Errorf("failed to parse int64 for OracledbAsmDiskGroupCapacity, value was %s: %w", row[colASMTotalMB], err))
+			} else {
+				s.mb.RecordOracledbAsmDiskGroupCapacityDataPoint(now, totalMB*1024*1024, diskgroupName)
+			}
+		}
+
+		if s.metricsBuilderConfig.Metrics.OracledbAsmDiskGroupUsableFree.Enabled {
+			usableFreeMB, err := strconv.ParseInt(row[colASMUsableFreeMB], 10, 64)
+			if err != nil {
+				*scrapeErrors = append(*scrapeErrors, fmt.Errorf("failed to parse int64 for OracledbAsmDiskGroupUsableFree, value was %s: %w", row[colASMUsableFreeMB], err))
+			} else {
+				s.mb.RecordOracledbAsmDiskGroupUsableFreeDataPoint(now, usableFreeMB*1024*1024, diskgroupName)
+			}
+		}
+
+		if s.metricsBuilderConfig.Metrics.OracledbAsmDiskGroupOfflineDisks.Enabled {
+			offlineDisks, err := strconv.ParseInt(row[colASMOfflineDisks], 10, 64)
+			if err != nil {
+				*scrapeErrors = append(*scrapeErrors, fmt.Errorf("failed to parse int64 for OracledbAsmDiskGroupOfflineDisks, value was %s: %w", row[colASMOfflineDisks], err))
+			} else {
+				s.mb.RecordOracledbAsmDiskGroupOfflineDisksDataPoint(now, offlineDisks, diskgroupName)
+			}
+		}
+	}
+}
+
+// collectASMDiskMetrics collects Automatic Storage Management disk-level health metrics. Returns
+// zero rows, not an error, on instances that don't use ASM.
+func (s *oracleScraper) collectASMDiskMetrics(ctx context.Context, scrapeErrors *[]error) {
+	if !s.metricsBuilderConfig.Metrics.OracledbAsmDiskErrors.Enabled {
+		return
+	}
+	now := pcommon.NewTimestampFromTime(time.Now())
+	rows, err := s.asmDiskClient.metricRows(ctx)
+	if err != nil {
+		*scrapeErrors = append(*scrapeErrors, fmt.Errorf("error executing %s: %w", asmDiskSQL, err))
+		return
+	}
+	for _, row := range rows {
+		diskgroupName := row[colASMDiskDiskgroupName]
+		diskName := row[colASMDiskName]
+
+		if s.metricsBuilderConfig.Metrics.OracledbAsmDiskErrors.Enabled {
+			if err := s.mb.RecordOracledbAsmDiskErrorsDataPoint(now, row[colASMDiskReadErrs], diskgroupName, diskName, metadata.AttributeDiskIoDirectionRead); err != nil {
+				*scrapeErrors = append(*scrapeErrors, fmt.Errorf("failed to record OracledbAsmDiskErrors (read), value was %s: %w", row[colASMDiskReadErrs], err))
+			}
+			if err := s.mb.RecordOracledbAsmDiskErrorsDataPoint(now, row[colASMDiskWriteErrs], diskgroupName, diskName, metadata.AttributeDiskIoDirectionWrite); err != nil {
+				*scrapeErrors = append(*scrapeErrors, fmt.Errorf("failed to record OracledbAsmDiskErrors (write), value was %s: %w", row[colASMDiskWriteErrs], err))
+			}
 		}
 	}
 }
@@ -1768,7 +1878,7 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 				commandType:   commandType,
 				firstLoadTime: row[firstLoadTimeAttr],
 				lastLoadTime:  row[lastLoadTimeAttr],
-				planHashValue: hex.EncodeToString([]byte(row[planHashValueAttr])),
+				planHashValue: row[planHashValueAttr],
 				service:       row[serviceAttr],
 				dbNamespace:   row[dbNamespaceAttr],
 			}
@@ -1953,7 +2063,7 @@ func (s *oracleScraper) collectQuerySamples(ctx context.Context, logs plog.Logs)
 		// Normalize SQL and generate MD5 hash for APM correlation.
 		_, normalizedSQLHash := sqlnormalizer.NormalizeSQLAndHash(obfuscatedSQL)
 
-		queryPlanHashVal := hex.EncodeToString([]byte(row[planHashValue]))
+		queryPlanHashVal := row[planHashValue]
 
 		queryDuration, err := strconv.ParseFloat(row[duration], 64)
 		if err != nil {
@@ -2192,6 +2302,8 @@ func (s *oracleScraper) setupResourceBuilder(rb *metadata.ResourceBuilder) *meta
 	rb.SetOracledbInstanceName(s.instanceName)
 	rb.SetHostName(s.hostName)
 	rb.SetServiceInstanceID(s.serviceInstanceID)
+	rb.SetServiceName(defaultServiceName)
+	rb.SetServiceNamespace("")
 	if s.instanceInfo.dbVersion != "" {
 		rb.SetOracleDbVersion(s.instanceInfo.dbVersion)
 	}

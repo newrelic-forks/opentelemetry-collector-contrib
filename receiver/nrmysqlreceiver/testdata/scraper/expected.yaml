@@ -6,7 +6,7 @@ resourceMetrics:
             stringValue: localhost:3306
         - key: service.instance.id
           value:
-            stringValue: placeholder
+            stringValue: 7bbbf00d-8e55-5548-ba7e-fd93f4de59ed
     scopeMetrics:
       - metrics:
           - description: The number of data pages in the InnoDB buffer pool.
@@ -184,6 +184,27 @@ resourceMetrics:
             sum:
               aggregationTemporality: 2
               dataPoints:
+                - asInt: "19"
+                  attributes:
+                    - key: command
+                      value:
+                        stringValue: alter_table
+                  startTimeUnixNano: "1000000"
+                  timeUnixNano: "2000000"
+                - asInt: "38"
+                  attributes:
+                    - key: command
+                      value:
+                        stringValue: create_index
+                  startTimeUnixNano: "1000000"
+                  timeUnixNano: "2000000"
+                - asInt: "42"
+                  attributes:
+                    - key: command
+                      value:
+                        stringValue: create_table
+                  startTimeUnixNano: "1000000"
+                  timeUnixNano: "2000000"
                 - asInt: "50"
                   attributes:
                     - key: command
@@ -203,6 +224,13 @@ resourceMetrics:
                     - key: command
                       value:
                         stringValue: insert
+                  startTimeUnixNano: "1000000"
+                  timeUnixNano: "2000000"
+                - asInt: "86"
+                  attributes:
+                    - key: command
+                      value:
+                        stringValue: optimize
                   startTimeUnixNano: "1000000"
                   timeUnixNano: "2000000"
                 - asInt: "106"
@@ -604,6 +632,54 @@ resourceMetrics:
                   timeUnixNano: "2000000"
               isMonotonic: true
             unit: ns
+          - description: The length of the InnoDB history list.
+            gauge:
+              dataPoints:
+                - asInt: "251"
+                  startTimeUnixNano: "1000000"
+                  timeUnixNano: "2000000"
+            name: mysql.innodb.history_list.length
+            unit: '{transactions}'
+          - description: The number of InnoDB row lock waits currently pending.
+            gauge:
+              dataPoints:
+                - asInt: "265"
+                  startTimeUnixNano: "1000000"
+                  timeUnixNano: "2000000"
+            name: mysql.innodb.row_lock.wait.count
+            unit: '{wait}'
+          - description: The average InnoDB row lock wait duration since server startup or last status reset.
+            gauge:
+              dataPoints:
+                - asDouble: 0.267
+                  startTimeUnixNano: "1000000"
+                  timeUnixNano: "2000000"
+            name: mysql.innodb.row_lock.wait.duration.avg
+            unit: s
+          - description: The maximum InnoDB row lock wait duration since server startup or last status reset.
+            gauge:
+              dataPoints:
+                - asDouble: 0.268
+                  startTimeUnixNano: "1000000"
+                  timeUnixNano: "2000000"
+            name: mysql.innodb.row_lock.wait.duration.max
+            unit: s
+          - description: The number of active InnoDB transactions.
+            gauge:
+              dataPoints:
+                - asInt: "3"
+                  startTimeUnixNano: "1000000"
+                  timeUnixNano: "2000000"
+            name: mysql.innodb.transaction.active.count
+            unit: '{transaction}'
+          - description: The duration of the longest running active InnoDB transaction.
+            gauge:
+              dataPoints:
+                - asInt: "17"
+                  startTimeUnixNano: "1000000"
+                  timeUnixNano: "2000000"
+            name: mysql.innodb.transaction.active.duration.max
+            unit: s
           - description: The number of joins that perform table scans.
             name: mysql.joins
             sum:
@@ -672,6 +748,13 @@ resourceMetrics:
             sum:
               aggregationTemporality: 2
               dataPoints:
+                - asInt: "256"
+                  attributes:
+                    - key: operation
+                      value:
+                        stringValue: fsyncs
+                  startTimeUnixNano: "1000000"
+                  timeUnixNano: "2000000"
                 - asInt: "253"
                   attributes:
                     - key: operation
@@ -691,13 +774,6 @@ resourceMetrics:
                     - key: operation
                       value:
                         stringValue: writes
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
-                - asInt: "256"
-                  attributes:
-                    - key: operation
-                      value:
-                        stringValue: fsyncs
                   startTimeUnixNano: "1000000"
                   timeUnixNano: "2000000"
               isMonotonic: true
@@ -1231,7 +1307,7 @@ resourceMetrics:
                         stringValue: a_table
                   startTimeUnixNano: "1000000"
                   timeUnixNano: "2000000"
-            unit: "By"
+            unit: By
           - description: The total count of I/O wait events for a table.
             name: mysql.table.io.wait.count
             sum:
@@ -1657,31 +1733,31 @@ resourceMetrics:
               dataPoints:
                 - asInt: "734976"
                   attributes:
+                    - key: kind
+                      value:
+                        stringValue: data
                     - key: schema
                       value:
                         stringValue: a_schema
                     - key: table
                       value:
                         stringValue: a_table
-                    - key: kind
-                      value:
-                        stringValue: data
                   startTimeUnixNano: "1000000"
                   timeUnixNano: "2000000"
                 - asInt: "0"
                   attributes:
+                    - key: kind
+                      value:
+                        stringValue: index
                     - key: schema
                       value:
                         stringValue: a_schema
                     - key: table
                       value:
                         stringValue: a_table
-                    - key: kind
-                      value:
-                        stringValue: index
                   startTimeUnixNano: "1000000"
                   timeUnixNano: "2000000"
-            unit: "By"
+            unit: By
           - description: The number of hits, misses or overflows for open tables cache lookups.
             name: mysql.table_open_cache
             sum:
@@ -1785,4 +1861,3 @@ resourceMetrics:
         scope:
           name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrmysqlreceiver
           version: latest
-        
