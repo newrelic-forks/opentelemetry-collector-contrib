@@ -89,7 +89,7 @@ attributes:
     enum: [accepted, closed, rejected]
     requirement_level: recommended
   db.namespace:
-    description: The default database for the thread, or empty if none has been selected (originally processlist_db).
+    description: The database the statement ran in, or empty if none is known. On db.server.query_sample this is the thread's default database (originally processlist_db); on the query plan events it is the database the plan was collected under.
     type: string
   db.query.text:
     description: The SQL statement text for the event.
@@ -349,6 +349,15 @@ events:
       - network.peer.address
       - network.peer.port
 
+  db.server.query_sample.query_plan:
+    enabled: false
+    description: The execution plan for a statement reported by db.server.query_sample.
+    attributes:
+      - db.system.name
+      - mysql.query_plan.hash
+      - db.namespace
+      - mysql.query_plan
+
   db.server.top_query:
     enabled: false
     description: |
@@ -362,6 +371,15 @@ events:
       - mysql.events_statements_summary_by_digest.digest
       - mysql.events_statements_summary_by_digest.count_star
       - mysql.events_statements_summary_by_digest.sum_timer_wait
+
+  db.server.top_query.query_plan:
+    enabled: false
+    description: The execution plan for a statement reported by db.server.top_query.
+    attributes:
+      - db.system.name
+      - mysql.query_plan.hash
+      - db.namespace
+      - mysql.query_plan
 
 metrics:
   mysql.buffer_pool.data_pages:

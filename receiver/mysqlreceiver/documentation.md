@@ -920,7 +920,7 @@ This provides real-time visibility into active queries, helping users monitor da
 | db.system.name | The name of the database system. | Str: ``mysql`` | - |
 | mysql.threads.thread_id | The unique identifier for the thread executing the statement. | Any Int | - |
 | user.name | The user associated with a foreground thread, empty for a background thread (originally processlist_user). | Any Str | - |
-| db.namespace | The default database for the thread, or empty if none has been selected (originally processlist_db). | Any Str | - |
+| db.namespace | The database the statement ran in, or empty if none is known. On db.server.query_sample this is the thread's default database (originally processlist_db); on the query plan events it is the database the plan was collected under. | Any Str | - |
 | mysql.threads.processlist_command | The type of command the thread is executing on behalf of the client for foreground threads, or `Sleep` if the session is idle. | Any Str | - |
 | mysql.threads.processlist_state | An action, event, or state that indicates what the thread is doing. | Any Str | - |
 | db.query.text | The SQL statement text for the event. | Any Str | - |
@@ -938,6 +938,19 @@ This provides real-time visibility into active queries, helping users monitor da
 | network.peer.address | IP address of the peer client. | Any Str | - |
 | network.peer.port | TCP port used by the peer client. | Any Int | - |
 
+### db.server.query_sample.query_plan
+
+The execution plan for a statement reported by db.server.query_sample.
+
+#### Attributes
+
+| Name | Description | Values | Semantic Convention |
+| ---- | ----------- | ------ | ------------------- |
+| db.system.name | The name of the database system. | Str: ``mysql`` | - |
+| mysql.query_plan.hash | This attribute is set to the same value as mysql.events_statements_summary_by_digest.digest (query digest) by design. | Any Str | - |
+| db.namespace | The database the statement ran in, or empty if none is known. On db.server.query_sample this is the thread's default database (originally processlist_db); on the query plan events it is the database the plan was collected under. | Any Str | - |
+| mysql.query_plan | The query plan for the statement, if available. | Any Str | - |
+
 ### db.server.top_query
 
 Top query collection enables monitoring of the queries that consumed the most CPU in the database.
@@ -954,6 +967,19 @@ This provides insights into query performance and resource usage, helping users 
 | mysql.events_statements_summary_by_digest.digest | The statement digest SHA-256 value as a string of 64 hexadecimal characters, or empty if the statements_digest consumer is no. | Any Str | - |
 | mysql.events_statements_summary_by_digest.count_star | The number of times the statement was executed, report in delta value. | Any Int | - |
 | mysql.events_statements_summary_by_digest.sum_timer_wait | The total time spent executing the statement, report in delta seconds. | Any Double | - |
+
+### db.server.top_query.query_plan
+
+The execution plan for a statement reported by db.server.top_query.
+
+#### Attributes
+
+| Name | Description | Values | Semantic Convention |
+| ---- | ----------- | ------ | ------------------- |
+| db.system.name | The name of the database system. | Str: ``mysql`` | - |
+| mysql.query_plan.hash | This attribute is set to the same value as mysql.events_statements_summary_by_digest.digest (query digest) by design. | Any Str | - |
+| db.namespace | The database the statement ran in, or empty if none is known. On db.server.query_sample this is the thread's default database (originally processlist_db); on the query plan events it is the database the plan was collected under. | Any Str | - |
+| mysql.query_plan | The query plan for the statement, if available. | Any Str | - |
 
 ## Resource Attributes
 

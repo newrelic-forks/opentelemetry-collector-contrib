@@ -268,7 +268,34 @@ func (m *mySQLScraper) scrapeTopQueryFunc(_ context.Context) (plog.Logs, error) 
 	} else {
 		m.scrapeTopQueries(now, errs)
 	}
-	return m.emitLogs(errs)
+
+	logs, err := m.emitLogs(errs)
+	if m.config.LogsBuilderConfig.Events.DbServerTopQueryQueryPlan.Enabled {
+		removeInlineQueryPlan(logs, "db.server.top_query")
+	}
+	return logs, err
+}
+
+// removeInlineQueryPlan drops mysql.query_plan from the records of eventName, so the plan is carried
+// only by that event's query plan event. mdatagen sets every attribute declared for an event, so the
+// attribute has to be removed after the fact rather than skipped while recording. This mirrors
+// removeQueryPlanFromTopQuery in the sqlserver and oracledb receivers.
+//
+// The event name must be checked: the query plan records sit in the same scope and have to keep
+// their mysql.query_plan.
+func removeInlineQueryPlan(logs plog.Logs, eventName string) {
+	resourceLogs := logs.ResourceLogs()
+	for i := 0; i < resourceLogs.Len(); i++ {
+		scopeLogs := resourceLogs.At(i).ScopeLogs()
+		for j := 0; j < scopeLogs.Len(); j++ {
+			logRecords := scopeLogs.At(j).LogRecords()
+			for k := 0; k < logRecords.Len(); k++ {
+				if logRecord := logRecords.At(k); logRecord.EventName() == eventName {
+					logRecord.Attributes().Remove("mysql.query_plan")
+				}
+			}
+		}
+	}
 }
 
 func (m *mySQLScraper) scrapeQuerySampleFunc(ctx context.Context) (plog.Logs, error) {
@@ -281,7 +308,12 @@ func (m *mySQLScraper) scrapeQuerySampleFunc(ctx context.Context) (plog.Logs, er
 	now := pcommon.NewTimestampFromTime(time.Now())
 
 	m.scrapeQuerySamples(ctx, now, errs)
-	return m.emitLogs(errs)
+
+	logs, err := m.emitLogs(errs)
+	if m.config.LogsBuilderConfig.Events.DbServerQuerySampleQueryPlan.Enabled {
+		removeInlineQueryPlan(logs, "db.server.query_sample")
+	}
+	return logs, err
 }
 
 func (m *mySQLScraper) scrapeHealth(now pcommon.Timestamp) {
@@ -1070,6 +1102,20 @@ func (m *mySQLScraper) scrapeTopQueries(now pcommon.Timestamp, errs *scrapererro
 			countStarVal,
 			sumTimerWaitVal,
 		)
+
+		// A statement with no plan available gets no record rather than one carrying an empty plan.
+		// events_statements_summary_by_digest is keyed by schema and digest, so these rows cannot
+		// repeat a plan and need no deduplication.
+		if m.config.LogsBuilderConfig.Events.DbServerTopQueryQueryPlan.Enabled && queryPlan != "" {
+			m.lb.RecordDbServerTopQueryQueryPlanEvent(
+				context.Background(),
+				now,
+				metadata.AttributeDbSystemNameMysql,
+				queryPlanHash,
+				q.schemaName,
+				queryPlan,
+			)
+		}
 	}
 }
 
@@ -1082,6 +1128,14 @@ func (m *mySQLScraper) scrapeQuerySamples(_ context.Context, now pcommon.Timesta
 	}
 
 	droppedSamples := 0
+
+	// Sessions running the same statement share a plan, and db.server.query_sample.query_plan
+	// identifies a plan by database and plan hash, so one record per key covers every sample that
+	// references it. Scoped to this scrape so each emitted batch carries the plans its samples point at.
+	var recordedPlans map[string]struct{}
+	if m.config.LogsBuilderConfig.Events.DbServerQuerySampleQueryPlan.Enabled {
+		recordedPlans = make(map[string]struct{})
+	}
 
 	for i := range samples {
 		sample := &samples[i]
@@ -1151,6 +1205,23 @@ func (m *mySQLScraper) scrapeQuerySamples(_ context.Context, now pcommon.Timesta
 			networkPeerAddress,
 			networkPeerPort,
 		)
+
+		// The plan describes the statement rather than this execution of it, so it carries neither the
+		// sample's trace context nor its session attributes.
+		if recordedPlans != nil && queryPlan != "" {
+			planKey := createCacheKey(sample.processlistDB, queryPlanHash)
+			if _, recorded := recordedPlans[planKey]; !recorded {
+				recordedPlans[planKey] = struct{}{}
+				m.lb.RecordDbServerQuerySampleQueryPlanEvent(
+					context.Background(),
+					now,
+					metadata.AttributeDbSystemNameMysql,
+					queryPlanHash,
+					sample.processlistDB,
+					queryPlan,
+				)
+			}
+		}
 	}
 
 	if droppedSamples > 0 {

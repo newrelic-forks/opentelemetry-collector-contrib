@@ -103,3 +103,53 @@ func TestConfigValidate_TCPMissingEndpoint(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), ErrNoEndpoint)
 }
+
+// A query plan event reports the plans collected for its own source event, so each one is held to its
+// own dependency.
+func TestConfigValidate_QueryPlanEventWithoutItsSource(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		enable   func(cfg *Config)
+		expected string
+	}{
+		{
+			name:     "top query plan without top query",
+			enable:   func(cfg *Config) { cfg.LogsBuilderConfig.Events.DbServerTopQueryQueryPlan.Enabled = true },
+			expected: ErrTopQueryPlanWithoutTopQuery,
+		},
+		{
+			name:     "query sample plan without query sample",
+			enable:   func(cfg *Config) { cfg.LogsBuilderConfig.Events.DbServerQuerySampleQueryPlan.Enabled = true },
+			expected: ErrQuerySamplePlanWithoutQuerySample,
+		},
+		{
+			name: "top query plan with query sample only",
+			enable: func(cfg *Config) {
+				cfg.LogsBuilderConfig.Events.DbServerQuerySample.Enabled = true
+				cfg.LogsBuilderConfig.Events.DbServerTopQueryQueryPlan.Enabled = true
+			},
+			expected: ErrTopQueryPlanWithoutTopQuery,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := createDefaultConfig().(*Config)
+			cfg.Username = "otel"
+			tc.enable(cfg)
+
+			err := cfg.Validate()
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tc.expected)
+		})
+	}
+}
+
+func TestConfigValidate_QueryPlanEventsWithTheirSources(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.Username = "otel"
+	cfg.LogsBuilderConfig.Events.DbServerTopQuery.Enabled = true
+	cfg.LogsBuilderConfig.Events.DbServerTopQueryQueryPlan.Enabled = true
+	cfg.LogsBuilderConfig.Events.DbServerQuerySample.Enabled = true
+	cfg.LogsBuilderConfig.Events.DbServerQuerySampleQueryPlan.Enabled = true
+
+	require.NoError(t, cfg.Validate())
+}

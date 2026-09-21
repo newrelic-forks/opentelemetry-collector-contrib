@@ -188,7 +188,11 @@ all_set:
   events:
     db.server.query_sample:
       enabled: true
+    db.server.query_sample.query_plan:
+      enabled: true
     db.server.top_query:
+      enabled: true
+    db.server.top_query.query_plan:
       enabled: true
   resource_attributes:
     db.system.name:
@@ -392,7 +396,11 @@ reaggregate_set:
   events:
     db.server.query_sample:
       enabled: true
+    db.server.query_sample.query_plan:
+      enabled: true
     db.server.top_query:
+      enabled: true
+    db.server.top_query.query_plan:
       enabled: true
   resource_attributes:
     db.system.name:
@@ -596,7 +604,11 @@ none_set:
   events:
     db.server.query_sample:
       enabled: false
+    db.server.query_sample.query_plan:
+      enabled: false
     db.server.top_query:
+      enabled: false
+    db.server.top_query.query_plan:
       enabled: false
   resource_attributes:
     db.system.name:

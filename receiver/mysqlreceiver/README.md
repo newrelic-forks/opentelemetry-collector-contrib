@@ -172,6 +172,52 @@ that statement on all versions. Truncation is controlled by
 [`performance_schema_max_sql_text_length`](https://dev.mysql.com/doc/refman/8.0/en/performance-schema-system-variables.html#sysvar_performance_schema_max_sql_text_length)
 (default 1024). Setting it to `4096` is recommended — see the requirements table below.
 
+### Splitting the execution plan onto its own event
+
+`db.server.top_query` and `db.server.query_sample` each carry the statement's execution plan in their
+`mysql.query_plan` attribute. The plan is the output of `EXPLAIN FORMAT=json`, a nested document with
+one object per table access, so it can dominate the record it travels on.
+
+Each of those events has a companion event that reports the plan on a record of its own, where it can
+be filtered, routed or dropped independently of the query statistics and the session activity, and
+where an oversized plan does not take those with it when a batcher splits by size:
+
+| Source event | Query plan event |
+|--------------|------------------|
+| `db.server.top_query` | `db.server.top_query.query_plan` |
+| `db.server.query_sample` | `db.server.query_sample.query_plan` |
+
+Both are disabled by default, and each is enabled on its own, so splitting one source leaves the other
+untouched. A query plan event requires its own source event, and enabling it without that source is a
+configuration error. It reports plans the source event already collects, so it adds no queries and
+needs no grants of its own.
+
+```yaml
+events:
+  db.server.top_query:
+    enabled: true
+  db.server.top_query.query_plan:      # top query records lose their mysql.query_plan
+    enabled: true
+  db.server.query_sample:
+    enabled: true
+  db.server.query_sample.query_plan:   # left disabled, so samples keep their mysql.query_plan
+    enabled: false
+```
+
+The source event is then emitted **without** its `mysql.query_plan` attribute, and the plan is reported
+on the companion event, joined back via `mysql.query_plan.hash` and `db.namespace`. A statement with no
+plan available produces no query plan record.
+
+Several sessions can be running one statement when a sample scrape fires, and they share a plan, so
+`db.server.query_sample.query_plan` reports each plan once per scrape rather than once per sample.
+Plans are identified by `db.namespace` and `mysql.query_plan.hash`, which means:
+
+- One digest executed in several databases produces one record per database, since the plan is
+  collected per database.
+- `db.server.top_query` reports the database as the `schema_name` the statement was summarized under,
+  while `db.server.query_sample` reports the session's current database. For one statement these can
+  differ, so the same plan can appear under two `db.namespace` values across the two events.
+
 ### MySQL Requirements to enable log collection
 
 | Parameter                                | Value                            | Description                                         |

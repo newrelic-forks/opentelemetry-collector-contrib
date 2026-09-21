@@ -1877,6 +1877,310 @@ func TestQueryPlanCacheReuse(t *testing.T) {
 	})
 }
 
+const (
+	topQueryEvent        = "db.server.top_query"
+	querySampleEvent     = "db.server.query_sample"
+	topQueryPlanEvent    = "db.server.top_query.query_plan"
+	querySamplePlanEvent = "db.server.query_sample.query_plan"
+)
+
+// newQueryPlanEventScraper creates a mySQLScraper with the named events enabled. The events have to be
+// configured before the scraper is built, because the logs builder captures their enabled state at
+// construction.
+func newQueryPlanEventScraper(t *testing.T, c client, enabledEvents ...string) *mySQLScraper {
+	t.Helper()
+	cfg := createDefaultConfig().(*Config)
+	cfg.Username = "otel"
+	cfg.Password = "otel"
+	cfg.AddrConfig = confignet.AddrConfig{Endpoint: "localhost:3306"}
+	for _, event := range enabledEvents {
+		switch event {
+		case topQueryEvent:
+			cfg.LogsBuilderConfig.Events.DbServerTopQuery.Enabled = true
+		case querySampleEvent:
+			cfg.LogsBuilderConfig.Events.DbServerQuerySample.Enabled = true
+		case topQueryPlanEvent:
+			cfg.LogsBuilderConfig.Events.DbServerTopQueryQueryPlan.Enabled = true
+		case querySamplePlanEvent:
+			cfg.LogsBuilderConfig.Events.DbServerQuerySampleQueryPlan.Enabled = true
+		default:
+			t.Fatalf("unknown event %q", event)
+		}
+	}
+	// A finite plan cache TTL starts a non-terminating goroutine, which goleak reports.
+	s, err := newMySQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, nil, newCache[int64](100), newTTLCache[string](100, 0))
+	require.NoError(t, err)
+	s.sqlclient = c
+	s.detectedVersion = c.getDBVersion()
+	return s
+}
+
+// recordsByEvent groups emitted log records by event name.
+func recordsByEvent(logs plog.Logs) map[string][]plog.LogRecord {
+	byEvent := map[string][]plog.LogRecord{}
+	resourceLogs := logs.ResourceLogs()
+	for i := 0; i < resourceLogs.Len(); i++ {
+		scopeLogs := resourceLogs.At(i).ScopeLogs()
+		for j := 0; j < scopeLogs.Len(); j++ {
+			logRecords := scopeLogs.At(j).LogRecords()
+			for k := 0; k < logRecords.Len(); k++ {
+				record := logRecords.At(k)
+				byEvent[record.EventName()] = append(byEvent[record.EventName()], record)
+			}
+		}
+	}
+	return byEvent
+}
+
+func TestQueryPlanEvents(t *testing.T) {
+	const (
+		schema     = "adventureworks"
+		digest     = "digest-shared"
+		digestText = "SELECT * FROM t"
+		plan       = `{"query_block":{"select_id":1}}`
+	)
+
+	topQueries := func(schemas ...string) []topQuery {
+		queries := make([]topQuery, 0, len(schemas))
+		for _, s := range schemas {
+			queries = append(queries, topQuery{
+				schemaName:                s,
+				digest:                    digest,
+				digestText:                digestText,
+				querySampleText:           digestText,
+				countStar:                 10,
+				sumTimerWaitInPicoSeconds: 200,
+			})
+		}
+		return queries
+	}
+
+	querySamples := func(databases ...string) []querySample {
+		samples := make([]querySample, 0, len(databases))
+		for i, db := range databases {
+			samples = append(samples, querySample{
+				processlistDB:      db,
+				processlistHost:    "192.168.1.80:1234",
+				processlistUser:    "myuser",
+				processlistCommand: "Query",
+				processlistState:   "executing",
+				digestText:         digestText,
+				sqlText:            digestText,
+				digest:             digest,
+				eventID:            int64(i + 1),
+				sessionStatus:      "running",
+				waitEvent:          "CPU",
+			})
+		}
+		return samples
+	}
+
+	seedDiffCache := func(s *mySQLScraper, schemas ...string) {
+		// Top query events are emitted only when the value is already cached and increases.
+		for _, schemaName := range schemas {
+			s.cacheAndDiff(schemaName, digest, "count_star", 9)
+			s.cacheAndDiff(schemaName, digest, "sum_timer_wait", 199)
+		}
+	}
+
+	namespacesOf := func(t *testing.T, records []plog.LogRecord) []string {
+		t.Helper()
+		namespaces := make([]string, 0, len(records))
+		for _, record := range records {
+			namespaceAttr, ok := record.Attributes().Get("db.namespace")
+			require.True(t, ok)
+			namespaces = append(namespaces, namespaceAttr.Str())
+		}
+		return namespaces
+	}
+
+	t.Run("db.server.top_query keeps its plan while its query plan event is disabled", func(t *testing.T) {
+		spy := &queryPlanSpyClient{topQueries: topQueries(schema), explainPlan: plan}
+		s := newQueryPlanEventScraper(t, spy, topQueryEvent)
+		seedDiffCache(s, schema)
+
+		logs, err := s.scrapeTopQueryFunc(t.Context())
+		require.NoError(t, err)
+
+		byEvent := recordsByEvent(logs)
+		require.Len(t, byEvent[topQueryEvent], 1)
+		require.Empty(t, byEvent[topQueryPlanEvent])
+
+		assertStrAttr(t, byEvent[topQueryEvent][0], "mysql.query_plan", plan)
+	})
+
+	t.Run("db.server.query_sample keeps its plan while its query plan event is disabled", func(t *testing.T) {
+		spy := &queryPlanSpyClient{querySamples: querySamples(schema), explainPlan: plan}
+		s := newQueryPlanEventScraper(t, spy, querySampleEvent)
+
+		logs, err := s.scrapeQuerySampleFunc(t.Context())
+		require.NoError(t, err)
+
+		byEvent := recordsByEvent(logs)
+		require.Len(t, byEvent[querySampleEvent], 1)
+		require.Empty(t, byEvent[querySamplePlanEvent])
+
+		assertStrAttr(t, byEvent[querySampleEvent][0], "mysql.query_plan", plan)
+	})
+
+	t.Run("db.server.top_query.query_plan reports the plan of a top query", func(t *testing.T) {
+		spy := &queryPlanSpyClient{topQueries: topQueries(schema), explainPlan: plan}
+		s := newQueryPlanEventScraper(t, spy, topQueryEvent, topQueryPlanEvent)
+		seedDiffCache(s, schema)
+
+		logs, err := s.scrapeTopQueryFunc(t.Context())
+		require.NoError(t, err)
+
+		byEvent := recordsByEvent(logs)
+		require.Len(t, byEvent[topQueryEvent], 1)
+		require.Len(t, byEvent[topQueryPlanEvent], 1)
+
+		topQueryRecord := byEvent[topQueryEvent][0]
+		_, hasPlan := topQueryRecord.Attributes().Get("mysql.query_plan")
+		assert.False(t, hasPlan, "db.server.top_query must not carry the plan once its query plan event reports it")
+		planHashAttr, ok := topQueryRecord.Attributes().Get("mysql.query_plan.hash")
+		require.True(t, ok, "the plan hash stays on db.server.top_query as the join key")
+
+		planRecord := byEvent[topQueryPlanEvent][0]
+		assertStrAttr(t, planRecord, "mysql.query_plan", plan)
+		assertStrAttr(t, planRecord, "mysql.query_plan.hash", planHashAttr.Str())
+		assertStrAttr(t, planRecord, "db.namespace", schema)
+		assertStrAttr(t, planRecord, "db.system.name", "mysql")
+	})
+
+	t.Run("db.server.query_sample.query_plan reports the plan of a sampled statement", func(t *testing.T) {
+		spy := &queryPlanSpyClient{querySamples: querySamples(schema), explainPlan: plan}
+		s := newQueryPlanEventScraper(t, spy, querySampleEvent, querySamplePlanEvent)
+
+		logs, err := s.scrapeQuerySampleFunc(t.Context())
+		require.NoError(t, err)
+
+		byEvent := recordsByEvent(logs)
+		require.Len(t, byEvent[querySampleEvent], 1)
+		require.Len(t, byEvent[querySamplePlanEvent], 1)
+
+		sampleRecord := byEvent[querySampleEvent][0]
+		_, hasPlan := sampleRecord.Attributes().Get("mysql.query_plan")
+		assert.False(t, hasPlan, "db.server.query_sample must not carry the plan once its query plan event reports it")
+		planHashAttr, ok := sampleRecord.Attributes().Get("mysql.query_plan.hash")
+		require.True(t, ok, "the plan hash stays on db.server.query_sample as the join key")
+
+		planRecord := byEvent[querySamplePlanEvent][0]
+		assertStrAttr(t, planRecord, "mysql.query_plan", plan)
+		assertStrAttr(t, planRecord, "mysql.query_plan.hash", planHashAttr.Str())
+		assertStrAttr(t, planRecord, "db.namespace", schema)
+	})
+
+	t.Run("each source event is split on its own", func(t *testing.T) {
+		spy := &queryPlanSpyClient{
+			topQueries:   topQueries(schema),
+			querySamples: querySamples(schema),
+			explainPlan:  plan,
+		}
+		s := newQueryPlanEventScraper(t, spy, topQueryEvent, querySampleEvent, topQueryPlanEvent)
+		seedDiffCache(s, schema)
+
+		topQueryLogs, err := s.scrapeTopQueryFunc(t.Context())
+		require.NoError(t, err)
+		sampleLogs, err := s.scrapeQuerySampleFunc(t.Context())
+		require.NoError(t, err)
+
+		topQueryByEvent := recordsByEvent(topQueryLogs)
+		require.Len(t, topQueryByEvent[topQueryPlanEvent], 1)
+		_, topQueryHasPlan := topQueryByEvent[topQueryEvent][0].Attributes().Get("mysql.query_plan")
+		assert.False(t, topQueryHasPlan)
+
+		sampleByEvent := recordsByEvent(sampleLogs)
+		assert.Empty(t, sampleByEvent[querySamplePlanEvent], "a disabled query plan event leaves its source event untouched")
+		assertStrAttr(t, sampleByEvent[querySampleEvent][0], "mysql.query_plan", plan)
+	})
+
+	t.Run("sample plans are recorded once per scrape", func(t *testing.T) {
+		spy := &queryPlanSpyClient{querySamples: querySamples(schema, schema, schema), explainPlan: plan}
+		s := newQueryPlanEventScraper(t, spy, querySampleEvent, querySamplePlanEvent)
+
+		logs, err := s.scrapeQuerySampleFunc(t.Context())
+		require.NoError(t, err)
+
+		byEvent := recordsByEvent(logs)
+		require.Len(t, byEvent[querySampleEvent], 3)
+		assert.Len(t, byEvent[querySamplePlanEvent], 1,
+			"sessions running one statement share a plan, so the plan is reported once rather than per sample")
+	})
+
+	t.Run("no plan produces no query plan record", func(t *testing.T) {
+		spy := &queryPlanSpyClient{
+			topQueries:   topQueries(schema),
+			querySamples: querySamples(schema),
+			explainPlan:  "",
+		}
+		s := newQueryPlanEventScraper(t, spy, topQueryEvent, querySampleEvent, topQueryPlanEvent, querySamplePlanEvent)
+		seedDiffCache(s, schema)
+
+		topQueryLogs, err := s.scrapeTopQueryFunc(t.Context())
+		require.NoError(t, err)
+		sampleLogs, err := s.scrapeQuerySampleFunc(t.Context())
+		require.NoError(t, err)
+
+		require.Len(t, recordsByEvent(topQueryLogs)[topQueryEvent], 1)
+		require.Len(t, recordsByEvent(sampleLogs)[querySampleEvent], 1)
+		assert.Empty(t, recordsByEvent(topQueryLogs)[topQueryPlanEvent], "a statement with no plan gets no record rather than one carrying an empty plan")
+		assert.Empty(t, recordsByEvent(sampleLogs)[querySamplePlanEvent])
+	})
+
+	t.Run("one record per database when a digest runs in several databases", func(t *testing.T) {
+		other := "northwind"
+
+		spy := &queryPlanSpyClient{topQueries: topQueries(schema, other), explainPlan: plan}
+		s := newQueryPlanEventScraper(t, spy, topQueryEvent, topQueryPlanEvent)
+		seedDiffCache(s, schema, other)
+
+		topQueryLogs, err := s.scrapeTopQueryFunc(t.Context())
+		require.NoError(t, err)
+		topQueryByEvent := recordsByEvent(topQueryLogs)
+		require.Len(t, topQueryByEvent[topQueryEvent], 2)
+		assert.ElementsMatch(t, []string{schema, other}, namespacesOf(t, topQueryByEvent[topQueryPlanEvent]),
+			"db.namespace distinguishes plans for the same digest collected in different schemas")
+
+		sampleSpy := &queryPlanSpyClient{querySamples: querySamples(schema, other), explainPlan: plan}
+		sampleScraper := newQueryPlanEventScraper(t, sampleSpy, querySampleEvent, querySamplePlanEvent)
+
+		sampleLogs, err := sampleScraper.scrapeQuerySampleFunc(t.Context())
+		require.NoError(t, err)
+		sampleByEvent := recordsByEvent(sampleLogs)
+		require.Len(t, sampleByEvent[querySampleEvent], 2)
+		assert.ElementsMatch(t, []string{schema, other}, namespacesOf(t, sampleByEvent[querySamplePlanEvent]))
+	})
+}
+
+// TestTopQueryPlanEventGolden covers the split against the same top query fixture as TestScrape, so it
+// is exercised on a plan of realistic size.
+func TestTopQueryPlanEventGolden(t *testing.T) {
+	s := newQueryPlanEventScraper(t, &mockClient{topQueriesFile: "top_queries"}, topQueryEvent, topQueryPlanEvent)
+	s.cacheAndDiff("mysql", "c16f24f908846019a741db580f6545a5933e9435a7cf1579c50794a6ca287739", "count_star", 1)
+	s.cacheAndDiff("mysql", "c16f24f908846019a741db580f6545a5933e9435a7cf1579c50794a6ca287739", "sum_timer_wait", 1)
+
+	logs, err := s.scrapeTopQueryFunc(t.Context())
+	require.NoError(t, err)
+
+	expectedFile := filepath.Join("testdata", "scraper", "expectedTopQueriesWithQueryPlanEvent.yaml")
+	// Uncomment this to regenerate the expected logs file
+	// golden.WriteLogs(t, expectedFile, logs)
+	expectedLogs, err := golden.ReadLogs(expectedFile)
+	require.NoError(t, err)
+
+	require.NoError(t, plogtest.CompareLogs(expectedLogs, logs,
+		plogtest.IgnoreTimestamp(),
+		plogtest.IgnoreResourceAttributeValue("service.instance.id")))
+}
+
+func assertStrAttr(t *testing.T, record plog.LogRecord, key, expected string) {
+	t.Helper()
+	attr, ok := record.Attributes().Get(key)
+	require.True(t, ok, "%s is missing", key)
+	assert.Equal(t, expected, attr.Str(), key)
+}
+
 // mustDBVersion is a test helper that builds a dbVersion from a raw version
 // string, applying MariaDB detection the same way getDBVersion does.
 func mustDBVersion(t *testing.T, rawVersion string) dbVersion {
