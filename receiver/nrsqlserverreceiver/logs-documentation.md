@@ -15,6 +15,10 @@
 | db.query.text                  | Obfuscated text of the SQL query.<br><br>Is NULL for encrypted objects. This one is defined in Opentelemetry Semantic Convention, so we are using the naming following the convention. https://github.com/open-telemetry/semantic-conventions/blob/main/docs/registry/attributes/db.md                                                                                                                                                                                                                 | string |
 | sqlserver.query_plan           | Obfuscated query plan                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | string |
 
+When the `db.server.query_plan` event is enabled, `sqlserver.query_plan` is reported on that event
+instead of on `db.server.top_query`, joined back via `sqlserver.query_hash` +
+`sqlserver.query_plan_hash`. All the other attributes above stay on `db.server.top_query`.
+
 # Query-Sample Collection Exported Logs Attributes
 | Attributes                            | Description                                                                       | Type   |
 | ------------------------------------- | --------------------------------------------------------------------------------- | ------ |
