@@ -71,7 +71,6 @@ func isIdentifierChar(c byte) bool {
 	return (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
 }
 
-// isHexDigit checks if a character is a hexadecimal digit.
 // keywordLiterals are standalone keyword literals normalized like any other
 // literal value. Matched as whole tokens only -- e.g. a column named
 // "trueup" is untouched.
