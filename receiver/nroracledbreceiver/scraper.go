@@ -1814,7 +1814,33 @@ func (s *oracleScraper) scrapeLogs(ctx context.Context) (plog.Logs, error) {
 		}
 	}
 
+	if s.logsBuilderConfig.Events.DbServerQueryPlan.Enabled {
+		removeQueryPlanFromTopQuery(logs)
+	}
+
 	return logs, errors.Join(scrapeErrors...)
+}
+
+// removeQueryPlanFromTopQuery drops oracledb.query_plan from db.server.top_query records, so the
+// plan is carried only by db.server.query_plan. mdatagen sets every attribute declared for an event,
+// so the attribute has to be removed after the fact rather than skipped while recording. This
+// mirrors removeQueryPlanFromTopQuery in the sqlserver receiver.
+//
+// The event name must be checked: db.server.query_plan records sit in the same scope and have to
+// keep their oracledb.query_plan.
+func removeQueryPlanFromTopQuery(logs plog.Logs) {
+	resourceLogs := logs.ResourceLogs()
+	for i := 0; i < resourceLogs.Len(); i++ {
+		scopeLogs := resourceLogs.At(i).ScopeLogs()
+		for j := 0; j < scopeLogs.Len(); j++ {
+			logRecords := scopeLogs.At(j).LogRecords()
+			for k := 0; k < logRecords.Len(); k++ {
+				if logRecord := logRecords.At(k); logRecord.EventName() == "db.server.top_query" {
+					logRecord.Attributes().Remove("oracledb.query_plan")
+				}
+			}
+		}
+	}
 }
 
 func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Logs, collectionTime time.Time, lookbackTimeSeconds int) error {
@@ -1933,7 +1959,8 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 
 	for i := range hits {
 		hit := &hits[i]
-		planBytes, err := json.Marshal(childAddressToPlanMap[hit.childAddress])
+		planRows, hasPlan := childAddressToPlanMap[hit.childAddress]
+		planBytes, err := json.Marshal(planRows)
 		if err != nil {
 			s.logger.Error("Error marshaling plan data to JSON", zap.Error(err))
 		}
@@ -1978,6 +2005,19 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 			hit.firstLoadTime,
 			hit.lastLoadTime,
 			normalizedSQLHash)
+
+		// A cursor with no rows in V$SQL_PLAN_STATISTICS_ALL has no plan to report, so it gets no
+		// record rather than one carrying the JSON encoding of an absent plan.
+		if hasPlan {
+			s.lb.RecordDbServerQueryPlanEvent(ctx,
+				pcommon.NewTimestampFromTime(collectionTime),
+				hit.sqlID,
+				hit.childNumber,
+				hit.childAddress,
+				hit.planHashValue,
+				hit.dbNamespace,
+				planString)
+		}
 	}
 
 	hitCount := len(hits)

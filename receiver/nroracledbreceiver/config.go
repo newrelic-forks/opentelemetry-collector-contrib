@@ -26,6 +26,9 @@ var (
 	errEmptyUsername       = errors.New("username must be set")
 	errMaxQuerySampleCount = errors.New("`max_query_sample_count` must be between 1 and 10000")
 	errTopQueryCount       = errors.New("`top_query_count` must be between 1 and 200 and less than or equal to `max_query_sample_count`")
+
+	// db.server.query_plan is collected as part of top query collection, so on its own it reports nothing.
+	errQueryPlanWithoutTopQuery = errors.New("`db.server.query_plan` requires `db.server.top_query` to be enabled")
 )
 
 type TopQueryCollection struct {
@@ -114,6 +117,9 @@ func (c Config) Validate() error {
 	}
 	if c.TopQueryCollection.TopQueryCount < 1 || c.TopQueryCollection.TopQueryCount > 200 || c.TopQueryCollection.TopQueryCount > c.TopQueryCollection.MaxQuerySampleCount {
 		allErrs = multierr.Append(allErrs, errTopQueryCount)
+	}
+	if c.Events.DbServerQueryPlan.Enabled && !c.Events.DbServerTopQuery.Enabled {
+		allErrs = multierr.Append(allErrs, errQueryPlanWithoutTopQuery)
 	}
 	return allErrs
 }

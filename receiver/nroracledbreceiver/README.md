@@ -139,9 +139,9 @@ upgrading without adding new grants continue to work unchanged.
 
 ### Events collection
 
-The following grants are required for event collection. All three event types
-(`db.server.query_sample`, `db.server.top_query`, `db.server.session.wait_sample`)
-are disabled by default and must be explicitly enabled in configuration.
+The following grants are required for event collection. All four event types
+(`db.server.query_sample`, `db.server.top_query`, `db.server.session.wait_sample`,
+`db.server.query_plan`) are disabled by default and must be explicitly enabled in configuration.
 
 #### All events (shared requirements)
 
@@ -184,6 +184,25 @@ GRANT SELECT ON DBA_PROCEDURES TO <username>;            -- Stored procedure met
 ```sql
 ALTER SYSTEM SET statistics_level = ALL;
 ```
+
+#### `db.server.query_plan`
+
+By default, `db.server.top_query` carries the query's execution plan in its `oracledb.query_plan`
+attribute. A plan is a JSON payload holding one entry per plan step, so it can dominate the record it
+travels on. Enabling `db.server.query_plan` isolates the plan on a record of its own, where it can be
+filtered, routed or dropped independently of the query statistics, and where an oversized plan does
+not take those statistics with it when a batcher splits by size.
+
+`db.server.top_query` is then emitted **without** its `oracledb.query_plan` attribute, and the plan
+itself is reported on `db.server.query_plan`, joined back to its cursor via `oracledb.sql_id` +
+`oracledb.child_number` + `oracledb.child_address`, with `oracledb.plan_hash_value` identifying the
+plan and `db.namespace` the database it came from. A cursor with no rows in
+`V$SQL_PLAN_STATISTICS_ALL` produces no `db.server.query_plan` record. Leaving
+`db.server.query_plan` disabled preserves the previous behavior exactly.
+
+`db.server.query_plan` is sourced from the same collection as `db.server.top_query` and only splits
+the plan out of it, so it needs no grants of its own, and enabling it without `db.server.top_query`
+is a configuration error.
 
 #### `db.server.session.wait_sample`
 
@@ -244,6 +263,8 @@ receivers:
       db.server.top_query:
         enabled: true
       db.server.session.wait_sample:
+        enabled: true
+      db.server.query_plan:                      # reports the execution plan on its own event, off db.server.top_query
         enabled: true
     top_query_collection:                        # this collection exports the most expensive queries as logs
       max_query_sample_count: 1000               # maximum number of samples collected from db to filter the top N
