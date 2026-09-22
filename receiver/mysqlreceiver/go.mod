@@ -51,6 +51,7 @@ require (
 	github.com/outcaste-io/ristretto v0.2.3 // indirect
 	github.com/shirou/gopsutil/v4 v4.26.6 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
+	go.opentelemetry.io/collector/confmap/xconfmap v0.161.0 // indirect
 	go.opentelemetry.io/collector/consumer/consumererror v0.161.0 // indirect
 	go.opentelemetry.io/collector/consumer/xconsumer v0.161.0 // indirect
 	go.opentelemetry.io/collector/featuregate v1.67.0 // indirect

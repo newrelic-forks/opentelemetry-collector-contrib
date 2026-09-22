@@ -17,7 +17,7 @@ override_value_enabled: true
 resource_attributes:
   db.system.edition:
     description: The edition of the MySQL instance (e.g. "MySQL Community Server - GPL", "MySQL Enterprise Server - Commercial").
-    enabled: true
+    enabled: false
     type: string
   db.system.name:
     description: The database product of the instance. Examples include "mysql" and "mariadb".
