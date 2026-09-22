@@ -132,12 +132,10 @@
     -- information_schema.INNODB_TRX to sort oldest-transaction-first, but
     -- that requires the global PROCESS privilege, and MySQL checks
     -- privileges on every referenced table at prepare time regardless of
-    -- whether a row is actually needed -- so the entire query_sample query
-    -- failed outright the moment a real block existed for a monitoring user
-    -- without PROCESS. Dropped in favor of privilege-cheap, always-available
-    -- (if unordered) blocker identification. See
-    -- docs/mysql-receiver/blocking-blockers-ordering-spec-removed-2026-08-14.md
-    -- for the full spec if this needs to come back.
+    -- whether a row is actually needed. That made the entire query_sample
+    -- query fail outright for a monitoring user without PROCESS as soon as a
+    -- real block existed, so this keeps the lower-privilege, always-available
+    -- unordered data_lock_waits result instead.
     COALESCE(
         (
             SELECT JSON_ARRAYAGG(JSON_OBJECT('thread_id', ordered.thread_id, 'session_id', ordered.session_id))
