@@ -434,7 +434,8 @@ func (c *mySQLClient) fetchDBVersion() (dbVersion, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), versionDetectTimeout)
 	defer cancel()
 
-	var versionStr, versionComment string
+	var versionStr string
+	var versionComment sql.NullString
 	if err := c.client.QueryRowContext(ctx, "SELECT VERSION(), @@version_comment;").Scan(&versionStr, &versionComment); err != nil {
 		return dbVersion{}, err
 	}
@@ -442,7 +443,9 @@ func (c *mySQLClient) fetchDBVersion() (dbVersion, error) {
 	if err != nil {
 		return dbVersion{}, err
 	}
-	dbVer.edition = versionComment
+	if versionComment.Valid {
+		dbVer.edition = versionComment.String
+	}
 	return dbVer, nil
 }
 

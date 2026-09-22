@@ -738,6 +738,25 @@ func TestFetchDBVersion_EmptyEditionWhenVersionCommentIsEmpty(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestFetchDBVersion_NullVersionCommentPreservesVersion(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	mock.ExpectQuery(`SELECT VERSION\(\), @@version_comment`).
+		WillReturnRows(sqlmock.NewRows([]string{"VERSION()", "@@version_comment"}).
+			AddRow("8.0.33", nil))
+
+	c := &mySQLClient{client: db}
+	got, err := c.fetchDBVersion()
+
+	require.NoError(t, err)
+	assert.Equal(t, "8.0.33", got.version.String())
+	assert.Equal(t, dbProductMySQL, got.product)
+	assert.Empty(t, got.edition)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 // TestDBVersionHelperMethods verifies isValid and productString across all product/version combinations.
 func TestDBVersionHelperMethods(t *testing.T) {
 	t.Run("isValid returns false for zero value", func(t *testing.T) {
