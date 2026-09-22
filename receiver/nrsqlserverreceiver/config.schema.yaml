@@ -24,12 +24,28 @@ $defs:
   query_sample:
     type: object
     properties:
+      allowed_comment_keys:
+        description: AllowedCommentKeys lists the comment keys to extract from the batch text of the db.server.query_sample event. Empty extracts nothing.
+        type: array
+        items:
+          type: string
+      collect_full_query_text:
+        description: CollectFullQueryText enables collection of the full SQL batch text for the db.server.query_sample event, in addition to the statement-level substring already captured in db.query.text.
+        type: boolean
       max_rows_per_query:
         type: integer
         x-customType: uint64
   top_query_collection:
     type: object
     properties:
+      allowed_comment_keys:
+        description: AllowedCommentKeys lists the comment keys to extract from the batch text of the db.server.top_query event. Empty extracts nothing.
+        type: array
+        items:
+          type: string
+      collect_full_query_text:
+        description: CollectFullQueryText enables collection of the full SQL batch text for the db.server.top_query event, in addition to the statement-level substring already captured in db.query.text.
+        type: boolean
       collection_interval:
         type: string
         format: duration
@@ -46,13 +62,6 @@ $defs:
 description: Config defines configuration for a sqlserver receiver.
 type: object
 properties:
-  allowed_comment_keys:
-    type: array
-    items:
-      type: string
-  collect_full_query_text:
-    description: CollectFullQueryText enables collection of the full SQL batch text (st.text) in addition to the statement-level substring already captured in db.query.text. When enabled, db.query.full_text and query.comments are populated in log records.
-    type: boolean
   computer_name:
     type: string
   connection_pool:

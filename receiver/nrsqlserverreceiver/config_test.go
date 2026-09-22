@@ -258,4 +258,44 @@ func TestLoadConfig(t *testing.T) {
 		config.TopQueryCollection.LookbackTime = 60 * time.Second
 		assert.Equal(t, 60*time.Second, config.EffectiveLookbackTime(), "'EffectiveLookbackTime' should return the user provided 'LookbackTime' if any.")
 	})
+
+	t.Run("fullQueryTextPerCollection", func(t *testing.T) {
+		cm, err := confmaptest.LoadConf(filepath.Join("testdata", "config.yaml"))
+		require.NoError(t, err)
+
+		factory := NewFactory()
+		cfg := factory.CreateDefaultConfig()
+
+		sub, err := cm.Sub("nrsqlserver/fullquerytext")
+		require.NoError(t, err)
+		require.NoError(t, sub.Unmarshal(cfg))
+		assert.NoError(t, confmap.Validate(cfg))
+
+		config := cfg.(*Config)
+
+		// Each collection carries its own setting; there is no receiver-level default.
+		assert.True(t, config.TopQueryCollection.CollectFullQueryText)
+		assert.Equal(t, []string{"nr_service_guid"}, config.TopQueryCollection.AllowedCommentKeys)
+
+		assert.False(t, config.QuerySample.CollectFullQueryText)
+		assert.Equal(t, []string{"traceparent"}, config.QuerySample.AllowedCommentKeys)
+	})
+
+	t.Run("fullQueryTextDefaultsOff", func(t *testing.T) {
+		cm, err := confmaptest.LoadConf(filepath.Join("testdata", "config.yaml"))
+		require.NoError(t, err)
+
+		factory := NewFactory()
+		cfg := factory.CreateDefaultConfig()
+
+		sub, err := cm.Sub("nrsqlserver")
+		require.NoError(t, err)
+		require.NoError(t, sub.Unmarshal(cfg))
+
+		config := cfg.(*Config)
+		assert.False(t, config.TopQueryCollection.CollectFullQueryText)
+		assert.Nil(t, config.TopQueryCollection.AllowedCommentKeys)
+		assert.False(t, config.QuerySample.CollectFullQueryText)
+		assert.Nil(t, config.QuerySample.AllowedCommentKeys)
+	})
 }

@@ -15,6 +15,14 @@ import (
 type QuerySample struct {
 	MaxRowsPerQuery uint64 `mapstructure:"max_rows_per_query"`
 
+	// CollectFullQueryText enables collection of the full SQL batch text for the
+	// db.server.query_sample event, in addition to the statement-level substring
+	// already captured in db.query.text.
+	CollectFullQueryText bool `mapstructure:"collect_full_query_text"`
+	// AllowedCommentKeys lists the comment keys to extract from the batch text of
+	// the db.server.query_sample event. Empty extracts nothing.
+	AllowedCommentKeys []string `mapstructure:"allowed_comment_keys,omitempty"`
+
 	// prevent unkeyed literal initialization
 	_ struct{}
 }
@@ -49,6 +57,14 @@ type TopQueryCollection struct {
 	MaxQuerySampleCount uint          `mapstructure:"max_query_sample_count"`
 	TopQueryCount       uint          `mapstructure:"top_query_count"`
 	CollectionInterval  time.Duration `mapstructure:"collection_interval"`
+
+	// CollectFullQueryText enables collection of the full SQL batch text for the
+	// db.server.top_query event, in addition to the statement-level substring
+	// already captured in db.query.text.
+	CollectFullQueryText bool `mapstructure:"collect_full_query_text"`
+	// AllowedCommentKeys lists the comment keys to extract from the batch text of
+	// the db.server.top_query event. Empty extracts nothing.
+	AllowedCommentKeys []string `mapstructure:"allowed_comment_keys,omitempty"`
 }
 
 // Config defines configuration for a sqlserver receiver.
@@ -68,12 +84,6 @@ type Config struct {
 	// ConnectionPool tunes the shared database connection pool used by all
 	// scrapers of this receiver.
 	ConnectionPool ConnectionPool `mapstructure:"connection_pool,omitempty"`
-
-	// CollectFullQueryText enables collection of the full SQL batch text (st.text) in addition
-	// to the statement-level substring already captured in db.query.text.
-	// When enabled, db.query.full_text and query.comments are populated in log records.
-	CollectFullQueryText bool     `mapstructure:"collect_full_query_text"`
-	AllowedCommentKeys   []string `mapstructure:"allowed_comment_keys"`
 
 	InstanceName string `mapstructure:"instance_name"`
 	ComputerName string `mapstructure:"computer_name"`

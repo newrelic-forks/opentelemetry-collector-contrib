@@ -106,6 +106,29 @@ Windows-specific options:
 - `computer_name` (optional): The computer name identifies the SQL Server name or IP address of the computer being monitored.
   If specified, `instance_name` is also required to be defined. This option is ignored in non-Windows environments.
 
+Full query text options. These are configured per collection, inside `top_query_collection` and/or
+`query_sample_collection` — there is no receiver-level equivalent, so each collection that wants full query text
+must say so:
+- `collect_full_query_text` (optional, default = `false`): Collects the obfuscated text of the full SQL batch or stored procedure
+  the statement was extracted from, in addition to the statement-level `db.query.text`. Populates `db.query.full_text` and
+  `db.query.text.normalized.hash` on that collection's log event.
+- `allowed_comment_keys` (optional, default = unset): The `key=value` pairs to extract from the leading `/* */` comments of the
+  batch text. Only keys listed here are read, and only `nr_service_guid` is emitted, as `db.query.comment_tags.nr_service_guid`.
+  Leaving this unset extracts nothing. It has no effect unless `collect_full_query_text` is also `true` for the same collection.
+
+```yaml
+    receivers:
+      sqlserver:
+        top_query_collection:
+          collect_full_query_text: true
+          allowed_comment_keys:
+            - nr_service_guid
+        query_sample_collection:
+          collect_full_query_text: true
+          allowed_comment_keys:
+            - nr_service_guid
+```
+
 Top-Query collection specific options (only useful when top-query collection are enabled):
 - `lookback_time` (optional, example = `60s`, default = `2 * collection_interval`): The time window (in second) in which to query for top queries.
   - Queries that were finished execution outside the lookback window are not included in the collection. Increasing the lookback window (in seconds) will be useful for capturing long-running queries.
@@ -118,9 +141,11 @@ Top-Query collection specific options (only useful when top-query collection are
       - However, the top queries collection will only run after 60 seconds have passed since the last collection.
     - For instance, you have global `collection_interval` as `10s` and `top_query_collection.collection_interval` as `5s`.
       - In this case, `top_query_collection.collection_internal` will make no effects to the collection
+- `collect_full_query_text`, `allowed_comment_keys` (optional): See the full query text options above.
 
 Query sample collection related options (only useful when query sample is enabled)
 - `max_rows_per_query`: (optional, default = `100`) use this to limit rows returned by the sampling query.
+- `collect_full_query_text`, `allowed_comment_keys` (optional): See the full query text options above.
 Example:
 
 ```yaml

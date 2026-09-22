@@ -30,3 +30,25 @@ nrsqlserver/named:
       enabled: true
     db.server.top_query:
       enabled: true
+
+nrsqlserver/fullquerytext:
+  collection_interval: 10s
+  # collect_full_query_text and allowed_comment_keys are per-collection only;
+  # there is no receiver-level form.
+  top_query_collection:
+    max_query_sample_count: 1000
+    top_query_count: 200
+    collection_interval: 60s
+    collect_full_query_text: true
+    allowed_comment_keys:
+      - nr_service_guid
+  query_sample_collection:
+    max_rows_per_query: 100
+    collect_full_query_text: false
+    allowed_comment_keys:
+      - traceparent
+  events:
+    db.server.query_sample:
+      enabled: true
+    db.server.top_query:
+      enabled: true
