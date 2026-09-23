@@ -172,10 +172,29 @@ controls how the receiver obtains the plan:
   connection — today's behavior, sufficient for `SELECT`-only workloads.
 - `procedure`: routes `EXPLAIN` through a `SQL SECURITY DEFINER` stored procedure named
   `<schema>.explain_statement`, so write statements can be explained without granting DML to
-  the monitoring user. The procedure must be created once per database by a privileged user
-  (see `docs/mysql-receiver/explain-plan-privilege-workaround-implementation-guide.md` for the
-  provisioning script); if it's missing for a schema, the receiver logs once and falls back to
-  `inline`. The monitoring user only ever needs `EXECUTE` on the procedure — no table grants.
+  the monitoring user. The procedure must be created once per database by a privileged user; if
+  it's missing for a schema, the receiver logs once and falls back to `inline`. The monitoring
+  user only ever needs `EXECUTE` on the procedure — no table grants.
+
+Example provisioning flow for one schema:
+
+```sql
+DELIMITER $$
+CREATE DEFINER = CURRENT_USER PROCEDURE `<schema>`.explain_statement(IN stmt LONGTEXT)
+SQL SECURITY DEFINER
+BEGIN
+  SET @nrmysql_stmt = CONCAT('EXPLAIN FORMAT=json ', stmt);
+  PREPARE nrmysql_explain_stmt FROM @nrmysql_stmt;
+  EXECUTE nrmysql_explain_stmt;
+  DEALLOCATE PREPARE nrmysql_explain_stmt;
+END $$
+DELIMITER ;
+
+GRANT EXECUTE ON PROCEDURE `<schema>`.explain_statement TO '<monitoring-user>'@'%';
+```
+
+Create the procedure in each schema whose write statements you want `explain_mode: procedure`
+to cover.
 
 ### `mysql.query_plan` and JSON-shaped log attributes
 
