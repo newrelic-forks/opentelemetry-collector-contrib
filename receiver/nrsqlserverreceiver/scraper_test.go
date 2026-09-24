@@ -1328,7 +1328,7 @@ func TestPageFileScrapeErrorDoesNotBlockOtherMetrics(t *testing.T) {
 	assert.ErrorContains(t, err, permissionErr.Error())
 
 	// DatabaseIO metrics must still be present despite the page_file failure.
-	assert.Greater(t, md.ResourceMetrics().Len(), 0, "DatabaseIO metrics should still be emitted when page_file.size fails")
+	assert.Positive(t, md.ResourceMetrics().Len(), "DatabaseIO metrics should still be emitted when page_file.size fails")
 
 	// Confirm page_file.size is absent and sqlserver.database.io is present.
 	var foundPageFile, foundDatabaseIO bool
