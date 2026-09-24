@@ -2071,27 +2071,10 @@ func TestScrapeTopQueriesCollectsOnlyWhenIntervalHasElapsed(t *testing.T) {
 	assert.Equal(t, collectionTime, scraper.lastExecutionTimestamp, "No new collection should happen until configured collection_interval")
 }
 
-func TestConnectDatabase(t *testing.T) {
-	t.Run("defaults to postgres when unset", func(t *testing.T) {
-		cfg := createDefaultConfig().(*Config)
-		scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, mockSimpleClientFactory{}, newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
-		require.NoError(t, err)
-		require.Equal(t, defaultPostgreSQLDatabase, scraper.connectDatabase())
-	})
-
-	t.Run("uses the configured value when set", func(t *testing.T) {
-		cfg := createDefaultConfig().(*Config)
-		cfg.ConnectDatabase = "mon"
-		scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, mockSimpleClientFactory{}, newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
-		require.NoError(t, err)
-		require.Equal(t, "mon", scraper.connectDatabase())
-	})
-}
-
 func TestScrapeQuerySamplesHonorsConnectDatabase(t *testing.T) {
 	cfg := createDefaultConfig().(*Config)
-	cfg.Databases = []string{"landonline"}
-	cfg.ConnectDatabase = "mon"
+	cfg.Databases = []string{"mydb"}
+	cfg.ConnectDatabase = "monitoring"
 	cfg.LogsBuilderConfig.Events.DbServerQuerySample.Enabled = true
 
 	db, mock, err := sqlmock.New()
@@ -2113,16 +2096,16 @@ func TestScrapeQuerySamplesHonorsConnectDatabase(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, mock.ExpectationsWereMet())
 
-	// The connection target (mon) is independent of the reporting scope
-	// (landonline) — connecting to mon must not add it to Databases.
-	require.Equal(t, []string{"mon"}, factory.requestedDatabases)
-	require.Equal(t, []string{"landonline"}, cfg.Databases)
+	// The connection target (monitoring) is independent of the reporting scope
+	// (mydb) — connecting to monitoring must not add it to Databases.
+	require.Equal(t, []string{"monitoring"}, factory.requestedDatabases)
+	require.Equal(t, []string{"mydb"}, cfg.Databases)
 }
 
 func TestScrapeTopQueryHonorsConnectDatabase(t *testing.T) {
 	cfg := createDefaultConfig().(*Config)
-	cfg.Databases = []string{"landonline"}
-	cfg.ConnectDatabase = "mon"
+	cfg.Databases = []string{"mydb"}
+	cfg.ConnectDatabase = "monitoring"
 	cfg.LogsBuilderConfig.Events.DbServerTopQuery.Enabled = true
 
 	db, _, err := sqlmock.New()
@@ -2141,8 +2124,48 @@ func TestScrapeTopQueryHonorsConnectDatabase(t *testing.T) {
 	_, err = scraper.scrapeTopQuery(t.Context(), 31, 32, 33, time.Minute)
 	require.NoError(t, err)
 
-	require.Equal(t, []string{"mon"}, factory.requestedDatabases)
-	require.Equal(t, []string{"landonline"}, cfg.Databases)
+	require.Equal(t, []string{"monitoring"}, factory.requestedDatabases)
+	require.Equal(t, []string{"mydb"}, cfg.Databases)
+}
+
+func TestScrapeHonorsConnectDatabase(t *testing.T) {
+	factory := new(mockClientFactory)
+	factory.initMocksWithConnectDatabase([]string{"mydb"}, "monitoring")
+
+	cfg := createDefaultConfig().(*Config)
+	cfg.Databases = []string{"mydb"}
+	cfg.ConnectDatabase = "monitoring"
+
+	scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, factory, newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
+	require.NoError(t, err)
+
+	_, err = scraper.scrape(t.Context())
+	require.NoError(t, err)
+
+	// scrape's discovery/server-level client must come from connect_database
+	// ("monitoring"), not the hardcoded defaultPostgreSQLDatabase constant.
+	factory.AssertCalled(t, "getClient", mock.Anything, "monitoring")
+	factory.AssertNotCalled(t, "getClient", mock.Anything, defaultPostgreSQLDatabase)
+}
+
+func TestScrapeConnectsToConnectDatabaseEvenWhenExcluded(t *testing.T) {
+	factory := new(mockClientFactory)
+	factory.initMocksWithConnectDatabase([]string{"mydb"}, "monitoring")
+
+	cfg := createDefaultConfig().(*Config)
+	cfg.Databases = []string{"mydb"}
+	cfg.ConnectDatabase = "monitoring"
+	cfg.ExcludeDatabases = []string{"monitoring"}
+
+	scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, factory, newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
+	require.NoError(t, err)
+
+	_, err = scraper.scrape(t.Context())
+	require.NoError(t, err)
+
+	// connect_database is excluded from reporting, but the receiver still
+	// connects to it for discovery and server-level queries.
+	factory.AssertCalled(t, "getClient", mock.Anything, "monitoring")
 }
 
 func TestIsCollectionDue(t *testing.T) {
@@ -3277,9 +3300,17 @@ func (m *mockClientFactory) close() error {
 }
 
 func (m *mockClientFactory) initMocks(databases []string) {
+	m.initMocksWithConnectDatabase(databases, defaultPostgreSQLDatabase)
+}
+
+// initMocksWithConnectDatabase behaves like initMocks, but registers the
+// cluster-wide ("list") client under connectDatabase instead of the
+// defaultPostgreSQLDatabase constant, so tests can verify the receiver
+// connects to a configured connect_database rather than a hardcoded value.
+func (m *mockClientFactory) initMocksWithConnectDatabase(databases []string, connectDatabase string) {
 	listClient := new(mockClient)
 	listClient.initMocks(defaultPostgreSQLDatabase, "public", databases, 0)
-	m.On("getClient", mock.Anything, defaultPostgreSQLDatabase).Return(listClient, nil)
+	m.On("getClient", mock.Anything, connectDatabase).Return(listClient, nil)
 
 	for index, db := range databases {
 		client := new(mockClient)
