@@ -30,6 +30,7 @@ const (
 	ErrTransportsSupported        = "invalid config: 'transport' must be 'tcp' or 'unix'"
 	ErrHostPort                   = "invalid config: 'endpoint' must be in the form <host>:<port> no matter what 'transport' is configured"
 	ErrInvalidExplainFunctionName = "invalid config: 'top_query_collection.explain_function_name' must be empty or a valid [schema.]function_name identifier"
+	ErrEmptyConnectDatabase       = "invalid config: 'connect_database' cannot be empty"
 	// #nosec G101 - not hardcoded credentials
 	ErrPasswordAndDBAuth = "invalid config: set either 'password' or 'db_auth', not both"
 )
@@ -98,6 +99,14 @@ func (cfg *Config) Validate() error {
 	var err error
 	if cfg.Username == "" {
 		err = multierr.Append(err, errors.New(ErrNoUsername))
+	}
+
+	// ConnectDatabase must never resolve to empty: an empty database name key
+	// collides in the connection pool with an explicit "postgres" entry, and
+	// silently relies on ConnectionString's own empty-database fallback
+	// instead of this receiver's documented default.
+	if cfg.ConnectDatabase == "" {
+		err = multierr.Append(err, errors.New(ErrEmptyConnectDatabase))
 	}
 
 	// Credential source precedence: a static password and a db_auth block
