@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrpostgresqlreceiver/internal/metadata"
@@ -30,6 +31,7 @@ const (
 	ErrTransportsSupported        = "invalid config: 'transport' must be 'tcp' or 'unix'"
 	ErrHostPort                   = "invalid config: 'endpoint' must be in the form <host>:<port> no matter what 'transport' is configured"
 	ErrInvalidExplainFunctionName = "invalid config: 'top_query_collection.explain_function_name' must be empty or a valid [schema.]function_name identifier"
+	ErrEmptyConnectDatabase       = "invalid config: 'connect_database' cannot be empty"
 	// #nosec G101 - not hardcoded credentials
 	ErrPasswordAndDBAuth = "invalid config: set either 'password' or 'db_auth', not both"
 )
@@ -64,18 +66,22 @@ type QuerySampleCollection struct {
 }
 
 type Config struct {
-	ControllerConfig      scraperhelper.ControllerConfig `mapstructure:",squash"`
-	Username              string                         `mapstructure:"username"`
-	Password              configopaque.String            `mapstructure:"password"`
-	Databases             []string                       `mapstructure:"databases"`
-	ExcludeDatabases      []string                       `mapstructure:"exclude_databases"`
-	AddrConfig            confignet.AddrConfig           `mapstructure:",squash"`       // provides Endpoint and Transport
-	ClientConfig          configtls.ClientConfig         `mapstructure:"tls,omitempty"` // provides SSL details
-	ConnectionPool        ConnectionPool                 `mapstructure:"connection_pool,omitempty"`
-	MetricsBuilderConfig  metadata.MetricsBuilderConfig  `mapstructure:",squash"`
-	LogsBuilderConfig     metadata.LogsBuilderConfig     `mapstructure:",squash"`
-	QuerySampleCollection QuerySampleCollection          `mapstructure:"query_sample_collection,omitempty"`
-	TopQueryCollection    TopQueryCollection             `mapstructure:"top_query_collection,omitempty"`
+	ControllerConfig scraperhelper.ControllerConfig `mapstructure:",squash"`
+	Username         string                         `mapstructure:"username"`
+	Password         configopaque.String            `mapstructure:"password"`
+	Databases        []string                       `mapstructure:"databases"`
+	ExcludeDatabases []string                       `mapstructure:"exclude_databases"`
+	// ConnectDatabase is the connection target for cluster-wide queries.
+	// Defaults to "postgres" (see createDefaultConfig). Independent of
+	// Databases (the reporting scope).
+	ConnectDatabase       string                        `mapstructure:"connect_database"`
+	AddrConfig            confignet.AddrConfig          `mapstructure:",squash"`       // provides Endpoint and Transport
+	ClientConfig          configtls.ClientConfig        `mapstructure:"tls,omitempty"` // provides SSL details
+	ConnectionPool        ConnectionPool                `mapstructure:"connection_pool,omitempty"`
+	MetricsBuilderConfig  metadata.MetricsBuilderConfig `mapstructure:",squash"`
+	LogsBuilderConfig     metadata.LogsBuilderConfig    `mapstructure:",squash"`
+	QuerySampleCollection QuerySampleCollection         `mapstructure:"query_sample_collection,omitempty"`
+	TopQueryCollection    TopQueryCollection            `mapstructure:"top_query_collection,omitempty"`
 	// DBAuth optionally sources the connection credential from a db_auth provider
 	// extension (e.g. AWS IAM) instead of a static password. When set, the provider
 	// supplies the password at connection-open time. Mutually exclusive with the
@@ -94,6 +100,14 @@ func (cfg *Config) Validate() error {
 	var err error
 	if cfg.Username == "" {
 		err = multierr.Append(err, errors.New(ErrNoUsername))
+	}
+
+	// ConnectDatabase must never resolve to empty: an empty database name key
+	// collides in the connection pool with an explicit "postgres" entry, and
+	// silently relies on ConnectionString's own empty-database fallback
+	// instead of this receiver's documented default.
+	if strings.TrimSpace(cfg.ConnectDatabase) == "" {
+		err = multierr.Append(err, errors.New(ErrEmptyConnectDatabase))
 	}
 
 	// Credential source precedence: a static password and a db_auth block
