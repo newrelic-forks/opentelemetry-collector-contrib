@@ -462,6 +462,13 @@ $defs:
     description: EventsConfig provides config for oracledb events.
     type: object
     properties:
+      db.server.query_plan:
+        description: EventConfig provides common config for a  db.server.query_plan event.
+        type: object
+        properties:
+          enabled:
+            type: boolean
+            default: false
       db.server.query_sample:
         description: EventConfig provides common config for a  db.server.query_sample event.
         type: object

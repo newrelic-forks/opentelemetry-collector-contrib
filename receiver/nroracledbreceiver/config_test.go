@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nroracledbreceiver/internal/metadata"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/confmap/confmaptest"
@@ -105,6 +106,16 @@ func TestValidateInvalidConfigs(t *testing.T) {
 			},
 			expected: errBadDataSource,
 		},
+		{
+			name: "Query plan event without top query event",
+			config: &Config{
+				DataSource:         "oracle://otel:password@localhost:1521/XE",
+				ControllerConfig:   scraperhelper.NewDefaultControllerConfig(),
+				LogsBuilderConfig:  queryPlanOnlyLogsConfig(),
+				TopQueryCollection: TopQueryCollection{MaxQuerySampleCount: 1000, TopQueryCount: 200},
+			},
+			expected: errQueryPlanWithoutTopQuery,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -113,6 +124,12 @@ func TestValidateInvalidConfigs(t *testing.T) {
 			require.ErrorIs(t, err, tc.expected)
 		})
 	}
+}
+
+func queryPlanOnlyLogsConfig() metadata.LogsBuilderConfig {
+	logsCfg := metadata.DefaultLogsBuilderConfig()
+	logsCfg.Events.DbServerQueryPlan.Enabled = true
+	return logsCfg
 }
 
 func TestCreateDefaultConfig(t *testing.T) {

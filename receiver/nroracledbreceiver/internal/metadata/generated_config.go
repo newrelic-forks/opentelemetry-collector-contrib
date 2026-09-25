@@ -6067,6 +6067,7 @@ func (ec *EventConfig) Unmarshal(parser *confmap.Conf) error {
 
 // EventsConfig provides config for nroracledb events.
 type EventsConfig struct {
+	DbServerQueryPlan         EventConfig `mapstructure:"db.server.query_plan"`
 	DbServerQuerySample       EventConfig `mapstructure:"db.server.query_sample"`
 	DbServerSessionWaitSample EventConfig `mapstructure:"db.server.session.wait_sample"`
 	DbServerTopQuery          EventConfig `mapstructure:"db.server.top_query"`
@@ -6074,6 +6075,9 @@ type EventsConfig struct {
 
 func DefaultEventsConfig() EventsConfig {
 	return EventsConfig{
+		DbServerQueryPlan: EventConfig{
+			Enabled: false,
+		},
 		DbServerQuerySample: EventConfig{
 			Enabled: false,
 		},
