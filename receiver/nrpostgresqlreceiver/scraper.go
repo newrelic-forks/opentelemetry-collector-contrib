@@ -41,6 +41,8 @@ const (
 	defaultPostgreSQLDatabase = "postgres"
 
 	defaultServiceName = "unknown_service:postgresql"
+
+	versionQueryTimeout = 5 * time.Second
 )
 
 // otelNamespaceUUID is the official OTel namespace UUID for deterministic UUID v5 generation,
@@ -74,6 +76,7 @@ type postgreSQLScraper struct {
 	newestQueryTimestamp   float64
 	serviceInstanceID      string
 	lastExecutionTimestamp time.Time
+	dbVersion              string
 }
 
 type errsMux struct {
@@ -226,6 +229,7 @@ func (p *postgreSQLScraper) scrape(ctx context.Context) (pmetric.Metrics, error)
 		return pmetric.NewMetrics(), err
 	}
 	defer listClient.Close()
+	p.ensureDBVersion(ctx, listClient)
 
 	if len(databases) == 0 {
 		dbList, dbErr := listClient.listDatabases(ctx)
@@ -297,6 +301,7 @@ func (p *postgreSQLScraper) scrapeQuerySamples(ctx context.Context, maxRowsPerQu
 	}
 
 	var errs errsMux
+	p.ensureDBVersion(ctx, dbClient)
 
 	p.collectQuerySamples(ctx, dbClient, maxRowsPerQuery, &errs, p.logger)
 
@@ -478,6 +483,7 @@ func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory p
 	}
 
 	defer defaultDbClient.Close()
+	p.ensureDBVersion(ctx, defaultDbClient)
 
 	rows, err := defaultDbClient.getTopQuery(ctx, limit, p.excludedDatabases, p.config.TopQueryCollection.AllowedCommentKeys, logger)
 	if err != nil {
@@ -647,7 +653,7 @@ func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory p
 // start resolves the credential provider (if a db_auth block is
 // configured) from the host extension map — only available now, at Start — and
 // injects it into the client factory so connections are built with it.
-func (p *postgreSQLScraper) start(_ context.Context, host component.Host) error {
+func (p *postgreSQLScraper) start(ctx context.Context, host component.Host) error {
 	provider, err := p.config.resolveCredentialProvider(host.GetExtensions())
 	if err != nil {
 		return err
@@ -655,6 +661,22 @@ func (p *postgreSQLScraper) start(_ context.Context, host component.Host) error 
 	if provider != nil {
 		p.clientFactory.setCredentialProvider(provider)
 	}
+
+	if p.metricsVersionEnabled() || p.logsVersionEnabled() {
+		vctx, cancel := context.WithTimeout(ctx, versionQueryTimeout)
+		defer cancel()
+		if c, err := p.clientFactory.getClient(vctx, defaultPostgreSQLDatabase); err != nil {
+			p.logger.Warn("failed to connect for version detection. db.system.version will not be set", zap.Error(err))
+		} else {
+			defer c.Close()
+			if v, err := c.getVersion(vctx); err != nil {
+				p.logger.Warn("failed to detect PostgreSQL version. db.system.version will not be set", zap.Error(err))
+			} else {
+				p.dbVersion = v
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -663,6 +685,24 @@ func (p *postgreSQLScraper) shutdown(_ context.Context) error {
 		p.clientFactory.close()
 	}
 	return nil
+}
+
+func (p *postgreSQLScraper) metricsVersionEnabled() bool {
+	return p.config.MetricsBuilderConfig.ResourceAttributes.DbSystemVersion.Enabled
+}
+
+func (p *postgreSQLScraper) logsVersionEnabled() bool {
+	return p.config.LogsBuilderConfig.ResourceAttributes.DbSystemVersion.Enabled
+}
+
+func (p *postgreSQLScraper) ensureDBVersion(ctx context.Context, c client) {
+	if p.dbVersion == "" && (p.metricsVersionEnabled() || p.logsVersionEnabled()) {
+		if v, err := c.getVersion(ctx); err == nil {
+			p.dbVersion = v
+		} else {
+			p.logger.Debug("failed to detect PostgreSQL version. db.system.version will not be set", zap.Error(err))
+		}
+	}
 }
 
 func (p *postgreSQLScraper) backendsMetricsEnabled() bool {
@@ -1368,6 +1408,9 @@ func (p *postgreSQLScraper) setupSemconvResourceBuilder(rb *metadata.ResourceBui
 		rb.SetServerPort(port)
 	}
 	rb.SetServiceInstanceID(p.serviceInstanceID)
+	if p.dbVersion != "" {
+		rb.SetDbSystemVersion(p.dbVersion)
+	}
 	return rb
 }
 
