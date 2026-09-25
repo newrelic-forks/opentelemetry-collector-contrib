@@ -1813,5 +1813,5 @@ top query
 | service.namespace | Logical namespace for the service (for example team or environment). When enabled, defaults to an empty string until set via configuration. | Any Str | false | - | - |
 | sqlserver.computer.name | The name of the SQL Server instance being monitored. | Any Str | false | - | - |
 | sqlserver.database.name | The name of the SQL Server database. | Any Str | true | - | - |
-| sqlserver.host.name | The hostname of the SQL Server instance, extracted from service.instance.id. | Any Str | true | - | - |
 | sqlserver.instance.name | The name of the SQL Server instance being monitored. | Any Str | false | - | - |
+| sqlserver.target.host | The hostname or address used to connect to the SQL Server instance, as configured in the receiver. | Any Str | true | - | - |

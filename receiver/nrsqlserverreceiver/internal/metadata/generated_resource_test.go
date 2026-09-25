@@ -23,8 +23,8 @@ func TestResourceBuilder(t *testing.T) {
 			rb.SetServiceNamespace("service.namespace-val")
 			rb.SetSqlserverComputerName("sqlserver.computer.name-val")
 			rb.SetSqlserverDatabaseName("sqlserver.database.name-val")
-			rb.SetSqlserverHostName("sqlserver.host.name-val")
 			rb.SetSqlserverInstanceName("sqlserver.instance.name-val")
+			rb.SetSqlserverTargetHost("sqlserver.target.host-val")
 
 			res := rb.Emit()
 			assert.Equal(t, 0, rb.Emit().Attributes().Len()) // Second call should return empty Resource
@@ -80,15 +80,15 @@ func TestResourceBuilder(t *testing.T) {
 			if ok {
 				assert.Equal(t, "sqlserver.database.name-val", sqlserverDatabaseNameAttrVal.Str())
 			}
-			sqlserverHostNameAttrVal, ok := res.Attributes().Get("sqlserver.host.name")
-			assert.True(t, ok)
-			if ok {
-				assert.Equal(t, "sqlserver.host.name-val", sqlserverHostNameAttrVal.Str())
-			}
 			sqlserverInstanceNameAttrVal, ok := res.Attributes().Get("sqlserver.instance.name")
 			assert.Equal(t, tt == "all_set", ok)
 			if ok {
 				assert.Equal(t, "sqlserver.instance.name-val", sqlserverInstanceNameAttrVal.Str())
+			}
+			sqlserverTargetHostAttrVal, ok := res.Attributes().Get("sqlserver.target.host")
+			assert.True(t, ok)
+			if ok {
+				assert.Equal(t, "sqlserver.target.host-val", sqlserverTargetHostAttrVal.Str())
 			}
 		})
 	}
@@ -106,8 +106,8 @@ func TestResourceBuilderOverrideValue(t *testing.T) {
 	rb.SetServiceNamespace("service.namespace-val")
 	rb.SetSqlserverComputerName("sqlserver.computer.name-val")
 	rb.SetSqlserverDatabaseName("sqlserver.database.name-val")
-	rb.SetSqlserverHostName("sqlserver.host.name-val")
 	rb.SetSqlserverInstanceName("sqlserver.instance.name-val")
+	rb.SetSqlserverTargetHost("sqlserver.target.host-val")
 
 	res := rb.Emit()
 	{
@@ -167,17 +167,17 @@ func TestResourceBuilderOverrideValue(t *testing.T) {
 		}
 	}
 	{
-		val, ok := res.Attributes().Get("sqlserver.host.name")
-		assert.True(t, ok, "sqlserver.host.name should be present")
-		if ok {
-			assert.Equal(t, "override-sqlserver.host.name", val.Str())
-		}
-	}
-	{
 		val, ok := res.Attributes().Get("sqlserver.instance.name")
 		assert.True(t, ok, "sqlserver.instance.name should be present")
 		if ok {
 			assert.Equal(t, "override-sqlserver.instance.name", val.Str())
+		}
+	}
+	{
+		val, ok := res.Attributes().Get("sqlserver.target.host")
+		assert.True(t, ok, "sqlserver.target.host should be present")
+		if ok {
+			assert.Equal(t, "override-sqlserver.target.host", val.Str())
 		}
 	}
 }
@@ -246,17 +246,17 @@ func TestResourceBuilderOverrideWithoutSet(t *testing.T) {
 		}
 	}
 	{
-		val, ok := res.Attributes().Get("sqlserver.host.name")
-		assert.True(t, ok, "sqlserver.host.name should be present even without calling Set")
-		if ok {
-			assert.Equal(t, "override-sqlserver.host.name", val.Str())
-		}
-	}
-	{
 		val, ok := res.Attributes().Get("sqlserver.instance.name")
 		assert.True(t, ok, "sqlserver.instance.name should be present even without calling Set")
 		if ok {
 			assert.Equal(t, "override-sqlserver.instance.name", val.Str())
+		}
+	}
+	{
+		val, ok := res.Attributes().Get("sqlserver.target.host")
+		assert.True(t, ok, "sqlserver.target.host should be present even without calling Set")
+		if ok {
+			assert.Equal(t, "override-sqlserver.target.host", val.Str())
 		}
 	}
 }
@@ -272,8 +272,8 @@ func TestResourceBuilderOverrideDisabled(t *testing.T) {
 	cfg.ServiceNamespace.Enabled = false
 	cfg.SqlserverComputerName.Enabled = false
 	cfg.SqlserverDatabaseName.Enabled = false
-	cfg.SqlserverHostName.Enabled = false
 	cfg.SqlserverInstanceName.Enabled = false
+	cfg.SqlserverTargetHost.Enabled = false
 	require.NoError(t, confmap.Validate(cfg))
 	rb := NewResourceBuilder(cfg)
 
@@ -293,8 +293,8 @@ func TestResourceBuilderNoOverride(t *testing.T) {
 	assert.Nil(t, cfg.ServiceNamespace.OverrideValue, "OverrideValue should be nil for service.namespace")
 	assert.Nil(t, cfg.SqlserverComputerName.OverrideValue, "OverrideValue should be nil for sqlserver.computer.name")
 	assert.Nil(t, cfg.SqlserverDatabaseName.OverrideValue, "OverrideValue should be nil for sqlserver.database.name")
-	assert.Nil(t, cfg.SqlserverHostName.OverrideValue, "OverrideValue should be nil for sqlserver.host.name")
 	assert.Nil(t, cfg.SqlserverInstanceName.OverrideValue, "OverrideValue should be nil for sqlserver.instance.name")
+	assert.Nil(t, cfg.SqlserverTargetHost.OverrideValue, "OverrideValue should be nil for sqlserver.target.host")
 	rb := NewResourceBuilder(cfg)
 	rb.SetHostName("host.name-val")
 	rb.SetServerAddress("server.address-val")
@@ -304,8 +304,8 @@ func TestResourceBuilderNoOverride(t *testing.T) {
 	rb.SetServiceNamespace("service.namespace-val")
 	rb.SetSqlserverComputerName("sqlserver.computer.name-val")
 	rb.SetSqlserverDatabaseName("sqlserver.database.name-val")
-	rb.SetSqlserverHostName("sqlserver.host.name-val")
 	rb.SetSqlserverInstanceName("sqlserver.instance.name-val")
+	rb.SetSqlserverTargetHost("sqlserver.target.host-val")
 
 	res := rb.Emit()
 	assert.Equal(t, 10, res.Attributes().Len())
@@ -349,14 +349,14 @@ func TestResourceBuilderNoOverride(t *testing.T) {
 	if ok {
 		assert.Equal(t, "sqlserver.database.name-val", sqlserverDatabaseNameAttrVal.Str())
 	}
-	sqlserverHostNameAttrVal, ok := res.Attributes().Get("sqlserver.host.name")
-	assert.True(t, ok)
-	if ok {
-		assert.Equal(t, "sqlserver.host.name-val", sqlserverHostNameAttrVal.Str())
-	}
 	sqlserverInstanceNameAttrVal, ok := res.Attributes().Get("sqlserver.instance.name")
 	assert.True(t, ok)
 	if ok {
 		assert.Equal(t, "sqlserver.instance.name-val", sqlserverInstanceNameAttrVal.Str())
+	}
+	sqlserverTargetHostAttrVal, ok := res.Attributes().Get("sqlserver.target.host")
+	assert.True(t, ok)
+	if ok {
+		assert.Equal(t, "sqlserver.target.host-val", sqlserverTargetHostAttrVal.Str())
 	}
 }

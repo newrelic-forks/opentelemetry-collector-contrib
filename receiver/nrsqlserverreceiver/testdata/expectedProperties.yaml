@@ -4,7 +4,7 @@ resourceMetrics:
         - key: host.name
           value:
             stringValue: 0.0.0.0
-        - key: sqlserver.host.name
+        - key: sqlserver.target.host
           value:
             stringValue: 0.0.0.0
         - key: server.address
