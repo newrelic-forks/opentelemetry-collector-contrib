@@ -35,7 +35,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+<<<<<<< HEAD
       - uses: $/.github/actions/setup-go-tools
+=======
+      - uses: ./.github/actions/setup-go-tools
+>>>>>>> pre-release
         with:
           go-version: oldstable
       - name: Generate otelcontribcol files
@@ -56,7 +60,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+<<<<<<< HEAD
       - uses: $/.github/actions/setup-go-tools
+=======
+      - uses: ./.github/actions/setup-go-tools
+>>>>>>> pre-release
         with:
           go-version: oldstable
       - name: Download Collector Binary
@@ -78,7 +86,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+<<<<<<< HEAD
       - uses: $/.github/actions/setup-go-tools
+=======
+      - uses: ./.github/actions/setup-go-tools
+>>>>>>> pre-release
         with:
           go-version: oldstable
       - name: Validate Datadog example configs
@@ -94,7 +106,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+<<<<<<< HEAD
       - uses: $/.github/actions/setup-go-tools
+=======
+      - uses: ./.github/actions/setup-go-tools
+>>>>>>> pre-release
         with:
           go-version: oldstable
       - name: Generate otelcontribcol files
@@ -135,7 +151,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+<<<<<<< HEAD
       - uses: $/.github/actions/setup-go-tools
+=======
+      - uses: ./.github/actions/setup-go-tools
+>>>>>>> pre-release
         with:
           go-version: oldstable
       - name: Create kind cluster

@@ -343,6 +343,7 @@ $defs:
                 - "operation"
             default:
               - "operation"
+<<<<<<< HEAD
       mysql.innodb.redo_log.checkpoint.age:
         description: "MysqlInnodbRedoLogCheckpointAgeMetricConfig provides config for the mysql.innodb.redo_log.checkpoint.age metric."
         type: object
@@ -364,6 +365,8 @@ $defs:
           enabled:
             type: boolean
             default: false
+=======
+>>>>>>> pre-release
       mysql.innodb.row_lock.wait.count:
         description: "MysqlInnodbRowLockWaitCountMetricConfig provides config for the mysql.innodb.row_lock.wait.count metric."
         type: object

@@ -83,6 +83,12 @@ func integrationTest(
 		pmetrictest.IgnoreResourceAttributeValue("server.address"),
 		pmetrictest.IgnoreResourceAttributeValue("server.port"),
 	}
+<<<<<<< HEAD
+=======
+	for _, attribute := range additionalIgnoredResourceAttributeValues {
+		compareOptions = append(compareOptions, pmetrictest.IgnoreResourceAttributeValue(attribute))
+	}
+>>>>>>> pre-release
 	compareOptions = append(
 		compareOptions,
 		pmetrictest.IgnoreResourceMetricsOrder(),
@@ -1079,6 +1085,7 @@ func tableCountEquivalenceTest(pgVersion string) func(*testing.T) {
 		assert.Equal(t, int64(len(tableMetrics)), count, "cheap table count must equal the full per-table query's row count")
 	}
 }
+<<<<<<< HEAD
 
 // TestTableSizeIncludesIndexesAndToast is a regression test for the table_size
 // query using pg_relation_size, which silently excludes a table's indexes and
@@ -1205,3 +1212,5 @@ WHERE c.relname IN ('big_index_table', 'toasted_table') AND n.nspname = 'public'
 			"reported size must include TOAST data, not just the main heap and indexes")
 	}
 }
+=======
+>>>>>>> pre-release

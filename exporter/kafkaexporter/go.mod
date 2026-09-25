@@ -13,6 +13,7 @@ require (
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatatest v0.161.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/translator/jaeger v0.161.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/translator/zipkin v0.161.0
+	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatautil v0.160.0
 	github.com/stretchr/testify v1.12.1
 	github.com/twmb/franz-go v1.21.6
 	github.com/twmb/franz-go/pkg/kfake v0.0.0-20260421215025-4e7a1e1569ac
@@ -109,6 +110,7 @@ require (
 	go.opentelemetry.io/collector/receiver v1.67.1-0.20260916171901-3e8af656214a // indirect
 	go.opentelemetry.io/collector/receiver/receivertest v0.161.1-0.20260916171901-3e8af656214a // indirect
 	go.opentelemetry.io/collector/receiver/xreceiver v0.161.1-0.20260916171901-3e8af656214a // indirect
+	go.opentelemetry.io/collector/pdata/xpdata v0.160.1-0.20260903163450-cc4b33fc673f // indirect
 	go.opentelemetry.io/otel/sdk v1.46.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/crypto v0.56.0 // indirect

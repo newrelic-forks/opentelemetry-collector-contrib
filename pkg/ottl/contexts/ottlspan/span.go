@@ -66,7 +66,11 @@ func WithCache(cache *pcommon.Map) TransformContextOption {
 	}
 }
 
+<<<<<<< HEAD
 // NewTransformContext returns a new TransformContext with the provided parameters from a pool of contexts.
+=======
+// NewTransformContextPtr returns a new TransformContext with the provided parameters from a pool of contexts.
+>>>>>>> pre-release
 // Caller must call TransformContext.Close on the returned TransformContext.
 func NewTransformContext(resourceSpans ptrace.ResourceSpans, scopeSpans ptrace.ScopeSpans, span ptrace.Span, options ...TransformContextOption) *TransformContext {
 	tCtx := tcPool.Get().(*TransformContext)

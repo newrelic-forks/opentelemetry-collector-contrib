@@ -116,7 +116,7 @@ resourceMetrics:
                   startTimeUnixNano: "1000000"
                   timeUnixNano: "2000000"
             unit: '{databases}'
-          - description: The number of database locks.
+          - description: The number of database locks, including those held by the receiver's own connections.
             gauge:
               dataPoints:
                 - asInt: "1"
@@ -492,7 +492,7 @@ resourceMetrics:
             stringValue: postgres
     scopeMetrics:
       - metrics:
-          - description: The number of backends.
+          - description: The number of backend processes associated with each database. Counts backends across all connection states (active, idle, idle-in-transaction) and all backend types, including non-client backends such as autovacuum and parallel workers.
             name: postgresql.backends
             sum:
               aggregationTemporality: 2
@@ -783,7 +783,7 @@ resourceMetrics:
                   timeUnixNano: "2000000"
               isMonotonic: true
             unit: '{sequential_scan}'
-          - description: Disk space used by a table.
+          - description: Total disk space used by a table, including its indexes and TOAST data.
             name: postgresql.table.size
             sum:
               aggregationTemporality: 2
@@ -946,7 +946,7 @@ resourceMetrics:
                   timeUnixNano: "2000000"
               isMonotonic: true
             unit: '{sequential_scan}'
-          - description: Disk space used by a table.
+          - description: Total disk space used by a table, including its indexes and TOAST data.
             name: postgresql.table.size
             sum:
               aggregationTemporality: 2
@@ -1109,7 +1109,7 @@ resourceMetrics:
                   timeUnixNano: "2000000"
               isMonotonic: true
             unit: '{sequential_scan}'
-          - description: Disk space used by a table.
+          - description: Total disk space used by a table, including its indexes and TOAST data.
             name: postgresql.table.size
             sum:
               aggregationTemporality: 2
@@ -1272,7 +1272,7 @@ resourceMetrics:
                   timeUnixNano: "2000000"
               isMonotonic: true
             unit: '{sequential_scan}'
-          - description: Disk space used by a table.
+          - description: Total disk space used by a table, including its indexes and TOAST data.
             name: postgresql.table.size
             sum:
               aggregationTemporality: 2

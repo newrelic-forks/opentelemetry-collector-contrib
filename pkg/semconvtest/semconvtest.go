@@ -40,22 +40,31 @@ const (
 	// package: v0.22.1 introduced the --output=http flag that returns the
 	// live-check report in the /stop response.
 	minWeaverVersion = "v0.22.1"
+<<<<<<< HEAD
 
 	// defaultWeaverVersion is the otel/weaver image version used when a test
 	// does not select one with WithVersion. Renovate watches the line below
 	// and opens an update PR when a new Weaver release appears.
 	// renovate: datasource=docker depName=otel/weaver
 	defaultWeaverVersion = "v0.26.1"
+=======
+>>>>>>> pre-release
 )
 
 // WeaverOption configures the Weaver container used for a live-check test.
 type WeaverOption func(*weaverOptions)
 
 // WithVersion selects the otel/weaver image version to use.
+<<<<<<< HEAD
 // Defaults to defaultWeaverVersion, a pinned version tested with this
 // package; must be v0.22.1+ (the first version with --output=http
 // support). Semver versions older than that fail the test immediately;
 // non-semver tags (e.g. "latest") are passed to Docker as-is.
+=======
+// Defaults to "latest"; must be v0.22.1+ (the first version with
+// --output=http support). Semver versions older than that fail the
+// test immediately; non-semver tags are passed to Docker as-is.
+>>>>>>> pre-release
 func WithVersion(version string) WeaverOption {
 	return func(o *weaverOptions) { o.version = version }
 }
@@ -72,8 +81,13 @@ type weaverOptions struct {
 }
 
 // validateWeaverVersion rejects semver versions older than minWeaverVersion.
+<<<<<<< HEAD
 // Tags that don't parse as semver (e.g. "latest") are passed through so
 // Docker can resolve them.
+=======
+// Tags that don't parse as semver (e.g. "latest", digests) are passed
+// through so Docker can resolve them.
+>>>>>>> pre-release
 func validateWeaverVersion(version string) error {
 	if version == "" || version == "latest" {
 		return nil
@@ -136,7 +150,11 @@ func TestTraces(tb testing.TB, traces ptrace.Traces, opts ...WeaverOption) []Pol
 func runLiveCheck(tb testing.TB, opts []WeaverOption, send func(context.Context, *pdataClients) error) []PolicyFinding {
 	tb.Helper()
 
+<<<<<<< HEAD
 	options := &weaverOptions{version: defaultWeaverVersion}
+=======
+	options := &weaverOptions{version: "latest"}
+>>>>>>> pre-release
 	for _, opt := range opts {
 		opt(options)
 	}

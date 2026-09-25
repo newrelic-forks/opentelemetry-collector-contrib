@@ -36,7 +36,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+<<<<<<< HEAD
       - uses: $/.github/actions/setup-go-tools
+=======
+      - uses: ./.github/actions/setup-go-tools
+>>>>>>> pre-release
         with:
           go-version: oldstable
       - run: make genoteltestbedcol
@@ -62,7 +66,11 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+<<<<<<< HEAD
       - uses: $/.github/actions/setup-go-tools
+=======
+      - uses: ./.github/actions/setup-go-tools
+>>>>>>> pre-release
         with:
           go-version: oldstable
       - run: mkdir -p results && touch results/TESTRESULTS.md
@@ -90,7 +98,11 @@ jobs:
         id: filename
         env:
           MATRIX_TEST: ${{ matrix.test }}
+<<<<<<< HEAD
         run: echo "name=${MATRIX_TEST//|/_}" >> "$GITHUB_OUTPUT"
+=======
+        run: echo "name=$(echo "${MATRIX_TEST}" | sed -e 's/|/_/g')" >> "$GITHUB_OUTPUT"
+>>>>>>> pre-release
       - name: Create Test Result Archive
         if: ${{ failure() || success() }}
         continue-on-error: true
@@ -151,8 +163,13 @@ jobs:
       - setup-environment
       - loadtest
       - update-benchmarks
+<<<<<<< HEAD
     if: always() && github.event_name != 'pull_request'
     uses: open-telemetry/shared-workflows/.github/workflows/workflow-failure-issue.yml@03559ef555db0eae5d85c3c6347d1530243e7aa7 # v0.13.0
+=======
+    if: always()
+    uses: open-telemetry/shared-workflows/.github/workflows/workflow-failure-issue.yml@dde3047a8f219c296772c17936b9d02bb7447af5 # v0.12.0
+>>>>>>> pre-release
     with:
       success: >-
         ${{

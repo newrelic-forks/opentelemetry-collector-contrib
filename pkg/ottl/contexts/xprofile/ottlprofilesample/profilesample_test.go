@@ -14,7 +14,10 @@ import (
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/ottl"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/ottl/contexts/internal/pathtest"
+<<<<<<< HEAD:pkg/ottl/contexts/xprofile/ottlprofilesample/profilesample_test.go
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/ottl/contexts/xprofile/internal/ctxprofilesample"
+=======
+>>>>>>> pre-release:pkg/ottl/contexts/ottlprofilesample/profilesample_test.go
 )
 
 func Test_newPathGetSetter_Cache(t *testing.T) {

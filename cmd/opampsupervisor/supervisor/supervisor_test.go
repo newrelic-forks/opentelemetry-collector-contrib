@@ -2131,7 +2131,11 @@ func Test_handleAgentOpAMPMessage(t *testing.T) {
 
 		assert.Equal(t, &protobufs.EffectiveConfig{
 			ConfigMap: &protobufs.AgentConfigMap{
+<<<<<<< HEAD
 				ConfigMap: map[string]*protobufs.AgentConfigObject{
+=======
+				ConfigMap: map[string]*protobufs.AgentConfigFile{
+>>>>>>> pre-release
 					"": {Body: []byte("test")},
 				},
 			},
@@ -2179,7 +2183,11 @@ func Test_handleAgentOpAMPMessage(t *testing.T) {
 
 		assert.Equal(t, &protobufs.EffectiveConfig{
 			ConfigMap: &protobufs.AgentConfigMap{
+<<<<<<< HEAD
 				ConfigMap: map[string]*protobufs.AgentConfigObject{
+=======
+				ConfigMap: map[string]*protobufs.AgentConfigFile{
+>>>>>>> pre-release
 					"": {Body: []byte("test")},
 				},
 			},
@@ -2255,7 +2263,11 @@ func Test_handleAgentOpAMPMessage(t *testing.T) {
 		s.handleAgentOpAMPMessage(&mockConn{}, &protobufs.AgentToServer{
 			EffectiveConfig: &protobufs.EffectiveConfig{
 				ConfigMap: &protobufs.AgentConfigMap{
+<<<<<<< HEAD
 					ConfigMap: map[string]*protobufs.AgentConfigObject{
+=======
+					ConfigMap: map[string]*protobufs.AgentConfigFile{
+>>>>>>> pre-release
 						"":           {Body: []byte("instance config")},
 						"other.yaml": {Body: []byte("other config")},
 					},
@@ -2299,7 +2311,11 @@ func Test_handleAgentOpAMPMessage(t *testing.T) {
 		s.handleAgentOpAMPMessage(&mockConn{}, &protobufs.AgentToServer{
 			EffectiveConfig: &protobufs.EffectiveConfig{
 				ConfigMap: &protobufs.AgentConfigMap{
+<<<<<<< HEAD
 					ConfigMap: map[string]*protobufs.AgentConfigObject{
+=======
+					ConfigMap: map[string]*protobufs.AgentConfigFile{
+>>>>>>> pre-release
 						"collector.yaml": {Body: []byte("a config"), ContentType: "text/yaml"},
 					},
 				},
@@ -2346,7 +2362,11 @@ func Test_handleAgentOpAMPMessage(t *testing.T) {
 		s.handleAgentOpAMPMessage(&mockConn{}, &protobufs.AgentToServer{
 			EffectiveConfig: &protobufs.EffectiveConfig{
 				ConfigMap: &protobufs.AgentConfigMap{
+<<<<<<< HEAD
 					ConfigMap: map[string]*protobufs.AgentConfigObject{
+=======
+					ConfigMap: map[string]*protobufs.AgentConfigFile{
+>>>>>>> pre-release
 						"":           {Body: []byte("instance config")},
 						"other.yaml": {Body: []byte("other config")},
 						"extra.yaml": {Body: []byte("extra config")},
@@ -2970,7 +2990,11 @@ func TestSupervisor_createEffectiveConfigMsg(t *testing.T) {
 
 		s.effectiveConfig.Store(&protobufs.EffectiveConfig{
 			ConfigMap: &protobufs.AgentConfigMap{
+<<<<<<< HEAD
 				ConfigMap: map[string]*protobufs.AgentConfigObject{
+=======
+				ConfigMap: map[string]*protobufs.AgentConfigFile{
+>>>>>>> pre-release
 					"": {Body: []byte("effective")},
 				},
 			},
@@ -3003,7 +3027,11 @@ func TestSupervisor_createEffectiveConfigMsg(t *testing.T) {
 
 		s.effectiveConfig.Store(&protobufs.EffectiveConfig{
 			ConfigMap: &protobufs.AgentConfigMap{
+<<<<<<< HEAD
 				ConfigMap: map[string]*protobufs.AgentConfigObject{
+=======
+				ConfigMap: map[string]*protobufs.AgentConfigFile{
+>>>>>>> pre-release
 					"":           {Body: []byte("instance config")},
 					"other.yaml": {Body: []byte("other config")},
 				},
@@ -3024,7 +3052,11 @@ func TestSupervisor_createEffectiveConfigMsg(t *testing.T) {
 
 		s.effectiveConfig.Store(&protobufs.EffectiveConfig{
 			ConfigMap: &protobufs.AgentConfigMap{
+<<<<<<< HEAD
 				ConfigMap: map[string]*protobufs.AgentConfigObject{
+=======
+				ConfigMap: map[string]*protobufs.AgentConfigFile{
+>>>>>>> pre-release
 					"collector.yaml": {Body: []byte("a config"), ContentType: "text/yaml"},
 				},
 			},
@@ -3795,6 +3827,14 @@ func TestSupervisor_HealthCheckServer(t *testing.T) {
 
 	t.Run("Health check server is started when port is configured", func(t *testing.T) {
 		serverConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+		// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+		serverConfig.WriteTimeout = 0
+		serverConfig.ReadHeaderTimeout = 0
+		serverConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+		serverConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 		serverConfig.NetAddr = confignet.AddrConfig{
 			Transport: "tcp",
 			Endpoint:  "localhost:23233",
@@ -3876,6 +3916,14 @@ func TestSupervisor_HealthCheckServer(t *testing.T) {
 
 	t.Run("Health check server errors out if port is in-use", func(t *testing.T) {
 		serverConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+		// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+		serverConfig.WriteTimeout = 0
+		serverConfig.ReadHeaderTimeout = 0
+		serverConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+		serverConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 		serverConfig.NetAddr = confignet.AddrConfig{
 			Transport: "tcp",
 			Endpoint:  "localhost:23233",

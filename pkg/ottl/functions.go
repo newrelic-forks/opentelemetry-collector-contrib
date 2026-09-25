@@ -904,6 +904,7 @@ func NewTestingLiteralGetter[K, V any](literal bool, getter TypedGetter[K, V]) (
 	return mockLiteralGetter[K, V]{valueGetter: getter.Get}, nil
 }
 
+<<<<<<< HEAD
 // OptionalGetter is like TypedGetter, but for getters whose Get also returns a found bool,
 // such as the "Like" getters.
 type OptionalGetter[K, V any] interface {
@@ -911,6 +912,15 @@ type OptionalGetter[K, V any] interface {
 }
 
 // mockOptionalLiteralGetter is a mock implementation of an OptionalGetter literal for testing.
+=======
+// optionalGetter is like typedGetter, but for getters whose Get also returns a found bool,
+// such as the "Like" getters.
+type optionalGetter[K, V any] interface {
+	Get(ctx context.Context, tCtx K) (V, bool, error)
+}
+
+// mockOptionalLiteralGetter is a mock implementation of an optionalGetter literal for testing.
+>>>>>>> pre-release
 type mockOptionalLiteralGetter[K, V any] struct {
 	valueGetter func(context.Context, K) (V, bool, error)
 }
@@ -922,7 +932,11 @@ func (m mockOptionalLiteralGetter[K, V]) Get(_ context.Context, _ K) (V, bool, e
 // NewTestingOptionalLiteralGetter creates a mock literal getter for testing OTTL functions that
 // take a getter whose Get returns a found bool, such as the "Like" getters. Pass `literal` as
 // true if the getter should be treated as a literal.
+<<<<<<< HEAD
 func NewTestingOptionalLiteralGetter[K, V any](literal bool, getter OptionalGetter[K, V]) (OptionalGetter[K, V], error) {
+=======
+func NewTestingOptionalLiteralGetter[K, V any](literal bool, getter optionalGetter[K, V]) (optionalGetter[K, V], error) {
+>>>>>>> pre-release
 	if literal {
 		val, found, err := getter.Get(context.Background(), *new(K))
 		if err != nil {

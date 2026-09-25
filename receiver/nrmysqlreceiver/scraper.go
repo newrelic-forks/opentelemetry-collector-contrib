@@ -388,12 +388,20 @@ func (m *mySQLScraper) scrapeGlobalStats(now pcommon.Timestamp, errs *scrapererr
 				metadata.AttributePreparedStatementsCommandSendLongData))
 
 		// commands
+		case "Com_alter_table":
+			addPartialIfError(errs, m.mb.RecordMysqlCommandsDataPoint(now, v, metadata.AttributeCommandAlterTable))
+		case "Com_create_index":
+			addPartialIfError(errs, m.mb.RecordMysqlCommandsDataPoint(now, v, metadata.AttributeCommandCreateIndex))
+		case "Com_create_table":
+			addPartialIfError(errs, m.mb.RecordMysqlCommandsDataPoint(now, v, metadata.AttributeCommandCreateTable))
 		case "Com_delete":
 			addPartialIfError(errs, m.mb.RecordMysqlCommandsDataPoint(now, v, metadata.AttributeCommandDelete))
 		case "Com_delete_multi":
 			addPartialIfError(errs, m.mb.RecordMysqlCommandsDataPoint(now, v, metadata.AttributeCommandDeleteMulti))
 		case "Com_insert":
 			addPartialIfError(errs, m.mb.RecordMysqlCommandsDataPoint(now, v, metadata.AttributeCommandInsert))
+		case "Com_optimize":
+			addPartialIfError(errs, m.mb.RecordMysqlCommandsDataPoint(now, v, metadata.AttributeCommandOptimize))
 		case "Com_select":
 			addPartialIfError(errs, m.mb.RecordMysqlCommandsDataPoint(now, v, metadata.AttributeCommandSelect))
 		case "Com_update":
@@ -1224,12 +1232,11 @@ type blockerJSONEntry struct {
 // mysql.blocking.blockers (an empty/missing value normalizes to "[]",
 // matching the SQL COALESCE default) and the blocker count
 // (mysql.blocking.blocker.count). Order is whatever querySample.tmpl's
-// underlying data_lock_waits read naturally returns -- not sorted here; see
-// docs/mysql-receiver/blocking-blockers-ordering-spec-removed-2026-08-14.md
-// for the oldest-transaction-first ordering this replaces (it required the
-// PROCESS privilege via information_schema.INNODB_TRX, which failed the
-// entire query_sample collection query outright for any monitoring user
-// without that grant, the moment a real block existed).
+// underlying data_lock_waits read naturally returns -- not sorted here.
+// The older oldest-transaction-first ordering required
+// information_schema.INNODB_TRX and therefore the PROCESS privilege, which
+// caused the entire query_sample collection query to fail for a monitoring
+// user without that grant as soon as a real block existed.
 //
 // Individual blocker identity (thread_id/session_id) is intentionally not
 // extracted into scalar attributes here — that would only serve per-row

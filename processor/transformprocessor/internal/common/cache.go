@@ -11,11 +11,16 @@ import (
 // If `sharedCache` is true, it returns the cached context map if it exists,
 // or returns nil if it does not.
 func LoadContextCache(cache map[ContextID]*pcommon.Map, context ContextID, sharedCache bool) *pcommon.Map {
+<<<<<<< HEAD
 	if !sharedCache || len(cache) == 0 {
+=======
+	if !sharedCache {
+>>>>>>> pre-release
 		return nil
 	}
 	return cache[context]
 }
+<<<<<<< HEAD
 
 // NewSharedCaches builds a fresh set of shared cache maps for a single
 // processing invocation, with one map per context ID in contexts. It returns
@@ -32,3 +37,5 @@ func NewSharedCaches(contexts []ContextID) map[ContextID]*pcommon.Map {
 	}
 	return caches
 }
+=======
+>>>>>>> pre-release

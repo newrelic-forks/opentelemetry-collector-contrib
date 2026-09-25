@@ -9,7 +9,11 @@ import (
 	"strings"
 	"unicode"
 
+<<<<<<< HEAD
 	"github.com/google/go-github/v91/github"
+=======
+	"github.com/google/go-github/v90/github"
+>>>>>>> pre-release
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	conventions "go.opentelemetry.io/otel/semconv/v1.40.0"
 )

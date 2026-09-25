@@ -15,7 +15,10 @@ import (
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/ottl"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/ottl/contexts/internal/pathtest"
+<<<<<<< HEAD:pkg/ottl/contexts/xprofile/ottlprofile/profile_test.go
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/ottl/contexts/xprofile/internal/ctxprofile"
+=======
+>>>>>>> pre-release:pkg/ottl/contexts/ottlprofile/profile_test.go
 )
 
 func Test_newPathGetSetter(t *testing.T) {
@@ -152,7 +155,11 @@ func Test_newPathGetSetter_higherContextPath(t *testing.T) {
 	scopeProfiles := pprofile.NewScopeProfiles()
 	instrumentationScope.CopyTo(scopeProfiles.Scope())
 
+<<<<<<< HEAD:pkg/ottl/contexts/xprofile/ottlprofile/profile_test.go
 	ctx := NewTransformContext(resourceProfiles, scopeProfiles, pprofile.NewProfile(), pprofile.NewProfilesDictionary())
+=======
+	ctx := NewTransformContextPtr(resourceProfiles, scopeProfiles, pprofile.NewProfile(), pprofile.NewProfilesDictionary())
+>>>>>>> pre-release:pkg/ottl/contexts/ottlprofile/profile_test.go
 
 	tests := []struct {
 		name     string

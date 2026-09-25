@@ -12,7 +12,11 @@ import (
 	"time"
 
 	"github.com/Khan/genqlient/graphql"
+<<<<<<< HEAD
 	"github.com/google/go-github/v91/github"
+=======
+	"github.com/google/go-github/v90/github"
+>>>>>>> pre-release
 )
 
 const (

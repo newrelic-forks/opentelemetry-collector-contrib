@@ -27,6 +27,13 @@ const (
 
 func TestNewClientFailureToParse(t *testing.T) {
 	clientConfig := confighttp.NewDefaultClientConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	clientConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.ForceAttemptHTTP2 = false
+>>>>>>> pre-release
 	clientConfig.Endpoint = "http://\x00"
 	_, err := newClient(t.Context(), &Config{
 		ClientConfig: clientConfig,
@@ -39,6 +46,13 @@ func TestTransportNodes(t *testing.T) {
 	defer nsxMock.Close()
 
 	clientConfig := confighttp.NewDefaultClientConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	clientConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.ForceAttemptHTTP2 = false
+>>>>>>> pre-release
 	clientConfig.Endpoint = nsxMock.URL
 	client, err := newClient(t.Context(), &Config{
 		ClientConfig: clientConfig,
@@ -54,6 +68,13 @@ func TestClusterNodes(t *testing.T) {
 	defer nsxMock.Close()
 
 	clientConfig := confighttp.NewDefaultClientConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	clientConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.ForceAttemptHTTP2 = false
+>>>>>>> pre-release
 	clientConfig.Endpoint = nsxMock.URL
 	client, err := newClient(t.Context(), &Config{
 		ClientConfig: clientConfig,
@@ -69,6 +90,13 @@ func TestClusterNodeInterface(t *testing.T) {
 	defer nsxMock.Close()
 
 	clientConfig := confighttp.NewDefaultClientConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	clientConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.ForceAttemptHTTP2 = false
+>>>>>>> pre-release
 	clientConfig.Endpoint = nsxMock.URL
 	client, err := newClient(t.Context(), &Config{
 		ClientConfig: clientConfig,
@@ -84,6 +112,13 @@ func TestTransportNodeInterface(t *testing.T) {
 	defer nsxMock.Close()
 
 	clientConfig := confighttp.NewDefaultClientConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	clientConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.ForceAttemptHTTP2 = false
+>>>>>>> pre-release
 	clientConfig.Endpoint = nsxMock.URL
 	client, err := newClient(t.Context(), &Config{
 		ClientConfig: clientConfig,
@@ -99,6 +134,13 @@ func TestTransportNodeStatus(t *testing.T) {
 	defer nsxMock.Close()
 
 	clientConfig := confighttp.NewDefaultClientConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	clientConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.ForceAttemptHTTP2 = false
+>>>>>>> pre-release
 	clientConfig.Endpoint = nsxMock.URL
 	client, err := newClient(t.Context(), &Config{
 		ClientConfig: clientConfig,
@@ -114,6 +156,13 @@ func TestClusterNodeStatus(t *testing.T) {
 	defer nsxMock.Close()
 
 	clientConfig := confighttp.NewDefaultClientConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	clientConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.ForceAttemptHTTP2 = false
+>>>>>>> pre-release
 	clientConfig.Endpoint = nsxMock.URL
 	client, err := newClient(t.Context(), &Config{
 		ClientConfig: clientConfig,
@@ -129,6 +178,13 @@ func TestTransportNodeInterfaceStatus(t *testing.T) {
 	defer nsxMock.Close()
 
 	clientConfig := confighttp.NewDefaultClientConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	clientConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.ForceAttemptHTTP2 = false
+>>>>>>> pre-release
 	clientConfig.Endpoint = nsxMock.URL
 	client, err := newClient(t.Context(), &Config{
 		ClientConfig: clientConfig,
@@ -144,6 +200,13 @@ func TestManagerNodeInterfaceStatus(t *testing.T) {
 	defer nsxMock.Close()
 
 	clientConfig := confighttp.NewDefaultClientConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	clientConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.ForceAttemptHTTP2 = false
+>>>>>>> pre-release
 	clientConfig.Endpoint = nsxMock.URL
 	client, err := newClient(t.Context(), &Config{
 		ClientConfig: clientConfig,
@@ -159,6 +222,13 @@ func TestDoRequestBadUrl(t *testing.T) {
 	defer nsxMock.Close()
 
 	clientConfig := confighttp.NewDefaultClientConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	clientConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.ForceAttemptHTTP2 = false
+>>>>>>> pre-release
 	clientConfig.Endpoint = nsxMock.URL
 	client, err := newClient(t.Context(), &Config{
 		ClientConfig: clientConfig,
@@ -174,6 +244,13 @@ func TestPermissionDenied_ClusterNodes(t *testing.T) {
 	defer nsxMock.Close()
 
 	clientConfig := confighttp.NewDefaultClientConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	clientConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.ForceAttemptHTTP2 = false
+>>>>>>> pre-release
 	clientConfig.Endpoint = nsxMock.URL
 	client, err := newClient(t.Context(), &Config{
 		Password:     badPassword,
@@ -190,6 +267,13 @@ func TestPermissionDenied_Interfaces(t *testing.T) {
 	defer nsxMock.Close()
 
 	clientConfig := confighttp.NewDefaultClientConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	clientConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.ForceAttemptHTTP2 = false
+>>>>>>> pre-release
 	clientConfig.Endpoint = nsxMock.URL
 	client, err := newClient(t.Context(), &Config{
 		Password:     badPassword,
@@ -206,6 +290,13 @@ func TestPermissionDenied_InterfaceStatus(t *testing.T) {
 	defer nsxMock.Close()
 
 	clientConfig := confighttp.NewDefaultClientConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	clientConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.ForceAttemptHTTP2 = false
+>>>>>>> pre-release
 	clientConfig.Endpoint = nsxMock.URL
 	client, err := newClient(t.Context(), &Config{
 		Password:     badPassword,
@@ -222,6 +313,13 @@ func TestPermissionDenied_NodeStatus(t *testing.T) {
 	defer nsxMock.Close()
 
 	clientConfig := confighttp.NewDefaultClientConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	clientConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.ForceAttemptHTTP2 = false
+>>>>>>> pre-release
 	clientConfig.Endpoint = nsxMock.URL
 	client, err := newClient(t.Context(), &Config{
 		Password:     badPassword,
@@ -238,6 +336,13 @@ func TestPermissionDenied_TransportNodes(t *testing.T) {
 	defer nsxMock.Close()
 
 	clientConfig := confighttp.NewDefaultClientConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	clientConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.ForceAttemptHTTP2 = false
+>>>>>>> pre-release
 	clientConfig.Endpoint = nsxMock.URL
 	client, err := newClient(t.Context(), &Config{
 		Password:     badPassword,
@@ -254,6 +359,13 @@ func TestInternalServerError(t *testing.T) {
 	defer nsxMock.Close()
 
 	clientConfig := confighttp.NewDefaultClientConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	clientConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.ForceAttemptHTTP2 = false
+>>>>>>> pre-release
 	clientConfig.Endpoint = nsxMock.URL
 	client, err := newClient(t.Context(), &Config{
 		Username:     user500,

@@ -1357,7 +1357,7 @@ resourceMetrics:
             stringValue: d26d40521426
     scopeMetrics:
       - metrics:
-          - description: Total number of lock timeouts.
+          - description: Number of lock timeouts per second.
             gauge:
               dataPoints:
                 - asDouble: 0
@@ -1368,7 +1368,7 @@ resourceMetrics:
                   startTimeUnixNano: "1000000"
                   timeUnixNano: "2000000"
             name: sqlserver.lock.timeout.rate
-            unit: '{timeouts}/s'
+            unit: '{timeout}/s'
         scope:
           name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
           version: latest
@@ -1400,7 +1400,7 @@ resourceMetrics:
             stringValue: d26d40521426
     scopeMetrics:
       - metrics:
-          - description: Total number of lock timeouts.
+          - description: Number of lock timeouts per second.
             gauge:
               dataPoints:
                 - asDouble: 0
@@ -1411,7 +1411,7 @@ resourceMetrics:
                   startTimeUnixNano: "1000000"
                   timeUnixNano: "2000000"
             name: sqlserver.lock.timeout.rate
-            unit: '{timeouts}/s'
+            unit: '{timeout}/s'
         scope:
           name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
           version: latest

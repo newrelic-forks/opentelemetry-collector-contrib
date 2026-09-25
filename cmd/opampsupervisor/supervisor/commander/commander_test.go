@@ -27,12 +27,15 @@ const passthroughTestModeEnv = "OTEL_SUPERVISOR_COMMANDER_TEST_MODE" // #nosec G
 // its handler, which would instead terminate the process.
 const childReadyLine = "ignoring shutdown signals"
 
+<<<<<<< HEAD
 // logAppendContinueFileEnv names the env var that tells the "log-append-after-truncate"
 // child where to look for the marker file signaling it to write its second line. Passed
 // as an env var, like passthroughTestModeEnv, because the child is a re-exec of this same
 // test binary and has no other channel to receive it over.
 const logAppendContinueFileEnv = "OTEL_SUPERVISOR_COMMANDER_TEST_CONTINUE_FILE"
 
+=======
+>>>>>>> pre-release
 func TestMain(m *testing.M) {
 	switch os.Getenv(passthroughTestModeEnv) {
 	case "passthrough":
@@ -60,6 +63,7 @@ func TestMain(m *testing.M) {
 		_, _ = fmt.Fprintln(os.Stderr, "ready")
 		time.Sleep(time.Minute)
 		os.Exit(0)
+<<<<<<< HEAD
 	case "log-append-after-truncate":
 		// Writes a line, waits for the parent to truncate the log file out from
 		// under it and signal via a marker file, then writes a second line. This
@@ -80,6 +84,8 @@ func TestMain(m *testing.M) {
 		}
 		_, _ = fmt.Fprint(os.Stdout, "after rotation\n")
 		os.Exit(0)
+=======
+>>>>>>> pre-release
 	}
 	os.Exit(m.Run())
 }
@@ -220,6 +226,7 @@ func TestWaitForOutputDrainCapturesFinalPassthroughLine(t *testing.T) {
 	require.Equal(t, []string{"final error line"}, lines)
 }
 
+<<<<<<< HEAD
 func TestOpenAgentLogFileAppendsAfterExternalTruncate(t *testing.T) {
 	// Regression test for the pre-fix behavior: opening agent.log with a plain
 	// os.Create/os.OpenFile keeps writes anchored at the offset the file had
@@ -303,6 +310,8 @@ func TestStartNormalChildWritesAfterExternalTruncate(t *testing.T) {
 		"child's write after external truncate should land at the new end-of-file through its inherited handle, not the stale pre-truncate offset")
 }
 
+=======
+>>>>>>> pre-release
 func TestStopKillsUnresponsiveProcess(t *testing.T) {
 	cmdr, err := NewCommander(
 		zap.NewNop(),

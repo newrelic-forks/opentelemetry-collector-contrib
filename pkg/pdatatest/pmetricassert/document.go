@@ -38,6 +38,7 @@ const (
 	attributeModeInclude
 )
 
+<<<<<<< HEAD
 // collectionMode controls how a collection of resources, scopes, metrics, or
 // datapoints is evaluated.
 type collectionMode int
@@ -103,11 +104,17 @@ func decodeCollection[T any](raw map[string]yaml.Node, key string, fixup func(*T
 	return out, mode, nil
 }
 
+=======
+>>>>>>> pre-release
 // document is the YAML-serializable form of a metrics assertion snapshot.
 //
 // The schema implements the identity-only subset of the grammar proposed in
 // issue #48079: default-exact matching, order-insensitive collections,
+<<<<<<< HEAD
 // identity fields only. Attribute maps and collections support /include mode.
+=======
+// identity fields only. Attribute maps support /include mode.
+>>>>>>> pre-release
 // Operator-suffix extensions (/exclude, /count, /approx, ...) are tracked
 // as follow-ups.
 type document struct {
@@ -121,6 +128,7 @@ type resourceAssertion struct {
 	Attributes    map[string]any   `yaml:"attributes,omitempty"`
 	AttributeMode attributeMode    `yaml:"-"`
 	Scopes        []scopeAssertion `yaml:"scopes"`
+<<<<<<< HEAD
 	ScopesMode    collectionMode   `yaml:"-"`
 }
 
@@ -128,6 +136,13 @@ type resourceAssertion struct {
 // as an alternative to `attributes`, and `scopes/include` as an alternative to
 // `scopes`. When `attributes/include` is used the AttributeMode is set to
 // attributeModeInclude; specifying both keys is an error.
+=======
+}
+
+// UnmarshalYAML implements custom unmarshaling to support `attributes/include`
+// as an alternative to `attributes`. When `attributes/include` is used the
+// AttributeMode is set to attributeModeInclude; specifying both keys is an error.
+>>>>>>> pre-release
 func (r *resourceAssertion) UnmarshalYAML(node *yaml.Node) error {
 	// Decode into a raw map to detect operator-suffixed keys.
 	var raw map[string]yaml.Node
@@ -152,12 +167,20 @@ func (r *resourceAssertion) UnmarshalYAML(node *yaml.Node) error {
 		r.Attributes = attrs
 		r.AttributeMode = attributeModeExact
 	}
+<<<<<<< HEAD
 
 	scopes, mode, err := decodeCollection[scopeAssertion](raw, "scopes", nil)
 	if err != nil {
 		return fmt.Errorf("resource assertion: %w", err)
 	}
 	r.Scopes, r.ScopesMode = scopes, mode
+=======
+	if scopesNode, ok := raw["scopes"]; ok {
+		if err := scopesNode.Decode(&r.Scopes); err != nil {
+			return fmt.Errorf("resource assertion: decode scopes: %w", err)
+		}
+	}
+>>>>>>> pre-release
 	return nil
 }
 

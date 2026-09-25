@@ -20,6 +20,7 @@ func isLocalhost(host string) bool {
 	return strings.EqualFold(host, "localhost") || net.ParseIP(host).IsLoopback()
 }
 
+<<<<<<< HEAD
 // resolveEndpoint parses the configured connection details into the host, named instance and port
 // that locate the monitored SQL Server instance. The named instance is only ever set when
 // connecting via a datasource; the port is returned as configured, so callers that need a concrete
@@ -37,6 +38,28 @@ func resolveEndpoint(cfg *Config) (host, instance string, port int, err error) {
 			return "", "", 0, fmt.Errorf("failed to parse datasource: %w", parseErr)
 		}
 		host, instance, port = config.Host, config.Instance, int(config.Port)
+=======
+// computeServiceInstanceID computes the service.instance.id based on the configuration.
+// Datasource format precedence: <host>\<instance>, then <host>:<port> (default 1433).
+// Special handling:
+// - localhost/127.0.0.1 are replaced with os.Hostname()
+// - Port 0 defaults to 1433 when no named instance is specified
+func computeServiceInstanceID(cfg *Config) (string, error) {
+	var host string
+	var instance string
+	var port int
+
+	// Parse connection details based on configuration priority
+	switch {
+	case cfg.DataSource != "":
+		config, err := parseDataSource(cfg.DataSource)
+		if err != nil {
+			return "", fmt.Errorf("failed to parse datasource: %w", err)
+		}
+		host = config.Host
+		instance = config.Instance
+		port = int(config.Port)
+>>>>>>> pre-release
 	case cfg.Server != "":
 		host, port = cfg.Server, int(cfg.Port)
 	case cfg.ComputerName != "":
@@ -60,6 +83,7 @@ func resolveEndpoint(cfg *Config) (host, instance string, port int, err error) {
 		host = hostname
 	}
 
+<<<<<<< HEAD
 	return host, instance, port, nil
 }
 
@@ -92,6 +116,19 @@ func computeServiceInstanceID(cfg *Config) (string, error) {
 		return fmt.Sprintf(`%s\%s`, host, instance), nil
 	}
 
+=======
+	if cfg.DataSource != "" {
+		if instance != "" {
+			return fmt.Sprintf(`%s\%s`, host, instance), nil
+		}
+		if port == 0 {
+			port = defaultSQLServerPort
+		}
+		return fmt.Sprintf("%s:%d", host, port), nil
+	}
+
+	// Apply default port if not specified
+>>>>>>> pre-release
 	if port == 0 {
 		port = defaultSQLServerPort
 	}

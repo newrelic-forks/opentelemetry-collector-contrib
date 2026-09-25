@@ -25,6 +25,14 @@ import (
 
 func TestSocketConnectionLogs(t *testing.T) {
 	serverConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfig.WriteTimeout = 0
+	serverConfig.ReadHeaderTimeout = 0
+	serverConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	serverConfig.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  "localhost:12001",
@@ -69,6 +77,14 @@ func TestSocketConnectionLogs(t *testing.T) {
 
 func TestSocketConnectionMetrics(t *testing.T) {
 	serverConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfig.WriteTimeout = 0
+	serverConfig.ReadHeaderTimeout = 0
+	serverConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	serverConfig.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  "localhost:12002",
@@ -113,6 +129,14 @@ func TestSocketConnectionMetrics(t *testing.T) {
 
 func TestSocketConnectionTraces(t *testing.T) {
 	serverConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfig.WriteTimeout = 0
+	serverConfig.ReadHeaderTimeout = 0
+	serverConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	serverConfig.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  "localhost:12003",

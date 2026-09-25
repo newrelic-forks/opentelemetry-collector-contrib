@@ -41,6 +41,14 @@ func TestLoadConfig(t *testing.T) {
 	}).Unmarshal(&egressCfg))
 
 	ingressCfg := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	ingressCfg.WriteTimeout = 0
+	ingressCfg.ReadHeaderTimeout = 0
+	ingressCfg.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	ingressCfg.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	ingressCfg.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  "http://localhost:7070",

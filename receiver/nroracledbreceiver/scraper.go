@@ -290,6 +290,8 @@ const (
 	dbNamespaceAttr  = "DB_NAMESPACE"
 	dbSystemNameVal  = "oracle"
 
+	defaultServiceName = "unknown_service:oracle"
+
 	queryExecutionMetric        = "EXECUTIONS"
 	elapsedTimeMetric           = "ELAPSED_TIME"
 	cpuTimeMetric               = "CPU_TIME"
@@ -2530,6 +2532,7 @@ func (s *oracleScraper) setupResourceBuilder(rb *metadata.ResourceBuilder) *meta
 	rb.SetOracledbInstanceName(s.instanceName)
 	rb.SetHostName(s.hostName)
 	rb.SetServiceInstanceID(s.serviceInstanceID)
+<<<<<<< HEAD
 
 	hostAddress, hostPort, err := net.SplitHostPort(s.hostName)
 	if err != nil {
@@ -2539,6 +2542,10 @@ func (s *oracleScraper) setupResourceBuilder(rb *metadata.ResourceBuilder) *meta
 	}
 	rb.SetHostAddress(hostAddress)
 
+=======
+	rb.SetServiceName(defaultServiceName)
+	rb.SetServiceNamespace("")
+>>>>>>> pre-release
 	if s.instanceInfo.dbVersion != "" {
 		rb.SetOracleDbVersion(s.instanceInfo.dbVersion)
 	}

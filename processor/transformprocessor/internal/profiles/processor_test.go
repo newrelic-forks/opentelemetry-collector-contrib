@@ -1343,6 +1343,7 @@ func Test_ProcessProfiles_SharedCacheCrossContextAccess(t *testing.T) {
 	}
 }
 
+<<<<<<< HEAD
 func Test_ProcessProfiles_SharedCacheNotCarriedOverBetweenCalls(t *testing.T) {
 	statements := []common.ContextStatements{
 		{
@@ -1443,6 +1444,8 @@ func Test_ProcessProfiles_SharedCacheConcurrentCalls(t *testing.T) {
 	}
 }
 
+=======
+>>>>>>> pre-release
 func Test_NewProcessor_ConditionsParse(t *testing.T) {
 	type testCase struct {
 		name              string

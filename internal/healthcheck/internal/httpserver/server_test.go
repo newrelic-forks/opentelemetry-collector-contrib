@@ -173,71 +173,183 @@ func TestStatus(t *testing.T) {
 	metrics := testhelpers.NewPipelineMetadata(pipeline.SignalMetrics)
 
 	serverConfig1 := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfig1.WriteTimeout = 0
+	serverConfig1.ReadHeaderTimeout = 0
+	serverConfig1.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfig1.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	serverConfig1.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  testutil.GetAvailableLocalAddress(t),
 	}
 	serverConfig2 := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfig2.WriteTimeout = 0
+	serverConfig2.ReadHeaderTimeout = 0
+	serverConfig2.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfig2.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	serverConfig2.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  testutil.GetAvailableLocalAddress(t),
 	}
 	serverConfig3 := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfig3.WriteTimeout = 0
+	serverConfig3.ReadHeaderTimeout = 0
+	serverConfig3.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfig3.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	serverConfig3.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  testutil.GetAvailableLocalAddress(t),
 	}
 	serverConfig4 := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfig4.WriteTimeout = 0
+	serverConfig4.ReadHeaderTimeout = 0
+	serverConfig4.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfig4.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	serverConfig4.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  testutil.GetAvailableLocalAddress(t),
 	}
 	serverConfig5 := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfig5.WriteTimeout = 0
+	serverConfig5.ReadHeaderTimeout = 0
+	serverConfig5.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfig5.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	serverConfig5.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  testutil.GetAvailableLocalAddress(t),
 	}
 	serverConfig6 := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfig6.WriteTimeout = 0
+	serverConfig6.ReadHeaderTimeout = 0
+	serverConfig6.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfig6.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	serverConfig6.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  testutil.GetAvailableLocalAddress(t),
 	}
 	serverConfig7 := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfig7.WriteTimeout = 0
+	serverConfig7.ReadHeaderTimeout = 0
+	serverConfig7.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfig7.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	serverConfig7.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  testutil.GetAvailableLocalAddress(t),
 	}
 	serverConfig8 := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfig8.WriteTimeout = 0
+	serverConfig8.ReadHeaderTimeout = 0
+	serverConfig8.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfig8.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	serverConfig8.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  testutil.GetAvailableLocalAddress(t),
 	}
 	serverConfig9 := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfig9.WriteTimeout = 0
+	serverConfig9.ReadHeaderTimeout = 0
+	serverConfig9.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfig9.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	serverConfig9.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  testutil.GetAvailableLocalAddress(t),
 	}
 	serverConfig10 := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfig10.WriteTimeout = 0
+	serverConfig10.ReadHeaderTimeout = 0
+	serverConfig10.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfig10.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	serverConfig10.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  testutil.GetAvailableLocalAddress(t),
 	}
 	serverConfig11 := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfig11.WriteTimeout = 0
+	serverConfig11.ReadHeaderTimeout = 0
+	serverConfig11.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfig11.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	serverConfig11.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  testutil.GetAvailableLocalAddress(t),
 	}
 	serverConfig12 := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfig12.WriteTimeout = 0
+	serverConfig12.ReadHeaderTimeout = 0
+	serverConfig12.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfig12.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	serverConfig12.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  testutil.GetAvailableLocalAddress(t),
 	}
 	serverConfig13 := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfig13.WriteTimeout = 0
+	serverConfig13.ReadHeaderTimeout = 0
+	serverConfig13.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfig13.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	serverConfig13.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  testutil.GetAvailableLocalAddress(t),
 	}
 	serverConfig14 := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfig14.WriteTimeout = 0
+	serverConfig14.ReadHeaderTimeout = 0
+	serverConfig14.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfig14.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	serverConfig14.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  testutil.GetAvailableLocalAddress(t),
@@ -3153,16 +3265,40 @@ func TestConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	tcServerConfig1 := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	tcServerConfig1.WriteTimeout = 0
+	tcServerConfig1.ReadHeaderTimeout = 0
+	tcServerConfig1.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	tcServerConfig1.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	tcServerConfig1.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  testutil.GetAvailableLocalAddress(t),
 	}
 	tcServerConfig2 := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	tcServerConfig2.WriteTimeout = 0
+	tcServerConfig2.ReadHeaderTimeout = 0
+	tcServerConfig2.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	tcServerConfig2.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	tcServerConfig2.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  testutil.GetAvailableLocalAddress(t),
 	}
 	tcServerConfig3 := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	tcServerConfig3.WriteTimeout = 0
+	tcServerConfig3.ReadHeaderTimeout = 0
+	tcServerConfig3.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	tcServerConfig3.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	tcServerConfig3.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  testutil.GetAvailableLocalAddress(t),
@@ -3287,6 +3423,14 @@ func TestStatusIncludesAttributesWhenEnabled(t *testing.T) {
 	traces := testhelpers.NewPipelineMetadata(pipeline.SignalTraces)
 
 	serverConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfig.WriteTimeout = 0
+	serverConfig.ReadHeaderTimeout = 0
+	serverConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	serverConfig.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  testutil.GetAvailableLocalAddress(t),
@@ -3381,6 +3525,14 @@ func TestStatusNonVerboseIncludesAttributes(t *testing.T) {
 	metrics := testhelpers.NewPipelineMetadata(pipeline.SignalMetrics)
 
 	serverConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfig.WriteTimeout = 0
+	serverConfig.ReadHeaderTimeout = 0
+	serverConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	serverConfig.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  testutil.GetAvailableLocalAddress(t),
@@ -3459,6 +3611,14 @@ func TestStatusExcludesAttributesWhenConfigDisabled(t *testing.T) {
 	metrics := testhelpers.NewPipelineMetadata(pipeline.SignalMetrics)
 
 	serverConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfig.WriteTimeout = 0
+	serverConfig.ReadHeaderTimeout = 0
+	serverConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	serverConfig.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  testutil.GetAvailableLocalAddress(t),

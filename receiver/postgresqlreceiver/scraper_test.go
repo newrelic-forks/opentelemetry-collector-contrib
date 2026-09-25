@@ -531,6 +531,16 @@ func TestScraperNoDatabaseMultiple(t *testing.T) {
 			pmetrictest.IgnoreStartTimestamp(),
 			pmetrictest.IgnoreTimestamp(),
 		}
+<<<<<<< HEAD
+=======
+		if useOTelSemconv {
+			compareOpts = append(
+				compareOpts,
+				pmetrictest.IgnoreResourceAttributeValue("server.address"),
+				pmetrictest.IgnoreResourceAttributeValue("server.port"),
+			)
+		}
+>>>>>>> pre-release
 		require.NoError(t, pmetrictest.CompareMetrics(expectedMetrics, actualMetrics, compareOpts...))
 	}
 

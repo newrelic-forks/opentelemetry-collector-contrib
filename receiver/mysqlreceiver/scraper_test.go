@@ -400,6 +400,7 @@ func TestScrapeGlobalStatsRecordsReplicaOpenTempTablesFromLegacyGlobalStatusName
 	assert.Equal(t, []int64{7}, replicaOpenTempTablesDataPoints(scraper.mb.Emit()))
 }
 
+<<<<<<< HEAD
 func TestScrapeHealthRecordsConnectionStatus(t *testing.T) {
 	tests := []struct {
 		name                   string
@@ -549,6 +550,8 @@ func TestScrapeActiveSessionCount(t *testing.T) {
 	}
 }
 
+=======
+>>>>>>> pre-release
 func TestScrapeGlobalStatsRecordsMyisamKeyCacheMetricsWhenEnabled(t *testing.T) {
 	cfg := createDefaultConfig().(*Config)
 	cfg.MetricsBuilderConfig.Metrics.MysqlMyisamKeyCacheBlockUsedMax.Enabled = true
@@ -837,6 +840,7 @@ type intMetricDataPoint struct {
 func intMetricDataPointsByName(t *testing.T, metrics pmetric.Metrics, name string) []intMetricDataPoint {
 	t.Helper()
 
+<<<<<<< HEAD
 	got := optionalIntMetricDataPointsByName(metrics, name)
 	if got == nil {
 		require.Failf(t, "metric not found", "metric %q not found", name)
@@ -845,6 +849,8 @@ func intMetricDataPointsByName(t *testing.T, metrics pmetric.Metrics, name strin
 }
 
 func optionalIntMetricDataPointsByName(metrics pmetric.Metrics, name string) []intMetricDataPoint {
+=======
+>>>>>>> pre-release
 	for i := 0; i < metrics.ResourceMetrics().Len(); i++ {
 		resourceMetrics := metrics.ResourceMetrics().At(i)
 		for j := 0; j < resourceMetrics.ScopeMetrics().Len(); j++ {
@@ -861,12 +867,20 @@ func optionalIntMetricDataPointsByName(metrics pmetric.Metrics, name string) []i
 				case pmetric.MetricTypeSum:
 					return intMetricDataPoints(metric.Sum().DataPoints())
 				default:
+<<<<<<< HEAD
 					return nil
+=======
+					require.Failf(t, "unsupported metric type", "metric %q has type %s", name, metric.Type())
+>>>>>>> pre-release
 				}
 			}
 		}
 	}
 
+<<<<<<< HEAD
+=======
+	require.Failf(t, "metric not found", "metric %q not found", name)
+>>>>>>> pre-release
 	return nil
 }
 
@@ -882,6 +896,7 @@ func intMetricDataPoints(dataPoints pmetric.NumberDataPointSlice) []intMetricDat
 	return got
 }
 
+<<<<<<< HEAD
 type doubleMetricDataPoint struct {
 	attributes map[string]string
 	value      float64
@@ -924,6 +939,8 @@ func doubleMetricDataPoints(dataPoints pmetric.NumberDataPointSlice) []doubleMet
 	return got
 }
 
+=======
+>>>>>>> pre-release
 func stringAttributes(attributes pcommon.Map) map[string]string {
 	if attributes.Len() == 0 {
 		return nil
@@ -1265,6 +1282,7 @@ type explainQueryCall struct {
 }
 
 type mockClient struct {
+<<<<<<< HEAD
 	globalStats                  map[string]string
 	globalStatsFile              string
 	innodbStatsFile              string
@@ -1291,6 +1309,23 @@ type mockClient struct {
 	activeSessionCount           int64
 	activeSessionErr             error
 	activeSessionCountCallCount  int
+=======
+	globalStats                 map[string]string
+	globalStatsFile             string
+	innodbStatsFile             string
+	innodbTransactionStats      innodbTransactionStats
+	innodbTransactionStatsErr   error
+	innodbTransactionStatsCalls int
+	tableIoWaitsFile            string
+	indexIoWaitsFile            string
+	tableStatsFile              string
+	statementEventsFile         string
+	tableLockWaitEventStatsFile string
+	replicaStatusFile           string
+	replicaStatusStats          []replicaStatusStats
+	querySamplesFile            string
+	topQueriesFile              string
+>>>>>>> pre-release
 	// dbVersionOverride allows tests to simulate MySQL <8 or MariaDB.
 	// Nil means "MySQL 8.0.27" (default, preserves all existing test behavior).
 	dbVersionOverride *dbVersion
@@ -1386,6 +1421,7 @@ func (c *mockClient) getInnodbTransactionStats() (innodbTransactionStats, error)
 	return c.innodbTransactionStats, nil
 }
 
+<<<<<<< HEAD
 func (c *mockClient) getQueryExecutionTime() (float64, error) {
 	c.queryExecutionTimeCallCount++
 	return c.queryExecutionTime, c.queryExecutionTimeErr
@@ -1404,6 +1440,8 @@ func (c *mockClient) getInnodbRedoLogStatsFromLogStatus() (innodbRedoLogStats, e
 	return c.innodbRedoLogStats, nil
 }
 
+=======
+>>>>>>> pre-release
 func (c *mockClient) getTableStats() ([]tableStats, error) {
 	c.tableStatsCallCount++
 	var stats []tableStats

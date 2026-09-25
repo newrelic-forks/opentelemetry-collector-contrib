@@ -39,6 +39,14 @@ func TestPrometheusExporter(t *testing.T) {
 		{
 			config: func() *Config {
 				serverConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+				// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+				serverConfig.WriteTimeout = 0
+				serverConfig.ReadHeaderTimeout = 0
+				serverConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+				serverConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 				serverConfig.NetAddr = confignet.AddrConfig{
 					Transport: "tcp",
 					Endpoint:  testutil.GetAvailableLocalAddress(t),
@@ -58,6 +66,14 @@ func TestPrometheusExporter(t *testing.T) {
 		{
 			config: func() *Config {
 				serverConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+				// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+				serverConfig.WriteTimeout = 0
+				serverConfig.ReadHeaderTimeout = 0
+				serverConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+				serverConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 				serverConfig.NetAddr = confignet.AddrConfig{
 					Transport: "tcp",
 					Endpoint:  "localhost:88999",
@@ -107,6 +123,14 @@ func TestPrometheusExporter(t *testing.T) {
 func TestPrometheusExporter_WithTLS(t *testing.T) {
 	addr := testutil.GetAvailableLocalAddress(t)
 	serverConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfig.WriteTimeout = 0
+	serverConfig.ReadHeaderTimeout = 0
+	serverConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	serverConfig.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  addr,
@@ -189,6 +213,14 @@ func TestPrometheusExporter_WithTLS(t *testing.T) {
 func TestPrometheusExporter_endToEndMultipleTargets(t *testing.T) {
 	addr := testutil.GetAvailableLocalAddress(t)
 	serverConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfig.WriteTimeout = 0
+	serverConfig.ReadHeaderTimeout = 0
+	serverConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	serverConfig.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  addr,
@@ -266,6 +298,14 @@ func TestPrometheusExporter_endToEndMultipleTargets(t *testing.T) {
 func TestPrometheusExporter_endToEnd(t *testing.T) {
 	addr := testutil.GetAvailableLocalAddress(t)
 	serverConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfig.WriteTimeout = 0
+	serverConfig.ReadHeaderTimeout = 0
+	serverConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	serverConfig.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  addr,
@@ -337,6 +377,14 @@ func TestPrometheusExporter_endToEnd(t *testing.T) {
 func TestPrometheusExporter_endToEndWithTimestamps(t *testing.T) {
 	addr := testutil.GetAvailableLocalAddress(t)
 	serverConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfig.WriteTimeout = 0
+	serverConfig.ReadHeaderTimeout = 0
+	serverConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	serverConfig.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  addr,
@@ -409,6 +457,14 @@ func TestPrometheusExporter_endToEndWithTimestamps(t *testing.T) {
 func TestPrometheusExporter_endToEndWithResource(t *testing.T) {
 	addr := testutil.GetAvailableLocalAddress(t)
 	serverConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfig.WriteTimeout = 0
+	serverConfig.ReadHeaderTimeout = 0
+	serverConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	serverConfig.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  addr,
@@ -681,6 +737,14 @@ this_one_there_where_{arch="x86",instance="test-instance",job="test-service",os=
 			addr := testutil.GetAvailableLocalAddress(t)
 			cfg := tt.config
 			serverConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+			// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+			serverConfig.WriteTimeout = 0
+			serverConfig.ReadHeaderTimeout = 0
+			serverConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+			serverConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 			serverConfig.NetAddr = confignet.AddrConfig{
 				Transport: "tcp",
 				Endpoint:  addr,

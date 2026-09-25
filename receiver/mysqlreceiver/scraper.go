@@ -80,8 +80,13 @@ func newMySQLScraper(
 			return nil, err
 		}
 	}
+<<<<<<< HEAD
 	serverEndpoint := resolveServerEndpoint(config, settings.Logger)
 	serviceInstanceID := uuid.NewSHA1(otelUUIDv5Namespace, []byte(serverEndpoint.instanceIDSeed)).String()
+=======
+	seed := resolveServiceInstanceSeed(config.AddrConfig.Endpoint, settings.Logger)
+	serviceInstanceID := uuid.NewSHA1(otelUUIDv5Namespace, []byte(seed)).String()
+>>>>>>> pre-release
 	return &mySQLScraper{
 		logger:                 settings.Logger,
 		config:                 config,
@@ -93,8 +98,38 @@ func newMySQLScraper(
 		obfuscator:             newObfuscator(),
 		lastExecutionTimestamp: time.Unix(0, 0),
 		serviceInstanceID:      serviceInstanceID,
+<<<<<<< HEAD
 		serverEndpoint:         serverEndpoint,
 	}, nil
+=======
+	}, nil
+}
+
+// resolveServiceInstanceSeed returns the endpoint string to use as the UUID v5
+// seed for service.instance.id. For local endpoints (localhost, loopback IPs),
+// it substitutes the machine hostname so that co-hosted receivers on different
+// machines produce distinct IDs. The port is preserved so two local databases
+// on different ports remain distinguishable.
+func resolveServiceInstanceSeed(endpoint string, logger *zap.Logger) string {
+	host, port, err := net.SplitHostPort(endpoint)
+	if err != nil {
+		logger.Warn("Failed to parse endpoint for service.instance.id; using raw endpoint as UUID seed",
+			zap.String("endpoint", endpoint),
+			zap.Error(err))
+		return endpoint
+	}
+	if host == "localhost" || (net.ParseIP(host) != nil && net.ParseIP(host).IsLoopback()) {
+		hostname, hostnameErr := os.Hostname()
+		if hostnameErr != nil {
+			logger.Warn("Failed to resolve hostname for service.instance.id; UUID may not be unique for co-hosted receivers on different machines",
+				zap.String("endpoint", endpoint),
+				zap.Error(hostnameErr))
+			return endpoint
+		}
+		return net.JoinHostPort(hostname, port)
+	}
+	return endpoint
+>>>>>>> pre-release
 }
 
 // start starts the scraper by initializing the db client connection.
@@ -167,7 +202,22 @@ func (m *mySQLScraper) scrape(context.Context) (pmetric.Metrics, error) {
 	m.scrapeHealth(now)
 
 	// collect innodb metrics.
+<<<<<<< HEAD
 	m.scrapeInnodbStats(now, errs)
+=======
+	innodbStats, innoErr := m.sqlclient.getInnodbStats()
+	if innoErr != nil {
+		m.logger.Error("Failed to fetch InnoDB stats", zap.Error(innoErr))
+	}
+
+	errs := &scrapererror.ScrapeErrors{}
+	for k, v := range innodbStats {
+		if k != "buffer_pool_size" {
+			continue
+		}
+		addPartialIfError(errs, m.mb.RecordMysqlBufferPoolLimitDataPoint(now, v))
+	}
+>>>>>>> pre-release
 	m.scrapeInnodbTransactionStats(now, errs)
 
 	// collect io_waits metrics.
@@ -767,6 +817,7 @@ func (m *mySQLScraper) scrapeInnodbTransactionStats(now pcommon.Timestamp, errs 
 	}
 }
 
+<<<<<<< HEAD
 func (m *mySQLScraper) scrapeInnodbRedoLogStats(now pcommon.Timestamp, globalStats map[string]string, errs *scrapererror.ScrapeErrors) {
 	if !m.hasEnabledInnodbRedoLogMetric() {
 		return
@@ -851,6 +902,8 @@ func globalStatusInt(globalStats map[string]string, key string) (int64, error) {
 	return parsed, nil
 }
 
+=======
+>>>>>>> pre-release
 func (m *mySQLScraper) scrapeTableIoWaitsStats(now pcommon.Timestamp, errs *scrapererror.ScrapeErrors) {
 	if !m.tableIoWaitsMetricsEnabled() {
 		return

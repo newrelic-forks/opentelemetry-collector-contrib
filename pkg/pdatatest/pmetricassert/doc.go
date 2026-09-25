@@ -16,9 +16,12 @@
 // subset of the map while allowing extra keys.
 // A double_value key may use the /precision<n> suffix to compare rounded to n
 // decimal places, mirroring pmetrictest's IgnoreMetricFloatPrecision.
+<<<<<<< HEAD
 // The resources, scopes, metrics, and datapoints collections are matched
 // exactly by default and may use the /include suffix to assert that the listed
 // items are present while allowing additional ones.
+=======
+>>>>>>> pre-release
 //
 // See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/48079
 // for the design discussion and roadmap of operator-suffix grammar

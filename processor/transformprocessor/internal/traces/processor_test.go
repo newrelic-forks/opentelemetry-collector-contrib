@@ -1597,6 +1597,7 @@ func Test_ProcessTraces_SharedCacheCrossContextAccess(t *testing.T) {
 	}
 }
 
+<<<<<<< HEAD
 func Test_ProcessTraces_SharedCacheNotCarriedOverBetweenCalls(t *testing.T) {
 	// Group 1 writes to the shared cache only for operationA spans.
 	// Group 2 marks any span that sees the cached value.
@@ -1745,6 +1746,8 @@ func Test_ProcessTraces_SharedCacheAfterError(t *testing.T) {
 	assert.False(t, hasResult, "shared cache should not carry over from a call that returned an error")
 }
 
+=======
+>>>>>>> pre-release
 func Test_ProcessTraces_InferredContextFromConditions(t *testing.T) {
 	tests := []struct {
 		name              string

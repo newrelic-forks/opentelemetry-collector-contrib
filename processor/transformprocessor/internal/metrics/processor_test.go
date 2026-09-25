@@ -2563,6 +2563,7 @@ func Test_ProcessMetrics_SharedCacheCrossContextAccess(t *testing.T) {
 	}
 }
 
+<<<<<<< HEAD
 func Test_ProcessMetrics_SharedCacheNotCarriedOverBetweenCalls(t *testing.T) {
 	statements := []common.ContextStatements{
 		{
@@ -2651,6 +2652,8 @@ func Test_ProcessMetrics_SharedCacheConcurrentCalls(t *testing.T) {
 	}
 }
 
+=======
+>>>>>>> pre-release
 func Test_ProcessMetrics_InferredContextFromConditions(t *testing.T) {
 	tests := []struct {
 		name              string

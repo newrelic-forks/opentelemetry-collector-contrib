@@ -121,6 +121,14 @@ func startGRPCServer(t *testing.T) (*grpc.ClientConn, *consumertest.LogsSink) {
 
 func startHTTPServer(t *testing.T) (string, *consumertest.LogsSink) {
 	httpServerConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	httpServerConfig.WriteTimeout = 0
+	httpServerConfig.ReadHeaderTimeout = 0
+	httpServerConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	httpServerConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	httpServerConfig.NetAddr = confignet.AddrConfig{
 		Transport: confignet.TransportTypeTCP,
 		Endpoint:  "localhost:0",
@@ -399,6 +407,14 @@ func TestExpectedStatus(t *testing.T) {
 	for _, tt := range testcases {
 		t.Run(tt.name, func(t *testing.T) {
 			httpServerConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+			// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+			httpServerConfig.WriteTimeout = 0
+			httpServerConfig.ReadHeaderTimeout = 0
+			httpServerConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+			httpServerConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 			httpServerConfig.NetAddr = confignet.AddrConfig{
 				Transport: confignet.TransportTypeTCP,
 				Endpoint:  "localhost:0",
@@ -470,6 +486,14 @@ func TestNewLokiReceiver_SupportedContentTypeWithCharset(t *testing.T) {
 	}`
 
 	httpServerConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	httpServerConfig.WriteTimeout = 0
+	httpServerConfig.ReadHeaderTimeout = 0
+	httpServerConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	httpServerConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	httpServerConfig.NetAddr = confignet.AddrConfig{
 		Transport: confignet.TransportTypeTCP,
 		Endpoint:  "localhost:0",

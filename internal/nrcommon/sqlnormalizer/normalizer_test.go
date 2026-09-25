@@ -362,13 +362,13 @@ func TestNormalizeSQLAndHash(t *testing.T) {
 			name:               "complete normalization and hash",
 			input:              "SELECT * FROM users WHERE id = 123 AND name = 'John'",
 			expectedNormalized: "SELECT*FROMUSERSWHEREID=?ANDNAME=?",
-			expectedHash:       "e78f13a21009ebcb6fdef9e996a24c9d",
+			expectedHash:       "887ae2820726539177ebad8acac8df79",
 		},
 		{
 			name:               "with comments",
 			input:              "/* comment */ SELECT * FROM users WHERE id = 1",
 			expectedNormalized: "?SELECT*FROMUSERSWHEREID=?",
-			expectedHash:       "690b61bb71c40c8825f7206e7d9c63ec",
+			expectedHash:       "fa2dcb7246124568683903ba51098975",
 		},
 	}
 
@@ -379,6 +379,29 @@ func TestNormalizeSQLAndHash(t *testing.T) {
 			assert.Equal(t, tt.expectedHash, hash)
 		})
 	}
+}
+
+func TestNormalizeSQLAndHash_StripsPlaceholdersFromHashInput(t *testing.T) {
+	// The upstream OTel SQL obfuscator (open-telemetry/opentelemetry-collector-contrib#50127)
+	// now strips comments before this package sees the SQL, which previously caused our hash
+	// to diverge from the Java APM agent's hash for the same query. The APM agent hashes
+	// "?" + sqltext without embedded placeholder markers, so we must strip '?' from the
+	// normalized SQL before hashing (equivalent to replacing '?' with a space and removing
+	// whitespace, since NormalizeSQL already strips all whitespace). The normalizedSQL
+	// return value itself must keep its placeholder markers for callers/logging.
+	normalized, hash := NormalizeSQLAndHash("SELECT * FROM users WHERE id = 123")
+
+	assert.Equal(t, "SELECT*FROMUSERSWHEREID=?", normalized)
+	assert.Equal(t, GenerateMD5Hash("SELECT*FROMUSERSWHEREID="), hash)
+}
+
+func TestNormalizeSQLAndHash_StripsTrailingSemicolonFromHashInput(t *testing.T) {
+	_, hashWithout := NormalizeSQLAndHash("SELECT * FROM users WHERE id = 1")
+	_, hashWith := NormalizeSQLAndHash("SELECT * FROM users WHERE id = 1;")
+	_, hashWithMultiple := NormalizeSQLAndHash("SELECT * FROM users WHERE id = 1;;")
+
+	assert.Equal(t, hashWithout, hashWith)
+	assert.Equal(t, hashWithout, hashWithMultiple)
 }
 
 func TestNormalizeSQLAndHash_EmptyReturnsEmptyHash(t *testing.T) {
@@ -535,4 +558,148 @@ func TestNormalizeSQL_SpaceBeforeCommaHash(t *testing.T) {
 	_, normalHash := NormalizeSQLAndHash(normalSQL)
 
 	assert.Equal(t, normalHash, oracleHash, "Hashes should match when only difference is space before comma")
+}
+
+func TestNormalizeSQL_BooleanAndNullLiterals(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "TRUE literal",
+			input:    "SELECT * FROM t WHERE active = TRUE",
+			expected: "SELECT*FROMTWHEREACTIVE=?",
+		},
+		{
+			name:     "FALSE literal",
+			input:    "SELECT * FROM t WHERE active = FALSE",
+			expected: "SELECT*FROMTWHEREACTIVE=?",
+		},
+		{
+			name:     "NULL literal",
+			input:    "SELECT * FROM t WHERE x IS NULL",
+			expected: "SELECT*FROMTWHEREXIS?",
+		},
+		{
+			name:     "lowercase boolean literal",
+			input:    "select * from t where active = true",
+			expected: "SELECT*FROMTWHEREACTIVE=?",
+		},
+		{
+			name:     "does not mangle identifiers containing keywords",
+			input:    "SELECT * FROM t WHERE trueup = 1 AND falsedown = 2 AND nullable = 3",
+			expected: "SELECT*FROMTWHERETRUEUP=?ANDFALSEDOWN=?ANDNULLABLE=?",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := NormalizeSQL(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestNormalizeSQL_BooleanLiteralsNormalizeToSameShape(t *testing.T) {
+	withTrue := NormalizeSQL("SELECT * FROM t WHERE active = TRUE")
+	withFalse := NormalizeSQL("SELECT * FROM t WHERE active = FALSE")
+	assert.Equal(t, withTrue, withFalse)
+}
+
+func TestNormalizeSQL_MySQLSystemVariables(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "leaves @@name system variable as literal text",
+			input:    "SELECT @@GLOBAL.max_connections",
+			expected: "SELECT@@GLOBAL.MAX_CONNECTIONS",
+		},
+		{
+			name:     "still treats single @name as a placeholder",
+			input:    "SELECT * FROM t WHERE id = @p1",
+			expected: "SELECT*FROMTWHEREID=?",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := NormalizeSQL(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestNormalizeSQL_ExtractFieldKeywords(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "YEAR field",
+			input:    "EXTRACT(YEAR FROM order_date)",
+			expected: "EXTRACT(?FROMORDER_DATE)",
+		},
+		{
+			name:     "MONTH field",
+			input:    "EXTRACT(MONTH FROM order_date)",
+			expected: "EXTRACT(?FROMORDER_DATE)",
+		},
+		{
+			name:     "lowercase field and lowercase EXTRACT",
+			input:    "extract(epoch from created_at)",
+			expected: "EXTRACT(?FROMCREATED_AT)",
+		},
+		{
+			name:     "space between EXTRACT and (",
+			input:    "EXTRACT (YEAR FROM order_date)",
+			expected: "EXTRACT(?FROMORDER_DATE)",
+		},
+		{
+			name:     "does not touch a bare column named year outside EXTRACT(...)",
+			input:    "SELECT year FROM t",
+			expected: "SELECTYEARFROMT",
+		},
+		{
+			name:     "leaves unrecognized EXTRACT field names untouched",
+			input:    "EXTRACT(bogus_field FROM order_date)",
+			expected: "EXTRACT(BOGUS_FIELDFROMORDER_DATE)",
+		},
+		{
+			name:     "quoted string EXTRACT field handled by existing string-literal logic",
+			input:    "EXTRACT('epoch' FROM created_at)",
+			expected: "EXTRACT(?FROMCREATED_AT)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := NormalizeSQL(tt.input)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestNormalizeSQL_ExtractFieldKeywordsNormalizeToSameShape(t *testing.T) {
+	withYear := NormalizeSQL("EXTRACT(YEAR FROM order_date)")
+	withMonth := NormalizeSQL("EXTRACT(MONTH FROM order_date)")
+	assert.Equal(t, withYear, withMonth)
+}
+
+func TestNormalizeSQL_StripsInvisibleUnicodeFormatCharacters(t *testing.T) {
+	withZeroWidth := NormalizeSQL("SELECT\u200b* FROM t WHERE id = 1")
+	without := NormalizeSQL("SELECT* FROM t WHERE id = 1")
+	assert.Equal(t, without, withZeroWidth)
+}
+
+func TestNormalizeSQL_OnlyInvisibleCharacterNormalizesToEmpty(t *testing.T) {
+	assert.Empty(t, NormalizeSQL("\u200b"))
+}
+
+func TestNormalizeSQL_LeadingWhitespaceBeforeBareParenIsNotIn(t *testing.T) {
+	assert.Equal(t, "(?,?,?)", NormalizeSQL("  (1,2,3)"))
 }

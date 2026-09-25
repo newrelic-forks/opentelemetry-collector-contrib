@@ -1418,6 +1418,7 @@ func Test_ProcessLogs_SharedCacheCrossContextAccess(t *testing.T) {
 	}
 }
 
+<<<<<<< HEAD
 func Test_ProcessLogs_SharedCacheNotCarriedOverBetweenCalls(t *testing.T) {
 	statements := []common.ContextStatements{
 		{
@@ -1515,6 +1516,8 @@ func Test_ProcessLogs_SharedCacheConcurrentCalls(t *testing.T) {
 	}
 }
 
+=======
+>>>>>>> pre-release
 func Test_ProcessLogs_InferredContextFromConditions(t *testing.T) {
 	tests := []struct {
 		name              string

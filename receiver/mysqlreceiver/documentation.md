@@ -460,6 +460,7 @@ The number of pending InnoDB data file operations.
 | ---- | ----------- | ------ | ----------------- | ------------------- |
 | operation | The operation types. | Str: ``fsyncs``, ``reads``, ``writes`` | Recommended | - |
 
+<<<<<<< HEAD
 ### mysql.innodb.redo_log.checkpoint.age
 
 The difference, in bytes, between the current InnoDB redo log sequence number and the most recent checkpoint log sequence number.
@@ -490,6 +491,8 @@ Only emitted for MySQL 8.0.11 and later. MySQL 8.0.11 through 8.0.29 requires SE
 | ---- | ----------- | ---------- | --------- |
 | By | Gauge | Int | Development |
 
+=======
+>>>>>>> pre-release
 ### mysql.innodb.row_lock.wait.count
 
 The number of InnoDB row lock waits currently pending.

@@ -37,7 +37,11 @@ func (l logStatements) ConsumeLogs(ctx context.Context, ld plog.Logs, cache *pco
 			slogs := rlogs.ScopeLogs().At(j)
 			logs := slogs.LogRecords()
 			for k := 0; k < logs.Len(); k++ {
+<<<<<<< HEAD
 				tCtx := ottllog.NewTransformContext(rlogs, slogs, logs.At(k), ottllog.WithCache(cache))
+=======
+				tCtx := ottllog.NewTransformContextPtr(rlogs, slogs, logs.At(k), ottllog.WithCache(cache))
+>>>>>>> pre-release
 				condition, err := l.Eval(ctx, tCtx)
 				if err != nil {
 					tCtx.Close()

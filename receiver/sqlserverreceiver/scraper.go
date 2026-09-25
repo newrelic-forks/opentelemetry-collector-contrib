@@ -387,6 +387,14 @@ func (s *sqlServerScraperHelper) setupResourceBuilder(rb *metadata.ResourceBuild
 			s.logger.Warn("Failed to parse datasource for host.name attribute, using fallback", zap.Error(err))
 		} else {
 			hostName = config.Host
+<<<<<<< HEAD
+=======
+			serverAddress = config.Host
+			serverPort = int64(config.Port)
+			if serverPort == 0 {
+				serverPort = defaultSQLServerPort
+			}
+>>>>>>> pre-release
 		}
 	}
 
@@ -394,8 +402,13 @@ func (s *sqlServerScraperHelper) setupResourceBuilder(rb *metadata.ResourceBuild
 	rb.SetServiceInstanceID(s.serviceInstanceID)
 	rb.SetServiceName(defaultServiceName)
 	rb.SetServiceNamespace("")
+<<<<<<< HEAD
 	rb.SetServerAddress(s.serverAddress)
 	rb.SetServerPort(s.serverPort)
+=======
+	rb.SetServerAddress(serverAddress)
+	rb.SetServerPort(serverPort)
+>>>>>>> pre-release
 
 	return rb
 }

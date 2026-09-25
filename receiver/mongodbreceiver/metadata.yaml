@@ -205,6 +205,7 @@ attributes:
   mongodb.query.truncated:
     description: Whether the value carried by db.query.text is a truncated rendering of the MongoDB command, as indicated by `$truncated` in the currentOp output.
     type: bool
+<<<<<<< HEAD
   mongodb.replica.name:
     description: The name of the replica, in host:port form.
     type: string
@@ -231,6 +232,8 @@ attributes:
     enum:
       - applied
       - durable
+=======
+>>>>>>> pre-release
   mongodb.wt.concurrent_transaction.ticket.type:
     description: The WiredTiger concurrent-transaction ticket type.
     type: string

@@ -519,8 +519,8 @@ func TestQueryGuardsCoverEveryMetric(t *testing.T) {
 	}
 
 	cfgType := reflect.TypeFor[metadata.MetricsConfig]()
-	for i := 0; i < cfgType.NumField(); i++ {
-		fieldName := cfgType.Field(i).Name
+	for field := range cfgType.Fields() {
+		fieldName := field.Name
 
 		t.Run(fieldName, func(t *testing.T) {
 			g, guarded := fieldToGuard[fieldName]
@@ -1078,11 +1078,19 @@ func TestScrapeQuerySamplesBlockers(t *testing.T) {
 	t.Run("multiple concurrent blockers are all preserved, in whatever order the query returned them", func(t *testing.T) {
 		// query_samples_multi_blocker.txt encodes three concurrent blockers
 		// for one thread -- unordered, since the receiver no longer sorts
+<<<<<<< HEAD
 		// this array (that required information_schema.INNODB_TRX, which
 		// needs the PROCESS privilege; see
 		// docs/mysql-receiver/blocking-blockers-ordering-spec-removed-2026-08-14.md).
 		// The only guarantee now is that all blockers are present with the
 		// correct thread_id/session_id -- not any particular order.
+=======
+		// this array. The older ordering used information_schema.INNODB_TRX,
+		// which requires the PROCESS privilege and could fail the entire query
+		// for restricted monitoring users. The only guarantee now is that all
+		// blockers are present with the correct thread_id/session_id, not any
+		// particular order.
+>>>>>>> pre-release
 		scraper, err := newMySQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, nil, newCache[int64](100), newTTLCache[string](0, time.Hour*24*365*10))
 		require.NoError(t, err)
 		scraper.sqlclient = &mockClient{querySamplesFile: "query_samples_multi_blocker"}
@@ -1895,9 +1903,9 @@ func TestQueryPlanCacheReuse(t *testing.T) {
 
 // TestQueryPlanArrayWrapping verifies that a non-empty query plan is wrapped in a
 // one-element JSON array before being emitted on mysql.query_plan, working around
-// New Relic log ingest's auto-flatten behavior for top-level JSON *objects* (see
-// docs/superpowers/specs/2026-08-05-query-plan-array-wrap-design.md). Empty plans
-// must stay empty ("" not "[]"), and a cached plan must not be wrapped a second time.
+// New Relic log ingest's auto-flatten behavior for top-level JSON objects. Empty
+// plans must stay empty ("" not "[]"), and a cached plan must not be wrapped a
+// second time.
 func TestQueryPlanArrayWrapping(t *testing.T) {
 	baseCfg := createDefaultConfig().(*Config)
 	baseCfg.Username = "otel"

@@ -280,6 +280,7 @@ attributes:
     type: string
   oracledb.plan_hash_value:
     description: Numeric representation of the execution plan.
+<<<<<<< HEAD
     type: string
   oracledb.procedure.first_load_time:
     description: "Earliest load time across the procedure's cached statements, in ISO 8601 format (UTC)."
@@ -289,6 +290,8 @@ attributes:
     type: string
   oracledb.procedure.schema.name:
     description: The schema (owner) of the stored procedure or function.
+=======
+>>>>>>> pre-release
     type: string
   oracledb.procedure_execution_count:
     description: The number of times the stored procedure has been executed, derived from the minimum statement execution count across all statements in the procedure (reporting delta). Please note, this is best effort and may not be accurate in some scenarios. Use with caution.

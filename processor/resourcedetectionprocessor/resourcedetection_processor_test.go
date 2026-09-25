@@ -167,6 +167,13 @@ func TestResourceProcessor(t *testing.T) {
 			}
 
 			clientConfig := confighttp.NewDefaultClientConfig()
+<<<<<<< HEAD
+=======
+			// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+			clientConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+			clientConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+			clientConfig.ForceAttemptHTTP2 = false
+>>>>>>> pre-release
 			clientConfig.Timeout = time.Second
 			cfg := &Config{
 				Override:     tt.override,
@@ -323,6 +330,13 @@ func TestProcessor_RefreshInterval_UpdatesResource(t *testing.T) {
 	)
 
 	clientConfig := confighttp.NewDefaultClientConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	clientConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.ForceAttemptHTTP2 = false
+>>>>>>> pre-release
 	clientConfig.Timeout = 500 * time.Millisecond
 	cfg := &Config{
 		Detectors:       []string{"mock"},
@@ -438,6 +452,13 @@ func TestProcessor_RefreshInterval_KeepsLastGoodOnFailure(t *testing.T) {
 	)
 
 	clientConfig := confighttp.NewDefaultClientConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	clientConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.ForceAttemptHTTP2 = false
+>>>>>>> pre-release
 	clientConfig.Timeout = 500 * time.Millisecond
 	cfg := &Config{
 		Detectors:       []string{"mock"},
@@ -820,6 +841,13 @@ func TestStartFailsGracefullyOnInvalidHTTPClientConfig(t *testing.T) {
 
 	// Configure invalid TLS settings that will cause ToClient() to fail
 	clientConfig := confighttp.NewDefaultClientConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	clientConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.ForceAttemptHTTP2 = false
+>>>>>>> pre-release
 	clientConfig.TLS = configtls.ClientConfig{
 		Config: configtls.Config{
 			CAFile:   "/nonexistent/ca.crt",

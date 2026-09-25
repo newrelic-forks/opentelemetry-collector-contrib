@@ -126,7 +126,7 @@ resourceLogs:
                   stringValue: 2026-01-01/12:00:00
               - key: db.query.text.normalized.hash
                 value:
-                  stringValue: bcb07525735e64570267726f900f042a
+                  stringValue: 3ba5c46a8d14079edfe93b8c9cbaf907
             body: {}
             eventName: db.server.top_query
             timeUnixNano: "1784619439223379000"

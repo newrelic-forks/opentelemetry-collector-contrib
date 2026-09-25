@@ -143,9 +143,12 @@ func TestLogsBuilder(t *testing.T) {
 			lb.RecordDbServerQuerySampleEvent(ctx, timestamp, "client.address-val", 11, "db.namespace-val", "db.query.text-val", "db.system.name-val", "network.peer.address-val", 17, 29, "sqlserver.blocking.start_time-val", "sqlserver.client.app.name-val", "sqlserver.context_info-val", "sqlserver.command-val", 18.100000, 27, 35.100000, 22.100000, 23, 32, 26.100000, "sqlserver.query_hash-val", "sqlserver.query_plan_hash-val", "sqlserver.query_start-val", 15, "sqlserver.request_status-val", "sqlserver.wait.resource.id-val", "sqlserver.wait.resource.type-val", 19, 26.100000, "sqlserver.session.start_time-val", 20, "sqlserver.session_status-val", 28.100000, 24, 37, "sqlserver.wait_resource-val", 19.100000, "sqlserver.wait_type-val", 16, "user.name-val", "sqlserver.procedure_id-val", "sqlserver.procedure_name-val")
 
 			allEventsCount++
+<<<<<<< HEAD
 			lb.RecordDbServerTopProcedureEvent(ctx, timestamp, "db.system.name-val", "db.namespace-val", "sqlserver.procedure_id-val", "sqlserver.procedure_name-val", "sqlserver.schema.name-val", 35, 27.100000, 28.100000, 29, 30, 30, 40, 32.100000, 32.100000, "sqlserver.procedure.last_execution_time-val")
 
 			allEventsCount++
+=======
+>>>>>>> pre-release
 			lb.RecordDbServerTopQueryEvent(ctx, timestamp, 27.100000, "db.query.text-val", "db.namespace-val", 25, 29, 30, 30, "sqlserver.query_hash-val", "sqlserver.query_plan-val", "sqlserver.query_plan_hash-val", 20, 28.100000, 24, "db.system.name-val", 35, "sqlserver.procedure_id-val", "sqlserver.procedure_name-val", "sqlserver.query.last_started-val", "sqlserver.query.plan.creation_time-val")
 
 			rb := lb.NewResourceBuilder()

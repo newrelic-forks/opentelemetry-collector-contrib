@@ -155,9 +155,12 @@ type client interface {
 	getGlobalStats() (map[string]string, error)
 	getInnodbStats() (map[string]string, error)
 	getInnodbTransactionStats() (innodbTransactionStats, error)
+<<<<<<< HEAD
 	getQueryExecutionTime() (float64, error)
 	getActiveSessionCount() (int64, error)
 	getInnodbRedoLogStatsFromLogStatus() (innodbRedoLogStats, error)
+=======
+>>>>>>> pre-release
 	getTableStats() ([]tableStats, error)
 	getTableIoWaitsStats() ([]tableIoWaitsStats, error)
 	getIndexIoWaitsStats() ([]indexIoWaitsStats, error)
@@ -220,12 +223,15 @@ type innodbTransactionStats struct {
 	maxActiveTransactionDuration int64
 }
 
+<<<<<<< HEAD
 type innodbRedoLogStats struct {
 	currentLSN    int64
 	checkpointLSN int64
 	checkpointAge int64
 }
 
+=======
+>>>>>>> pre-release
 type statementEventStats struct {
 	schema                    string
 	digest                    string
@@ -408,6 +414,7 @@ func (c *mySQLClient) populateDBVersion() {
 	if dbVer, verErr := c.fetchDBVersion(); verErr == nil {
 		c.dbVersion = dbVer
 	}
+<<<<<<< HEAD
 }
 
 func (c *mySQLClient) checkDBAvailability() error {
@@ -423,6 +430,8 @@ func (c *mySQLClient) checkDBAvailability() error {
 		return fmt.Errorf("unexpected database availability query result: %d", result)
 	}
 	return nil
+=======
+>>>>>>> pre-release
 }
 
 // fetchDBVersion queries the database for its version string and parses it
@@ -500,6 +509,7 @@ func (c *mySQLClient) getInnodbStats() (map[string]string, error) {
 	return query(*c, q)
 }
 
+<<<<<<< HEAD
 // getQueryExecutionTime queries the db for cumulative SQL statement execution time in seconds.
 func (c *mySQLClient) getQueryExecutionTime() (float64, error) {
 	q := "SELECT COALESCE(SUM(SUM_TIMER_WAIT), 0) / 1000000000000.0 " +
@@ -526,6 +536,8 @@ func (c *mySQLClient) getActiveSessionCount() (int64, error) {
 	return activeSessionCount, err
 }
 
+=======
+>>>>>>> pre-release
 // getInnodbTransactionStats queries the db for InnoDB transaction metrics.
 func (c *mySQLClient) getInnodbTransactionStats() (innodbTransactionStats, error) {
 	q := "SELECT " +
@@ -542,6 +554,7 @@ func (c *mySQLClient) getInnodbTransactionStats() (innodbTransactionStats, error
 	return stats, err
 }
 
+<<<<<<< HEAD
 // getInnodbRedoLogStatsFromLogStatus queries performance_schema.log_status for
 // InnoDB redo log metrics on MySQL versions before the structured global status
 // variables were introduced.
@@ -567,6 +580,8 @@ func (c *mySQLClient) getInnodbRedoLogStatsFromLogStatus() (innodbRedoLogStats, 
 	}, nil
 }
 
+=======
+>>>>>>> pre-release
 // getTableStats queries the db for information_schema table size metrics.
 func (c *mySQLClient) getTableStats() ([]tableStats, error) {
 	query := "SELECT TABLE_SCHEMA, TABLE_NAME, " +

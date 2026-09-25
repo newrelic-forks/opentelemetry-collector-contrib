@@ -43,26 +43,66 @@ type teststep struct {
 
 func TestHealthCheckExtensionUsage(t *testing.T) {
 	serverConfigWithoutCheckCollectorPipeline := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfigWithoutCheckCollectorPipeline.WriteTimeout = 0
+	serverConfigWithoutCheckCollectorPipeline.ReadHeaderTimeout = 0
+	serverConfigWithoutCheckCollectorPipeline.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfigWithoutCheckCollectorPipeline.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	serverConfigWithoutCheckCollectorPipeline.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  testutil.GetAvailableLocalAddress(t),
 	}
 	serverConfigWithCustomizedPath := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfigWithCustomizedPath.WriteTimeout = 0
+	serverConfigWithCustomizedPath.ReadHeaderTimeout = 0
+	serverConfigWithCustomizedPath.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfigWithCustomizedPath.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	serverConfigWithCustomizedPath.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  testutil.GetAvailableLocalAddress(t),
 	}
 	serverConfigWithBothCustomResponseBody := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfigWithBothCustomResponseBody.WriteTimeout = 0
+	serverConfigWithBothCustomResponseBody.ReadHeaderTimeout = 0
+	serverConfigWithBothCustomResponseBody.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfigWithBothCustomResponseBody.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	serverConfigWithBothCustomResponseBody.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  testutil.GetAvailableLocalAddress(t),
 	}
 	serverConfigWithHealthyCustomResponseBody := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfigWithHealthyCustomResponseBody.WriteTimeout = 0
+	serverConfigWithHealthyCustomResponseBody.ReadHeaderTimeout = 0
+	serverConfigWithHealthyCustomResponseBody.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfigWithHealthyCustomResponseBody.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	serverConfigWithHealthyCustomResponseBody.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  testutil.GetAvailableLocalAddress(t),
 	}
 	serverConfigWithUnhealthyCustomResponseBody := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfigWithUnhealthyCustomResponseBody.WriteTimeout = 0
+	serverConfigWithUnhealthyCustomResponseBody.ReadHeaderTimeout = 0
+	serverConfigWithUnhealthyCustomResponseBody.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfigWithUnhealthyCustomResponseBody.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	serverConfigWithUnhealthyCustomResponseBody.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  testutil.GetAvailableLocalAddress(t),
@@ -288,6 +328,14 @@ func TestHealthCheckExtensionUsage(t *testing.T) {
 
 func TestHealthCheckShutdownWithoutStart(t *testing.T) {
 	serverConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfig.WriteTimeout = 0
+	serverConfig.ReadHeaderTimeout = 0
+	serverConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	serverConfig.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  testutil.GetAvailableLocalAddress(t),

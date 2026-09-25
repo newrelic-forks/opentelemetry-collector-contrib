@@ -78,7 +78,11 @@ func WithCache(cache *pcommon.Map) TransformContextOption {
 	}
 }
 
+<<<<<<< HEAD
 // NewTransformContext returns a new TransformContext from a pool of contexts.
+=======
+// NewTransformContextPtr returns a new TransformContext from a pool of contexts.
+>>>>>>> pre-release
 // Caller must call TransformContext.Close on the returned TransformContext.
 // dataPoint is the exemplar's parent datapoint and must be one of pmetric.NumberDataPoint,
 // pmetric.HistogramDataPoint, pmetric.ExponentialHistogramDataPoint, or pmetric.SummaryDataPoint.

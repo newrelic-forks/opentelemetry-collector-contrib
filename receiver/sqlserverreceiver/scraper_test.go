@@ -173,9 +173,13 @@ func TestEmptyScrape(t *testing.T) {
 
 func TestSuccessfulScrape(t *testing.T) {
 	tests := []struct {
+<<<<<<< HEAD
 		name string
 		// propertiesFixtureFile overrides the fixture returned for the server properties
 		// query. Empty means the default on-prem fixture (propertyQueryData.txt).
+=======
+		name                  string
+>>>>>>> pre-release
 		propertiesFixtureFile string
 	}{
 		{

@@ -302,6 +302,7 @@ The following metrics are version-gated:
 - `mongodb.extent.count` — MongoDB `< 4.4` with the MMAPv1 storage engine only.
 - `mongodb.wt.log.write`, `mongodb.wt.log.operation.count`, `mongodb.wt.log.sync.time`, `mongodb.wt.fsync.count`, and `mongodb.wt.concurrent_transaction.ticket.in_use` — require the WiredTiger storage engine (the default since MongoDB 3.2; MMAPv1, the previous default, was removed in 4.2). No data points are emitted on other storage engines, such as the Enterprise-only inMemory engine.
 - `mongodb.wt.concurrent_transaction.ticket.in_use` is additionally read from `serverStatus.wiredTiger.concurrentTransactions.{read,write}.out` on MongoDB `< 8.0`, and from `serverStatus.queues.execution.{read,write}.out` on MongoDB `8.0+` (the field was renamed in 8.0). The receiver probes both paths and uses whichever is present, so the same metric emits across all supported versions.
+<<<<<<< HEAD
 
 The `mongodb.oplog.*`, `mongodb.replica.*`, and `mongodb.replica_set.*` metrics are only emitted by a
 `mongod` that is a member of a replica set. They are skipped on a standalone deployment, on a `mongos` router, and
@@ -314,6 +315,8 @@ every other member's replication progress.
 
 `mongodb.replica_set.member.count` describes the whole replica set, so every scraped member reports
 the same value. Do not sum it across members.
+=======
+>>>>>>> pre-release
 
 Details about the metrics produced by this receiver can be found in [metadata.yaml](./metadata.yaml)
 

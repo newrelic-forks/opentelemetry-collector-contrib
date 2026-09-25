@@ -219,6 +219,7 @@ Top query collection enabled:
           max_rows_per_query: 1450
 ```
 
+<<<<<<< HEAD
 ## Resource attributes
 
 `server.address` and `server.port` identify the monitored SQL Server instance and are emitted by default.
@@ -239,6 +240,8 @@ sqlserver:
       enabled: false
 ```
 
+=======
+>>>>>>> pre-release
 ## Metrics
 
 Details about the metrics produced by this receiver can be found in [documentation.md](./documentation.md)

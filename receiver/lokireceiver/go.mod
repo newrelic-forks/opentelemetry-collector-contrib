@@ -17,6 +17,7 @@ require (
 	go.opentelemetry.io/collector/confmap v1.67.1-0.20260916171901-3e8af656214a
 	go.opentelemetry.io/collector/consumer v1.67.1-0.20260916171901-3e8af656214a
 	go.opentelemetry.io/collector/receiver v1.67.1-0.20260916171901-3e8af656214a
+	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatautil v0.160.0 // indirect
 	go.uber.org/zap v1.28.0
 	google.golang.org/grpc v1.83.2
 )

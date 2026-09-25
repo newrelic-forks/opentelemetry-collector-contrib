@@ -230,12 +230,19 @@ func TestPersistentQueueDelivery(t *testing.T) {
 
 	t.Run("profiles", func(t *testing.T) {
 		cfg, host, rec := newPQDeliveryTest(t)
+<<<<<<< HEAD
 		cfg.Mapping.AllowedModes = []string{"ecs"}
+=======
+>>>>>>> pre-release
 		exp, err := f.(xexporter.Factory).CreateProfiles(t.Context(), set, cfg)
 		require.NoError(t, err)
 		require.NoError(t, exp.Start(t.Context(), host))
 		t.Cleanup(func() { require.NoError(t, exp.Shutdown(context.WithoutCancel(t.Context()))) })
 		require.NoError(t, exp.ConsumeProfiles(t.Context(), pqProfiles()))
+<<<<<<< HEAD
 		rec.WaitItems(4)
+=======
+		rec.WaitItems(1)
+>>>>>>> pre-release
 	})
 }

@@ -3853,7 +3853,11 @@ func TestSupervisorValidateConfigWithLocalConfig(t *testing.T) {
 			server.sendToSupervisor(&protobufs.ServerToAgent{
 				RemoteConfig: &protobufs.AgentRemoteConfig{
 					Config: &protobufs.AgentConfigMap{
+<<<<<<< HEAD
 						ConfigMap: map[string]*protobufs.AgentConfigObject{
+=======
+						ConfigMap: map[string]*protobufs.AgentConfigFile{
+>>>>>>> pre-release
 							"": {Body: invalidConfig},
 						},
 					},

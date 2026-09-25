@@ -22,6 +22,8 @@ func TestResourceBuilder(t *testing.T) {
 			rb.SetOracleDbVersion("oracle.db.version-val")
 			rb.SetOracledbInstanceName("oracledb.instance.name-val")
 			rb.SetServiceInstanceID("service.instance.id-val")
+			rb.SetServiceName("service.name-val")
+			rb.SetServiceNamespace("service.namespace-val")
 
 			res := rb.Emit()
 			assert.Equal(t, 0, rb.Emit().Attributes().Len()) // Second call should return empty Resource
@@ -81,6 +83,16 @@ func TestResourceBuilder(t *testing.T) {
 			assert.True(t, ok)
 			if ok {
 				assert.Equal(t, "service.instance.id-val", serviceInstanceIDAttrVal.Str())
+			}
+			serviceNameAttrVal, ok := res.Attributes().Get("service.name")
+			assert.Equal(t, tt == "all_set", ok)
+			if ok {
+				assert.Equal(t, "service.name-val", serviceNameAttrVal.Str())
+			}
+			serviceNamespaceAttrVal, ok := res.Attributes().Get("service.namespace")
+			assert.Equal(t, tt == "all_set", ok)
+			if ok {
+				assert.Equal(t, "service.namespace-val", serviceNamespaceAttrVal.Str())
 			}
 		})
 	}

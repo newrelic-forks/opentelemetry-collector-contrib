@@ -457,6 +457,7 @@ component_management:
     name: extension_tailstorage_pebbletailstorage
     paths:
     - extension/tailstorage/pebbletailstorageextension/**
+<<<<<<< HEAD
   - component_id: pkg_batchperresourceattr
     name: pkg_batchperresourceattr
     paths:
@@ -573,6 +574,8 @@ component_management:
     name: pkg_xstreamencoding
     paths:
     - pkg/xstreamencoding/**
+=======
+>>>>>>> pre-release
   - component_id: processor_adaptivetailsampling
     name: processor_adaptivetailsampling
     paths:

@@ -23,15 +23,35 @@ import (
 func TestCreateDefaultConfig(t *testing.T) {
 	cfg := createDefaultConfig()
 	legacyServerConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	legacyServerConfig.WriteTimeout = 0
+	legacyServerConfig.ReadHeaderTimeout = 0
+	legacyServerConfig.IdleTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	legacyServerConfig.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  testutil.EndpointForPort(healthcheck.DefaultHTTPPort),
 	}
+<<<<<<< HEAD
 	httpServerConfig := confighttp.NewDefaultServerConfig()
+=======
+	legacyServerConfig.KeepAlivesEnabled = true //nolint:staticcheck // SA1019: see TODO above
+	httpServerConfig := confighttp.NewDefaultServerConfig()
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	httpServerConfig.WriteTimeout = 0
+	httpServerConfig.ReadHeaderTimeout = 0
+	httpServerConfig.IdleTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	httpServerConfig.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  testutil.EndpointForPort(healthcheck.DefaultHTTPPort),
 	}
+<<<<<<< HEAD
+=======
+	httpServerConfig.KeepAlivesEnabled = true //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	assert.Equal(t, &Config{
 		LegacyConfig: healthcheck.HTTPLegacyConfig{
 			ServerConfig: legacyServerConfig,

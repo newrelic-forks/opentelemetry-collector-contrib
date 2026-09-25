@@ -794,6 +794,7 @@ exclusions:
       - name: domainControllers.autodiscovery
         validation:
           enabled: false
+<<<<<<< HEAD
 
 stability:
   coverage:
@@ -801,3 +802,5 @@ stability:
     alpha: 15
     beta: 50
     stable: 85
+=======
+>>>>>>> pre-release

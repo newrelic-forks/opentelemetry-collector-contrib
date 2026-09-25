@@ -88,8 +88,11 @@ For more information about the maintainer role, see the [community repository](h
 - [David Ashpole](https://github.com/dashpole), Google
 - [Israel Blancas](https://github.com/iblancasa), Coralogix
 - [Joshua MacDonald](https://github.com/jmacd), Microsoft
+<<<<<<< HEAD
 - [Matt Wear](https://github.com/mwear), Dash0
 - [Mike Goldsmith](https://github.com/MikeGoldsmith), Honeycomb
+=======
+>>>>>>> pre-release
 - [Paulo Dias](https://github.com/paulojmdias), Five9
 - [Paulo Janotti](https://github.com/pjanotti), Splunk
 - [Sam DeHaan](https://github.com/dehaansa), Grafana Labs

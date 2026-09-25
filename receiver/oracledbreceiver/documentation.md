@@ -1842,6 +1842,7 @@ Collection of event metrics for top N queries, filtered based on the highest CPU
 | oracledb.procedure_name | Name of the database object that a query is accessing. | Any Str | - |
 | oracledb.procedure_type | Type of the database object that a query is accessing. | Any Str | - |
 | db.query.comment_tags | Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys specified in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
+<<<<<<< HEAD
 | query.comments | Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys specified in allowed_comment_keys configuration. Mirrors db.query.comment_tags and is used for correlation with APM traces. | Any Str | - |
 | db.query.comment_tags.nr_service_guid | New Relic service GUID extracted from the filtered db.query.comment_tags. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
 | query.comments.nr_service_guid | New Relic service GUID extracted from the filtered query comments. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Mirrors db.query.comment_tags.nr_service_guid and is used for correlation with APM traces. | Any Str | - |
@@ -1875,6 +1876,11 @@ Wait chain data from V$WAIT_CHAINS showing blocking sessions and deadlock cycles
 | oracledb.blocking.pdb_name | PDB name of the blocking session. | Any Str | - |
 | oracledb.is_root_blocker | Whether this session is the root blocker in the chain (YES/NO). | Any Str | - |
 | oracledb.blocking_scope | Scope of the blocking relationship (LOCAL or CROSS_INSTANCE). | Any Str | - |
+=======
+| oracledb.plan_hash_value | Numeric representation of the execution plan. | Any Str | - |
+| oracledb.plan.first_load | Time at which the plan was first loaded into the library cache, in the server's local timezone. Format: YYYY-MM-DD/HH:MM:SS | Any Str | - |
+| oracledb.plan.last_load | Plan load time in the server's local timezone. Format: YYYY-MM-DD/HH:MM:SS | Any Str | - |
+>>>>>>> pre-release
 
 ## Resource Attributes
 

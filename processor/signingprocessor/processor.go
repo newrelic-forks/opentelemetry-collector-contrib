@@ -5,6 +5,7 @@ package signingprocessor // import "github.com/open-telemetry/opentelemetry-coll
 
 import (
 	"context"
+<<<<<<< HEAD
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/ed25519"
@@ -323,6 +324,21 @@ func (p *signingProcessor) valueToInterface(v pcommon.Value, depth int) (any, er
 	default:
 		return nil, nil
 	}
+=======
+
+	"go.opentelemetry.io/collector/component"
+	"go.opentelemetry.io/collector/consumer"
+	"go.opentelemetry.io/collector/pdata/plog"
+	"go.opentelemetry.io/collector/processor"
+)
+
+type signingProcessor struct {
+	nextConsumer consumer.Logs
+}
+
+func newProcessor(_ *Config, nextConsumer consumer.Logs, _ processor.Settings) *signingProcessor {
+	return &signingProcessor{nextConsumer: nextConsumer}
+>>>>>>> pre-release
 }
 
 func (*signingProcessor) Start(_ context.Context, _ component.Host) error {
@@ -333,6 +349,7 @@ func (*signingProcessor) Shutdown(_ context.Context) error {
 	return nil
 }
 
+<<<<<<< HEAD
 // buildCertificateRef computes the audit.integrity.certificate attribute value.
 // "fingerprint" produces "sha256:<hex>" of the DER-encoded certificate.
 // "full" produces the base64 (standard, no line wrapping) of the DER-encoded certificate.
@@ -349,4 +366,12 @@ func buildCertificateRef(provider KeyMaterialProvider, mode string) (string, err
 		sum := sha256.Sum256(der)
 		return "sha256:" + hex.EncodeToString(sum[:]), nil
 	}
+=======
+func (*signingProcessor) Capabilities() consumer.Capabilities {
+	return consumer.Capabilities{MutatesData: true}
+}
+
+func (p *signingProcessor) ConsumeLogs(ctx context.Context, ld plog.Logs) error {
+	return p.nextConsumer.ConsumeLogs(ctx, ld)
+>>>>>>> pre-release
 }

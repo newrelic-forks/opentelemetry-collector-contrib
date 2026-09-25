@@ -106,11 +106,18 @@ then
 - sed -i.bak s/${CURRENT_STABLE_ESCAPED}/${CANDIDATE_STABLE}/g versions.yaml"
 fi
 
+<<<<<<< HEAD
 gh pr create --head "$(git branch --show-current)" --title "[chore] Prepare release ${RELEASE_VERSION}" --body "
 The following commands were run to prepare this release:
 - make chlog-update VERSION=v${RELEASE_VERSION}
 - sed -i.bak s/${CURRENT_BETA_ESCAPED}/${CANDIDATE_BETA}/g versions.yaml${STABLE_SED_LINE}
 - sed -i.bak s/${CURRENT_STABLE_ESCAPED}/${CANDIDATE_STABLE}/g versions.yaml${STABLE_SED_LINE}
+=======
+gh pr create --head "$(git branch --show-current)" --title "[chore] Prepare release ${CANDIDATE_BETA}" --body "
+The following commands were run to prepare this release:
+- make chlog-update VERSION=v${CANDIDATE_BETA}
+- sed -i.bak s/${CURRENT_BETA_ESCAPED}/${CANDIDATE_BETA}/g versions.yaml${STABLE_SED_LINE}
+>>>>>>> pre-release
 - make multimod-prerelease
 - make multimod-sync
 "

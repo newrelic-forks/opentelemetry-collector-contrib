@@ -379,6 +379,7 @@ func newMySQLClientFromDB(db *sql.DB, conf *Config) *mySQLClient {
 		explainMode:                    conf.ExplainMode,
 		explainProc:                    &explainProcCache{available: make(map[string]bool)},
 	}
+<<<<<<< HEAD
 }
 
 func newMySQLClient(conf *Config) (client, error) {
@@ -387,6 +388,8 @@ func newMySQLClient(conf *Config) (client, error) {
 		return nil, err
 	}
 	return f.connect(context.Background())
+=======
+>>>>>>> pre-release
 }
 
 func (c *mySQLClient) Connect() error {

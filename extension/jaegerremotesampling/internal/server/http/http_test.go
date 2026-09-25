@@ -25,6 +25,15 @@ import (
 
 func TestMissingClientConfigManagerHTTP(t *testing.T) {
 	serverConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfig.NetAddr = confignet.AddrConfig{}
+	serverConfig.WriteTimeout = 0
+	serverConfig.ReadHeaderTimeout = 0
+	serverConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	s, err := NewHTTP(componenttest.NewNopTelemetrySettings(), serverConfig, nil)
 	assert.Equal(t, errMissingStrategyStore, err)
 	assert.Nil(t, s)
@@ -33,6 +42,14 @@ func TestMissingClientConfigManagerHTTP(t *testing.T) {
 func TestStartAndStopHTTP(t *testing.T) {
 	// prepare
 	srvSettings := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	srvSettings.WriteTimeout = 0
+	srvSettings.ReadHeaderTimeout = 0
+	srvSettings.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	srvSettings.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	srvSettings.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  "127.0.0.1:0",
@@ -60,6 +77,15 @@ func TestEndpointsAreWired(t *testing.T) {
 		t.Run(tC.desc, func(t *testing.T) {
 			// prepare
 			serverConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+			// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+			serverConfig.NetAddr = confignet.AddrConfig{}
+			serverConfig.WriteTimeout = 0
+			serverConfig.ReadHeaderTimeout = 0
+			serverConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+			serverConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 			s, err := NewHTTP(componenttest.NewNopTelemetrySettings(), serverConfig, &mocks.MockCfgMgr{
 				GetSamplingStrategyFunc: func(_ context.Context, _ string) (*api_v2.SamplingStrategyResponse, error) {
 					return &api_v2.SamplingStrategyResponse{
@@ -95,6 +121,15 @@ func TestEndpointsAreWired(t *testing.T) {
 func TestServiceNameIsRequired(t *testing.T) {
 	// prepare
 	serverConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfig.NetAddr = confignet.AddrConfig{}
+	serverConfig.WriteTimeout = 0
+	serverConfig.ReadHeaderTimeout = 0
+	serverConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	s, err := NewHTTP(componenttest.NewNopTelemetrySettings(), serverConfig, &mocks.MockCfgMgr{})
 	require.NoError(t, err)
 	require.NotNil(t, s)
@@ -114,6 +149,15 @@ func TestServiceNameIsRequired(t *testing.T) {
 
 func TestErrorFromClientConfigManager(t *testing.T) {
 	serverConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfig.NetAddr = confignet.AddrConfig{}
+	serverConfig.WriteTimeout = 0
+	serverConfig.ReadHeaderTimeout = 0
+	serverConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	s, err := NewHTTP(componenttest.NewNopTelemetrySettings(), serverConfig, &mocks.MockCfgMgr{})
 	require.NoError(t, err)
 	require.NotNil(t, s)

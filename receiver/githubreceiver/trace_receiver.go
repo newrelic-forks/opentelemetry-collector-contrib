@@ -11,7 +11,11 @@ import (
 	"strings"
 	"sync"
 
+<<<<<<< HEAD
 	"github.com/google/go-github/v91/github"
+=======
+	"github.com/google/go-github/v90/github"
+>>>>>>> pre-release
 	"github.com/gorilla/mux"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/component/componentstatus"

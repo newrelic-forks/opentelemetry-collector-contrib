@@ -15,6 +15,10 @@ import (
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/ottl"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/pkg/ottl/contexts/internal/pathtest"
+<<<<<<< HEAD
+=======
+	featureMetadata "github.com/open-telemetry/opentelemetry-collector-contrib/pkg/ottl/internal/metadata"
+>>>>>>> pre-release
 )
 
 func TestContextClientMetadata(t *testing.T) {

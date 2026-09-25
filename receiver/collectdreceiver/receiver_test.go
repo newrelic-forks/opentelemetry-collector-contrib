@@ -39,6 +39,14 @@ func TestNewReceiver(t *testing.T) {
 		nextConsumer consumer.Metrics
 	}
 	happyPathServerConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	happyPathServerConfig.WriteTimeout = 0
+	happyPathServerConfig.ReadHeaderTimeout = 0
+	happyPathServerConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	happyPathServerConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	happyPathServerConfig.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  ":0",
@@ -81,6 +89,14 @@ func TestCollectDServer(t *testing.T) {
 	}
 
 	serverConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	serverConfig.WriteTimeout = 0
+	serverConfig.ReadHeaderTimeout = 0
+	serverConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+	serverConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 	serverConfig.NetAddr = confignet.AddrConfig{
 		Transport: "tcp",
 		Endpoint:  "localhost:8081",

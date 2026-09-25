@@ -22,7 +22,10 @@ import (
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.opentelemetry.io/collector/pdata/pprofile"
 	"go.opentelemetry.io/collector/pdata/ptrace"
+<<<<<<< HEAD
 	"go.opentelemetry.io/collector/pdata/xpdata/xhash"
+=======
+>>>>>>> pre-release
 	"go.opentelemetry.io/collector/pipeline"
 	"go.opentelemetry.io/collector/pipeline/xpipeline"
 	"go.uber.org/zap"

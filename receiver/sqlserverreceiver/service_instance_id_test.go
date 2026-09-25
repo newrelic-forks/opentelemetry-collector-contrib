@@ -224,6 +224,7 @@ func TestComputeServiceInstanceID(t *testing.T) {
 	}
 }
 
+<<<<<<< HEAD
 func TestResolveServerEndpoint(t *testing.T) {
 	hostname := getTestHostname()
 
@@ -233,6 +234,26 @@ func TestResolveServerEndpoint(t *testing.T) {
 		expectedHost string
 		expectedPort int
 		wantErr      bool
+=======
+func TestComputeServiceInstanceIDDistinguishesNamedInstances(t *testing.T) {
+	instanceA, err := computeServiceInstanceID(&Config{DataSource: "server=myserver\\InstanceA"})
+	require.NoError(t, err)
+
+	instanceB, err := computeServiceInstanceID(&Config{DataSource: "server=myserver\\InstanceB"})
+	require.NoError(t, err)
+
+	assert.NotEqual(t, instanceA, instanceB)
+}
+
+func TestParseDataSource(t *testing.T) {
+	tests := []struct {
+		name             string
+		dataSource       string
+		expectedHost     string
+		expectedInstance string
+		expectedPort     uint64
+		wantErr          bool
+>>>>>>> pre-release
 	}{
 		{
 			name: "explicit server and port",

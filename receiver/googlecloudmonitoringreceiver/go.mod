@@ -41,6 +41,7 @@ require (
 	go.opentelemetry.io/collector/pipeline/xpipeline v0.161.1-0.20260916171901-3e8af656214a // indirect
 	go.opentelemetry.io/collector/receiver/receiverhelper v0.161.1-0.20260916171901-3e8af656214a // indirect
 	go.opentelemetry.io/collector/receiver/xreceiver v0.161.1-0.20260916171901-3e8af656214a // indirect
+	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatautil v0.160.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.67.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.69.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect

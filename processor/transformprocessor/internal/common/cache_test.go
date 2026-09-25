@@ -47,6 +47,7 @@ func TestLoadContextCache(t *testing.T) {
 	})
 }
 
+<<<<<<< HEAD
 func TestNewSharedCaches(t *testing.T) {
 	t.Run("nil input returns nil", func(t *testing.T) {
 		result := NewSharedCaches(nil)
@@ -85,6 +86,8 @@ func TestNewSharedCaches(t *testing.T) {
 	})
 }
 
+=======
+>>>>>>> pre-release
 func newCacheWithContexts(contexts []ContextID) map[ContextID]*pcommon.Map {
 	cache := make(map[ContextID]*pcommon.Map)
 	for _, context := range contexts {

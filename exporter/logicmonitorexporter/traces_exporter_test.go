@@ -22,6 +22,13 @@ import (
 func Test_NewTracesExporter(t *testing.T) {
 	t.Run("should create Traces exporter", func(t *testing.T) {
 		clientConfig := confighttp.NewDefaultClientConfig()
+<<<<<<< HEAD
+=======
+		// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+		clientConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+		clientConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+		clientConfig.ForceAttemptHTTP2 = false
+>>>>>>> pre-release
 		clientConfig.Endpoint = "http://example.logicmonitor.com/rest"
 		config := &Config{
 			ClientConfig: clientConfig,
@@ -46,6 +53,13 @@ func TestPushTraceData(t *testing.T) {
 	params := exportertest.NewNopSettings(metadata.Type)
 	f := NewFactory()
 	clientConfig := confighttp.NewDefaultClientConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	clientConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.ForceAttemptHTTP2 = false
+>>>>>>> pre-release
 	clientConfig.Endpoint = ts.URL
 	config := &Config{
 		ClientConfig: clientConfig,

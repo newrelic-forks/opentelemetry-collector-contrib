@@ -824,13 +824,20 @@ func (tsp *tailSamplingSpanProcessor) samplingPolicyOnTick() bool {
 
 	for _, c := range notDropped {
 		c.trace.decisionTime = time.Now()
+<<<<<<< HEAD
 		decision, policyName, threshold := tsp.makeDecision(ctx, numDropPolicies, c.id, c.data, metrics)
+=======
+		decision, policyName := tsp.makeDecision(ctx, numDropPolicies, c.id, c.data, metrics)
+>>>>>>> pre-release
 		globalTracesSampledByDecision[decision]++
 		// Keep release paths working with tail storage by attaching the
 		// retrieved batches back to trace state for this decision.
 		c.trace.ReceivedBatches = c.data.ReceivedBatches
 		c.trace.FinalDecision = decision
+<<<<<<< HEAD
 		c.trace.FinalThreshold = threshold
+=======
+>>>>>>> pre-release
 		c.trace.PolicyName = policyName
 
 		if decision == samplingpolicy.Sampled {
@@ -881,7 +888,11 @@ func (tsp *tailSamplingSpanProcessor) samplingPolicyOnTick() bool {
 
 // makeDecision evaluates tsp.policies[numDropPolicies:], skipping a
 // drop-policy prefix the caller already ruled out via evaluateDropPolicies.
+<<<<<<< HEAD
 func (tsp *tailSamplingSpanProcessor) makeDecision(ctx context.Context, numDropPolicies int, id pcommon.TraceID, traceData *samplingpolicy.TraceData, metrics *policyEvaluationMetrics) (samplingpolicy.Decision, string, pkgsampling.Threshold) {
+=======
+func (tsp *tailSamplingSpanProcessor) makeDecision(ctx context.Context, numDropPolicies int, id pcommon.TraceID, traceData *samplingpolicy.TraceData, metrics *policyEvaluationMetrics) (samplingpolicy.Decision, string) {
+>>>>>>> pre-release
 	finalDecision := samplingpolicy.NotSampled
 	// Decision is a small closed integer set. Indexing by it keeps
 	// first-policy-wins as a nil check without allocating a map on every trace.

@@ -66,7 +66,11 @@ func (tCtx *TransformContext) MarshalLogObject(encoder zapcore.ObjectEncoder) er
 // TransformContextOption represents an option for configuring a TransformContext.
 type TransformContextOption func(*TransformContext)
 
+<<<<<<< HEAD:pkg/ottl/contexts/xprofile/ottlprofilesample/profilesample.go
 // NewTransformContext returns a new TransformContext with the provided parameters from a pool of contexts.
+=======
+// NewTransformContextPtr returns a new TransformContext with the provided parameters from a pool of contexts.
+>>>>>>> pre-release:pkg/ottl/contexts/ottlprofilesample/profilesample.go
 // Caller must call TransformContext.Close on the returned TransformContext.
 func NewTransformContext(resourceProfiles pprofile.ResourceProfiles, scopeProfiles pprofile.ScopeProfiles, profile pprofile.Profile, sample pprofile.Sample, dictionary pprofile.ProfilesDictionary, options ...TransformContextOption) *TransformContext {
 	tCtx := tcPool.Get().(*TransformContext)

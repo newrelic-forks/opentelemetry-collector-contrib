@@ -47,6 +47,14 @@ func TestExtension(t *testing.T) {
 			name: "No additional headers",
 			config: func(listenAt string) *Config {
 				ingressConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+				// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+				ingressConfig.WriteTimeout = 0
+				ingressConfig.ReadHeaderTimeout = 0
+				ingressConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+				ingressConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 				ingressConfig.NetAddr = confignet.AddrConfig{
 					Transport: "tcp",
 					Endpoint:  listenAt,
@@ -75,11 +83,26 @@ func TestExtension(t *testing.T) {
 			name: "With additional headers",
 			config: func(listenAt string) *Config {
 				ingressConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+				// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+				ingressConfig.WriteTimeout = 0
+				ingressConfig.ReadHeaderTimeout = 0
+				ingressConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+				ingressConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 				ingressConfig.NetAddr = confignet.AddrConfig{
 					Transport: "tcp",
 					Endpoint:  listenAt,
 				}
 				egressConfig := confighttp.NewDefaultClientConfig()
+<<<<<<< HEAD
+=======
+				// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+				egressConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+				egressConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+				egressConfig.ForceAttemptHTTP2 = false
+>>>>>>> pre-release
 				egressConfig.Headers = configopaque.MapList{
 					{Name: "key", Value: "value"},
 				}
@@ -104,11 +127,26 @@ func TestExtension(t *testing.T) {
 			name: "Error code from backend",
 			config: func(listenAt string) *Config {
 				ingressConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+				// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+				ingressConfig.WriteTimeout = 0
+				ingressConfig.ReadHeaderTimeout = 0
+				ingressConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+				ingressConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 				ingressConfig.NetAddr = confignet.AddrConfig{
 					Transport: "tcp",
 					Endpoint:  listenAt,
 				}
 				egressConfig := confighttp.NewDefaultClientConfig()
+<<<<<<< HEAD
+=======
+				// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+				egressConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+				egressConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+				egressConfig.ForceAttemptHTTP2 = false
+>>>>>>> pre-release
 				egressConfig.Headers = configopaque.MapList{
 					{Name: "key", Value: "value"},
 				}
@@ -131,11 +169,26 @@ func TestExtension(t *testing.T) {
 			name: "Error making request at forwarder",
 			config: func(listenAt string) *Config {
 				ingressConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+				// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+				ingressConfig.WriteTimeout = 0
+				ingressConfig.ReadHeaderTimeout = 0
+				ingressConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+				ingressConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 				ingressConfig.NetAddr = confignet.AddrConfig{
 					Transport: "tcp",
 					Endpoint:  listenAt,
 				}
 				egressConfig := confighttp.NewDefaultClientConfig()
+<<<<<<< HEAD
+=======
+				// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+				egressConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+				egressConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+				egressConfig.ForceAttemptHTTP2 = false
+>>>>>>> pre-release
 				egressConfig.Headers = configopaque.MapList{
 					{Name: "key", Value: "value"},
 				}
@@ -158,11 +211,26 @@ func TestExtension(t *testing.T) {
 			name: "Invalid config - HTTP Client creation fails",
 			config: func(listenAt string) *Config {
 				ingressConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+				// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+				ingressConfig.WriteTimeout = 0
+				ingressConfig.ReadHeaderTimeout = 0
+				ingressConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+				ingressConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 				ingressConfig.NetAddr = confignet.AddrConfig{
 					Transport: "tcp",
 					Endpoint:  listenAt,
 				}
 				egressConfig := confighttp.NewDefaultClientConfig()
+<<<<<<< HEAD
+=======
+				// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+				egressConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+				egressConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+				egressConfig.ForceAttemptHTTP2 = false
+>>>>>>> pre-release
 				egressConfig.Endpoint = "localhost:9090"
 				egressConfig.TLS = configtls.ClientConfig{
 					Config: configtls.Config{
@@ -181,6 +249,14 @@ func TestExtension(t *testing.T) {
 			name: "Error on Startup",
 			config: func(_ string) *Config {
 				ingressConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+				// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+				ingressConfig.WriteTimeout = 0
+				ingressConfig.ReadHeaderTimeout = 0
+				ingressConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+				ingressConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 				ingressConfig.NetAddr = confignet.AddrConfig{
 					Transport: "tcp",
 					Endpoint:  "invalid", // to mock error setting up listener.

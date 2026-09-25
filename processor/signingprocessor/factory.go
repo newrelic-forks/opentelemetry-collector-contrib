@@ -10,7 +10,10 @@ import (
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/processor"
+<<<<<<< HEAD
 	"go.uber.org/zap"
+=======
+>>>>>>> pre-release
 
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/signingprocessor/internal/metadata"
 )
@@ -38,6 +41,7 @@ func createLogsProcessor(
 		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
+<<<<<<< HEAD
 	proc, err := newProcessor(processorCfg, nextConsumer, settings)
 	if err != nil {
 		return nil, fmt.Errorf("error creating processor: %w", err)
@@ -79,4 +83,7 @@ func newKeyMaterialProvider(_ context.Context, cfg *Config, logger *zap.Logger) 
 	default:
 		return nil, fmt.Errorf("unknown key_source.type: %q", cfg.KeySource.Type)
 	}
+=======
+	return newProcessor(processorCfg, nextConsumer, settings), nil
+>>>>>>> pre-release
 }

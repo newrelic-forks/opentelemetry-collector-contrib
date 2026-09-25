@@ -8,6 +8,7 @@ import (
 	"slices"
 
 	"go.opentelemetry.io/collector/component"
+	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/ptrace"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
@@ -24,9 +25,15 @@ type parsedContextStatements struct {
 }
 
 type Processor struct {
+<<<<<<< HEAD
 	contexts            []parsedContextStatements
 	logger              *zap.Logger
 	sharedCacheContexts []common.ContextID
+=======
+	contexts     []parsedContextStatements
+	logger       *zap.Logger
+	sharedCaches map[common.ContextID]*pcommon.Map
+>>>>>>> pre-release
 }
 
 func NewProcessor(contextStatements []common.ContextStatements, errorMode ottl.ErrorMode, settings component.TelemetrySettings, spanFunctions map[string]ottl.Factory[*ottlspan.TransformContext], spanEventFunctions map[string]ottl.Factory[*ottlspanevent.TransformContext]) (*Processor, error) {
@@ -52,6 +59,7 @@ func NewProcessor(contextStatements []common.ContextStatements, errorMode ottl.E
 		return nil, errors
 	}
 
+<<<<<<< HEAD
 	var sharedCacheContexts []common.ContextID
 	for _, c := range contexts {
 		if !c.sharedCache || slices.Contains(sharedCacheContexts, c.Context()) {
@@ -64,6 +72,23 @@ func NewProcessor(contextStatements []common.ContextStatements, errorMode ottl.E
 		contexts:            contexts,
 		logger:              settings.Logger,
 		sharedCacheContexts: sharedCacheContexts,
+=======
+	var sharedCaches map[common.ContextID]*pcommon.Map
+	for _, c := range contexts {
+		if c.sharedCache {
+			if sharedCaches == nil {
+				sharedCaches = map[common.ContextID]*pcommon.Map{}
+			}
+			m := pcommon.NewMap()
+			sharedCaches[c.Context()] = &m
+		}
+	}
+
+	return &Processor{
+		contexts:     contexts,
+		logger:       settings.Logger,
+		sharedCaches: sharedCaches,
+>>>>>>> pre-release
 	}, nil
 }
 
@@ -71,7 +96,11 @@ func (p *Processor) ProcessTraces(ctx context.Context, td ptrace.Traces) (ptrace
 	sharedCaches := common.NewSharedCaches(p.sharedCacheContexts)
 
 	for _, c := range p.contexts {
+<<<<<<< HEAD
 		cache := common.LoadContextCache(sharedCaches, c.Context(), c.sharedCache)
+=======
+		cache := common.LoadContextCache(p.sharedCaches, c.Context(), c.sharedCache)
+>>>>>>> pre-release
 		err := c.ConsumeTraces(ctx, td, cache)
 		if err != nil {
 			p.logger.Error("failed processing traces", zap.Error(err))

@@ -31,6 +31,7 @@ require (
 	go.opentelemetry.io/collector/receiver/receivertest v0.161.1-0.20260916171901-3e8af656214a
 	go.opentelemetry.io/collector/scraper v0.161.1-0.20260916171901-3e8af656214a
 	go.opentelemetry.io/collector/scraper/scraperhelper v0.161.1-0.20260916171901-3e8af656214a
+	github.com/google/go-github/v90 v90.0.0
 	go.opentelemetry.io/otel v1.46.0
 	go.uber.org/goleak v1.3.0
 	go.uber.org/multierr v1.11.0
@@ -73,6 +74,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/pierrec/lz4/v4 v4.1.30 // indirect
+	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatautil v0.160.0 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
 	github.com/prometheus/client_golang v1.24.1 // indirect
 	github.com/prometheus/client_model v0.6.3 // indirect

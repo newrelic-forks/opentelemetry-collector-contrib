@@ -1967,9 +1967,12 @@ type MetricsConfig struct {
 	MongodbOperationLatencyTime               MongodbOperationLatencyTimeMetricConfig               `mapstructure:"mongodb.operation.latency.time"`
 	MongodbOperationReplCount                 MongodbOperationReplCountMetricConfig                 `mapstructure:"mongodb.operation.repl.count"`
 	MongodbOperationTime                      MongodbOperationTimeMetricConfig                      `mapstructure:"mongodb.operation.time"`
+<<<<<<< HEAD
 	MongodbOplogLimit                         MongodbOplogLimitMetricConfig                         `mapstructure:"mongodb.oplog.limit"`
 	MongodbOplogUsage                         MongodbOplogUsageMetricConfig                         `mapstructure:"mongodb.oplog.usage"`
 	MongodbOplogWindow                        MongodbOplogWindowMetricConfig                        `mapstructure:"mongodb.oplog.window"`
+=======
+>>>>>>> pre-release
 	MongodbPageFaults                         MongodbPageFaultsMetricConfig                         `mapstructure:"mongodb.page_faults"`
 	MongodbQueriesRate                        MongodbQueriesRateMetricConfig                        `mapstructure:"mongodb.queries.rate"`
 	MongodbReplCommandsPerSec                 MongodbReplCommandsPerSecMetricConfig                 `mapstructure:"mongodb.repl_commands_per_sec"`
@@ -1978,10 +1981,13 @@ type MetricsConfig struct {
 	MongodbReplInsertsPerSec                  MongodbReplInsertsPerSecMetricConfig                  `mapstructure:"mongodb.repl_inserts_per_sec"`
 	MongodbReplQueriesPerSec                  MongodbReplQueriesPerSecMetricConfig                  `mapstructure:"mongodb.repl_queries_per_sec"`
 	MongodbReplUpdatesPerSec                  MongodbReplUpdatesPerSecMetricConfig                  `mapstructure:"mongodb.repl_updates_per_sec"`
+<<<<<<< HEAD
 	MongodbReplicaStatus                      MongodbReplicaStatusMetricConfig                      `mapstructure:"mongodb.replica.status"`
 	MongodbReplicaSetHeadroom                 MongodbReplicaSetHeadroomMetricConfig                 `mapstructure:"mongodb.replica_set.headroom"`
 	MongodbReplicaSetLag                      MongodbReplicaSetLagMetricConfig                      `mapstructure:"mongodb.replica_set.lag"`
 	MongodbReplicaSetMemberCount              MongodbReplicaSetMemberCountMetricConfig              `mapstructure:"mongodb.replica_set.member.count"`
+=======
+>>>>>>> pre-release
 	MongodbSessionCount                       MongodbSessionCountMetricConfig                       `mapstructure:"mongodb.session.count"`
 	MongodbStorageSize                        MongodbStorageSizeMetricConfig                        `mapstructure:"mongodb.storage.size"`
 	MongodbUpdatesRate                        MongodbUpdatesRateMetricConfig                        `mapstructure:"mongodb.updates.rate"`

@@ -214,6 +214,11 @@ internal/k8sleaderelectortest
 internal/kubelet
 internal/sqlquery
 internal/tools
+<<<<<<< HEAD
+=======
+pkg/expohisto
+pkg/semconvtest
+>>>>>>> pre-release
 pkg/translator/azure
 pkg/translator/azurelogs
 pkg/translator/loki

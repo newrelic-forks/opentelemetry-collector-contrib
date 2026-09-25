@@ -500,7 +500,10 @@ func newTestDetector(gcpDetector *fakeGCPDetector, opts ...func(*localMetadata.R
 	return &detector{
 		logger:          zap.NewNop(),
 		detector:        gcpDetector,
+<<<<<<< HEAD
 		onGCE:           func(context.Context) bool { return true },
+=======
+>>>>>>> pre-release
 		rb:              localMetadata.NewResourceBuilder(cfg),
 		hostTypeEnabled: cfg.HostType.Enabled,
 	}

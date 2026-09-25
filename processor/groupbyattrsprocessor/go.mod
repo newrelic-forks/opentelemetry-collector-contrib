@@ -13,6 +13,7 @@ require (
 	go.opentelemetry.io/collector/processor v1.67.1-0.20260916171901-3e8af656214a
 	go.opentelemetry.io/collector/processor/processorhelper v0.161.1-0.20260916171901-3e8af656214a
 	go.opentelemetry.io/collector/processor/processortest v0.161.1-0.20260916171901-3e8af656214a
+	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatautil v0.160.0
 	go.opentelemetry.io/otel v1.46.0
 	go.opentelemetry.io/otel/metric v1.46.0
 	go.opentelemetry.io/otel/sdk/metric v1.46.0

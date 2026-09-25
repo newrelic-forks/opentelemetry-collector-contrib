@@ -20,7 +20,10 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/aws/ec2"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/aws/lambda"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/azure/appservice"
+<<<<<<< HEAD
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/azure/functions"
+=======
+>>>>>>> pre-release
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/heroku"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/metadata"
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor/internal/openshift"
@@ -61,11 +64,14 @@ func TestLoadConfig(t *testing.T) {
 	azureAppServiceResourceAttributes.ResourceAttributes.AzureAppServiceInstanceID.Enabled = false
 	azureAppServiceConfig.AzureAppServiceConfig = azureAppServiceResourceAttributes
 
+<<<<<<< HEAD
 	azureFunctionsConfig := detectorCreateDefaultConfig()
 	azureFunctionsResourceAttributes := functions.CreateDefaultConfig()
 	azureFunctionsResourceAttributes.ResourceAttributes.FaasInstance.Enabled = false
 	azureFunctionsConfig.AzureFunctionsConfig = azureFunctionsResourceAttributes
 
+=======
+>>>>>>> pre-release
 	resourceAttributesConfig := detectorCreateDefaultConfig()
 	ec2ResourceAttributesConfig := ec2.CreateDefaultConfig()
 	ec2ResourceAttributesConfig.ResourceAttributes.HostName.Enabled = false
@@ -112,6 +118,7 @@ func TestLoadConfig(t *testing.T) {
 			},
 		},
 		{
+<<<<<<< HEAD
 			id: component.NewIDWithName(metadata.Type, "azurefunctions"),
 			expected: &Config{
 				Detectors:      []string{"env", "azurefunctions"},
@@ -122,6 +129,8 @@ func TestLoadConfig(t *testing.T) {
 			},
 		},
 		{
+=======
+>>>>>>> pre-release
 			id: component.NewIDWithName(metadata.Type, "gcp"),
 			expected: &Config{
 				Detectors:      []string{"env", "gcp"},

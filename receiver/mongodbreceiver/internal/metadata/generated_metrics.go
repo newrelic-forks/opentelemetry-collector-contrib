@@ -208,6 +208,7 @@ var MapAttributeMongodbOperationState = map[string]AttributeMongodbOperationStat
 	"waiting": AttributeMongodbOperationStateWaiting,
 }
 
+<<<<<<< HEAD
 // AttributeMongodbReplicaState specifies the value mongodb.replica.state attribute.
 type AttributeMongodbReplicaState int
 
@@ -292,6 +293,8 @@ var MapAttributeMongodbReplicaSetLagType = map[string]AttributeMongodbReplicaSet
 	"durable": AttributeMongodbReplicaSetLagTypeDurable,
 }
 
+=======
+>>>>>>> pre-release
 // AttributeMongodbWtConcurrentTransactionTicketType specifies the value mongodb.wt.concurrent_transaction.ticket.type attribute.
 type AttributeMongodbWtConcurrentTransactionTicketType int
 
@@ -687,9 +690,12 @@ type metricsInfo struct {
 	MongodbOperationLatencyTime               metricInfo
 	MongodbOperationReplCount                 metricInfo
 	MongodbOperationTime                      metricInfo
+<<<<<<< HEAD
 	MongodbOplogLimit                         metricInfo
 	MongodbOplogUsage                         metricInfo
 	MongodbOplogWindow                        metricInfo
+=======
+>>>>>>> pre-release
 	MongodbPageFaults                         metricInfo
 	MongodbQueriesRate                        metricInfo
 	MongodbReplCommandsPerSec                 metricInfo
@@ -698,10 +704,13 @@ type metricsInfo struct {
 	MongodbReplInsertsPerSec                  metricInfo
 	MongodbReplQueriesPerSec                  metricInfo
 	MongodbReplUpdatesPerSec                  metricInfo
+<<<<<<< HEAD
 	MongodbReplicaStatus                      metricInfo
 	MongodbReplicaSetHeadroom                 metricInfo
 	MongodbReplicaSetLag                      metricInfo
 	MongodbReplicaSetMemberCount              metricInfo
+=======
+>>>>>>> pre-release
 	MongodbSessionCount                       metricInfo
 	MongodbStorageSize                        metricInfo
 	MongodbUpdatesRate                        metricInfo
@@ -4848,9 +4857,12 @@ type MetricsBuilder struct {
 	metricMongodbOperationLatencyTime               metricMongodbOperationLatencyTime
 	metricMongodbOperationReplCount                 metricMongodbOperationReplCount
 	metricMongodbOperationTime                      metricMongodbOperationTime
+<<<<<<< HEAD
 	metricMongodbOplogLimit                         metricMongodbOplogLimit
 	metricMongodbOplogUsage                         metricMongodbOplogUsage
 	metricMongodbOplogWindow                        metricMongodbOplogWindow
+=======
+>>>>>>> pre-release
 	metricMongodbPageFaults                         metricMongodbPageFaults
 	metricMongodbQueriesRate                        metricMongodbQueriesRate
 	metricMongodbReplCommandsPerSec                 metricMongodbReplCommandsPerSec
@@ -4859,10 +4871,13 @@ type MetricsBuilder struct {
 	metricMongodbReplInsertsPerSec                  metricMongodbReplInsertsPerSec
 	metricMongodbReplQueriesPerSec                  metricMongodbReplQueriesPerSec
 	metricMongodbReplUpdatesPerSec                  metricMongodbReplUpdatesPerSec
+<<<<<<< HEAD
 	metricMongodbReplicaStatus                      metricMongodbReplicaStatus
 	metricMongodbReplicaSetHeadroom                 metricMongodbReplicaSetHeadroom
 	metricMongodbReplicaSetLag                      metricMongodbReplicaSetLag
 	metricMongodbReplicaSetMemberCount              metricMongodbReplicaSetMemberCount
+=======
+>>>>>>> pre-release
 	metricMongodbSessionCount                       metricMongodbSessionCount
 	metricMongodbStorageSize                        metricMongodbStorageSize
 	metricMongodbUpdatesRate                        metricMongodbUpdatesRate
@@ -4932,9 +4947,12 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		metricMongodbOperationLatencyTime:               newMetricMongodbOperationLatencyTime(mbc.Metrics.MongodbOperationLatencyTime),
 		metricMongodbOperationReplCount:                 newMetricMongodbOperationReplCount(mbc.Metrics.MongodbOperationReplCount),
 		metricMongodbOperationTime:                      newMetricMongodbOperationTime(mbc.Metrics.MongodbOperationTime),
+<<<<<<< HEAD
 		metricMongodbOplogLimit:                         newMetricMongodbOplogLimit(mbc.Metrics.MongodbOplogLimit),
 		metricMongodbOplogUsage:                         newMetricMongodbOplogUsage(mbc.Metrics.MongodbOplogUsage),
 		metricMongodbOplogWindow:                        newMetricMongodbOplogWindow(mbc.Metrics.MongodbOplogWindow),
+=======
+>>>>>>> pre-release
 		metricMongodbPageFaults:                         newMetricMongodbPageFaults(mbc.Metrics.MongodbPageFaults),
 		metricMongodbQueriesRate:                        newMetricMongodbQueriesRate(mbc.Metrics.MongodbQueriesRate),
 		metricMongodbReplCommandsPerSec:                 newMetricMongodbReplCommandsPerSec(mbc.Metrics.MongodbReplCommandsPerSec),
@@ -4943,10 +4961,13 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		metricMongodbReplInsertsPerSec:                  newMetricMongodbReplInsertsPerSec(mbc.Metrics.MongodbReplInsertsPerSec),
 		metricMongodbReplQueriesPerSec:                  newMetricMongodbReplQueriesPerSec(mbc.Metrics.MongodbReplQueriesPerSec),
 		metricMongodbReplUpdatesPerSec:                  newMetricMongodbReplUpdatesPerSec(mbc.Metrics.MongodbReplUpdatesPerSec),
+<<<<<<< HEAD
 		metricMongodbReplicaStatus:                      newMetricMongodbReplicaStatus(mbc.Metrics.MongodbReplicaStatus),
 		metricMongodbReplicaSetHeadroom:                 newMetricMongodbReplicaSetHeadroom(mbc.Metrics.MongodbReplicaSetHeadroom),
 		metricMongodbReplicaSetLag:                      newMetricMongodbReplicaSetLag(mbc.Metrics.MongodbReplicaSetLag),
 		metricMongodbReplicaSetMemberCount:              newMetricMongodbReplicaSetMemberCount(mbc.Metrics.MongodbReplicaSetMemberCount),
+=======
+>>>>>>> pre-release
 		metricMongodbSessionCount:                       newMetricMongodbSessionCount(mbc.Metrics.MongodbSessionCount),
 		metricMongodbStorageSize:                        newMetricMongodbStorageSize(mbc.Metrics.MongodbStorageSize),
 		metricMongodbUpdatesRate:                        newMetricMongodbUpdatesRate(mbc.Metrics.MongodbUpdatesRate),
@@ -4959,12 +4980,15 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		metricMongodbWtcacheBytesRead:                   newMetricMongodbWtcacheBytesRead(mbc.Metrics.MongodbWtcacheBytesRead),
 		resourceAttributeIncludeFilter:                  make(map[string]filter.Filter),
 		resourceAttributeExcludeFilter:                  make(map[string]filter.Filter),
+<<<<<<< HEAD
 	}
 	if mbc.ResourceAttributes.DbSystemVersion.MetricsInclude != nil {
 		mb.resourceAttributeIncludeFilter["db.system.version"] = filter.CreateFilter(mbc.ResourceAttributes.DbSystemVersion.MetricsInclude)
 	}
 	if mbc.ResourceAttributes.DbSystemVersion.MetricsExclude != nil {
 		mb.resourceAttributeExcludeFilter["db.system.version"] = filter.CreateFilter(mbc.ResourceAttributes.DbSystemVersion.MetricsExclude)
+=======
+>>>>>>> pre-release
 	}
 	if mbc.ResourceAttributes.ServerAddress.MetricsInclude != nil {
 		mb.resourceAttributeIncludeFilter["server.address"] = filter.CreateFilter(mbc.ResourceAttributes.ServerAddress.MetricsInclude)

@@ -740,6 +740,7 @@ func (ms *MysqlInnodbOperationPendingMetricConfig) Validate() error {
 	return nil
 }
 
+<<<<<<< HEAD
 // MysqlInnodbRedoLogCheckpointAgeMetricConfig provides config for the mysql.innodb.redo_log.checkpoint.age metric.
 type MysqlInnodbRedoLogCheckpointAgeMetricConfig struct {
 	Enabled          bool `mapstructure:"enabled"`
@@ -800,6 +801,8 @@ func (ms *MysqlInnodbRedoLogLsnCurrentMetricConfig) Unmarshal(parser *confmap.Co
 	return nil
 }
 
+=======
+>>>>>>> pre-release
 // MysqlInnodbRowLockWaitCountMetricConfig provides config for the mysql.innodb.row_lock.wait.count metric.
 type MysqlInnodbRowLockWaitCountMetricConfig struct {
 	Enabled          bool `mapstructure:"enabled"`
@@ -2654,9 +2657,12 @@ type MetricsConfig struct {
 	MysqlInnodbDataFileIo                   MysqlInnodbDataFileIoMetricConfig                   `mapstructure:"mysql.innodb.data_file.io"`
 	MysqlInnodbHistoryListLength            MysqlInnodbHistoryListLengthMetricConfig            `mapstructure:"mysql.innodb.history_list.length"`
 	MysqlInnodbOperationPending             MysqlInnodbOperationPendingMetricConfig             `mapstructure:"mysql.innodb.operation.pending"`
+<<<<<<< HEAD
 	MysqlInnodbRedoLogCheckpointAge         MysqlInnodbRedoLogCheckpointAgeMetricConfig         `mapstructure:"mysql.innodb.redo_log.checkpoint.age"`
 	MysqlInnodbRedoLogLsnCheckpoint         MysqlInnodbRedoLogLsnCheckpointMetricConfig         `mapstructure:"mysql.innodb.redo_log.lsn.checkpoint"`
 	MysqlInnodbRedoLogLsnCurrent            MysqlInnodbRedoLogLsnCurrentMetricConfig            `mapstructure:"mysql.innodb.redo_log.lsn.current"`
+=======
+>>>>>>> pre-release
 	MysqlInnodbRowLockWaitCount             MysqlInnodbRowLockWaitCountMetricConfig             `mapstructure:"mysql.innodb.row_lock.wait.count"`
 	MysqlInnodbRowLockWaitDurationAvg       MysqlInnodbRowLockWaitDurationAvgMetricConfig       `mapstructure:"mysql.innodb.row_lock.wait.duration.avg"`
 	MysqlInnodbRowLockWaitDurationMax       MysqlInnodbRowLockWaitDurationMaxMetricConfig       `mapstructure:"mysql.innodb.row_lock.wait.duration.max"`
@@ -2679,7 +2685,10 @@ type MetricsConfig struct {
 	MysqlPreparedStatements                 MysqlPreparedStatementsMetricConfig                 `mapstructure:"mysql.prepared_statements"`
 	MysqlQueryClientCount                   MysqlQueryClientCountMetricConfig                   `mapstructure:"mysql.query.client.count"`
 	MysqlQueryCount                         MysqlQueryCountMetricConfig                         `mapstructure:"mysql.query.count"`
+<<<<<<< HEAD
 	MysqlQueryExecutionTime                 MysqlQueryExecutionTimeMetricConfig                 `mapstructure:"mysql.query.execution.time"`
+=======
+>>>>>>> pre-release
 	MysqlQuerySlowCount                     MysqlQuerySlowCountMetricConfig                     `mapstructure:"mysql.query.slow.count"`
 	MysqlReplicaSQLDelay                    MysqlReplicaSQLDelayMetricConfig                    `mapstructure:"mysql.replica.sql_delay"`
 	MysqlReplicaTempTableOpen               MysqlReplicaTempTableOpenMetricConfig               `mapstructure:"mysql.replica.temp_table.open"`
@@ -2687,8 +2696,11 @@ type MetricsConfig struct {
 	MysqlReplicaTimeBehindSource            MysqlReplicaTimeBehindSourceMetricConfig            `mapstructure:"mysql.replica.time_behind_source"`
 	MysqlRowLocks                           MysqlRowLocksMetricConfig                           `mapstructure:"mysql.row_locks"`
 	MysqlRowOperations                      MysqlRowOperationsMetricConfig                      `mapstructure:"mysql.row_operations"`
+<<<<<<< HEAD
 	MysqlServerHealthy                      MysqlServerHealthyMetricConfig                      `mapstructure:"mysql.server.healthy"`
 	MysqlSessionActiveCount                 MysqlSessionActiveCountMetricConfig                 `mapstructure:"mysql.session.active.count"`
+=======
+>>>>>>> pre-release
 	MysqlSorts                              MysqlSortsMetricConfig                              `mapstructure:"mysql.sorts"`
 	MysqlStatementEventCount                MysqlStatementEventCountMetricConfig                `mapstructure:"mysql.statement_event.count"`
 	MysqlStatementEventWaitTime             MysqlStatementEventWaitTimeMetricConfig             `mapstructure:"mysql.statement_event.wait.time"`
@@ -2791,6 +2803,7 @@ func DefaultMetricsConfig() MetricsConfig {
 			AggregationStrategy: AggregationStrategySum,
 			EnabledAttributes:   []MysqlInnodbOperationPendingMetricAttributeKey{MysqlInnodbOperationPendingMetricAttributeKeyOperations},
 		},
+<<<<<<< HEAD
 		MysqlInnodbRedoLogCheckpointAge: MysqlInnodbRedoLogCheckpointAgeMetricConfig{
 			Enabled: false,
 		},
@@ -2800,6 +2813,8 @@ func DefaultMetricsConfig() MetricsConfig {
 		MysqlInnodbRedoLogLsnCurrent: MysqlInnodbRedoLogLsnCurrentMetricConfig{
 			Enabled: false,
 		},
+=======
+>>>>>>> pre-release
 		MysqlInnodbRowLockWaitCount: MysqlInnodbRowLockWaitCountMetricConfig{
 			Enabled: false,
 		},

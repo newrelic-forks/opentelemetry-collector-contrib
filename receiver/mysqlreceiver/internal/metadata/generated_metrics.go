@@ -1218,6 +1218,7 @@ var MetricsInfo = metricsInfo{
 		Name:       "mysql.innodb.operation.pending",
 		Attributes: []string{"operations"},
 	},
+<<<<<<< HEAD
 	MysqlInnodbRedoLogCheckpointAge: metricInfo{
 		Name: "mysql.innodb.redo_log.checkpoint.age",
 	},
@@ -1227,6 +1228,8 @@ var MetricsInfo = metricsInfo{
 	MysqlInnodbRedoLogLsnCurrent: metricInfo{
 		Name: "mysql.innodb.redo_log.lsn.current",
 	},
+=======
+>>>>>>> pre-release
 	MysqlInnodbRowLockWaitCount: metricInfo{
 		Name: "mysql.innodb.row_lock.wait.count",
 	},
@@ -1427,9 +1430,12 @@ type metricsInfo struct {
 	MysqlInnodbDataFileIo                   metricInfo
 	MysqlInnodbHistoryListLength            metricInfo
 	MysqlInnodbOperationPending             metricInfo
+<<<<<<< HEAD
 	MysqlInnodbRedoLogCheckpointAge         metricInfo
 	MysqlInnodbRedoLogLsnCheckpoint         metricInfo
 	MysqlInnodbRedoLogLsnCurrent            metricInfo
+=======
+>>>>>>> pre-release
 	MysqlInnodbRowLockWaitCount             metricInfo
 	MysqlInnodbRowLockWaitDurationAvg       metricInfo
 	MysqlInnodbRowLockWaitDurationMax       metricInfo
@@ -1452,7 +1458,10 @@ type metricsInfo struct {
 	MysqlPreparedStatements                 metricInfo
 	MysqlQueryClientCount                   metricInfo
 	MysqlQueryCount                         metricInfo
+<<<<<<< HEAD
 	MysqlQueryExecutionTime                 metricInfo
+=======
+>>>>>>> pre-release
 	MysqlQuerySlowCount                     metricInfo
 	MysqlReplicaSQLDelay                    metricInfo
 	MysqlReplicaTempTableOpen               metricInfo
@@ -1460,8 +1469,11 @@ type metricsInfo struct {
 	MysqlReplicaTimeBehindSource            metricInfo
 	MysqlRowLocks                           metricInfo
 	MysqlRowOperations                      metricInfo
+<<<<<<< HEAD
 	MysqlServerHealthy                      metricInfo
 	MysqlSessionActiveCount                 metricInfo
+=======
+>>>>>>> pre-release
 	MysqlSorts                              metricInfo
 	MysqlStatementEventCount                metricInfo
 	MysqlStatementEventWaitTime             metricInfo
@@ -2944,6 +2956,7 @@ func newMetricMysqlInnodbOperationPending(cfg MysqlInnodbOperationPendingMetricC
 	return m
 }
 
+<<<<<<< HEAD
 type metricMysqlInnodbRedoLogCheckpointAge struct {
 	data     pmetric.Metric                              // data buffer for generated metric.
 	config   MysqlInnodbRedoLogCheckpointAgeMetricConfig // metric config provided by user.
@@ -3094,6 +3107,8 @@ func newMetricMysqlInnodbRedoLogLsnCurrent(cfg MysqlInnodbRedoLogLsnCurrentMetri
 	return m
 }
 
+=======
+>>>>>>> pre-release
 type metricMysqlInnodbRowLockWaitCount struct {
 	data     pmetric.Metric                          // data buffer for generated metric.
 	config   MysqlInnodbRowLockWaitCountMetricConfig // metric config provided by user.
@@ -6895,9 +6910,12 @@ type MetricsBuilder struct {
 	metricMysqlInnodbDataFileIo                   metricMysqlInnodbDataFileIo
 	metricMysqlInnodbHistoryListLength            metricMysqlInnodbHistoryListLength
 	metricMysqlInnodbOperationPending             metricMysqlInnodbOperationPending
+<<<<<<< HEAD
 	metricMysqlInnodbRedoLogCheckpointAge         metricMysqlInnodbRedoLogCheckpointAge
 	metricMysqlInnodbRedoLogLsnCheckpoint         metricMysqlInnodbRedoLogLsnCheckpoint
 	metricMysqlInnodbRedoLogLsnCurrent            metricMysqlInnodbRedoLogLsnCurrent
+=======
+>>>>>>> pre-release
 	metricMysqlInnodbRowLockWaitCount             metricMysqlInnodbRowLockWaitCount
 	metricMysqlInnodbRowLockWaitDurationAvg       metricMysqlInnodbRowLockWaitDurationAvg
 	metricMysqlInnodbRowLockWaitDurationMax       metricMysqlInnodbRowLockWaitDurationMax
@@ -6920,7 +6938,10 @@ type MetricsBuilder struct {
 	metricMysqlPreparedStatements                 metricMysqlPreparedStatements
 	metricMysqlQueryClientCount                   metricMysqlQueryClientCount
 	metricMysqlQueryCount                         metricMysqlQueryCount
+<<<<<<< HEAD
 	metricMysqlQueryExecutionTime                 metricMysqlQueryExecutionTime
+=======
+>>>>>>> pre-release
 	metricMysqlQuerySlowCount                     metricMysqlQuerySlowCount
 	metricMysqlReplicaSQLDelay                    metricMysqlReplicaSQLDelay
 	metricMysqlReplicaTempTableOpen               metricMysqlReplicaTempTableOpen
@@ -6928,8 +6949,11 @@ type MetricsBuilder struct {
 	metricMysqlReplicaTimeBehindSource            metricMysqlReplicaTimeBehindSource
 	metricMysqlRowLocks                           metricMysqlRowLocks
 	metricMysqlRowOperations                      metricMysqlRowOperations
+<<<<<<< HEAD
 	metricMysqlServerHealthy                      metricMysqlServerHealthy
 	metricMysqlSessionActiveCount                 metricMysqlSessionActiveCount
+=======
+>>>>>>> pre-release
 	metricMysqlSorts                              metricMysqlSorts
 	metricMysqlStatementEventCount                metricMysqlStatementEventCount
 	metricMysqlStatementEventWaitTime             metricMysqlStatementEventWaitTime
@@ -6991,9 +7015,12 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		metricMysqlInnodbDataFileIo:                   newMetricMysqlInnodbDataFileIo(mbc.Metrics.MysqlInnodbDataFileIo),
 		metricMysqlInnodbHistoryListLength:            newMetricMysqlInnodbHistoryListLength(mbc.Metrics.MysqlInnodbHistoryListLength),
 		metricMysqlInnodbOperationPending:             newMetricMysqlInnodbOperationPending(mbc.Metrics.MysqlInnodbOperationPending),
+<<<<<<< HEAD
 		metricMysqlInnodbRedoLogCheckpointAge:         newMetricMysqlInnodbRedoLogCheckpointAge(mbc.Metrics.MysqlInnodbRedoLogCheckpointAge),
 		metricMysqlInnodbRedoLogLsnCheckpoint:         newMetricMysqlInnodbRedoLogLsnCheckpoint(mbc.Metrics.MysqlInnodbRedoLogLsnCheckpoint),
 		metricMysqlInnodbRedoLogLsnCurrent:            newMetricMysqlInnodbRedoLogLsnCurrent(mbc.Metrics.MysqlInnodbRedoLogLsnCurrent),
+=======
+>>>>>>> pre-release
 		metricMysqlInnodbRowLockWaitCount:             newMetricMysqlInnodbRowLockWaitCount(mbc.Metrics.MysqlInnodbRowLockWaitCount),
 		metricMysqlInnodbRowLockWaitDurationAvg:       newMetricMysqlInnodbRowLockWaitDurationAvg(mbc.Metrics.MysqlInnodbRowLockWaitDurationAvg),
 		metricMysqlInnodbRowLockWaitDurationMax:       newMetricMysqlInnodbRowLockWaitDurationMax(mbc.Metrics.MysqlInnodbRowLockWaitDurationMax),
@@ -7016,7 +7043,10 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		metricMysqlPreparedStatements:                 newMetricMysqlPreparedStatements(mbc.Metrics.MysqlPreparedStatements),
 		metricMysqlQueryClientCount:                   newMetricMysqlQueryClientCount(mbc.Metrics.MysqlQueryClientCount),
 		metricMysqlQueryCount:                         newMetricMysqlQueryCount(mbc.Metrics.MysqlQueryCount),
+<<<<<<< HEAD
 		metricMysqlQueryExecutionTime:                 newMetricMysqlQueryExecutionTime(mbc.Metrics.MysqlQueryExecutionTime),
+=======
+>>>>>>> pre-release
 		metricMysqlQuerySlowCount:                     newMetricMysqlQuerySlowCount(mbc.Metrics.MysqlQuerySlowCount),
 		metricMysqlReplicaSQLDelay:                    newMetricMysqlReplicaSQLDelay(mbc.Metrics.MysqlReplicaSQLDelay),
 		metricMysqlReplicaTempTableOpen:               newMetricMysqlReplicaTempTableOpen(mbc.Metrics.MysqlReplicaTempTableOpen),
@@ -7024,8 +7054,11 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		metricMysqlReplicaTimeBehindSource:            newMetricMysqlReplicaTimeBehindSource(mbc.Metrics.MysqlReplicaTimeBehindSource),
 		metricMysqlRowLocks:                           newMetricMysqlRowLocks(mbc.Metrics.MysqlRowLocks),
 		metricMysqlRowOperations:                      newMetricMysqlRowOperations(mbc.Metrics.MysqlRowOperations),
+<<<<<<< HEAD
 		metricMysqlServerHealthy:                      newMetricMysqlServerHealthy(mbc.Metrics.MysqlServerHealthy),
 		metricMysqlSessionActiveCount:                 newMetricMysqlSessionActiveCount(mbc.Metrics.MysqlSessionActiveCount),
+=======
+>>>>>>> pre-release
 		metricMysqlSorts:                              newMetricMysqlSorts(mbc.Metrics.MysqlSorts),
 		metricMysqlStatementEventCount:                newMetricMysqlStatementEventCount(mbc.Metrics.MysqlStatementEventCount),
 		metricMysqlStatementEventWaitTime:             newMetricMysqlStatementEventWaitTime(mbc.Metrics.MysqlStatementEventWaitTime),
@@ -7182,9 +7215,12 @@ func (mb *MetricsBuilder) EmitForResource(options ...ResourceMetricsOption) {
 	mb.metricMysqlInnodbDataFileIo.emit(ils.Metrics())
 	mb.metricMysqlInnodbHistoryListLength.emit(ils.Metrics())
 	mb.metricMysqlInnodbOperationPending.emit(ils.Metrics())
+<<<<<<< HEAD
 	mb.metricMysqlInnodbRedoLogCheckpointAge.emit(ils.Metrics())
 	mb.metricMysqlInnodbRedoLogLsnCheckpoint.emit(ils.Metrics())
 	mb.metricMysqlInnodbRedoLogLsnCurrent.emit(ils.Metrics())
+=======
+>>>>>>> pre-release
 	mb.metricMysqlInnodbRowLockWaitCount.emit(ils.Metrics())
 	mb.metricMysqlInnodbRowLockWaitDurationAvg.emit(ils.Metrics())
 	mb.metricMysqlInnodbRowLockWaitDurationMax.emit(ils.Metrics())
@@ -7421,6 +7457,7 @@ func (mb *MetricsBuilder) RecordMysqlInnodbOperationPendingDataPoint(ts pcommon.
 	return nil
 }
 
+<<<<<<< HEAD
 // RecordMysqlInnodbRedoLogCheckpointAgeDataPoint adds a data point to mysql.innodb.redo_log.checkpoint.age metric.
 func (mb *MetricsBuilder) RecordMysqlInnodbRedoLogCheckpointAgeDataPoint(ts pcommon.Timestamp, val int64) {
 	mb.metricMysqlInnodbRedoLogCheckpointAge.recordDataPoint(mb.startTime, ts, val)
@@ -7436,6 +7473,8 @@ func (mb *MetricsBuilder) RecordMysqlInnodbRedoLogLsnCurrentDataPoint(ts pcommon
 	mb.metricMysqlInnodbRedoLogLsnCurrent.recordDataPoint(mb.startTime, ts, val)
 }
 
+=======
+>>>>>>> pre-release
 // RecordMysqlInnodbRowLockWaitCountDataPoint adds a data point to mysql.innodb.row_lock.wait.count metric.
 func (mb *MetricsBuilder) RecordMysqlInnodbRowLockWaitCountDataPoint(ts pcommon.Timestamp, inputVal string) error {
 	val, err := strconv.ParseInt(inputVal, 10, 64)

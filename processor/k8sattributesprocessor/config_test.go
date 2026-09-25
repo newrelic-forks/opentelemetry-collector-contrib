@@ -582,6 +582,7 @@ func TestConfigValidateDuplicatePodAssociations(t *testing.T) {
 	}
 }
 
+<<<<<<< HEAD
 func TestConfigValidateExcludePodNameRegex(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -631,6 +632,8 @@ func TestConfigValidateExcludePodNameRegex(t *testing.T) {
 	}
 }
 
+=======
+>>>>>>> pre-release
 func TestFilterConfigInvalidEnvVar(t *testing.T) {
 	f := FilterConfig{
 		Namespace:      "ns2",

@@ -391,6 +391,10 @@ all_set:
       enabled: true
     service.instance.id:
       enabled: true
+    service.name:
+      enabled: true
+    service.namespace:
+      enabled: true
 reaggregate_set:
   metrics:
     oracledb.asm.disk.errors:
@@ -782,6 +786,10 @@ reaggregate_set:
     oracledb.instance.name:
       enabled: true
     service.instance.id:
+      enabled: true
+    service.name:
+      enabled: true
+    service.namespace:
       enabled: true
 none_set:
   metrics:
@@ -1175,6 +1183,10 @@ none_set:
       enabled: false
     service.instance.id:
       enabled: false
+    service.name:
+      enabled: false
+    service.namespace:
+      enabled: false
 filter_set_include:
   resource_attributes:
     host.address:
@@ -1226,6 +1238,18 @@ filter_set_include:
       events_include:
         - regexp: ".*"
     service.instance.id:
+      enabled: true
+      metrics_include:
+        - regexp: ".*"
+      events_include:
+        - regexp: ".*"
+    service.name:
+      enabled: true
+      metrics_include:
+        - regexp: ".*"
+      events_include:
+        - regexp: ".*"
+    service.namespace:
       enabled: true
       metrics_include:
         - regexp: ".*"
@@ -1287,3 +1311,15 @@ filter_set_exclude:
         - strict: "service.instance.id-val"
       events_exclude:
         - strict: "service.instance.id-val"
+    service.name:
+      enabled: true
+      metrics_exclude:
+        - strict: "service.name-val"
+      events_exclude:
+        - strict: "service.name-val"
+    service.namespace:
+      enabled: true
+      metrics_exclude:
+        - strict: "service.namespace-val"
+      events_exclude:
+        - strict: "service.namespace-val"

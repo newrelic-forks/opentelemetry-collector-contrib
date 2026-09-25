@@ -17,7 +17,11 @@ type nonLiteralStringGetter[K any] struct{ v string }
 
 func (g nonLiteralStringGetter[K]) Get(_ context.Context, _ K) (string, error) { return g.v, nil }
 
+<<<<<<< HEAD
 // errOptionalLiteral is an OptionalGetter literal (three-value Get) that always returns an error.
+=======
+// errOptionalLiteral is an optionalGetter literal (three-value Get) that always returns an error.
+>>>>>>> pre-release
 // Used to verify TryGetLiteralValue returns false when the literal evaluation fails.
 type errOptionalLiteral[K any] struct{ err error }
 

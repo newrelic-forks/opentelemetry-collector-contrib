@@ -395,12 +395,26 @@ func TestClientConfig(t *testing.T) {
 	fmt.Println(endpoint)
 
 	useSecureClientConfig := confighttp.NewDefaultClientConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	useSecureClientConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+	useSecureClientConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+	useSecureClientConfig.ForceAttemptHTTP2 = false
+>>>>>>> pre-release
 	useSecureClientConfig.Endpoint = endpoint
 	useSecureClientConfig.TLS = configtls.ClientConfig{
 		Insecure: false,
 	}
 
 	headersClientConfig := confighttp.NewDefaultClientConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	headersClientConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+	headersClientConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+	headersClientConfig.ForceAttemptHTTP2 = false
+>>>>>>> pre-release
 	headersClientConfig.Endpoint = endpoint
 	headersClientConfig.Headers = configopaque.MapList{
 		{Name: "hdr1", Value: "val1"},
@@ -408,6 +422,13 @@ func TestClientConfig(t *testing.T) {
 	}
 
 	caCertClientConfig := confighttp.NewDefaultClientConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	caCertClientConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+	caCertClientConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+	caCertClientConfig.ForceAttemptHTTP2 = false
+>>>>>>> pre-release
 	caCertClientConfig.Endpoint = endpoint
 	caCertClientConfig.TLS = configtls.ClientConfig{
 		Config: configtls.Config{
@@ -416,6 +437,13 @@ func TestClientConfig(t *testing.T) {
 	}
 
 	certPemFileErrorClientConfig := confighttp.NewDefaultClientConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	certPemFileErrorClientConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+	certPemFileErrorClientConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+	certPemFileErrorClientConfig.ForceAttemptHTTP2 = false
+>>>>>>> pre-release
 	certPemFileErrorClientConfig.Endpoint = endpoint
 	certPemFileErrorClientConfig.TLS = configtls.ClientConfig{
 		Config: configtls.Config{

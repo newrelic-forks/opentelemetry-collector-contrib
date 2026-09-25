@@ -244,6 +244,7 @@ func applyField(mf *messageFields, fieldPath string, v pcommon.Value) (kind fiel
 	return kindUnmapped, 0, false
 }
 
+<<<<<<< HEAD
 // parseContentField parses "M.message_content.field" from the indexed content
 // array into mf.contents[M]. It returns the content index and whether the field
 // was recognized. Unrecognized fields (image, audio, data, signature) are left
@@ -252,11 +253,18 @@ func parseContentField(mf *messageFields, s string, v pcommon.Value) (int, bool)
 	before, rest, ok := strings.Cut(s, ".")
 	if !ok {
 		return 0, false
+=======
+func parseToolCallField(mf *messageFields, s string, v pcommon.Value) {
+	before, after, ok := strings.Cut(s, ".")
+	if !ok {
+		return
+>>>>>>> pre-release
 	}
 	idx, err := strconv.Atoi(before)
 	if err != nil {
 		return 0, false
 	}
+<<<<<<< HEAD
 	const mcPrefix = "message_content."
 	if !strings.HasPrefix(rest, mcPrefix) {
 		return 0, false
@@ -322,6 +330,8 @@ func parseToolCallField(mf *messageFields, s string, v pcommon.Value) bool {
 	if err != nil {
 		return false
 	}
+=======
+>>>>>>> pre-release
 	rest := after
 	const tcPrefix = "tool_call."
 	if !strings.HasPrefix(rest, tcPrefix) {

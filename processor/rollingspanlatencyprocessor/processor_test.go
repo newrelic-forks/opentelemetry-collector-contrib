@@ -4,18 +4,23 @@
 package rollingspanlatencyprocessor
 
 import (
+<<<<<<< HEAD
 	"context"
 	"errors"
 	"math"
 	"sync"
 	"testing"
 	"time"
+=======
+	"testing"
+>>>>>>> pre-release
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/consumer/consumertest"
+<<<<<<< HEAD
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/ptrace"
 	"go.opentelemetry.io/collector/processor/processortest"
@@ -874,4 +879,32 @@ func TestGetOrCreateStats_DoubleCheckedLockFastPath(t *testing.T) {
 	s1 := p.getOrCreateStats(key)
 	s2 := p.getOrCreateStats(key) // should find existing entry under write-lock check
 	assert.Same(t, s1, s2, "expected same *spanStats for the same key")
+=======
+	"go.opentelemetry.io/collector/pdata/ptrace"
+	"go.opentelemetry.io/collector/processor/processortest"
+)
+
+func TestRollingSpanLatencyProcessor_PassesTracesThroughUnchanged(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	set := processortest.NewNopSettings(component.MustNewType("rolling_span_latency"))
+	sink := new(consumertest.TracesSink)
+
+	tp, err := newRollingSpanLatencyProcessor(t.Context(), cfg, set, sink)
+	require.NoError(t, err)
+	require.NotNil(t, tp)
+
+	require.NoError(t, tp.Start(t.Context(), componenttest.NewNopHost()))
+	defer func() { assert.NoError(t, tp.Shutdown(t.Context())) }()
+
+	td := ptrace.NewTraces()
+	rs := td.ResourceSpans().AppendEmpty()
+	ss := rs.ScopeSpans().AppendEmpty()
+	span := ss.Spans().AppendEmpty()
+	span.SetName("test-span")
+
+	require.NoError(t, tp.ConsumeTraces(t.Context(), td))
+
+	require.Len(t, sink.AllTraces(), 1)
+	assert.Equal(t, td, sink.AllTraces()[0])
+>>>>>>> pre-release
 }

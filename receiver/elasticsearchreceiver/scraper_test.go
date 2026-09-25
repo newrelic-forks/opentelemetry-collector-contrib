@@ -441,6 +441,13 @@ func TestScraperFailedStart(t *testing.T) {
 	conf := createDefaultConfig().(*Config)
 
 	clientConfig := confighttp.NewDefaultClientConfig()
+<<<<<<< HEAD
+=======
+	// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+	clientConfig.MaxIdleConns = 0    //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.IdleConnTimeout = 0 //nolint:staticcheck // SA1019: see TODO above
+	clientConfig.ForceAttemptHTTP2 = false
+>>>>>>> pre-release
 	clientConfig.Endpoint = "localhost:9200"
 	clientConfig.TLS = configtls.ClientConfig{
 		Config: configtls.Config{

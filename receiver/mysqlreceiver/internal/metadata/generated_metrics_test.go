@@ -212,6 +212,7 @@ func TestMetricsBuilder(t *testing.T) {
 			}
 
 			allMetricsCount++
+<<<<<<< HEAD
 			mb.RecordMysqlInnodbRedoLogCheckpointAgeDataPoint(ts, 1)
 
 			allMetricsCount++
@@ -221,6 +222,8 @@ func TestMetricsBuilder(t *testing.T) {
 			mb.RecordMysqlInnodbRedoLogLsnCurrentDataPoint(ts, 1)
 
 			allMetricsCount++
+=======
+>>>>>>> pre-release
 			mb.RecordMysqlInnodbRowLockWaitCountDataPoint(ts, "1")
 
 			allMetricsCount++
@@ -1206,6 +1209,7 @@ func TestMetricsBuilder(t *testing.T) {
 						_, ok := dp.Attributes().Get("operation")
 						assert.False(t, ok)
 					}
+<<<<<<< HEAD
 				case "mysql.innodb.redo_log.checkpoint.age":
 					assert.False(t, validatedMetrics["mysql.innodb.redo_log.checkpoint.age"], "Found a duplicate in the metrics slice: mysql.innodb.redo_log.checkpoint.age")
 					validatedMetrics["mysql.innodb.redo_log.checkpoint.age"] = true
@@ -1242,6 +1246,8 @@ func TestMetricsBuilder(t *testing.T) {
 					assert.Equal(t, ts, dp.Timestamp())
 					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
 					assert.Equal(t, int64(1), dp.IntValue())
+=======
+>>>>>>> pre-release
 				case "mysql.innodb.row_lock.wait.count":
 					assert.False(t, validatedMetrics["mysql.innodb.row_lock.wait.count"], "Found a duplicate in the metrics slice: mysql.innodb.row_lock.wait.count")
 					validatedMetrics["mysql.innodb.row_lock.wait.count"] = true

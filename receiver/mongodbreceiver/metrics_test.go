@@ -4,6 +4,7 @@
 package mongodbreceiver
 
 import (
+<<<<<<< HEAD
 	"errors"
 	"testing"
 	"time"
@@ -12,6 +13,13 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/v2/bson"
 	"go.mongodb.org/mongo-driver/v2/mongo"
+=======
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+	"go.mongodb.org/mongo-driver/v2/bson"
+>>>>>>> pre-release
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.opentelemetry.io/collector/receiver/receivertest"
@@ -20,12 +28,15 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/receiver/mongodbreceiver/internal/metadata"
 )
 
+<<<<<<< HEAD
 const (
 	oplogOldestSecond = 1756425600
 	oplogNewestSecond = 1756512000
 	oplogWindow       = float64(oplogNewestSecond - oplogOldestSecond)
 )
 
+=======
+>>>>>>> pre-release
 // findMetric returns the emitted metric with the given name, failing the test if absent.
 func findMetric(t *testing.T, md pmetric.Metrics, name string) pmetric.Metric {
 	t.Helper()
@@ -261,6 +272,7 @@ func TestRecordWTMetricsNonWiredTiger(t *testing.T) {
 	md := s.mb.Emit()
 	require.Equal(t, 0, md.ResourceMetrics().Len())
 }
+<<<<<<< HEAD
 
 // metricNames returns the names of every emitted metric.
 func metricNames(md pmetric.Metrics) []string {
@@ -700,3 +712,5 @@ func TestCollectReplicaSetMetricsDisabled(t *testing.T) {
 	require.NoError(t, errs.Combine())
 	require.Empty(t, metricNames(s.mb.Emit()))
 }
+=======
+>>>>>>> pre-release

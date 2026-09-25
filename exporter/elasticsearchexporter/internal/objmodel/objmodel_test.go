@@ -7,6 +7,10 @@ import (
 	"bytes"
 	"math"
 	"strconv"
+<<<<<<< HEAD
+=======
+	"strings"
+>>>>>>> pre-release
 	"testing"
 	"time"
 

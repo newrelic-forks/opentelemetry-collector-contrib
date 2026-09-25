@@ -172,6 +172,7 @@ values. Use at most one of `double_value:` or `double_value/precision<n>:` per
 datapoint. The operator applies only to `double_value`, since integer values
 have no float precision to ignore.
 
+<<<<<<< HEAD
 ### Collection include matcher
 
 `resources`, `scopes`, `metrics`, and `datapoints` are matched exactly by
@@ -215,6 +216,8 @@ Use at most one of `<collection>:` and `<collection>/include:` per element;
 specifying both is a schema error. `WriteAssertionFile` always emits the
 default exact form.
 
+=======
+>>>>>>> pre-release
 ### Shorthand: single empty-attribute datapoint
 
 A metric with exactly one datapoint that has no attributes can omit
@@ -247,9 +250,14 @@ datapoints rather than pinning it to a single attribute-less one.
 ## Roadmap
 
 This is the identity-only subset of the grammar in #48079. Operator-suffix
+<<<<<<< HEAD
 extensions beyond attribute `/exists`/`/regex`, `attributes/include`, scope
 `version` `/exists`/`/regex`, and collection `/include` (`/exclude`, `/all`,
 `/count`, `/approx`,
+=======
+extensions beyond attribute `/exists`/`/regex`, `attributes/include`, and scope
+`version` `/exists`/`/regex` (`/exclude`, `/all`, `/count`, `/approx`,
+>>>>>>> pre-release
 `/gt|gte|lt|lte`) and opt-in fields
 (`IncludeValues()`, `IncludeTimestamps()`, `IncludeExemplars()`, type-specific
 histogram fields) are tracked as follow-ups under that issue.

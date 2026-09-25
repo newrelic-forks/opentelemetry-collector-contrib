@@ -165,6 +165,7 @@ func Test_clear_error_setter(t *testing.T) {
 	assert.ErrorIs(t, err, expectedErr)
 	assert.Nil(t, result)
 }
+<<<<<<< HEAD
 
 func BenchmarkClear(b *testing.B) {
 	target := &ottl.StandardGetSetter[any]{
@@ -184,3 +185,5 @@ func BenchmarkClear(b *testing.B) {
 		}
 	}
 }
+=======
+>>>>>>> pre-release

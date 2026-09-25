@@ -70,7 +70,14 @@ func GetLiteralValue[K, V any](getter TypedGetter[K, V]) (V, bool) {
 // It returns the value, whether a value was found (false if the underlying value was nil),
 // and whether the getter is a literal getter. If the getter is not a literal getter, it
 // returns the zero value of V, false, and false.
+<<<<<<< HEAD
 func TryGetLiteralValue[K, V any](getter OptionalGetter[K, V]) (V, bool, bool) {
+=======
+func TryGetLiteralValue[K, V any](getter interface {
+	Get(ctx context.Context, tCtx K) (V, bool, error)
+},
+) (V, bool, bool) {
+>>>>>>> pre-release
 	if _, isLiteral := getter.(literalGetter); !isLiteral {
 		return *new(V), false, false
 	}

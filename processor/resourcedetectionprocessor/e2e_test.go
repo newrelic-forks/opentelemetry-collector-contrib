@@ -940,6 +940,7 @@ func TestE2EAzureAppServiceDetector(t *testing.T) {
 	}, 3*time.Minute, 1*time.Second)
 }
 
+<<<<<<< HEAD
 // TestE2EAzureFunctionsDetector tests the Azure Functions detector by setting the
 // environment variables Azure Functions injects and verifying that the resource
 // attributes are attached to metrics.
@@ -987,6 +988,8 @@ func TestE2EAzureFunctionsDetector(t *testing.T) {
 	}, 3*time.Minute, 1*time.Second)
 }
 
+=======
+>>>>>>> pre-release
 // TestE2EK8sAPIDetector tests the k8s_api detector by querying the K8s API server
 // to retrieve node and cluster metadata and verifying that k8s.node.name, k8s.node.uid,
 // and k8s.cluster.uid are correctly detected and attached to metrics.

@@ -479,6 +479,7 @@ func TestGetInnodbTransactionStats(t *testing.T) {
 	assert.Equal(t, int64(17), got.maxActiveTransactionDuration)
 }
 
+<<<<<<< HEAD
 func TestCheckDBAvailability(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -633,6 +634,8 @@ func TestGetInnodbRedoLogStatsFromLogStatus(t *testing.T) {
 	}
 }
 
+=======
+>>>>>>> pre-release
 // TestGetDBVersionCaching verifies that a cached version is returned on subsequent
 // calls and that no additional query is made.
 func TestParseDBVersion(t *testing.T) {

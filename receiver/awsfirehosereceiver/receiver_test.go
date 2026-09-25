@@ -77,6 +77,14 @@ func TestStart(t *testing.T) {
 	for name, testCase := range testCases {
 		t.Run(name, func(t *testing.T) {
 			serverConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+			// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+			serverConfig.WriteTimeout = 0
+			serverConfig.ReadHeaderTimeout = 0
+			serverConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+			serverConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 			serverConfig.NetAddr = confignet.AddrConfig{
 				Transport: "tcp",
 			}
@@ -99,6 +107,14 @@ func TestStart(t *testing.T) {
 			require.NoError(t, listener.Close())
 		})
 		serverConfig := confighttp.NewDefaultServerConfig()
+<<<<<<< HEAD
+=======
+		// TODO: See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49316.
+		serverConfig.WriteTimeout = 0
+		serverConfig.ReadHeaderTimeout = 0
+		serverConfig.IdleTimeout = 0           //nolint:staticcheck // SA1019: see TODO above
+		serverConfig.KeepAlivesEnabled = false //nolint:staticcheck // SA1019: see TODO above
+>>>>>>> pre-release
 		serverConfig.NetAddr = confignet.AddrConfig{
 			Transport: "tcp",
 			Endpoint:  listener.Addr().String(),
