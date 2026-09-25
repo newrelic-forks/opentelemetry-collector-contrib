@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrpostgresqlreceiver/internal/metadata"
@@ -105,7 +106,7 @@ func (cfg *Config) Validate() error {
 	// collides in the connection pool with an explicit "postgres" entry, and
 	// silently relies on ConnectionString's own empty-database fallback
 	// instead of this receiver's documented default.
-	if cfg.ConnectDatabase == "" {
+	if strings.TrimSpace(cfg.ConnectDatabase) == "" {
 		err = multierr.Append(err, errors.New(ErrEmptyConnectDatabase))
 	}
 

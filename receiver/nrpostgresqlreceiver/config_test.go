@@ -118,6 +118,17 @@ func TestValidate(t *testing.T) {
 			},
 		},
 		{
+			desc: "whitespace-only connect_database is a config error",
+			defaultConfigModifier: func(cfg *Config) {
+				cfg.Username = "otel"
+				cfg.Password = "otel"
+				cfg.ConnectDatabase = "   "
+			},
+			expected: []error{
+				errors.New(ErrEmptyConnectDatabase),
+			},
+		},
+		{
 			desc: "valid unqualified explain function name",
 			defaultConfigModifier: func(cfg *Config) {
 				cfg.Username = "otel"
