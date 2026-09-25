@@ -4,7 +4,6 @@ package metadata
 
 import (
 	"context"
-
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/filter"
 	"go.opentelemetry.io/collector/pdata/pcommon"
@@ -226,17 +225,17 @@ func NewLogsBuilder(lbc LogsBuilderConfig, settings receiver.Settings) *LogsBuil
 	if lbc.ResourceAttributes.SqlserverDatabaseName.EventsExclude != nil {
 		lb.resourceAttributeExcludeFilter["sqlserver.database.name"] = filter.CreateFilter(lbc.ResourceAttributes.SqlserverDatabaseName.EventsExclude)
 	}
-	if lbc.ResourceAttributes.SqlserverHostName.EventsInclude != nil {
-		lb.resourceAttributeIncludeFilter["sqlserver.host.name"] = filter.CreateFilter(lbc.ResourceAttributes.SqlserverHostName.EventsInclude)
-	}
-	if lbc.ResourceAttributes.SqlserverHostName.EventsExclude != nil {
-		lb.resourceAttributeExcludeFilter["sqlserver.host.name"] = filter.CreateFilter(lbc.ResourceAttributes.SqlserverHostName.EventsExclude)
-	}
 	if lbc.ResourceAttributes.SqlserverInstanceName.EventsInclude != nil {
 		lb.resourceAttributeIncludeFilter["sqlserver.instance.name"] = filter.CreateFilter(lbc.ResourceAttributes.SqlserverInstanceName.EventsInclude)
 	}
 	if lbc.ResourceAttributes.SqlserverInstanceName.EventsExclude != nil {
 		lb.resourceAttributeExcludeFilter["sqlserver.instance.name"] = filter.CreateFilter(lbc.ResourceAttributes.SqlserverInstanceName.EventsExclude)
+	}
+	if lbc.ResourceAttributes.SqlserverTargetHost.EventsInclude != nil {
+		lb.resourceAttributeIncludeFilter["sqlserver.target.host"] = filter.CreateFilter(lbc.ResourceAttributes.SqlserverTargetHost.EventsInclude)
+	}
+	if lbc.ResourceAttributes.SqlserverTargetHost.EventsExclude != nil {
+		lb.resourceAttributeExcludeFilter["sqlserver.target.host"] = filter.CreateFilter(lbc.ResourceAttributes.SqlserverTargetHost.EventsExclude)
 	}
 
 	return lb

@@ -4,9 +4,6 @@ package metadata
 
 import (
 	"context"
-	"testing"
-	"time"
-
 	"github.com/stretchr/testify/assert"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/plog"
@@ -14,6 +11,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
+	"testing"
+	"time"
 )
 
 type eventsTestDataSet int
@@ -39,8 +38,8 @@ func TestLogsBuilderAppendLogRecord(t *testing.T) {
 	rb.SetServiceNamespace("service.namespace-val")
 	rb.SetSqlserverComputerName("sqlserver.computer.name-val")
 	rb.SetSqlserverDatabaseName("sqlserver.database.name-val")
-	rb.SetSqlserverHostName("sqlserver.host.name-val")
 	rb.SetSqlserverInstanceName("sqlserver.instance.name-val")
+	rb.SetSqlserverTargetHost("sqlserver.target.host-val")
 	res := rb.Emit()
 
 	// append the first log record
@@ -152,8 +151,8 @@ func TestLogsBuilder(t *testing.T) {
 			rb.SetServiceNamespace("service.namespace-val")
 			rb.SetSqlserverComputerName("sqlserver.computer.name-val")
 			rb.SetSqlserverDatabaseName("sqlserver.database.name-val")
-			rb.SetSqlserverHostName("sqlserver.host.name-val")
 			rb.SetSqlserverInstanceName("sqlserver.instance.name-val")
+			rb.SetSqlserverTargetHost("sqlserver.target.host-val")
 			res := rb.Emit()
 			logs := lb.Emit(WithLogsResource(res))
 
