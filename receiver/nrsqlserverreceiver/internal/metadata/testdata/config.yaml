@@ -64,9 +64,6 @@ all_set:
     sqlserver.database.operations:
       enabled: true
       attributes: ["physical_filename","logical_filename","file_type","direction"]
-    sqlserver.database.page_file.size:
-      enabled: true
-      attributes: ["db.namespace","page_file.state"]
     sqlserver.database.tempdb.space:
       enabled: true
       attributes: ["tempdb.state"]
@@ -408,9 +405,6 @@ reaggregate_set:
       enabled: true
       attributes: []
     sqlserver.database.operations:
-      enabled: true
-      attributes: []
-    sqlserver.database.page_file.size:
       enabled: true
       attributes: []
     sqlserver.database.tempdb.space:
@@ -756,9 +750,6 @@ none_set:
     sqlserver.database.operations:
       enabled: false
       attributes: ["physical_filename","logical_filename","file_type","direction"]
-    sqlserver.database.page_file.size:
-      enabled: false
-      attributes: ["db.namespace","page_file.state"]
     sqlserver.database.tempdb.space:
       enabled: false
       attributes: ["tempdb.state"]

@@ -76,7 +76,6 @@ func TestMetricsBuilder(t *testing.T) {
 			aggMap["sqlserver.database.io"] = mb.metricSqlserverDatabaseIo.config.AggregationStrategy
 			aggMap["sqlserver.database.latency"] = mb.metricSqlserverDatabaseLatency.config.AggregationStrategy
 			aggMap["sqlserver.database.operations"] = mb.metricSqlserverDatabaseOperations.config.AggregationStrategy
-			aggMap["sqlserver.database.page_file.size"] = mb.metricSqlserverDatabasePageFileSize.config.AggregationStrategy
 			aggMap["sqlserver.database.tempdb.space"] = mb.metricSqlserverDatabaseTempdbSpace.config.AggregationStrategy
 			aggMap["sqlserver.database.transactions.active"] = mb.metricSqlserverDatabaseTransactionsActive.config.AggregationStrategy
 			aggMap["sqlserver.disk.io"] = mb.metricSqlserverDiskIo.config.AggregationStrategy
@@ -236,12 +235,6 @@ func TestMetricsBuilder(t *testing.T) {
 			mb.RecordSqlserverDatabaseOperationsDataPoint(ts, "1", "physical_filename-val", "logical_filename-val", "file_type-val", AttributeDirectionRead)
 			if tt.name == "reaggregate_set" {
 				mb.RecordSqlserverDatabaseOperationsDataPoint(ts, "3", "physical_filename-val-2", "logical_filename-val-2", "file_type-val-2", AttributeDirectionWrite)
-			}
-
-			allMetricsCount++
-			mb.RecordSqlserverDatabasePageFileSizeDataPoint(ts, "1", "db.namespace-val", AttributePageFileStateUsed)
-			if tt.name == "reaggregate_set" {
-				mb.RecordSqlserverDatabasePageFileSizeDataPoint(ts, "3", "db.namespace-val-2", AttributePageFileStateFree)
 			}
 
 			allMetricsCount++
@@ -711,7 +704,6 @@ func TestMetricsBuilder(t *testing.T) {
 				assert.Empty(t, mb.metricSqlserverDatabaseIo.aggDataPoints)
 				assert.Empty(t, mb.metricSqlserverDatabaseLatency.aggDataPoints)
 				assert.Empty(t, mb.metricSqlserverDatabaseOperations.aggDataPoints)
-				assert.Empty(t, mb.metricSqlserverDatabasePageFileSize.aggDataPoints)
 				assert.Empty(t, mb.metricSqlserverDatabaseTempdbSpace.aggDataPoints)
 				assert.Empty(t, mb.metricSqlserverDatabaseTransactionsActive.aggDataPoints)
 				assert.Empty(t, mb.metricSqlserverDiskIo.aggDataPoints)
@@ -1449,51 +1441,6 @@ func TestMetricsBuilder(t *testing.T) {
 						_, ok = dp.Attributes().Get("file_type")
 						assert.False(t, ok)
 						_, ok = dp.Attributes().Get("direction")
-						assert.False(t, ok)
-					}
-				case "sqlserver.database.page_file.size":
-					if tt.name != "reaggregate_set" {
-						assert.False(t, validatedMetrics["sqlserver.database.page_file.size"], "Found a duplicate in the metrics slice: sqlserver.database.page_file.size")
-						validatedMetrics["sqlserver.database.page_file.size"] = true
-						assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
-						assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
-						assert.Equal(t, "Reserved space allocated to the database, broken down by usage state.", mi.Description())
-						assert.Equal(t, "By", mi.Unit())
-						dp := mi.Gauge().DataPoints().At(0)
-						assert.Equal(t, start, dp.StartTimestamp())
-						assert.Equal(t, ts, dp.Timestamp())
-						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-						assert.Equal(t, int64(1), dp.IntValue())
-						dbNamespaceAttrVal, ok := dp.Attributes().Get("db.namespace")
-						assert.True(t, ok)
-						assert.Equal(t, "db.namespace-val", dbNamespaceAttrVal.Str())
-						pageFileStateAttrVal, ok := dp.Attributes().Get("page_file.state")
-						assert.True(t, ok)
-						assert.Equal(t, "used", pageFileStateAttrVal.Str())
-					} else {
-						assert.False(t, validatedMetrics["sqlserver.database.page_file.size"], "Found a duplicate in the metrics slice: sqlserver.database.page_file.size")
-						validatedMetrics["sqlserver.database.page_file.size"] = true
-						assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
-						assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
-						assert.Equal(t, "Reserved space allocated to the database, broken down by usage state.", mi.Description())
-						assert.Equal(t, "By", mi.Unit())
-						dp := mi.Gauge().DataPoints().At(0)
-						assert.Equal(t, start, dp.StartTimestamp())
-						assert.Equal(t, ts, dp.Timestamp())
-						assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-						switch aggMap["sqlserver.database.page_file.size"] {
-						case "sum":
-							assert.Equal(t, int64(4), dp.IntValue())
-						case "avg":
-							assert.Equal(t, int64(2), dp.IntValue())
-						case "min":
-							assert.Equal(t, int64(1), dp.IntValue())
-						case "max":
-							assert.Equal(t, int64(3), dp.IntValue())
-						}
-						_, ok := dp.Attributes().Get("db.namespace")
-						assert.False(t, ok)
-						_, ok = dp.Attributes().Get("page_file.state")
 						assert.False(t, ok)
 					}
 				case "sqlserver.database.tempdb.space":

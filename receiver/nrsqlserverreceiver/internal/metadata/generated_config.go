@@ -817,55 +817,6 @@ func (ms *SqlserverDatabaseOperationsMetricConfig) Validate() error {
 	return nil
 }
 
-// SqlserverDatabasePageFileSizeMetricAttributeKey specifies the key of an attribute for the sqlserver.database.page_file.size metric.
-type SqlserverDatabasePageFileSizeMetricAttributeKey string
-
-const (
-	SqlserverDatabasePageFileSizeMetricAttributeKeyDbNamespace   SqlserverDatabasePageFileSizeMetricAttributeKey = "db.namespace"
-	SqlserverDatabasePageFileSizeMetricAttributeKeyPageFileState SqlserverDatabasePageFileSizeMetricAttributeKey = "page_file.state"
-)
-
-// SqlserverDatabasePageFileSizeMetricConfig provides config for the sqlserver.database.page_file.size metric.
-type SqlserverDatabasePageFileSizeMetricConfig struct {
-	Enabled          bool `mapstructure:"enabled"`
-	enabledSetByUser bool
-
-	AggregationStrategy string                                            `mapstructure:"aggregation_strategy"`
-	EnabledAttributes   []SqlserverDatabasePageFileSizeMetricAttributeKey `mapstructure:"attributes"`
-}
-
-func (ms *SqlserverDatabasePageFileSizeMetricConfig) Unmarshal(parser *confmap.Conf) error {
-	if parser == nil {
-		return nil
-	}
-
-	err := parser.Unmarshal(ms)
-	if err != nil {
-		return err
-	}
-
-	ms.enabledSetByUser = parser.IsSet("enabled")
-	return nil
-}
-
-func (ms *SqlserverDatabasePageFileSizeMetricConfig) Validate() error {
-	for _, val := range ms.EnabledAttributes {
-		switch val {
-		case SqlserverDatabasePageFileSizeMetricAttributeKeyDbNamespace, SqlserverDatabasePageFileSizeMetricAttributeKeyPageFileState:
-		default:
-			return fmt.Errorf("metric sqlserver.database.page_file.size doesn't have an attribute %v, valid attributes: [db.namespace, page_file.state]", val)
-		}
-	}
-
-	switch ms.AggregationStrategy {
-	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
-	default:
-		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
-	}
-
-	return nil
-}
-
 // SqlserverDatabaseTempdbSpaceMetricAttributeKey specifies the key of an attribute for the sqlserver.database.tempdb.space metric.
 type SqlserverDatabaseTempdbSpaceMetricAttributeKey string
 
@@ -4238,7 +4189,6 @@ type MetricsConfig struct {
 	SqlserverDatabaseIo                                   SqlserverDatabaseIoMetricConfig                                   `mapstructure:"sqlserver.database.io"`
 	SqlserverDatabaseLatency                              SqlserverDatabaseLatencyMetricConfig                              `mapstructure:"sqlserver.database.latency"`
 	SqlserverDatabaseOperations                           SqlserverDatabaseOperationsMetricConfig                           `mapstructure:"sqlserver.database.operations"`
-	SqlserverDatabasePageFileSize                         SqlserverDatabasePageFileSizeMetricConfig                         `mapstructure:"sqlserver.database.page_file.size"`
 	SqlserverDatabaseTempdbSpace                          SqlserverDatabaseTempdbSpaceMetricConfig                          `mapstructure:"sqlserver.database.tempdb.space"`
 	SqlserverDatabaseTempdbVersionStoreSize               SqlserverDatabaseTempdbVersionStoreSizeMetricConfig               `mapstructure:"sqlserver.database.tempdb.version_store.size"`
 	SqlserverDatabaseTransactionsActive                   SqlserverDatabaseTransactionsActiveMetricConfig                   `mapstructure:"sqlserver.database.transactions.active"`
@@ -4445,11 +4395,6 @@ func DefaultMetricsConfig() MetricsConfig {
 			Enabled:             false,
 			AggregationStrategy: AggregationStrategySum,
 			EnabledAttributes:   []SqlserverDatabaseOperationsMetricAttributeKey{SqlserverDatabaseOperationsMetricAttributeKeyPhysicalFilename, SqlserverDatabaseOperationsMetricAttributeKeyLogicalFilename, SqlserverDatabaseOperationsMetricAttributeKeyFileType, SqlserverDatabaseOperationsMetricAttributeKeyDirection},
-		},
-		SqlserverDatabasePageFileSize: SqlserverDatabasePageFileSizeMetricConfig{
-			Enabled:             false,
-			AggregationStrategy: AggregationStrategyAvg,
-			EnabledAttributes:   []SqlserverDatabasePageFileSizeMetricAttributeKey{SqlserverDatabasePageFileSizeMetricAttributeKeyDbNamespace, SqlserverDatabasePageFileSizeMetricAttributeKeyPageFileState},
 		},
 		SqlserverDatabaseTempdbSpace: SqlserverDatabaseTempdbSpaceMetricConfig{
 			Enabled:             false,

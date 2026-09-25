@@ -4,15 +4,14 @@ package metadata
 
 import (
 	"fmt"
-	"slices"
-	"strconv"
-	"time"
-
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/filter"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.opentelemetry.io/collector/receiver"
+	"slices"
+	"strconv"
+	"time"
 )
 
 const (
@@ -378,36 +377,6 @@ var MapAttributePagePool = map[string]AttributePagePool{
 	"stolen":   AttributePagePoolStolen,
 	"reserved": AttributePagePoolReserved,
 	"free":     AttributePagePoolFree,
-}
-
-// AttributePageFileState specifies the value page_file.state attribute.
-type AttributePageFileState int
-
-const (
-	_ AttributePageFileState = iota
-	AttributePageFileStateUsed
-	AttributePageFileStateFree
-	AttributePageFileStateTotal
-)
-
-// String returns the string representation of the AttributePageFileState.
-func (av AttributePageFileState) String() string {
-	switch av {
-	case AttributePageFileStateUsed:
-		return "used"
-	case AttributePageFileStateFree:
-		return "free"
-	case AttributePageFileStateTotal:
-		return "total"
-	}
-	return ""
-}
-
-// MapAttributePageFileState is a helper map of string to AttributePageFileState attribute value.
-var MapAttributePageFileState = map[string]AttributePageFileState{
-	"used":  AttributePageFileStateUsed,
-	"free":  AttributePageFileStateFree,
-	"total": AttributePageFileStateTotal,
 }
 
 // AttributeProcessStatus specifies the value process.status attribute.
@@ -1282,10 +1251,6 @@ var MetricsInfo = metricsInfo{
 		Name:       "sqlserver.database.operations",
 		Attributes: []string{"physical_filename", "logical_filename", "file_type", "direction"},
 	},
-	SqlserverDatabasePageFileSize: metricInfo{
-		Name:       "sqlserver.database.page_file.size",
-		Attributes: []string{"db.namespace", "page_file.state"},
-	},
 	SqlserverDatabaseTempdbSpace: metricInfo{
 		Name:       "sqlserver.database.tempdb.space",
 		Attributes: []string{"tempdb.state"},
@@ -1678,7 +1643,6 @@ type metricsInfo struct {
 	SqlserverDatabaseIo                                   metricInfo
 	SqlserverDatabaseLatency                              metricInfo
 	SqlserverDatabaseOperations                           metricInfo
-	SqlserverDatabasePageFileSize                         metricInfo
 	SqlserverDatabaseTempdbSpace                          metricInfo
 	SqlserverDatabaseTempdbVersionStoreSize               metricInfo
 	SqlserverDatabaseTransactionsActive                   metricInfo
@@ -3538,98 +3502,6 @@ func (m *metricSqlserverDatabaseOperations) emit(metrics pmetric.MetricSlice) {
 
 func newMetricSqlserverDatabaseOperations(cfg SqlserverDatabaseOperationsMetricConfig) metricSqlserverDatabaseOperations {
 	m := metricSqlserverDatabaseOperations{config: cfg}
-
-	if cfg.Enabled {
-		m.data = pmetric.NewMetric()
-		m.init()
-	}
-	return m
-}
-
-type metricSqlserverDatabasePageFileSize struct {
-	data          pmetric.Metric                            // data buffer for generated metric.
-	config        SqlserverDatabasePageFileSizeMetricConfig // metric config provided by user.
-	capacity      int                                       // max observed number of data points added to the metric.
-	aggDataPoints []int64                                   // slice containing number of aggregated datapoints at each index
-}
-
-// init fills sqlserver.database.page_file.size metric with initial data.
-func (m *metricSqlserverDatabasePageFileSize) init() {
-	m.data.SetName("sqlserver.database.page_file.size")
-	m.data.SetDescription("Reserved space allocated to the database, broken down by usage state.")
-	m.data.SetUnit("By")
-	m.data.SetEmptyGauge()
-	m.data.Gauge().DataPoints().EnsureCapacity(m.capacity)
-	m.aggDataPoints = m.aggDataPoints[:0]
-}
-
-func (m *metricSqlserverDatabasePageFileSize) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, dbNamespaceAttributeValue string, pageFileStateAttributeValue string) {
-	if !m.config.Enabled {
-		return
-	}
-
-	dp := pmetric.NewNumberDataPoint()
-	dp.SetStartTimestamp(start)
-	dp.SetTimestamp(ts)
-	if slices.Contains(m.config.EnabledAttributes, SqlserverDatabasePageFileSizeMetricAttributeKeyDbNamespace) {
-		dp.Attributes().PutStr("db.namespace", dbNamespaceAttributeValue)
-	}
-	if slices.Contains(m.config.EnabledAttributes, SqlserverDatabasePageFileSizeMetricAttributeKeyPageFileState) {
-		dp.Attributes().PutStr("page_file.state", pageFileStateAttributeValue)
-	}
-
-	var s string
-	dps := m.data.Gauge().DataPoints()
-	for i := 0; i < dps.Len(); i++ {
-		dpi := dps.At(i)
-		if dp.Attributes().Equal(dpi.Attributes()) && dp.StartTimestamp() == dpi.StartTimestamp() && dp.Timestamp() == dpi.Timestamp() {
-			switch s = m.config.AggregationStrategy; s {
-			case AggregationStrategySum, AggregationStrategyAvg:
-				dpi.SetIntValue(dpi.IntValue() + val)
-				m.aggDataPoints[i] += 1
-				return
-			case AggregationStrategyMin:
-				if dpi.IntValue() > val {
-					dpi.SetIntValue(val)
-				}
-				return
-			case AggregationStrategyMax:
-				if dpi.IntValue() < val {
-					dpi.SetIntValue(val)
-				}
-				return
-			}
-		}
-	}
-
-	dp.SetIntValue(val)
-	m.aggDataPoints = append(m.aggDataPoints, 1)
-	dp.MoveTo(dps.AppendEmpty())
-}
-
-// updateCapacity saves max length of data point slices that will be used for the slice capacity.
-func (m *metricSqlserverDatabasePageFileSize) updateCapacity() {
-	if m.data.Gauge().DataPoints().Len() > m.capacity {
-		m.capacity = m.data.Gauge().DataPoints().Len()
-	}
-}
-
-// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
-func (m *metricSqlserverDatabasePageFileSize) emit(metrics pmetric.MetricSlice) {
-	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
-		if m.config.AggregationStrategy == AggregationStrategyAvg {
-			for i, aggCount := range m.aggDataPoints {
-				m.data.Gauge().DataPoints().At(i).SetIntValue(m.data.Gauge().DataPoints().At(i).IntValue() / aggCount)
-			}
-		}
-		m.updateCapacity()
-		m.data.MoveTo(metrics.AppendEmpty())
-		m.init()
-	}
-}
-
-func newMetricSqlserverDatabasePageFileSize(cfg SqlserverDatabasePageFileSizeMetricConfig) metricSqlserverDatabasePageFileSize {
-	m := metricSqlserverDatabasePageFileSize{config: cfg}
 
 	if cfg.Enabled {
 		m.data = pmetric.NewMetric()
@@ -10730,7 +10602,6 @@ type MetricsBuilder struct {
 	metricSqlserverDatabaseIo                                   metricSqlserverDatabaseIo
 	metricSqlserverDatabaseLatency                              metricSqlserverDatabaseLatency
 	metricSqlserverDatabaseOperations                           metricSqlserverDatabaseOperations
-	metricSqlserverDatabasePageFileSize                         metricSqlserverDatabasePageFileSize
 	metricSqlserverDatabaseTempdbSpace                          metricSqlserverDatabaseTempdbSpace
 	metricSqlserverDatabaseTempdbVersionStoreSize               metricSqlserverDatabaseTempdbVersionStoreSize
 	metricSqlserverDatabaseTransactionsActive                   metricSqlserverDatabaseTransactionsActive
@@ -10887,7 +10758,6 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		metricSqlserverDatabaseIo:                                   newMetricSqlserverDatabaseIo(mbc.Metrics.SqlserverDatabaseIo),
 		metricSqlserverDatabaseLatency:                              newMetricSqlserverDatabaseLatency(mbc.Metrics.SqlserverDatabaseLatency),
 		metricSqlserverDatabaseOperations:                           newMetricSqlserverDatabaseOperations(mbc.Metrics.SqlserverDatabaseOperations),
-		metricSqlserverDatabasePageFileSize:                         newMetricSqlserverDatabasePageFileSize(mbc.Metrics.SqlserverDatabasePageFileSize),
 		metricSqlserverDatabaseTempdbSpace:                          newMetricSqlserverDatabaseTempdbSpace(mbc.Metrics.SqlserverDatabaseTempdbSpace),
 		metricSqlserverDatabaseTempdbVersionStoreSize:               newMetricSqlserverDatabaseTempdbVersionStoreSize(mbc.Metrics.SqlserverDatabaseTempdbVersionStoreSize),
 		metricSqlserverDatabaseTransactionsActive:                   newMetricSqlserverDatabaseTransactionsActive(mbc.Metrics.SqlserverDatabaseTransactionsActive),
@@ -11151,7 +11021,6 @@ func (mb *MetricsBuilder) EmitForResource(options ...ResourceMetricsOption) {
 	mb.metricSqlserverDatabaseIo.emit(ils.Metrics())
 	mb.metricSqlserverDatabaseLatency.emit(ils.Metrics())
 	mb.metricSqlserverDatabaseOperations.emit(ils.Metrics())
-	mb.metricSqlserverDatabasePageFileSize.emit(ils.Metrics())
 	mb.metricSqlserverDatabaseTempdbSpace.emit(ils.Metrics())
 	mb.metricSqlserverDatabaseTempdbVersionStoreSize.emit(ils.Metrics())
 	mb.metricSqlserverDatabaseTransactionsActive.emit(ils.Metrics())
@@ -11449,16 +11318,6 @@ func (mb *MetricsBuilder) RecordSqlserverDatabaseOperationsDataPoint(ts pcommon.
 		return fmt.Errorf("failed to parse int64 for SqlserverDatabaseOperations, value was %s: %w", inputVal, err)
 	}
 	mb.metricSqlserverDatabaseOperations.recordDataPoint(mb.startTime, ts, val, physicalFilenameAttributeValue, logicalFilenameAttributeValue, fileTypeAttributeValue, directionAttributeValue.String())
-	return nil
-}
-
-// RecordSqlserverDatabasePageFileSizeDataPoint adds a data point to sqlserver.database.page_file.size metric.
-func (mb *MetricsBuilder) RecordSqlserverDatabasePageFileSizeDataPoint(ts pcommon.Timestamp, inputVal string, dbNamespaceAttributeValue string, pageFileStateAttributeValue AttributePageFileState) error {
-	val, err := strconv.ParseInt(inputVal, 10, 64)
-	if err != nil {
-		return fmt.Errorf("failed to parse int64 for SqlserverDatabasePageFileSize, value was %s: %w", inputVal, err)
-	}
-	mb.metricSqlserverDatabasePageFileSize.recordDataPoint(mb.startTime, ts, val, dbNamespaceAttributeValue, pageFileStateAttributeValue.String())
 	return nil
 }
 
