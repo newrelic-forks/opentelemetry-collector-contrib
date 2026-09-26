@@ -117,6 +117,8 @@ $defs:
     description: EventsConfig provides config for nrsqlserver events.
     type: object
     properties:
+      db.server.query_plan:
+        $ref: event_config
       db.server.query_sample:
         $ref: event_config
       db.server.top_query:
