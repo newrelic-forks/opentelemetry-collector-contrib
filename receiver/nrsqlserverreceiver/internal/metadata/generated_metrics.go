@@ -4,15 +4,14 @@ package metadata
 
 import (
 	"fmt"
-	"slices"
-	"strconv"
-	"time"
-
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/filter"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.opentelemetry.io/collector/receiver"
+	"slices"
+	"strconv"
+	"time"
 )
 
 const (
@@ -10994,6 +10993,12 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		metricSqlserverWorktableCacheHitRatio:                       newMetricSqlserverWorktableCacheHitRatio(mbc.Metrics.SqlserverWorktableCacheHitRatio),
 		resourceAttributeIncludeFilter:                              make(map[string]filter.Filter),
 		resourceAttributeExcludeFilter:                              make(map[string]filter.Filter),
+	}
+	if mbc.ResourceAttributes.DbSystemVersion.MetricsInclude != nil {
+		mb.resourceAttributeIncludeFilter["db.system.version"] = filter.CreateFilter(mbc.ResourceAttributes.DbSystemVersion.MetricsInclude)
+	}
+	if mbc.ResourceAttributes.DbSystemVersion.MetricsExclude != nil {
+		mb.resourceAttributeExcludeFilter["db.system.version"] = filter.CreateFilter(mbc.ResourceAttributes.DbSystemVersion.MetricsExclude)
 	}
 	if mbc.ResourceAttributes.HostName.MetricsInclude != nil {
 		mb.resourceAttributeIncludeFilter["host.name"] = filter.CreateFilter(mbc.ResourceAttributes.HostName.MetricsInclude)

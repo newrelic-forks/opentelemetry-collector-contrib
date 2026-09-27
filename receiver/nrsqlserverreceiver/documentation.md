@@ -1805,6 +1805,7 @@ top query
 
 | Name | Description | Values | Enabled | Semantic Convention | Stability |
 | ---- | ----------- | ------ | ------- | ------------------- | --------- |
+| db.system.version | The database version of the instance. Examples include "15.0.4261.1". | Any Str | false | - | - |
 | host.name | The host name of SQL Server | Any Str | true | - | - |
 | server.address | Name of the database host. | Any Str | true | - | - |
 | server.port | Server port number. | Any Int | true | - | - |
