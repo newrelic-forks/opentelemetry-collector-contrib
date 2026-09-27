@@ -10,6 +10,7 @@ import (
 
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/pdata/pmetric"
+	"go.opentelemetry.io/collector/scraper/scrapererror"
 	"go.uber.org/zap"
 )
 
@@ -119,5 +120,13 @@ func (c *concurrentMetricsScraper) ScrapeMetrics(ctx context.Context) (pmetric.M
 		}
 	}
 
-	return merged, errors.Join(errs...)
+	joined := errors.Join(errs...)
+	// When some children failed but others produced data, wrap the error as a
+	// PartialScrapeError. The OTel scraper framework only forwards metrics
+	// alongside an error when IsPartialScrapeError returns true — a plain error
+	// causes it to drop all metrics, including the ones that succeeded.
+	if joined != nil && merged.ResourceMetrics().Len() > 0 {
+		return merged, scrapererror.NewPartialScrapeError(joined, len(errs))
+	}
+	return merged, joined
 }

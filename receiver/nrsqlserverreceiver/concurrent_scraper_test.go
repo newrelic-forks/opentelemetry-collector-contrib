@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/pdata/pmetric"
+	"go.opentelemetry.io/collector/scraper/scrapererror"
 	"go.uber.org/zap"
 )
 
@@ -122,8 +123,12 @@ func TestConcurrentMetricsScraper_PartialFailuresProduceJoinedErrors(t *testing.
 	md, err := d.ScrapeMetrics(t.Context())
 
 	require.Error(t, err)
-	assert.ErrorIs(t, err, errA)
-	assert.ErrorIs(t, err, errC)
+	// Partial failures with successful siblings are wrapped as PartialScrapeError
+	// so the OTel framework forwards the successful metrics. PartialScrapeError
+	// embeds error without Unwrap(), so use ErrorContains instead of ErrorIs.
+	assert.True(t, scrapererror.IsPartialScrapeError(err))
+	assert.ErrorContains(t, err, errA.Error())
+	assert.ErrorContains(t, err, errC.Error())
 	require.Equal(t, 1, md.ResourceMetrics().Len())
 	v, _ := md.ResourceMetrics().At(0).Resource().Attributes().Get("child.name")
 	assert.Equal(t, "b", v.AsString())

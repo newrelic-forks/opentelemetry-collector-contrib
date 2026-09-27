@@ -24,6 +24,7 @@ import (
 	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/pdata/plog"
 	"go.opentelemetry.io/collector/receiver/receivertest"
+	"go.opentelemetry.io/collector/scraper/scrapererror"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
@@ -1274,4 +1275,77 @@ func TestRecordDatabaseStatusMetricsUsesResourceBuilderForMetrics(t *testing.T) 
 	serverPort, exists := resourceAttributes.Get("server.port")
 	assert.True(t, exists)
 	assert.Equal(t, int64(1434), serverPort.Int())
+}
+
+// TestPageFileScrapeErrorDoesNotBlockOtherMetrics verifies that when
+// sqlserver.database.page_file.size fails (e.g., a permission error because
+// the SQL login cannot access all databases), the concurrent scraper still
+// emits metrics from every other query group.
+func TestPageFileScrapeErrorDoesNotBlockOtherMetrics(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.Username = "sa"
+	cfg.Password = "password"
+	cfg.Port = 1433
+	cfg.Server = "0.0.0.0"
+	assert.NoError(t, cfg.Validate())
+
+	// Disable everything, then enable only DatabaseIO and PageFileSize so we
+	// get exactly two child scrapers — one that succeeds and one that fails.
+	configureAllScraperMetricsAndEvents(cfg, false)
+	cfg.Metrics.SqlserverDatabaseIo.Enabled = true
+	cfg.Metrics.SqlserverDatabasePageFileSize.Enabled = true
+
+	scrapers, provider := setupSQLServerScrapers(receivertest.NewNopSettings(metadata.Type), cfg)
+	assert.Len(t, scrapers, 2)
+	t.Cleanup(func() { assert.NoError(t, provider.close()) })
+
+	permissionErr := errors.New("permission denied: cannot access database")
+
+	for _, s := range scrapers {
+		assert.NoError(t, s.Start(t.Context(), componenttest.NewNopHost()))
+		defer assert.NoError(t, s.Shutdown(t.Context()))
+
+		switch s.sqlQuery {
+		case getSQLServerDatabaseIOQuery(s.config.InstanceName):
+			s.client = mockClient{instanceName: s.config.InstanceName, SQL: s.sqlQuery}
+		case getSQLServerDatabasePageFileQuery(s.config.InstanceName):
+			s.client = queryRowsFuncClient{
+				queryRowsFunc: func(_ context.Context, _ ...any) ([]sqlquery.StringMap, error) {
+					return nil, permissionErr
+				},
+			}
+		}
+	}
+
+	concurrent := newConcurrentMetricsScraper(scrapers, 4, zap.NewNop())
+	md, err := concurrent.ScrapeMetrics(t.Context())
+
+	// The page_file failure must surface as a PartialScrapeError so the OTel
+	// framework forwards the successful metrics instead of dropping everything.
+	// Note: PartialScrapeError embeds error without Unwrap(), so errors.Is
+	// cannot traverse it — use ErrorContains to verify the underlying message.
+	assert.True(t, scrapererror.IsPartialScrapeError(err), "error should be a PartialScrapeError so the OTel framework forwards partial metrics")
+	assert.ErrorContains(t, err, permissionErr.Error())
+
+	// DatabaseIO metrics must still be present despite the page_file failure.
+	assert.Positive(t, md.ResourceMetrics().Len(), "DatabaseIO metrics should still be emitted when page_file.size fails")
+
+	// Confirm page_file.size is absent and sqlserver.database.io is present.
+	var foundPageFile, foundDatabaseIO bool
+	for i := 0; i < md.ResourceMetrics().Len(); i++ {
+		scopeMetrics := md.ResourceMetrics().At(i).ScopeMetrics()
+		for j := 0; j < scopeMetrics.Len(); j++ {
+			metrics := scopeMetrics.At(j).Metrics()
+			for k := 0; k < metrics.Len(); k++ {
+				switch metrics.At(k).Name() {
+				case "sqlserver.database.page_file.size":
+					foundPageFile = true
+				case "sqlserver.database.io":
+					foundDatabaseIO = true
+				}
+			}
+		}
+	}
+	assert.False(t, foundPageFile, "sqlserver.database.page_file.size should not appear when its query errors")
+	assert.True(t, foundDatabaseIO, "sqlserver.database.io should still appear even when page_file.size errors")
 }
