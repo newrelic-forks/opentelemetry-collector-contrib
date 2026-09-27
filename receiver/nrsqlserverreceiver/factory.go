@@ -308,14 +308,15 @@ type dbProvider struct {
 	pool        ConnectionPool
 	numScrapers int
 
-	mu                 sync.Mutex
-	db                 *sql.DB
-	openErr            error
-	opened             bool
-	closed             bool
-	closeErr           error
-	dbVersion          *string
-	versionErrReported bool
+	mu                      sync.Mutex
+	db                      *sql.DB
+	openErr                 error
+	opened                  bool
+	closed                  bool
+	closeErr                error
+	dbVersion               *string
+	dbEdition               *string
+	instanceInfoErrReported bool
 }
 
 var errDBProviderClosed = errors.New("connection pool is closed")
@@ -369,43 +370,46 @@ func (p *dbProvider) close() error {
 	return p.closeErr
 }
 
-// detectVersion lazily queries SERVERPROPERTY('ProductVersion') and caches the
-// result. Returns (version, resolved): resolved=true means a definitive answer
-// was reached (success or confirmed NULL) and the caller should nil out its
-// versionFunc. resolved=false means a transient error; the caller should retry
-// next interval.
-func (p *dbProvider) detectVersion(ctx context.Context, logger *zap.Logger) (string, bool) {
+// detectInstanceInfo lazily queries ProductVersion and Edition in one round-trip and caches both.
+// Returns (version, edition string, resolved bool): resolved=true means a definitive answer
+// was reached and the caller should nil out its instanceInfoFunc. resolved=false means a
+// transient error; the caller should retry next interval.
+func (p *dbProvider) detectInstanceInfo(ctx context.Context, logger *zap.Logger) (string, string, bool) {
 	p.mu.Lock()
-	if p.dbVersion != nil {
-		v := *p.dbVersion
+	if p.dbVersion != nil && p.dbEdition != nil {
+		v, e := *p.dbVersion, *p.dbEdition
 		p.mu.Unlock()
-		return v, true
+		return v, e, true
 	}
 	db := p.db
-	errReported := p.versionErrReported
+	errReported := p.instanceInfoErrReported
 	p.mu.Unlock()
 
-	v, err := detectSQLServerVersion(ctx, db)
-	if v != nil {
+	v, e, err := detectSQLServerInstanceInfo(ctx, db)
+	if v != nil && e != nil {
 		if *v == "" {
 			logger.Warn("failed to detect SQL Server version: SERVERPROPERTY returned NULL; db.system.version will not be set")
 		}
+		if *e == "" {
+			logger.Warn("failed to detect SQL Server edition: SERVERPROPERTY returned NULL; sqlserver.db.edition will not be set")
+		}
 		p.mu.Lock()
 		p.dbVersion = v
+		p.dbEdition = e
 		p.mu.Unlock()
-		return *v, true
+		return *v, *e, true
 	}
 	if err != nil {
 		if !errReported {
-			logger.Warn("failed to detect SQL Server version; db.system.version will not be set; will retry", zap.Error(err))
+			logger.Warn("failed to detect SQL Server instance info; db.system.version and sqlserver.db.edition will not be set; will retry", zap.Error(err))
 			p.mu.Lock()
-			p.versionErrReported = true
+			p.instanceInfoErrReported = true
 			p.mu.Unlock()
 		} else {
-			logger.Debug("failed to detect SQL Server version; retrying next interval", zap.Error(err))
+			logger.Debug("failed to detect SQL Server instance info; retrying next interval", zap.Error(err))
 		}
 	}
-	return "", false
+	return "", "", false
 }
 
 // setConnectionPoolSettings applies the configured pool settings, falling back
@@ -475,8 +479,8 @@ func setupSQLServerScrapers(params receiver.Settings, cfg *Config) ([]*sqlServer
 			cfg,
 			cache)
 
-		if isDbSystemVersionEnabled(&cfg.MetricsBuilderConfig.ResourceAttributes) {
-			sqlServerScraper.versionFunc = provider.detectVersion
+		if isInstanceInfoEnabled(&cfg.MetricsBuilderConfig.ResourceAttributes) {
+			sqlServerScraper.instanceInfoFunc = provider.detectInstanceInfo
 		}
 
 		scrapers = append(scrapers, sqlServerScraper)
@@ -529,8 +533,8 @@ func setupSQLServerLogsScrapers(params receiver.Settings, cfg *Config) ([]*sqlSe
 			cfg,
 			cache)
 
-		if isDbSystemVersionEnabled(&cfg.LogsBuilderConfig.ResourceAttributes) {
-			sqlServerScraper.versionFunc = provider.detectVersion
+		if isInstanceInfoEnabled(&cfg.LogsBuilderConfig.ResourceAttributes) {
+			sqlServerScraper.instanceInfoFunc = provider.detectInstanceInfo
 		}
 
 		scrapers = append(scrapers, sqlServerScraper)
@@ -699,9 +703,11 @@ func isWaitStatsQueryEnabled(metrics *metadata.MetricsConfig) bool {
 		metrics.SqlserverOsWaitTasksCount.Enabled
 }
 
-func isDbSystemVersionEnabled(resourceAttrs *metadata.ResourceAttributesConfig) bool {
+// isInstanceInfoEnabled returns true when either db.system.version or sqlserver.db.edition
+// is enabled — both are fetched in a single query so either flag activates the detection.
+func isInstanceInfoEnabled(resourceAttrs *metadata.ResourceAttributesConfig) bool {
 	if resourceAttrs == nil {
 		return false
 	}
-	return resourceAttrs.DbSystemVersion.Enabled
+	return resourceAttrs.DbSystemVersion.Enabled || resourceAttrs.SqlserverDbEdition.Enabled
 }

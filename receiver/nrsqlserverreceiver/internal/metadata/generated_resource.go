@@ -84,6 +84,13 @@ func (rb *ResourceBuilder) SetSqlserverDatabaseName(val string) {
 	}
 }
 
+// SetSqlserverDbEdition sets provided value as "sqlserver.db.edition" attribute.
+func (rb *ResourceBuilder) SetSqlserverDbEdition(val string) {
+	if rb.config.SqlserverDbEdition.Enabled {
+		rb.res.Attributes().PutStr("sqlserver.db.edition", val)
+	}
+}
+
 // SetSqlserverHostName sets provided value as "sqlserver.host.name" attribute.
 func (rb *ResourceBuilder) SetSqlserverHostName(val string) {
 	if rb.config.SqlserverHostName.Enabled {

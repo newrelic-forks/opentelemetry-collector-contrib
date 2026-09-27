@@ -59,8 +59,9 @@ type sqlServerScraperHelper struct {
 	lastExecutionTimestamp time.Time
 	obfuscator             *obfuscator
 	serviceInstanceID      string
-	dbVersion              string
-	versionFunc            func(context.Context, *zap.Logger) (string, bool)
+	dbVersion        string
+	dbEdition        string
+	instanceInfoFunc func(context.Context, *zap.Logger) (version, edition string, resolved bool)
 }
 
 var (
@@ -119,46 +120,49 @@ func (s *sqlServerScraperHelper) Start(context.Context, component.Host) error {
 	return nil
 }
 
-// detectSQLServerVersion queries SERVERPROPERTY('ProductVersion').
-// Returns (*string, error):
-//   - (&"15.0", nil): success — non-nil pointer means resolved, latch it.
-//   - (&"", nil):     SERVERPROPERTY returned NULL — permanent empty, latch it.
-//   - (nil, err):     transient scan error — caller may retry.
-//   - (nil, nil):     db is nil, not yet connected — silently skip.
-//
-// Declared as a var so tests can stub it.
-var detectSQLServerVersion = func(ctx context.Context, db *sql.DB) (*string, error) {
+// detectSQLServerInstanceInfo queries ProductVersion and Edition in a single round-trip.
+// Returns (version, edition *string, error) — both are non-nil when resolved (empty string
+// for NULL from SERVERPROPERTY), nil on transient error (caller may retry), nil+nil when db
+// is not yet connected. Declared as a var so tests can stub it.
+var detectSQLServerInstanceInfo = func(ctx context.Context, db *sql.DB) (*string, *string, error) {
 	if db == nil {
-		return nil, nil
+		return nil, nil, nil
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, versionQueryTimeout)
 	defer cancel()
 
-	var version sql.NullString
-	row := db.QueryRowContext(ctx, "SELECT CAST(SERVERPROPERTY('ProductVersion') AS NVARCHAR(128))")
-	if err := row.Scan(&version); err != nil {
-		return nil, err
+	var version, edition sql.NullString
+	row := db.QueryRowContext(ctx,
+		"SELECT CAST(SERVERPROPERTY('ProductVersion') AS NVARCHAR(128)), CAST(SERVERPROPERTY('Edition') AS NVARCHAR(128))")
+	if err := row.Scan(&version, &edition); err != nil {
+		return nil, nil, err
 	}
-	if !version.Valid {
-		v := ""
-		return &v, nil
+
+	var v, e string
+	if version.Valid {
+		v = version.String
 	}
-	return &version.String, nil
+	if edition.Valid {
+		e = edition.String
+	}
+	return &v, &e, nil
 }
 
-func (s *sqlServerScraperHelper) ensureDBVersion(ctx context.Context) {
-	if s.versionFunc != nil {
-		v, resolved := s.versionFunc(ctx, s.logger)
-		s.dbVersion = v
+// ensureInstanceInfo resolves version and edition lazily in a single DB round-trip.
+func (s *sqlServerScraperHelper) ensureInstanceInfo(ctx context.Context) {
+	if s.instanceInfoFunc != nil {
+		version, edition, resolved := s.instanceInfoFunc(ctx, s.logger)
+		s.dbVersion = version
+		s.dbEdition = edition
 		if resolved {
-			s.versionFunc = nil
+			s.instanceInfoFunc = nil
 		}
 	}
 }
 
 func (s *sqlServerScraperHelper) ScrapeMetrics(ctx context.Context) (pmetric.Metrics, error) {
-	s.ensureDBVersion(ctx)
+	s.ensureInstanceInfo(ctx)
 	var err error
 
 	switch s.sqlQuery {
@@ -218,7 +222,7 @@ func (s *sqlServerScraperHelper) ScrapeMetrics(ctx context.Context) (pmetric.Met
 }
 
 func (s *sqlServerScraperHelper) ScrapeLogs(ctx context.Context) (plog.Logs, error) {
-	s.ensureDBVersion(ctx)
+	s.ensureInstanceInfo(ctx)
 	var err error
 	var resources pcommon.Resource
 	var isQuerySample bool
@@ -431,6 +435,9 @@ func (s *sqlServerScraperHelper) setupResourceBuilder(rb *metadata.ResourceBuild
 	rb.SetServerPort(serverPort)
 	if s.dbVersion != "" {
 		rb.SetDbSystemVersion(s.dbVersion)
+	}
+	if s.dbEdition != "" {
+		rb.SetSqlserverDbEdition(s.dbEdition)
 	}
 
 	return rb

@@ -343,6 +343,8 @@ all_set:
       enabled: true
     sqlserver.database.name:
       enabled: true
+    sqlserver.db.edition:
+      enabled: true
     sqlserver.host.name:
       enabled: true
     sqlserver.instance.name:
@@ -690,6 +692,8 @@ reaggregate_set:
     sqlserver.computer.name:
       enabled: true
     sqlserver.database.name:
+      enabled: true
+    sqlserver.db.edition:
       enabled: true
     sqlserver.host.name:
       enabled: true
@@ -1039,6 +1043,8 @@ none_set:
       enabled: false
     sqlserver.database.name:
       enabled: false
+    sqlserver.db.edition:
+      enabled: false
     sqlserver.host.name:
       enabled: false
     sqlserver.instance.name:
@@ -1072,6 +1078,9 @@ override_set:
     sqlserver.database.name:
       enabled: true
       override_value: "override-sqlserver.database.name"
+    sqlserver.db.edition:
+      enabled: true
+      override_value: "override-sqlserver.db.edition"
     sqlserver.host.name:
       enabled: true
       override_value: "override-sqlserver.host.name"
@@ -1129,6 +1138,12 @@ filter_set_include:
       events_include:
         - regexp: ".*"
     sqlserver.database.name:
+      enabled: true
+      metrics_include:
+        - regexp: ".*"
+      events_include:
+        - regexp: ".*"
+    sqlserver.db.edition:
       enabled: true
       metrics_include:
         - regexp: ".*"
@@ -1202,6 +1217,12 @@ filter_set_exclude:
         - strict: "sqlserver.database.name-val"
       events_exclude:
         - strict: "sqlserver.database.name-val"
+    sqlserver.db.edition:
+      enabled: true
+      metrics_exclude:
+        - strict: "sqlserver.db.edition-val"
+      events_exclude:
+        - strict: "sqlserver.db.edition-val"
     sqlserver.host.name:
       enabled: true
       metrics_exclude:

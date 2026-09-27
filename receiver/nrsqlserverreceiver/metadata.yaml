@@ -57,6 +57,10 @@ resource_attributes:
     description: The name of the SQL Server database.
     enabled: true
     type: string
+  sqlserver.db.edition:
+    description: The edition of the SQL Server instance (e.g. "Standard Edition", "Enterprise Edition").
+    enabled: false
+    type: string
   sqlserver.host.name:
     description: The hostname of the SQL Server instance, extracted from service.instance.id.
     enabled: true
