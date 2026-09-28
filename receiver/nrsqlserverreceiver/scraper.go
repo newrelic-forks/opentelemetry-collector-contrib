@@ -71,7 +71,7 @@ var (
 
 func newSQLServerScraper(id component.ID,
 	query string,
-	telemetry sqlquery.TelemetryConfig,
+	telemetry sqlquery.TelemetryConfig, //nolint:unparam // Parameter is currently unused as callers always pass sqlquery.TelemetryConfig{}. cleanup in a follow-up PR.
 	dbProviderFunc sqlquery.DbProviderFunc,
 	clientProviderFunc sqlquery.ClientProviderFunc,
 	params receiver.Settings,
