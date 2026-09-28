@@ -213,6 +213,61 @@ to recover the original plan object (e.g. `JSON.parse(value)[0]`). An empty plan
 explainable, `EXPLAIN` failed, etc.) is left as `""`, never wrapped to `"[]"`, so absence of a
 plan is still distinguishable from an empty array of plans.
 
+### Splitting the execution plan onto its own event
+
+`db.server.top_query` and `db.server.query_sample` each carry the statement's execution plan in their
+`mysql.query_plan` attribute. The plan is the output of `EXPLAIN FORMAT=json`, a nested document with
+one object per table access, so it can dominate the record it travels on.
+
+Enabling `db.server.query_plan` reports the plan on a record of its own, where it can be filtered,
+routed or dropped independently of the query statistics and the session activity, and where an
+oversized plan does not take those with it when a batcher splits by size.
+
+It is disabled by default. It reports plans that `db.server.top_query` and `db.server.query_sample`
+already collect, so it adds no queries and needs no grants of its own, and enabling it without either
+of those events is a configuration error. Each of them contributes plans only while it is itself
+enabled.
+
+```yaml
+events:
+  db.server.top_query:
+    enabled: true
+  db.server.query_sample:
+    enabled: true
+  db.server.query_plan:   # both events above lose their mysql.query_plan
+    enabled: true
+```
+
+Both source events are then emitted **without** their `mysql.query_plan` attribute, and the plan is
+reported on `db.server.query_plan`, joined back via `mysql.query_plan.hash` and `db.namespace`. A
+statement with no plan available produces no record. The plan is wrapped in a one-element JSON array
+on the new event too, since the wrapping happens in `retrieveQueryPlan` before any event records it
+(see [`mysql.query_plan` and JSON-shaped log attributes](#mysqlquery_plan-and-json-shaped-log-attributes)).
+
+`mysql.query_plan.source` holds the name of the event each plan was reported for, so one literal
+matches both the attribute and the record's event name in a routing rule, and plans from one source
+can be routed or dropped without touching the other. The two differ in cadence and volume: top query
+plans follow `top_query_collection.collection_interval` and are bounded by `top_query_count`, while
+sample plans follow the receiver's `collection_interval`.
+
+Several sessions can be running one statement when a sample scrape fires, and they share a plan, so
+sample plans are reported once per scrape rather than once per sample. Plans are identified by
+`db.namespace` and `mysql.query_plan.hash`, which means:
+
+- One digest executed in several databases produces one record per database, since the plan is
+  collected per database. `performance_schema.events_statements_summary_by_digest` is keyed on schema
+  and digest, so such a digest also produces one `db.server.top_query` record per database, and
+  `db.namespace` is what pairs each of those with its own plan.
+- `db.server.top_query` reports the database as the `schema_name` the statement was summarized under,
+  while `db.server.query_sample` reports the session's current database. For one statement these can
+  differ, so the same plan can appear under two `db.namespace` values across the two events.
+
+On MySQL 5.7 and MariaDB there is no `query_sample_text` to explain, so `db.server.top_query` has no
+plan to report on those versions (see [Query plan availability by
+version](#query-plan-availability-by-version)) and enabling `db.server.query_plan` there reports
+sample plans only, including plans for write statements when
+[`explain_mode: procedure`](#explain_mode-collecting-plans-for-write-statements) is set.
+
 ### MySQL Requirements to enable log collection
 
 | Parameter                                | Value                            | Description                                         |
