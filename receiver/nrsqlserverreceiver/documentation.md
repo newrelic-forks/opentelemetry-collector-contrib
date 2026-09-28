@@ -1788,6 +1788,7 @@ top query
 
 | Name | Description | Values | Enabled | Semantic Convention | Stability |
 | ---- | ----------- | ------ | ------- | ------------------- | --------- |
+| db.system.version | The database version of the instance. Examples include "15.0.4261.1". | Any Str | false | - | - |
 | host.name | The host name of SQL Server | Any Str | true | - | - |
 | server.address | Name of the database host. | Any Str | true | - | - |
 | server.port | Server port number. | Any Int | true | - | - |
@@ -1796,5 +1797,6 @@ top query
 | service.namespace | Logical namespace for the service (for example team or environment). When enabled, defaults to an empty string until set via configuration. | Any Str | false | - | - |
 | sqlserver.computer.name | The name of the SQL Server instance being monitored. | Any Str | false | - | - |
 | sqlserver.database.name | The name of the SQL Server database. | Any Str | true | - | - |
+| sqlserver.db.edition | The edition of the SQL Server instance (e.g. "Standard Edition", "Enterprise Edition"). | Any Str | false | - | - |
 | sqlserver.instance.name | The name of the SQL Server instance being monitored. | Any Str | false | - | - |
 | sqlserver.target.host | The hostname or address used to connect to the SQL Server instance, as configured in the receiver. | Any Str | true | - | - |

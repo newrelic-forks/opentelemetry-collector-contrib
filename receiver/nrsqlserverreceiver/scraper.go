@@ -38,7 +38,8 @@ const (
 	databaseNameKey = "database_name"
 	instanceNameKey = "sql_instance"
 
-	defaultServiceName = "unknown_service:microsoft.sql_server"
+	defaultServiceName  = "unknown_service:microsoft.sql_server"
+	versionQueryTimeout = 5 * time.Second
 )
 
 type sqlServerScraperHelper struct {
@@ -58,6 +59,9 @@ type sqlServerScraperHelper struct {
 	lastExecutionTimestamp time.Time
 	obfuscator             *obfuscator
 	serviceInstanceID      string
+	dbVersion              string
+	dbEdition              string
+	instanceInfoFunc       func(context.Context, *zap.Logger) (version, edition string, resolved bool)
 }
 
 var (
@@ -67,7 +71,7 @@ var (
 
 func newSQLServerScraper(id component.ID,
 	query string,
-	telemetry sqlquery.TelemetryConfig,
+	telemetry sqlquery.TelemetryConfig, //nolint:unparam // Parameter is currently unused as callers always pass sqlquery.TelemetryConfig{}. cleanup in a follow-up PR.
 	dbProviderFunc sqlquery.DbProviderFunc,
 	clientProviderFunc sqlquery.ClientProviderFunc,
 	params receiver.Settings,
@@ -116,7 +120,49 @@ func (s *sqlServerScraperHelper) Start(context.Context, component.Host) error {
 	return nil
 }
 
+// detectSQLServerInstanceInfo queries ProductVersion and Edition in a single round-trip.
+// Returns (version, edition *string, error) — both are non-nil when resolved (empty string
+// for NULL from SERVERPROPERTY), nil on transient error (caller may retry), nil+nil when db
+// is not yet connected. Declared as a var so tests can stub it.
+var detectSQLServerInstanceInfo = func(ctx context.Context, db *sql.DB) (*string, *string, error) {
+	if db == nil {
+		return nil, nil, nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, versionQueryTimeout)
+	defer cancel()
+
+	var version, edition sql.NullString
+	row := db.QueryRowContext(ctx,
+		"SELECT CAST(SERVERPROPERTY('ProductVersion') AS NVARCHAR(128)), CAST(SERVERPROPERTY('Edition') AS NVARCHAR(128))")
+	if err := row.Scan(&version, &edition); err != nil {
+		return nil, nil, err
+	}
+
+	var v, e string
+	if version.Valid {
+		v = version.String
+	}
+	if edition.Valid {
+		e = edition.String
+	}
+	return &v, &e, nil
+}
+
+// ensureInstanceInfo resolves version and edition lazily in a single DB round-trip.
+func (s *sqlServerScraperHelper) ensureInstanceInfo(ctx context.Context) {
+	if s.instanceInfoFunc != nil {
+		version, edition, resolved := s.instanceInfoFunc(ctx, s.logger)
+		s.dbVersion = version
+		s.dbEdition = edition
+		if resolved {
+			s.instanceInfoFunc = nil
+		}
+	}
+}
+
 func (s *sqlServerScraperHelper) ScrapeMetrics(ctx context.Context) (pmetric.Metrics, error) {
+	s.ensureInstanceInfo(ctx)
 	var err error
 
 	switch s.sqlQuery {
@@ -174,6 +220,7 @@ func (s *sqlServerScraperHelper) ScrapeMetrics(ctx context.Context) (pmetric.Met
 }
 
 func (s *sqlServerScraperHelper) ScrapeLogs(ctx context.Context) (plog.Logs, error) {
+	s.ensureInstanceInfo(ctx)
 	var err error
 	var resources pcommon.Resource
 	var isQuerySample bool
@@ -384,6 +431,12 @@ func (s *sqlServerScraperHelper) setupResourceBuilder(rb *metadata.ResourceBuild
 
 	rb.SetServerAddress(serverAddress)
 	rb.SetServerPort(serverPort)
+	if s.dbVersion != "" {
+		rb.SetDbSystemVersion(s.dbVersion)
+	}
+	if s.dbEdition != "" {
+		rb.SetSqlserverDbEdition(s.dbEdition)
+	}
 
 	return rb
 }
