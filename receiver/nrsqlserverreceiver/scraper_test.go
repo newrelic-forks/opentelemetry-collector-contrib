@@ -21,6 +21,7 @@ import (
 	sqlquery "github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrsqlquery"
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver/internal/metadata"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/pdata/plog"
 	"go.opentelemetry.io/collector/receiver/receivertest"
@@ -1348,4 +1349,170 @@ func TestPageFileScrapeErrorDoesNotBlockOtherMetrics(t *testing.T) {
 	}
 	assert.False(t, foundPageFile, "sqlserver.database.page_file.size should not appear when its query errors")
 	assert.True(t, foundDatabaseIO, "sqlserver.database.io should still appear even when page_file.size errors")
+}
+
+// findLogAttr returns the first value recorded for attrName across all log
+// records whose event name is eventName.
+func findLogAttr(logs plog.Logs, eventName, attrName string) (string, bool) {
+	for i := 0; i < logs.ResourceLogs().Len(); i++ {
+		scopeLogs := logs.ResourceLogs().At(i).ScopeLogs()
+		for j := 0; j < scopeLogs.Len(); j++ {
+			records := scopeLogs.At(j).LogRecords()
+			for k := 0; k < records.Len(); k++ {
+				record := records.At(k)
+				if record.EventName() != eventName {
+					continue
+				}
+				if val, ok := record.Attributes().Get(attrName); ok {
+					return val.Str(), true
+				}
+			}
+		}
+	}
+	return "", false
+}
+
+// seedTopQueryCacheForTests primes the counter cache with values below the ones
+// in queryTextAndPlanQueryData.txt. The top query collection only reports a row
+// whose total elapsed time grew since the previous scrape, so without this the
+// first scrape emits nothing. No-op for scrapers that do not collect top queries.
+func seedTopQueryCacheForTests(scraper *sqlServerScraperHelper) {
+	const (
+		executionCount          = "execution_count"
+		logicalReads            = "total_logical_reads"
+		logicalWrites           = "total_logical_writes"
+		physicalReads           = "total_physical_reads"
+		procedureExecutionCount = "procedure_execution_count"
+		rowsReturned            = "total_rows"
+		totalElapsedTime        = "total_elapsed_time"
+		totalGrant              = "total_grant_kb"
+		totalWorkerTime         = "total_worker_time"
+	)
+
+	queryHash := hex.EncodeToString([]byte("0x37849E874171E3F3"))
+	queryPlanHash := hex.EncodeToString([]byte("0xD3112909429A1B50"))
+	procedureID := "0"
+
+	for column, value := range map[string]int64{
+		totalElapsedTime:        846,
+		totalWorkerTime:         845,
+		rowsReturned:            1,
+		logicalReads:            1,
+		logicalWrites:           1,
+		physicalReads:           1,
+		executionCount:          1,
+		totalGrant:              1,
+		procedureExecutionCount: 0,
+	} {
+		scraper.cacheAndDiff(queryHash, queryPlanHash, procedureID, column, value)
+	}
+}
+
+// TestCommentKeysAreScopedPerEventCollection asserts each event collection reads
+// collect_full_query_text and allowed_comment_keys from its own config block, so
+// enabling them for one collection does not enable them for the other.
+func TestCommentKeysAreScopedPerEventCollection(t *testing.T) {
+	const guidAttr = "db.query.comment_tags.nr_service_guid"
+
+	// Both testdata fixtures carry an nr_service_guid comment, with a distinct
+	// value per event, so a cross-wired read would be visible.
+	const topQueryGUID = "test-guid-123"
+	const querySampleGUID = "test-guid-456"
+
+	tests := map[string]struct {
+		configure         func(cfg *Config)
+		wantTopQueryGUID  string
+		wantQuerySampleID string
+	}{
+		"top query only": {
+			configure: func(cfg *Config) {
+				cfg.TopQueryCollection.CollectFullQueryText = true
+				cfg.TopQueryCollection.AllowedCommentKeys = []string{"nr_service_guid"}
+			},
+			wantTopQueryGUID:  topQueryGUID,
+			wantQuerySampleID: "",
+		},
+		"query sample only": {
+			configure: func(cfg *Config) {
+				cfg.QuerySample.CollectFullQueryText = true
+				cfg.QuerySample.AllowedCommentKeys = []string{"nr_service_guid"}
+			},
+			wantTopQueryGUID:  "",
+			wantQuerySampleID: querySampleGUID,
+		},
+		"both collections": {
+			configure: func(cfg *Config) {
+				cfg.TopQueryCollection.CollectFullQueryText = true
+				cfg.TopQueryCollection.AllowedCommentKeys = []string{"nr_service_guid"}
+				cfg.QuerySample.CollectFullQueryText = true
+				cfg.QuerySample.AllowedCommentKeys = []string{"nr_service_guid"}
+			},
+			wantTopQueryGUID:  topQueryGUID,
+			wantQuerySampleID: querySampleGUID,
+		},
+		"neither collection": {
+			configure:         func(*Config) {},
+			wantTopQueryGUID:  "",
+			wantQuerySampleID: "",
+		},
+		"allowed keys omitted": {
+			// collect_full_query_text alone must not surface the comment tag:
+			// the key still has to be allow-listed on the same block.
+			configure: func(cfg *Config) {
+				cfg.TopQueryCollection.CollectFullQueryText = true
+				cfg.QuerySample.CollectFullQueryText = true
+			},
+			wantTopQueryGUID:  "",
+			wantQuerySampleID: "",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			cfg := createDefaultConfig().(*Config)
+			cfg.Username = "sa"
+			cfg.Password = "password"
+			cfg.Port = 1433
+			cfg.Server = "0.0.0.0"
+			enableSQLServerResourceAttributesForTests(&cfg.LogsBuilderConfig.ResourceAttributes)
+			require.NoError(t, cfg.Validate())
+
+			configureAllScraperMetricsAndEvents(cfg, false)
+			cfg.Events.DbServerTopQuery.Enabled = true
+			cfg.Events.DbServerQuerySample.Enabled = true
+			cfg.TopQueryCollection.CollectionInterval = cfg.CollectionInterval
+			tc.configure(cfg)
+
+			scrapers, _ := setupSQLServerLogsScrapers(receivertest.NewNopSettings(metadata.Type), cfg)
+			require.NotEmpty(t, scrapers)
+
+			var gotTopQueryGUID, gotQuerySampleGUID string
+			for _, scraper := range scrapers {
+				scraper.client = mockClient{
+					instanceName:        scraper.config.InstanceName,
+					SQL:                 scraper.sqlQuery,
+					maxQuerySampleCount: 1000,
+					lookbackTime:        20,
+					topQueryCount:       200,
+					maxRowsPerQuery:     100,
+				}
+				seedTopQueryCacheForTests(scraper)
+
+				logs, err := scraper.ScrapeLogs(t.Context())
+				require.NoError(t, err)
+
+				if val, ok := findLogAttr(logs, "db.server.top_query", guidAttr); ok && val != "" {
+					gotTopQueryGUID = val
+				}
+				if val, ok := findLogAttr(logs, "db.server.query_sample", guidAttr); ok && val != "" {
+					gotQuerySampleGUID = val
+				}
+			}
+
+			assert.Equal(t, tc.wantTopQueryGUID, gotTopQueryGUID,
+				"db.server.top_query must read allowed_comment_keys from top_query_collection only")
+			assert.Equal(t, tc.wantQuerySampleID, gotQuerySampleGUID,
+				"db.server.query_sample must read allowed_comment_keys from query_sample_collection only")
+		})
+	}
 }
