@@ -53,13 +53,13 @@ resource_attributes:
     description: The name of the SQL Server database.
     enabled: true
     type: string
-  sqlserver.host.name:
-    description: The hostname of the SQL Server instance, extracted from service.instance.id.
-    enabled: true
-    type: string
   sqlserver.instance.name:
     description: The name of the SQL Server instance being monitored.
     enabled: false
+    type: string
+  sqlserver.target.host:
+    description: The hostname or address used to connect to the SQL Server instance, as configured in the receiver.
+    enabled: true
     type: string
 
 attributes:
@@ -173,11 +173,6 @@ attributes:
     type: string
     requirement_level: recommended
     enum: [cache, total, target, database, stolen, reserved, free]
-  page_file.state:
-    description: The state of the database page file (reserved space) allocation.
-    type: string
-    requirement_level: recommended
-    enum: [used, free, total]
   performance_counter.object_name:
     description: Category to which this counter belongs
     type: string
@@ -861,16 +856,6 @@ metrics:
       value_type: int
       input_type: string
     attributes: [physical_filename, logical_filename, file_type, direction]
-    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
-  sqlserver.database.page_file.size:
-    enabled: false
-    description: Reserved space allocated to the database, broken down by usage state.
-    stability: development
-    unit: By
-    gauge:
-      value_type: int
-      input_type: string
-    attributes: [db.namespace, page_file.state]
     extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.database.tempdb.space:
     enabled: false

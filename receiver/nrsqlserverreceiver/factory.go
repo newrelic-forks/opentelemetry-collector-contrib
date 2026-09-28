@@ -107,10 +107,6 @@ func setupQueries(cfg *Config) []string {
 		queries = append(queries, getSQLServerProcessCountQuery(cfg.InstanceName))
 	}
 
-	if cfg.Metrics.SqlserverDatabasePageFileSize.Enabled {
-		queries = append(queries, getSQLServerDatabasePageFileQuery(cfg.InstanceName))
-	}
-
 	if isThreadPoolQueryEnabled(&cfg.Metrics) {
 		queries = append(queries, getSQLServerThreadPoolQuery(cfg.InstanceName))
 	}

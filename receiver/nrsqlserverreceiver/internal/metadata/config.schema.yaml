@@ -23,9 +23,6 @@ $defs:
   attribute_memory_state:
     description: AttributeMemoryState specifies the value memory.state attribute.
     type: integer
-  attribute_page_file_state:
-    description: AttributePageFileState specifies the value page_file.state attribute.
-    type: integer
   attribute_page_operations:
     description: AttributePageOperations specifies the value page.operations attribute.
     type: integer
@@ -223,8 +220,6 @@ $defs:
         $ref: sqlserver_database_latency_metric_config
       sqlserver.database.operations:
         $ref: sqlserver_database_operations_metric_config
-      sqlserver.database.page_file.size:
-        $ref: sqlserver_database_page_file_size_metric_config
       sqlserver.database.tempdb.space:
         $ref: sqlserver_database_tempdb_space_metric_config
       sqlserver.database.tempdb.version_store.size:
@@ -893,21 +888,6 @@ $defs:
         type: array
         items:
           $ref: sqlserver_database_operations_metric_attribute_key
-      enabled:
-        type: boolean
-  sqlserver_database_page_file_size_metric_attribute_key:
-    description: SqlserverDatabasePageFileSizeMetricAttributeKey specifies the key of an attribute for the sqlserver.database.page_file.size metric.
-    type: string
-  sqlserver_database_page_file_size_metric_config:
-    description: SqlserverDatabasePageFileSizeMetricConfig provides config for the sqlserver.database.page_file.size metric.
-    type: object
-    properties:
-      aggregation_strategy:
-        type: string
-      attributes:
-        type: array
-        items:
-          $ref: sqlserver_database_page_file_size_metric_attribute_key
       enabled:
         type: boolean
   sqlserver_database_tempdb_space_metric_attribute_key:

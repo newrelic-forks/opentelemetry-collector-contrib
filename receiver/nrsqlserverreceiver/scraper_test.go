@@ -1277,11 +1277,10 @@ func TestRecordDatabaseStatusMetricsUsesResourceBuilderForMetrics(t *testing.T) 
 	assert.Equal(t, int64(1434), serverPort.Int())
 }
 
-// TestPageFileScrapeErrorDoesNotBlockOtherMetrics verifies that when
-// sqlserver.database.page_file.size fails (e.g., a permission error because
-// the SQL login cannot access all databases), the concurrent scraper still
-// emits metrics from every other query group.
-func TestPageFileScrapeErrorDoesNotBlockOtherMetrics(t *testing.T) {
+// TestScrapeErrorDoesNotBlockOtherMetrics verifies that when one scraper fails
+// (e.g., a permission error), the concurrent scraper still emits metrics from
+// every other query group.
+func TestScrapeErrorDoesNotBlockOtherMetrics(t *testing.T) {
 	cfg := createDefaultConfig().(*Config)
 	cfg.Username = "sa"
 	cfg.Password = "password"
@@ -1289,11 +1288,11 @@ func TestPageFileScrapeErrorDoesNotBlockOtherMetrics(t *testing.T) {
 	cfg.Server = "0.0.0.0"
 	assert.NoError(t, cfg.Validate())
 
-	// Disable everything, then enable only DatabaseIO and PageFileSize so we
+	// Disable everything, then enable only DatabaseIO and ProcessCount so we
 	// get exactly two child scrapers — one that succeeds and one that fails.
 	configureAllScraperMetricsAndEvents(cfg, false)
 	cfg.Metrics.SqlserverDatabaseIo.Enabled = true
-	cfg.Metrics.SqlserverDatabasePageFileSize.Enabled = true
+	cfg.Metrics.SqlserverProcessCount.Enabled = true
 
 	scrapers, provider := setupSQLServerScrapers(receivertest.NewNopSettings(metadata.Type), cfg)
 	assert.Len(t, scrapers, 2)
@@ -1308,7 +1307,7 @@ func TestPageFileScrapeErrorDoesNotBlockOtherMetrics(t *testing.T) {
 		switch s.sqlQuery {
 		case getSQLServerDatabaseIOQuery(s.config.InstanceName):
 			s.client = mockClient{instanceName: s.config.InstanceName, SQL: s.sqlQuery}
-		case getSQLServerDatabasePageFileQuery(s.config.InstanceName):
+		case getSQLServerProcessCountQuery(s.config.InstanceName):
 			s.client = queryRowsFuncClient{
 				queryRowsFunc: func(_ context.Context, _ ...any) ([]sqlquery.StringMap, error) {
 					return nil, permissionErr
@@ -1320,32 +1319,29 @@ func TestPageFileScrapeErrorDoesNotBlockOtherMetrics(t *testing.T) {
 	concurrent := newConcurrentMetricsScraper(scrapers, 4, zap.NewNop())
 	md, err := concurrent.ScrapeMetrics(t.Context())
 
-	// The page_file failure must surface as a PartialScrapeError so the OTel
+	// The process_count failure must surface as a PartialScrapeError so the OTel
 	// framework forwards the successful metrics instead of dropping everything.
-	// Note: PartialScrapeError embeds error without Unwrap(), so errors.Is
-	// cannot traverse it — use ErrorContains to verify the underlying message.
 	assert.True(t, scrapererror.IsPartialScrapeError(err), "error should be a PartialScrapeError so the OTel framework forwards partial metrics")
 	assert.ErrorContains(t, err, permissionErr.Error())
 
-	// DatabaseIO metrics must still be present despite the page_file failure.
-	assert.Positive(t, md.ResourceMetrics().Len(), "DatabaseIO metrics should still be emitted when page_file.size fails")
+	// DatabaseIO metrics must still be present despite the process_count failure.
+	assert.Positive(t, md.ResourceMetrics().Len(), "DatabaseIO metrics should still be emitted when process.count fails")
 
-	// Confirm page_file.size is absent and sqlserver.database.io is present.
-	var foundPageFile, foundDatabaseIO bool
+	var foundProcessCount, foundDatabaseIO bool
 	for i := 0; i < md.ResourceMetrics().Len(); i++ {
 		scopeMetrics := md.ResourceMetrics().At(i).ScopeMetrics()
 		for j := 0; j < scopeMetrics.Len(); j++ {
 			metrics := scopeMetrics.At(j).Metrics()
 			for k := 0; k < metrics.Len(); k++ {
 				switch metrics.At(k).Name() {
-				case "sqlserver.database.page_file.size":
-					foundPageFile = true
+				case "sqlserver.process.count":
+					foundProcessCount = true
 				case "sqlserver.database.io":
 					foundDatabaseIO = true
 				}
 			}
 		}
 	}
-	assert.False(t, foundPageFile, "sqlserver.database.page_file.size should not appear when its query errors")
-	assert.True(t, foundDatabaseIO, "sqlserver.database.io should still appear even when page_file.size errors")
+	assert.False(t, foundProcessCount, "sqlserver.process.count should not appear when its query errors")
+	assert.True(t, foundDatabaseIO, "sqlserver.database.io should still appear even when process.count errors")
 }
