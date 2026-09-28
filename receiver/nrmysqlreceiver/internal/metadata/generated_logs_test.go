@@ -134,10 +134,10 @@ func TestLogsBuilder(t *testing.T) {
 			allEventsCount := 0
 
 			allEventsCount++
-			lb.RecordDbServerQuerySampleEvent(ctx, timestamp, AttributeDbSystemNameMysql, 23, "user.name-val", "db.namespace-val", "mysql.threads.processlist_command-val", "mysql.threads.processlist_state-val", "db.query.text-val", "mysql.events_statements_current.digest-val", "mysql.query_plan-val", "mysql.query_plan.hash-val", 14, "mysql.wait_event_type-val", "mysql.wait_event-val", "mysql.wait_type-val", "mysql.session.status-val", 16, 42.100000, 37.100000, "client.address-val", 11, "network.peer.address-val", 17, "db.query.comment_tags-val", "db.query.comment_tags.nr_service_guid-val", "db.query.text.normalized.hash-val", 43, "mysql.session.client_name-val", "mysql.blocking.blockers-val", 28)
+			lb.RecordDbServerQuerySampleEvent(ctx, timestamp, AttributeDbSystemNameMysql, 23, "user.name-val", "db.namespace-val", "mysql.threads.processlist_command-val", "mysql.threads.processlist_state-val", "db.query.text-val", "mysql.events_statements_current.digest-val", "mysql.query_plan-val", "mysql.query_plan.hash-val", 14, "mysql.wait_event_type-val", "mysql.wait_event-val", "mysql.wait_type-val", "mysql.session.status-val", 16, 42.100000, 37.100000, "client.address-val", 11, "network.peer.address-val", 17, "db.query.comment_tags-val", "db.query.comment_tags.nr_service_guid-val", "db.query.text.normalized.hash-val", 43, "mysql.client.name-val", "mysql.blocking.blockers-val", 28)
 
 			allEventsCount++
-			lb.RecordDbServerTopQueryEvent(ctx, timestamp, AttributeDbSystemNameMysql, "db.query.text-val", "mysql.query_plan-val", "mysql.query_plan.hash-val", "mysql.events_statements_summary_by_digest.digest-val", 52, 56.100000, "db.query.comment_tags-val", "db.query.comment_tags.nr_service_guid-val", "db.query.text.normalized.hash-val", "db.namespace-val", 59, 55)
+			lb.RecordDbServerTopQueryEvent(ctx, timestamp, AttributeDbSystemNameMysql, "db.query.text-val", "mysql.query_plan-val", "mysql.query_plan.hash-val", "mysql.events_statements_summary_by_digest.digest-val", 52, 56.100000, "db.query.comment_tags-val", "db.query.comment_tags.nr_service_guid-val", "db.query.text.normalized.hash-val", "db.namespace-val", 55, 55)
 
 			rb := lb.NewResourceBuilder()
 			rb.SetDbSystemName("db.system.name-val")
@@ -253,9 +253,9 @@ func TestLogsBuilder(t *testing.T) {
 					attrVal, ok = lr.Attributes().Get("mysql.events_statements_current.timer_start")
 					assert.True(t, ok)
 					assert.EqualValues(t, 43, attrVal.Int())
-					attrVal, ok = lr.Attributes().Get("mysql.session.client_name")
+					attrVal, ok = lr.Attributes().Get("mysql.client.name")
 					assert.True(t, ok)
-					assert.Equal(t, "mysql.session.client_name-val", attrVal.Str())
+					assert.Equal(t, "mysql.client.name-val", attrVal.Str())
 					attrVal, ok = lr.Attributes().Get("mysql.blocking.blockers")
 					assert.True(t, ok)
 					assert.Equal(t, "mysql.blocking.blockers-val", attrVal.Str())
@@ -302,10 +302,10 @@ func TestLogsBuilder(t *testing.T) {
 					attrVal, ok = lr.Attributes().Get("db.namespace")
 					assert.True(t, ok)
 					assert.Equal(t, "db.namespace-val", attrVal.Str())
-					attrVal, ok = lr.Attributes().Get("mysql.events_statements_summary_by_digest.sum_rows_examined")
+					attrVal, ok = lr.Attributes().Get("mysql.events_statements_summary_by_digest.examined_rows")
 					assert.True(t, ok)
-					assert.EqualValues(t, 59, attrVal.Int())
-					attrVal, ok = lr.Attributes().Get("mysql.events_statements_summary_by_digest.sum_rows_sent")
+					assert.EqualValues(t, 55, attrVal.Int())
+					attrVal, ok = lr.Attributes().Get("mysql.events_statements_summary_by_digest.returned_rows")
 					assert.True(t, ok)
 					assert.EqualValues(t, 55, attrVal.Int())
 				}

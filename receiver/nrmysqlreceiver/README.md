@@ -300,7 +300,7 @@ beyond the standard `SELECT ON performance_schema.*` are required.
 
 ### Client program name
 
-`db.server.query_sample` carries `mysql.session.client_name` — the client driver's self-reported
+`db.server.query_sample` carries `mysql.client.name` — the client driver's self-reported
 identity, sourced from `performance_schema.session_connect_attrs` (`ATTR_NAME = '_client_name'`),
 e.g. `"MySQL Connector/J"` or `"libmysql"`. This is MySQL's closest equivalent to SQL Server's
 `client.app.name` / Oracle's `program`.
@@ -315,9 +315,9 @@ building a dashboard that depends on it (e.g. faceting sessions by program) as a
 A few attributes worth calling out explicitly since they're easy to miss in `metadata.yaml`'s
 flat attribute list:
 
-- `mysql.events_statements_summary_by_digest.sum_rows_examined` /
-  `.sum_rows_sent` (on `db.server.top_query`) — diffed per scrape cycle with the same
-  `cacheAndDiff` primitive already used for `count_star`, so `sum_rows_examined / count_star`
+- `mysql.events_statements_summary_by_digest.examined_rows` /
+  `.returned_rows` (on `db.server.top_query`) — diffed per scrape cycle with the same
+  `cacheAndDiff` primitive already used for `count_star`, so `examined_rows / count_star`
   gives a meaningful **per-execution average rows examined**, not a raw cumulative total. This is
   a row *count*, not a page/buffer-fetch count — it is **not** logical reads, and shouldn't be
   labeled as such in any dashboard that shows it alongside other engines' logical-reads column.
