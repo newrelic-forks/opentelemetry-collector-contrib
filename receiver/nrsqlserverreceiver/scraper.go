@@ -59,9 +59,9 @@ type sqlServerScraperHelper struct {
 	lastExecutionTimestamp time.Time
 	obfuscator             *obfuscator
 	serviceInstanceID      string
-	dbVersion        string
-	dbEdition        string
-	instanceInfoFunc func(context.Context, *zap.Logger) (version, edition string, resolved bool)
+	dbVersion              string
+	dbEdition              string
+	instanceInfoFunc       func(context.Context, *zap.Logger) (version, edition string, resolved bool)
 }
 
 var (
