@@ -4,6 +4,7 @@
 package nrsqlserverreceiver
 
 import (
+	"context"
 	"database/sql"
 	"os"
 	"testing"
@@ -11,12 +12,14 @@ import (
 
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver/internal/metadata"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/consumer/consumertest"
 	"go.opentelemetry.io/collector/receiver/receivertest"
 	"go.opentelemetry.io/collector/scraper/scraperhelper"
+	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )
 
@@ -374,4 +377,160 @@ func TestSetupQueries(t *testing.T) {
 	require.Len(t, metricsMetadata, 131, "Every time metrics are added or removed, the function `setupQueries` must "+
 		"be modified to properly account for the change. Please update `setupQueries` and then, "+
 		"and only then, update the expected metric count here.")
+}
+
+// TestDetectSQLServerInstanceInfo_NilDB verifies that a nil db returns nil pointers safely.
+func TestDetectSQLServerInstanceInfo_NilDB(t *testing.T) {
+	v, e, err := detectSQLServerInstanceInfo(t.Context(), nil)
+	require.NoError(t, err)
+	require.Nil(t, v)
+	require.Nil(t, e)
+}
+
+// TestDetectSQLServerInstanceInfo_ScanError verifies that a scan error returns nil pointers and the error.
+func TestDetectSQLServerInstanceInfo_ScanError(t *testing.T) {
+	db, err := sql.Open("sqlserver", "sqlserver://sa:invalid@127.0.0.1:1433")
+	require.NoError(t, err)
+	defer db.Close()
+
+	orig := detectSQLServerInstanceInfo
+	defer func() { detectSQLServerInstanceInfo = orig }()
+	detectSQLServerInstanceInfo = func(_ context.Context, _ *sql.DB) (*string, *string, error) {
+		return nil, nil, assert.AnError
+	}
+
+	v, e, err := detectSQLServerInstanceInfo(t.Context(), db)
+	require.Error(t, err)
+	require.Nil(t, v)
+	require.Nil(t, e)
+}
+
+// TestDetectSQLServerInstanceInfo_NullResult verifies that NULL from SERVERPROPERTY
+// returns non-nil pointers to empty strings (permanent latch — no retry).
+func TestDetectSQLServerInstanceInfo_NullResult(t *testing.T) {
+	orig := detectSQLServerInstanceInfo
+	defer func() { detectSQLServerInstanceInfo = orig }()
+	empty := ""
+	detectSQLServerInstanceInfo = func(_ context.Context, _ *sql.DB) (*string, *string, error) {
+		return &empty, &empty, nil
+	}
+
+	db, err := sql.Open("sqlserver", "sqlserver://sa:invalid@127.0.0.1:1433")
+	require.NoError(t, err)
+	defer db.Close()
+
+	v, e, err := detectSQLServerInstanceInfo(t.Context(), db)
+	require.NoError(t, err)
+	require.NotNil(t, v)
+	require.NotNil(t, e)
+	assert.Empty(t, *v)
+	assert.Empty(t, *e)
+}
+
+// TestDetectSQLServerInstanceInfo_ValidResult verifies that a successful query returns
+// the version and edition strings.
+func TestDetectSQLServerInstanceInfo_ValidResult(t *testing.T) {
+	orig := detectSQLServerInstanceInfo
+	defer func() { detectSQLServerInstanceInfo = orig }()
+	ver := "15.0.4261.1"
+	ed := "Enterprise Edition (64-bit)"
+	detectSQLServerInstanceInfo = func(_ context.Context, _ *sql.DB) (*string, *string, error) {
+		return &ver, &ed, nil
+	}
+
+	db, err := sql.Open("sqlserver", "sqlserver://sa:invalid@127.0.0.1:1433")
+	require.NoError(t, err)
+	defer db.Close()
+
+	v, e, err := detectSQLServerInstanceInfo(t.Context(), db)
+	require.NoError(t, err)
+	require.NotNil(t, v)
+	require.NotNil(t, e)
+	assert.Equal(t, "15.0.4261.1", *v)
+	assert.Equal(t, "Enterprise Edition (64-bit)", *e)
+}
+
+// TestDBProviderDetectInstanceInfoCaches verifies that once resolved, detectInstanceInfo
+// returns the cached result without querying the DB again.
+func TestDBProviderDetectInstanceInfoCaches(t *testing.T) {
+	provider := newDBProvider(&Config{Server: "127.0.0.1", Port: 1433}, 1)
+
+	ver := "15.0.4261.1"
+	ed := "Enterprise Edition (64-bit)"
+	provider.dbVersion = &ver
+	provider.dbEdition = &ed
+
+	got, gotEd, resolved := provider.detectInstanceInfo(t.Context(), zap.NewNop())
+	require.True(t, resolved)
+	assert.Equal(t, "15.0.4261.1", got)
+	assert.Equal(t, "Enterprise Edition (64-bit)", gotEd)
+
+	// Second call must also return from cache.
+	got, gotEd, resolved = provider.detectInstanceInfo(t.Context(), zap.NewNop())
+	require.True(t, resolved)
+	assert.Equal(t, "15.0.4261.1", got)
+	assert.Equal(t, "Enterprise Edition (64-bit)", gotEd)
+}
+
+// TestDBProviderDetectInstanceInfoRetriesOnFailure verifies that a transient error
+// returns resolved=false so the caller retries next interval.
+func TestDBProviderDetectInstanceInfoRetriesOnFailure(t *testing.T) {
+	provider := newDBProvider(&Config{Server: "127.0.0.1", Port: 1433}, 1)
+	// db is nil — first call must return "" and leave dbVersion/dbEdition nil.
+	result, resultEd, resolved := provider.detectInstanceInfo(t.Context(), zap.NewNop())
+	assert.Empty(t, result)
+	assert.Empty(t, resultEd)
+	assert.False(t, resolved)
+	assert.Nil(t, provider.dbVersion)
+	assert.Nil(t, provider.dbEdition)
+
+	// After a real (closed) DB is injected, the next call should retry.
+	db, err := sql.Open("sqlserver", "sqlserver://sa:invalid@127.0.0.1:1433")
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+	provider.db = db
+
+	result, resultEd, resolved = provider.detectInstanceInfo(t.Context(), zap.NewNop())
+	assert.Empty(t, result)
+	assert.Empty(t, resultEd)
+	assert.False(t, resolved)
+	assert.Nil(t, provider.dbVersion)
+	assert.Nil(t, provider.dbEdition)
+}
+
+// TestDBProviderDetectInstanceInfoNullLatches verifies that when SERVERPROPERTY returns NULL,
+// detectInstanceInfo latches dbVersion/dbEdition so subsequent intervals do not retry.
+func TestDBProviderDetectInstanceInfoNullLatches(t *testing.T) {
+	orig := detectSQLServerInstanceInfo
+	defer func() { detectSQLServerInstanceInfo = orig }()
+
+	nullStr := ""
+	detectSQLServerInstanceInfo = func(_ context.Context, _ *sql.DB) (*string, *string, error) {
+		return &nullStr, &nullStr, nil
+	}
+
+	db, err := sql.Open("sqlserver", "sqlserver://sa:invalid@127.0.0.1:1433")
+	require.NoError(t, err)
+	defer db.Close()
+
+	provider := newDBProvider(&Config{Server: "127.0.0.1", Port: 1433}, 1)
+	provider.db = db
+
+	result, resultEd, resolved := provider.detectInstanceInfo(t.Context(), zap.NewNop())
+	assert.Empty(t, result)
+	assert.Empty(t, resultEd)
+	assert.True(t, resolved)
+	assert.NotNil(t, provider.dbVersion) // latched — will not retry
+	assert.NotNil(t, provider.dbEdition)
+
+	// Second call must return "" from cache, not re-query.
+	detectSQLServerInstanceInfo = func(_ context.Context, _ *sql.DB) (*string, *string, error) {
+		t.Fatal("detectSQLServerInstanceInfo called again after NULL was latched")
+		return nil, nil, nil
+	}
+
+	result, resultEd, resolved = provider.detectInstanceInfo(t.Context(), zap.NewNop())
+	assert.Empty(t, result)
+	assert.Empty(t, resultEd)
+	assert.True(t, resolved)
 }

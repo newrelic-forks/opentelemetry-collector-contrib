@@ -180,6 +180,31 @@ To enable it, pass the following argument to the Collector:
 --feature-gates=receiver.sqlserver.RemoveServerResourceAttribute
 ```
 
+## Resource attributes
+
+`db.system.version` reports the SQL Server product version (e.g. `15.0.4261.1`). It is disabled by
+default and only available in direct connection mode. Enable it via:
+
+```yaml
+sqlserver:
+  resource_attributes:
+    db.system.version:
+      enabled: true
+```
+
+> **Note:** On Azure SQL Database and Azure SQL Managed Instance, `SERVERPROPERTY('ProductVersion')`
+> returns a fixed legacy version string rather than the actual engine version.
+
+`sqlserver.db.edition` reports the SQL Server edition string (e.g. `"Enterprise Edition (64-bit)"`).
+It is disabled by default and only available in direct connection mode. Enable it via:
+
+```yaml
+sqlserver:
+  resource_attributes:
+    sqlserver.db.edition:
+      enabled: true
+```
+
 ## Metrics
 
 Details about the metrics produced by this receiver can be found in [documentation.md](./documentation.md)

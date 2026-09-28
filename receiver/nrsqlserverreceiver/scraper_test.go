@@ -21,6 +21,7 @@ import (
 	sqlquery "github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrsqlquery"
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver/internal/metadata"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/pdata/plog"
 	"go.opentelemetry.io/collector/receiver/receivertest"
@@ -1053,6 +1054,8 @@ func TestSetupResourceBuilder(t *testing.T) {
 				cfg := createDefaultConfig().(*Config)
 				cfg.Server = "testserver.example.com"
 				cfg.Port = 1433
+				cfg.Username = "sa"
+				cfg.Password = "password"
 				cfg.MetricsBuilderConfig.ResourceAttributes.HostName.Enabled = true
 				return cfg
 			}(),
@@ -1344,4 +1347,93 @@ func TestScrapeErrorDoesNotBlockOtherMetrics(t *testing.T) {
 	}
 	assert.False(t, foundProcessCount, "sqlserver.process.count should not appear when its query errors")
 	assert.True(t, foundDatabaseIO, "sqlserver.database.io should still appear even when process.count errors")
+}
+
+// TestSetupResourceBuilder_SetsVersionAndEdition verifies that db.system.version and
+// sqlserver.db.edition are stamped onto the resource when non-empty and enabled.
+func TestSetupResourceBuilder_SetsVersionAndEdition(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.Server = "testserver.example.com"
+	cfg.Port = 1433
+	cfg.Username = "sa"
+	cfg.Password = "password"
+	cfg.MetricsBuilderConfig.ResourceAttributes.DbSystemVersion.Enabled = true
+	cfg.MetricsBuilderConfig.ResourceAttributes.SqlserverDbEdition.Enabled = true
+	require.NoError(t, cfg.Validate())
+
+	settings := receivertest.NewNopSettings(metadata.Type)
+	scraper := newSQLServerScraper(
+		settings.ID,
+		"SELECT 1",
+		sqlquery.TelemetryConfig{},
+		func() (*sql.DB, error) { return nil, nil },
+		func(_ sqlquery.Db, _ string, _ *zap.Logger, _ sqlquery.TelemetryConfig) sqlquery.DbClient {
+			return nil
+		},
+		settings,
+		cfg,
+		nil,
+	)
+	scraper.mb = metadata.NewMetricsBuilder(cfg.MetricsBuilderConfig, settings)
+	scraper.dbVersion = "15.0.4261.1"
+	scraper.dbEdition = "Enterprise Edition (64-bit)"
+
+	row := sqlquery.StringMap{
+		computerNameKey: "test-computer",
+		instanceNameKey: "test-instance",
+	}
+
+	rb := scraper.setupResourceBuilder(scraper.mb.NewResourceBuilder(), row)
+	resource := rb.Emit()
+
+	version, ok := resource.Attributes().Get("db.system.version")
+	assert.True(t, ok, "db.system.version should be present")
+	assert.Equal(t, "15.0.4261.1", version.Str())
+
+	edition, ok := resource.Attributes().Get("sqlserver.db.edition")
+	assert.True(t, ok, "sqlserver.db.edition should be present")
+	assert.Equal(t, "Enterprise Edition (64-bit)", edition.Str())
+}
+
+// TestSetupResourceBuilder_EmptyVersionAndEditionNotEmitted verifies that db.system.version
+// and sqlserver.db.edition are not emitted when empty.
+func TestSetupResourceBuilder_EmptyVersionAndEditionNotEmitted(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.Server = "testserver.example.com"
+	cfg.Port = 1433
+	cfg.Username = "sa"
+	cfg.Password = "password"
+	cfg.MetricsBuilderConfig.ResourceAttributes.DbSystemVersion.Enabled = true
+	cfg.MetricsBuilderConfig.ResourceAttributes.SqlserverDbEdition.Enabled = true
+	require.NoError(t, cfg.Validate())
+
+	settings := receivertest.NewNopSettings(metadata.Type)
+	scraper := newSQLServerScraper(
+		settings.ID,
+		"SELECT 1",
+		sqlquery.TelemetryConfig{},
+		func() (*sql.DB, error) { return nil, nil },
+		func(_ sqlquery.Db, _ string, _ *zap.Logger, _ sqlquery.TelemetryConfig) sqlquery.DbClient {
+			return nil
+		},
+		settings,
+		cfg,
+		nil,
+	)
+	scraper.mb = metadata.NewMetricsBuilder(cfg.MetricsBuilderConfig, settings)
+	// dbVersion and dbEdition left as "" (zero value)
+
+	row := sqlquery.StringMap{
+		computerNameKey: "test-computer",
+		instanceNameKey: "test-instance",
+	}
+
+	rb := scraper.setupResourceBuilder(scraper.mb.NewResourceBuilder(), row)
+	resource := rb.Emit()
+
+	_, ok := resource.Attributes().Get("db.system.version")
+	assert.False(t, ok, "db.system.version should not be emitted when empty")
+
+	_, ok = resource.Attributes().Get("sqlserver.db.edition")
+	assert.False(t, ok, "sqlserver.db.edition should not be emitted when empty")
 }
