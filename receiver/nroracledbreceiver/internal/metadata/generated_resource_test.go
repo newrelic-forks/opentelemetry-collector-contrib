@@ -14,6 +14,7 @@ func TestResourceBuilder(t *testing.T) {
 			cfg := loadResourceAttributesConfig(t, tt)
 			rb := NewResourceBuilder(cfg)
 			rb.SetHostName("host.name-val")
+			rb.SetOracleDbEdition("oracle.db.edition-val")
 			rb.SetOracleDbHostingType("oracle.db.hosting_type-val")
 			rb.SetOracleDbOpenMode("oracle.db.open_mode-val")
 			rb.SetOracleDbRole("oracle.db.role-val")
@@ -30,7 +31,7 @@ func TestResourceBuilder(t *testing.T) {
 			case "default":
 				assert.Equal(t, 7, res.Attributes().Len())
 			case "all_set":
-				assert.Equal(t, 9, res.Attributes().Len())
+				assert.Equal(t, 10, res.Attributes().Len())
 			case "none_set":
 				assert.Equal(t, 0, res.Attributes().Len())
 				return
@@ -41,6 +42,11 @@ func TestResourceBuilder(t *testing.T) {
 			assert.True(t, ok)
 			if ok {
 				assert.Equal(t, "host.name-val", hostNameAttrVal.Str())
+			}
+			oracleDbEditionAttrVal, ok := res.Attributes().Get("oracle.db.edition")
+			assert.Equal(t, tt == "all_set", ok)
+			if ok {
+				assert.Equal(t, "oracle.db.edition-val", oracleDbEditionAttrVal.Str())
 			}
 			oracleDbHostingTypeAttrVal, ok := res.Attributes().Get("oracle.db.hosting_type")
 			assert.True(t, ok)
