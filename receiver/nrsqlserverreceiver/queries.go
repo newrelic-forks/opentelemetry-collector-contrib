@@ -1318,45 +1318,6 @@ func getSQLServerProcessCountQuery(instanceName string) string {
 	return r.Replace(sqlServerProcessCountQuery)
 }
 
-// One row per online user database; receiver derives "used" as total - free.
-// UNION ALL because the sqlquery client only reads the first result set.
-const sqlServerDatabasePageFileQuery = `
-SET DEADLOCK_PRIORITY -10;
-IF SERVERPROPERTY('EngineEdition') NOT IN (2,3,4,8) BEGIN
-	DECLARE @ErrorMessage AS nvarchar(500) = 'Connection string Server:' + @@ServerName + ',Database:' + DB_NAME() + ' is not supported for sqlserver.database.page_file.size (Azure SQL Database does not allow cross-database 3-part naming).';
-	RAISERROR (@ErrorMessage,11,1)
-	RETURN
-END
-
-DECLARE @SQL nvarchar(max) = N'';
-
-SELECT @SQL = @SQL +
-	CASE WHEN @SQL = N'' THEN N'' ELSE N' UNION ALL ' END +
-	N'SELECT ''' + REPLACE(name, '''', '''''') + N''' AS [db_name], ' +
-	N'CAST(SUM(a.total_pages) * 8 * 1024 AS BIGINT) AS [reserved_space_bytes], ' +
-	N'CAST((SUM(a.total_pages) - SUM(a.used_pages)) * 8 * 1024 AS BIGINT) AS [reserved_space_not_used_bytes] ' +
-	N'FROM ' + QUOTENAME(name) + N'.sys.partitions p WITH (NOLOCK) ' +
-	N'INNER JOIN ' + QUOTENAME(name) + N'.sys.allocation_units a WITH (NOLOCK) ON p.partition_id = a.container_id'
-FROM sys.databases WITH (NOLOCK)
-WHERE database_id > 4  -- Exclude system databases (master, tempdb, model, msdb)
-	AND state = 0  -- Online only
-	AND name NOT IN ('rdsadmin', 'distribution', 'model_msdb', 'model_replicatedmaster')
-{filter_instance_name};
-
-IF @SQL <> N'' EXEC sp_executesql @SQL;
-`
-
-func getSQLServerDatabasePageFileQuery(instanceName string) string {
-	if instanceName != "" {
-		whereClause := fmt.Sprintf("\tAND @@SERVERNAME = '%s'", instanceName)
-		r := strings.NewReplacer("{filter_instance_name}", whereClause)
-		return r.Replace(sqlServerDatabasePageFileQuery)
-	}
-
-	r := strings.NewReplacer("{filter_instance_name}", "")
-	return r.Replace(sqlServerDatabasePageFileQuery)
-}
-
 // Single-row snapshot of worker / task / scheduler state for thread-pool diagnostics.
 const sqlServerThreadPoolQuery = `
 SET DEADLOCK_PRIORITY -10;

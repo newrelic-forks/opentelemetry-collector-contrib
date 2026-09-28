@@ -161,7 +161,7 @@ func (s *sqlServerPCScraper) emitMetricGroup(recorders []curriedRecorder, databa
 	rb.SetServiceNamespace("")
 	rb.SetServiceInstanceID(s.serviceInstanceID)
 	if host, _, err := net.SplitHostPort(s.serviceInstanceID); err == nil {
-		rb.SetSqlserverHostName(host)
+		rb.SetSqlserverTargetHost(host)
 	}
 	if databaseName != "" {
 		rb.SetSqlserverDatabaseName(databaseName)

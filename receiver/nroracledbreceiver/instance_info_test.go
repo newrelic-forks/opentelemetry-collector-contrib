@@ -24,6 +24,11 @@ func versionRow(v string) []metricRow {
 	return []metricRow{{"VERSION": v}}
 }
 
+// versionEditionRow builds the fakeDbClient response for the v$instance version+edition query.
+func versionEditionRow(v, edition string) []metricRow {
+	return []metricRow{{"VERSION": v, colEdition: edition}}
+}
+
 // cdbRow builds the fakeDbClient response for the v$database CDB/role/open_mode query.
 func cdbRow(cdb, role, openMode string) []metricRow {
 	return []metricRow{{"CDB": cdb, "DATABASE_ROLE": role, "OPEN_MODE": openMode}}
@@ -104,6 +109,33 @@ func TestMajorVersion(t *testing.T) {
 }
 
 // -- detectInstanceInfo tests -------------------------------------------------
+
+func TestDetectInstanceInfo_EditionPopulated(t *testing.T) {
+	// Edition is read from the same row as version; verify it is populated.
+	info := detectInstanceInfo(t.Context(),
+		rowClient(versionEditionRow("19.0.0.0.0", "EE")),
+		rowClient(cdbRow("NO", "PRIMARY", "READ WRITE")),
+		noopClient(t), noopClient(t),
+		emptyClient(), emptyClient(), emptyClient(),
+		zap.NewNop(),
+	)
+
+	assert.Equal(t, "19.0.0.0.0", info.dbVersion)
+	assert.Equal(t, "EE", info.dbEdition)
+}
+
+func TestDetectInstanceInfo_EditionUnknownTreatedAsEmpty(t *testing.T) {
+	// Oracle returns "UNKNOWN" for edition on some releases; treat it as absent.
+	info := detectInstanceInfo(t.Context(),
+		rowClient(versionEditionRow("19.0.0.0.0", "UNKNOWN")),
+		rowClient(cdbRow("NO", "PRIMARY", "READ WRITE")),
+		noopClient(t), noopClient(t),
+		emptyClient(), emptyClient(), emptyClient(),
+		zap.NewNop(),
+	)
+	assert.Equal(t, "19.0.0.0.0", info.dbVersion)
+	assert.Empty(t, info.dbEdition)
+}
 
 func TestDetectInstanceInfo_VersionQueryFails(t *testing.T) {
 	// Version query fails: all fields stay at zero, detection stops.

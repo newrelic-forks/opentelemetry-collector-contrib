@@ -186,8 +186,6 @@ func (s *sqlServerScraperHelper) ScrapeMetrics(ctx context.Context) (pmetric.Met
 		err = s.recordOSSchedulerMetrics(ctx)
 	case getSQLServerProcessCountQuery(s.config.InstanceName):
 		err = s.recordProcessCountMetrics(ctx)
-	case getSQLServerDatabasePageFileQuery(s.config.InstanceName):
-		err = s.recordDatabasePageFileMetrics(ctx)
 	case getSQLServerThreadPoolQuery(s.config.InstanceName):
 		err = s.recordThreadPoolMetrics(ctx)
 	case getSQLServerWorkerThreadsQuery(s.config.InstanceName):
@@ -426,7 +424,7 @@ func (s *sqlServerScraperHelper) setupResourceBuilder(rb *metadata.ResourceBuild
 	}
 
 	rb.SetHostName(hostName)
-	rb.SetSqlserverHostName(hostName)
+	rb.SetSqlserverTargetHost(hostName)
 	rb.SetServiceInstanceID(s.serviceInstanceID)
 	rb.SetServiceName(defaultServiceName)
 	rb.SetServiceNamespace("")
@@ -1833,53 +1831,6 @@ func (s *sqlServerScraperHelper) recordProcessCountMetrics(ctx context.Context) 
 	return errors.Join(errs...)
 }
 
-func (s *sqlServerScraperHelper) recordDatabasePageFileMetrics(ctx context.Context) error {
-	const (
-		databaseName              = "db_name"
-		reservedSpaceBytes        = "reserved_space_bytes"
-		reservedSpaceNotUsedBytes = "reserved_space_not_used_bytes"
-	)
-
-	rows, err := s.client.QueryRows(ctx)
-	if err != nil {
-		if !errors.Is(err, sqlquery.ErrNullValueWarning) {
-			return fmt.Errorf("sqlServerScraperHelper: %w", err)
-		}
-		s.logger.Warn("problems encountered getting metric rows", zap.Error(err))
-	}
-
-	var errs []error
-	now := pcommon.NewTimestampFromTime(time.Now())
-	for i, row := range rows {
-		rb := s.setupResourceBuilder(s.mb.NewResourceBuilder(), row)
-		rb.SetSqlserverDatabaseName(row[databaseName])
-
-		totalVal, totalErr := retrieveInt(row, reservedSpaceBytes)
-		freeVal, freeErr := retrieveInt(row, reservedSpaceNotUsedBytes)
-		if totalErr != nil {
-			errs = append(errs, fmt.Errorf("failed to parse %s for row %d: %w", reservedSpaceBytes, i, totalErr))
-		}
-		if freeErr != nil {
-			errs = append(errs, fmt.Errorf("failed to parse %s for row %d: %w", reservedSpaceNotUsedBytes, i, freeErr))
-		}
-
-		if totalErr == nil {
-			errs = append(errs, s.mb.RecordSqlserverDatabasePageFileSizeDataPoint(now, row[reservedSpaceBytes], row[databaseName], metadata.AttributePageFileStateTotal))
-		}
-		if freeErr == nil {
-			errs = append(errs, s.mb.RecordSqlserverDatabasePageFileSizeDataPoint(now, row[reservedSpaceNotUsedBytes], row[databaseName], metadata.AttributePageFileStateFree))
-		}
-		if totalErr == nil && freeErr == nil {
-			usedBytes := max(totalVal.(int64)-freeVal.(int64), 0)
-			errs = append(errs, s.mb.RecordSqlserverDatabasePageFileSizeDataPoint(now, fmt.Sprintf("%d", usedBytes), row[databaseName], metadata.AttributePageFileStateUsed))
-		}
-
-		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
-	}
-
-	return errors.Join(errs...)
-}
-
 func (s *sqlServerScraperHelper) recordWorkerThreadMetrics(ctx context.Context) error {
 	const activeThreads = "active_threads"
 	const availableThreads = "available_threads"
@@ -2822,7 +2773,7 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 	const reads = "reads"
 	const requestStatus = "request_status"
 	const rowCount = "row_count"
-	const sessionDurationMillisecond = "session_duration"
+	const sessionDurationSecond = "session_duration"
 	const sessionID = "session_id"
 	const sessionStartTime = "session_start_time"
 	const sessionStatus = "session_status"
@@ -2992,8 +2943,8 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 		rowCountVal := s.retrieveValue(row, rowCount, &errs, retrieveInt).(int64)
 		sessionIDVal := s.retrieveValue(row, sessionID, &errs, retrieveInt).(int64)
 		sessionStatusVal := row[sessionStatus]
-		sessionDurationSecondVal := s.retrieveValue(row, sessionDurationMillisecond, &errs, retrieveIntAndConvert(func(i int64) any {
-			return float64(i) / 1000.0
+		sessionDurationSecondVal := s.retrieveValue(row, sessionDurationSecond, &errs, retrieveIntAndConvert(func(i int64) any {
+			return float64(i)
 		})).(float64)
 		totalElapsedTimeSecondVal := s.retrieveValue(row, totalElapsedTimeMillisecond, &errs, retrieveIntAndConvert(func(i int64) any {
 			return float64(i) / 1000.0

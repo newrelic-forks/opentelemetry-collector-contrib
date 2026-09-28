@@ -618,6 +618,7 @@ func TestMetricsBuilderConfig(t *testing.T) {
 				},
 				ResourceAttributes: ResourceAttributesConfig{
 					HostName:             ResourceAttributeConfig{Enabled: true},
+					OracleDbEdition:      ResourceAttributeConfig{Enabled: true},
 					OracleDbHostingType:  ResourceAttributeConfig{Enabled: true},
 					OracleDbOpenMode:     ResourceAttributeConfig{Enabled: true},
 					OracleDbRole:         ResourceAttributeConfig{Enabled: true},
@@ -1225,6 +1226,7 @@ func TestMetricsBuilderConfig(t *testing.T) {
 				},
 				ResourceAttributes: ResourceAttributesConfig{
 					HostName:             ResourceAttributeConfig{Enabled: false},
+					OracleDbEdition:      ResourceAttributeConfig{Enabled: false},
 					OracleDbHostingType:  ResourceAttributeConfig{Enabled: false},
 					OracleDbOpenMode:     ResourceAttributeConfig{Enabled: false},
 					OracleDbRole:         ResourceAttributeConfig{Enabled: false},
@@ -2382,6 +2384,7 @@ func TestResourceAttributesConfig(t *testing.T) {
 			name: "all_set",
 			want: ResourceAttributesConfig{
 				HostName:             ResourceAttributeConfig{Enabled: true},
+				OracleDbEdition:      ResourceAttributeConfig{Enabled: true},
 				OracleDbHostingType:  ResourceAttributeConfig{Enabled: true},
 				OracleDbOpenMode:     ResourceAttributeConfig{Enabled: true},
 				OracleDbRole:         ResourceAttributeConfig{Enabled: true},
@@ -2396,6 +2399,7 @@ func TestResourceAttributesConfig(t *testing.T) {
 			name: "none_set",
 			want: ResourceAttributesConfig{
 				HostName:             ResourceAttributeConfig{Enabled: false},
+				OracleDbEdition:      ResourceAttributeConfig{Enabled: false},
 				OracleDbHostingType:  ResourceAttributeConfig{Enabled: false},
 				OracleDbOpenMode:     ResourceAttributeConfig{Enabled: false},
 				OracleDbRole:         ResourceAttributeConfig{Enabled: false},
