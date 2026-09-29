@@ -88,7 +88,7 @@ resourceLogs:
               - key: mysql.events_statements_current.timer_start
                 value:
                   intValue: "0"
-              - key: mysql.session.client_name
+              - key: mysql.client.name
                 value:
                   stringValue: ""
               - key: mysql.blocking.blockers
