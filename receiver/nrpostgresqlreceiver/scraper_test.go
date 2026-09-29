@@ -2071,6 +2071,103 @@ func TestScrapeTopQueriesCollectsOnlyWhenIntervalHasElapsed(t *testing.T) {
 	assert.Equal(t, collectionTime, scraper.lastExecutionTimestamp, "No new collection should happen until configured collection_interval")
 }
 
+func TestScrapeQuerySamplesHonorsConnectDatabase(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.Databases = []string{"mydb"}
+	cfg.ConnectDatabase = "monitoring"
+	cfg.LogsBuilderConfig.Events.DbServerQuerySample.Enabled = true
+
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	settings := receivertest.NewNopSettings(metadata.Type)
+	logger, err := zap.NewProduction()
+	require.NoError(t, err)
+	settings.TelemetrySettings = component.TelemetrySettings{Logger: logger}
+
+	factory := &recordingClientFactory{mockSimpleClientFactory: mockSimpleClientFactory{db: db}}
+	scraper, err := newPostgreSQLScraper(settings, cfg, factory, newCache(30), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
+	require.NoError(t, err)
+
+	mock.ExpectQuery(".*").WillReturnRows(sqlmock.NewRows(querySampleColumns))
+
+	_, err = scraper.scrapeQuerySamples(t.Context(), 30)
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+
+	// The connection target (monitoring) is independent of the reporting scope
+	// (mydb) — connecting to monitoring must not add it to Databases.
+	require.Equal(t, []string{"monitoring"}, factory.requestedDatabases)
+	require.Equal(t, []string{"mydb"}, cfg.Databases)
+}
+
+func TestScrapeTopQueryHonorsConnectDatabase(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.Databases = []string{"mydb"}
+	cfg.ConnectDatabase = "monitoring"
+	cfg.LogsBuilderConfig.Events.DbServerTopQuery.Enabled = true
+
+	db, _, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	settings := receivertest.NewNopSettings(metadata.Type)
+	logger, err := zap.NewProduction()
+	require.NoError(t, err)
+	settings.TelemetrySettings = component.TelemetrySettings{Logger: logger}
+
+	factory := &recordingClientFactory{mockSimpleClientFactory: mockSimpleClientFactory{db: db}}
+	scraper, err := newPostgreSQLScraper(settings, cfg, factory, newCache(30), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
+	require.NoError(t, err)
+
+	_, err = scraper.scrapeTopQuery(t.Context(), 31, 32, 33, time.Minute)
+	require.NoError(t, err)
+
+	require.Equal(t, []string{"monitoring"}, factory.requestedDatabases)
+	require.Equal(t, []string{"mydb"}, cfg.Databases)
+}
+
+func TestScrapeHonorsConnectDatabase(t *testing.T) {
+	factory := new(mockClientFactory)
+	factory.initMocksWithConnectDatabase([]string{"mydb"}, "monitoring")
+
+	cfg := createDefaultConfig().(*Config)
+	cfg.Databases = []string{"mydb"}
+	cfg.ConnectDatabase = "monitoring"
+
+	scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, factory, newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
+	require.NoError(t, err)
+
+	_, err = scraper.scrape(t.Context())
+	require.NoError(t, err)
+
+	// scrape's discovery/server-level client must come from connect_database
+	// ("monitoring"), not the hardcoded defaultPostgreSQLDatabase constant.
+	factory.AssertCalled(t, "getClient", mock.Anything, "monitoring")
+	factory.AssertNotCalled(t, "getClient", mock.Anything, defaultPostgreSQLDatabase)
+}
+
+func TestScrapeConnectsToConnectDatabaseEvenWhenExcluded(t *testing.T) {
+	factory := new(mockClientFactory)
+	factory.initMocksWithConnectDatabase([]string{"mydb"}, "monitoring")
+
+	cfg := createDefaultConfig().(*Config)
+	cfg.Databases = []string{"mydb"}
+	cfg.ConnectDatabase = "monitoring"
+	cfg.ExcludeDatabases = []string{"monitoring"}
+
+	scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, factory, newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
+	require.NoError(t, err)
+
+	_, err = scraper.scrape(t.Context())
+	require.NoError(t, err)
+
+	// connect_database is excluded from reporting, but the receiver still
+	// connects to it for discovery and server-level queries.
+	factory.AssertCalled(t, "getClient", mock.Anything, "monitoring")
+}
+
 func TestIsCollectionDue(t *testing.T) {
 	collectionInterval := 20 * time.Second
 	currentCollectionTime := time.Now()
@@ -3065,6 +3162,19 @@ func (m mockSimpleClientFactory) getClient(context.Context, string) (client, err
 	}, nil
 }
 
+// recordingClientFactory records the databases passed to getClient.
+type recordingClientFactory struct {
+	mockSimpleClientFactory
+	requestedDatabases []string
+}
+
+var _ postgreSQLClientFactory = (*recordingClientFactory)(nil)
+
+func (m *recordingClientFactory) getClient(ctx context.Context, database string) (client, error) {
+	m.requestedDatabases = append(m.requestedDatabases, database)
+	return m.mockSimpleClientFactory.getClient(ctx, database)
+}
+
 // getQuerySamples implements client.
 func (*mockClient) getQuerySamples(context.Context, int64, float64, []string, []string, *zap.Logger) ([]map[string]any, float64, error) {
 	panic("this should not be invoked")
@@ -3190,9 +3300,17 @@ func (m *mockClientFactory) close() error {
 }
 
 func (m *mockClientFactory) initMocks(databases []string) {
+	m.initMocksWithConnectDatabase(databases, defaultPostgreSQLDatabase)
+}
+
+// initMocksWithConnectDatabase behaves like initMocks, but registers the
+// cluster-wide ("list") client under connectDatabase instead of the
+// defaultPostgreSQLDatabase constant, so tests can verify the receiver
+// connects to a configured connect_database rather than a hardcoded value.
+func (m *mockClientFactory) initMocksWithConnectDatabase(databases []string, connectDatabase string) {
 	listClient := new(mockClient)
 	listClient.initMocks(defaultPostgreSQLDatabase, "public", databases, 0)
-	m.On("getClient", mock.Anything, defaultPostgreSQLDatabase).Return(listClient, nil)
+	m.On("getClient", mock.Anything, connectDatabase).Return(listClient, nil)
 
 	for index, db := range databases {
 		client := new(mockClient)
