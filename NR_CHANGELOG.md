@@ -5,9 +5,28 @@ including confirmation of which breaking changes from [CHANGELOG.md](./CHANGELOG
 
 <!-- next version -->
 
-## Unreleased
+## v0.162.0
+
+Synced with upstream contrib v0.162.0.
 
 ### 🛑 Breaking changes 🛑
+
+- `receiver/nrsqlserver`: `collect_full_query_text` and `allowed_comment_keys` moved from the top
+  level of the config into `top_query_collection` and `query_sample_collection`, so the two events
+  are configured independently. A config that still sets either key at the top level now fails at
+  startup with an unknown-key error instead of silently dropping the attributes.
+
+- `receiver/nrsqlserver`: removed the `sqlserver.database.page_file.size` metric (disabled by
+  default) and its `page_file.state` attribute.
+
+- `receiver/nrsqlserver`: `sqlserver.session.duration` on `db.server.query_sample` now measures
+  seconds since the session logged in, instead of the elapsed time of the session's active request,
+  matching `nroracledb`. Values for idle or long-lived sessions will be much larger.
+
+- `receiver/nrmysql`: three event attributes are renamed to match upstream `receiver/mysql`:
+  `mysql.session.client_name` → `mysql.client.name` on `db.server.query_sample`, and
+  `mysql.events_statements_summary_by_digest.sum_rows_examined` / `.sum_rows_sent` → `.examined_rows`
+  / `.returned_rows` on `db.server.top_query`. Values are unchanged.
 
 - `receiver/nrpostgresql`: `receiver.nrpostgresql.useOTelSemconv` is now Beta and **enabled by
   default** (was Alpha, disabled). Resource attributes emitted by default switch from the legacy
@@ -22,7 +41,112 @@ including confirmation of which breaking changes from [CHANGELOG.md](./CHANGELOG
   `postgresql.session.duration`, matching this receiver's existing dotted-namespace attribute
   convention (e.g. `postgresql.blocking.start_time`).
 
+- `receiver/nrsqlserver`, `receiver/nroracledb`, `receiver/nrpostgresql`, `receiver/nrmysql`: the SQL
+  normalizer now matches New Relic APM's, so `db.query.text.normalized.hash` can change for the same
+  statement. `TRUE`/`FALSE`/`NULL` keyword literals, hex literals and PostgreSQL `EXTRACT` field
+  names are now replaced with `?`; MySQL `@@` system variables are no longer treated as bind
+  parameters; and invisible Unicode format characters are stripped. Anything keyed on the hash
+  (dashboards, joins with APM data) sees new values for affected statements.
+
+- `receiver/nroracledb` (upstream [#45270](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/45270)):
+  units on 39 metrics moved to singular form, e.g. `{gets}` → `{get}`, `{sessions}` → `{session}`,
+  `{parses}/s` → `{parse}/s`. Values are unchanged. Ported.
+
+- `receiver/nroracledb` (upstream [#50882](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/50882), [#50951](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/50951)):
+  `oracledb.plan.first_load` and `oracledb.plan.last_load` on `db.server.top_query` are now ISO 8601
+  UTC timestamps (`2026-09-29T10:15:00Z`) instead of Oracle's native `YYYY-MM-DD/HH:MM:SS` in the
+  server's local timezone, on both CDB-root and non-CDB connections. Ported.
+
+- `receiver/nroracledb` (upstream [#50724](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/50724)):
+  when the configured target has no parseable port, `service.instance.id` now resolves to
+  `host:1521/service` instead of `unknown:1521/service`, which changes the resource identity for
+  those configs. Targets with no parseable host at all (e.g. TNS descriptors) are unchanged. Ported.
+
+- `receiver/nrsqlserver` (upstream [#50384](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/50384)):
+  `server.address` and `server.port` removed from `db.server.top_query` log record attributes, kept
+  as resource attributes enabled by default, and the `receiver.sqlserver.RemoveServerResourceAttribute`
+  feature gate removed. **Already matched — no fork change was needed**; the fork never carried
+  those log attributes or the gate. Its stale README section for the gate was removed.
+
+No other breaking change in upstream v0.161.0 or v0.162.0 applies to these receivers. The two `all`
+entries — removal of the deprecated mezmo exporter (#49953) and of the wavefront receiver (#51397) —
+concern components these receivers do not use.
+
+### 🚩 New components 🚩
+
+- `receiver/nrsqlserver`, `receiver/nroracledb`, `receiver/nrpostgresql`, `receiver/nrmysql`: new
+  `db.server.query_plan` event that reports the execution plan on a record of its own, so it can be
+  filtered, routed or dropped independently of the query statistics. Disabled by default; while it is
+  disabled nothing changes. Enabling it moves the plan off `db.server.top_query` (and, for `nrmysql`,
+  `db.server.query_sample`, which keeps `mysql.query_plan.hash` as the join key; `nrmysql` also adds
+  the `mysql.query_plan.source` attribute). It needs `db.server.top_query` enabled (`nrmysql`: top
+  query or query sample): `nroracledb`, `nrpostgresql` and `nrmysql` reject a config that enables it
+  alone, and `nrsqlserver` accepts it but collects nothing. From upstream (#50629, #51065, #51301,
+  #51281).
+
+- `receiver/nrsqlserver`, `receiver/nroracledb`: new `db.server.top_procedure` event reporting
+  per-interval deltas of stored-procedure statistics, ranked by elapsed time. Disabled by default;
+  configured through the new `top_procedure_collection` block (`max_procedure_sample_count`,
+  `top_procedure_count`, `collection_interval`). From upstream (#50799, #50796).
+
+- `receiver/nrmysql`: 3 opt-in InnoDB redo-log metrics — `mysql.innodb.redo_log.lsn.current`,
+  `mysql.innodb.redo_log.lsn.checkpoint` and `mysql.innodb.redo_log.checkpoint.age` (#50650).
+
+- `receiver/nrmysql`: 3 opt-in KPI metrics — `mysql.server.healthy`, `mysql.session.active.count` and
+  `mysql.query.execution.time` (#50726).
+
+- `receiver/nroracledb`: system and resource-limit metrics are now also collected when connected
+  directly to a PDB, such as on AWS RDS Oracle (#50147).
+
+### 🧰 Bug fixes 🧰
+
+- `receiver/nroracledb`: `db.server.top_query` and `db.server.top_procedure` no longer run before
+  their configured collection interval has elapsed (#50888).
+
+- `receiver/nroracledb`: on CDB-root connections, dictionary joins are qualified by `CON_ID`, so
+  procedure names and blocked-object owner/name are attributed to the correct PDB and procedure
+  execution counts are no longer merged across PDBs. Uses `CDB_PROCEDURES`/`CDB_OBJECTS` when those
+  grants are present and falls back otherwise (#50797).
+
+- `receiver/nrmysql`: a connection lost part-way through a scrape is now reported as an error,
+  instead of returning partial results that looked like a successful collection (#51125).
+
+- `receiver/nrpostgresql`: fixed wrong top-query counter deltas and top-N ranking caused by an
+  undersized counter cache (#51066), and by cache entries shared across databases and roles that ran
+  the same query ID (#51067). Cache entries are keyed on the role OID (`userid`) rather than its name,
+  so a dropped and re-created role no longer collides.
+
+- `receiver/nrpostgresql`: query plans are now collected for top queries that use `EXTRACT(field
+  FROM ...)` or a typed literal such as `interval '1 day'`, instead of failing EXPLAIN (#50670).
+
+- `receiver/nrpostgresql`: `postgresql.table.size` now reports a table's total disk usage, including
+  its indexes and TOAST storage, instead of only the main data heap. Adopted from upstream
+  `receiver/postgresql` (#50918).
+
 ### 💡 Enhancements 💡
+
+- `receiver/nroracledb`, `receiver/nrmysql`: `server.address` and `server.port` resource attributes,
+  **enabled by default** (#50724, #50967).
+
+- `receiver/nrsqlserver`, `receiver/nroracledb`, `receiver/nrpostgresql`, `receiver/nrmysql`: when
+  the receiver connects over loopback (e.g. `localhost`, `127.0.0.1`), `server.address` reports the
+  host name of the machine running the collector instead of `localhost`, matching how
+  `service.instance.id` already resolves (#49885, #50724, #50889, #50967).
+
+- `receiver/nrpostgresql`: `server.address` and `server.port` are emitted in both resource models,
+  regardless of `receiver.nrpostgresql.useOTelSemconv` (#50889).
+
+- `receiver/nrsqlserver`, `receiver/nrpostgresql`: `db.system.version` resource attribute, disabled
+  by default (#51194, #51288).
+
+- `receiver/nrsqlserver`: `sqlserver.db.edition` resource attribute, disabled by default.
+
+- `receiver/nroracledb`: `oracle.db.edition` resource attribute, disabled by default (#51292).
+
+- `receiver/nroracledb`: `db.system.name` attribute on `db.server.session.wait_sample` (#51065).
+
+- `receiver/nrpostgresql`: `postgresql.userid` attribute (role OID) on `db.server.top_query` and
+  `db.server.query_plan`; stays set even after the role is dropped (#51331).
 
 - `receiver/nrpostgresql`: added a `connect_database` config option controlling which database the
   receiver connects to for cluster-wide queries (discovery, `pg_stat_statements`, bgwriter/WAL/
@@ -30,12 +154,6 @@ including confirmation of which breaking changes from [CHANGELOG.md](./CHANGELOG
   unaffected. Independent of `databases` — useful when `pg_stat_statements` is installed in a
   database other than `postgres`, or when connecting through a dedicated monitoring-only database.
   Adopted from upstream `receiver/postgresql` (#50921).
-
-### 🧰 Bug fixes 🧰
-
-- `receiver/nrpostgresql`: `postgresql.table.size` now reports a table's total disk usage, including
-  its indexes and TOAST storage, instead of only the main data heap. Adopted from upstream
-  `receiver/postgresql` (#50918).
 
 ## v0.160.0
 
