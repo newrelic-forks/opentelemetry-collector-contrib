@@ -1700,6 +1700,20 @@ events:
     enabled: true
 ```
 
+### db.server.query_plan
+
+query execution plan. When enabled, the plan is reported here instead of on db.server.top_query, so an oversized plan payload cannot drop the lightweight query statistics alongside it
+
+#### Attributes
+
+| Name | Description | Values | Semantic Convention |
+| ---- | ----------- | ------ | ------------------- |
+| db.namespace | The database name. | Any Str | - |
+| db.system.name | The database management system (DBMS) product as identified by the client instrumentation. | Any Str | - |
+| sqlserver.query_hash | Binary hash value calculated on the query and used to identify queries with similar logic, reported in the HEX format. | Any Str | - |
+| sqlserver.query_plan | The query execution plan used by the SQL Server. | Any Str | - |
+| sqlserver.query_plan_hash | Binary hash value calculated on the query execution plan and used to identify similar query execution plans, reported in the HEX format. | Any Str | - |
+
 ### db.server.query_sample
 
 query sample

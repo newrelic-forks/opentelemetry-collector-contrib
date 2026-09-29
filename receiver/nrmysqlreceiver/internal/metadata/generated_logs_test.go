@@ -136,6 +136,9 @@ func TestLogsBuilder(t *testing.T) {
 			allEventsCount := 0
 
 			allEventsCount++
+			lb.RecordDbServerQueryPlanEvent(ctx, timestamp, AttributeDbSystemNameMysql, "mysql.query_plan.hash-val", "db.namespace-val", AttributeMysqlQueryPlanSourceDbServerTopQuery, "mysql.query_plan-val")
+
+			allEventsCount++
 			lb.RecordDbServerQuerySampleEvent(ctx, timestamp, AttributeDbSystemNameMysql, 23, "user.name-val", "db.namespace-val", "mysql.threads.processlist_command-val", "mysql.threads.processlist_state-val", "db.query.text-val", "mysql.events_statements_current.digest-val", "mysql.query_plan-val", "mysql.query_plan.hash-val", 14, "mysql.wait_event_type-val", "mysql.wait_event-val", "mysql.wait_type-val", "mysql.session.status-val", 16, 42.100000, 37.100000, "client.address-val", 11, "network.peer.address-val", 17, "db.query.comment_tags-val", "db.query.comment_tags.nr_service_guid-val", "db.query.text.normalized.hash-val", 43, "mysql.client.name-val", "mysql.blocking.blockers-val", 28)
 
 			allEventsCount++
@@ -172,6 +175,28 @@ func TestLogsBuilder(t *testing.T) {
 			validatedEvents := make(map[string]bool)
 			for i := 0; i < lrs.Len(); i++ {
 				switch lrs.At(i).EventName() {
+				case "db.server.query_plan":
+					assert.False(t, validatedEvents["db.server.query_plan"], "Found a duplicate in the events slice: db.server.query_plan")
+					validatedEvents["db.server.query_plan"] = true
+					lr := lrs.At(i)
+					assert.Equal(t, timestamp, lr.Timestamp())
+					assert.Equal(t, pcommon.TraceID(traceID), lr.TraceID())
+					assert.Equal(t, pcommon.SpanID(spanID), lr.SpanID())
+					attrVal, ok := lr.Attributes().Get("db.system.name")
+					assert.True(t, ok)
+					assert.Equal(t, "mysql", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("mysql.query_plan.hash")
+					assert.True(t, ok)
+					assert.Equal(t, "mysql.query_plan.hash-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("db.namespace")
+					assert.True(t, ok)
+					assert.Equal(t, "db.namespace-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("mysql.query_plan.source")
+					assert.True(t, ok)
+					assert.Equal(t, "db.server.top_query", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("mysql.query_plan")
+					assert.True(t, ok)
+					assert.Equal(t, "mysql.query_plan-val", attrVal.Str())
 				case "db.server.query_sample":
 					assert.False(t, validatedEvents["db.server.query_sample"], "Found a duplicate in the events slice: db.server.query_sample")
 					validatedEvents["db.server.query_sample"] = true

@@ -232,6 +232,10 @@ attributes:
   mysql.query_plan.hash:
     description: This attribute is set to the same value as mysql.events_statements_summary_by_digest.digest (query digest) by design.
     type: string
+  mysql.query_plan.source:
+    description: The event the plan was reported for, so plans can be routed or dropped per source event.
+    type: string
+    enum: [db.server.top_query, db.server.query_sample]
   mysql.replica.channel.name:
     description: The replication channel name.
     type: string
@@ -362,6 +366,16 @@ attributes:
     enum: [allow_write, concurrent_insert, low_priority, normal, external]
     requirement_level: recommended
 events:
+  db.server.query_plan:
+    enabled: false
+    description: The execution plan for a query.
+    attributes:
+      - db.system.name
+      - mysql.query_plan.hash
+      - db.namespace
+      - mysql.query_plan.source
+      - mysql.query_plan
+
   db.server.query_sample:
     enabled: false
     description: |

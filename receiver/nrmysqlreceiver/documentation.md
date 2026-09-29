@@ -908,6 +908,20 @@ events:
     enabled: true
 ```
 
+### db.server.query_plan
+
+The execution plan for a query.
+
+#### Attributes
+
+| Name | Description | Values | Semantic Convention |
+| ---- | ----------- | ------ | ------------------- |
+| db.system.name | The name of the database system. | Str: ``mysql`` | - |
+| mysql.query_plan.hash | This attribute is set to the same value as mysql.events_statements_summary_by_digest.digest (query digest) by design. | Any Str | - |
+| db.namespace | The default database/schema for the query. On query samples this is the thread's current database (processlist_db); on top queries it is the digest's SCHEMA_NAME. Empty when no default database was selected. | Any Str | - |
+| mysql.query_plan.source | The event the plan was reported for, so plans can be routed or dropped per source event. | Str: ``db.server.top_query``, ``db.server.query_sample`` | - |
+| mysql.query_plan | The query plan for the statement, if available. | Any Str | - |
+
 ### db.server.query_sample
 
 Query sample collection enables monitoring of current running database statements.
