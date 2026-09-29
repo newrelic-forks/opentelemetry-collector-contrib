@@ -39,6 +39,9 @@ const (
 // explainFunctionNamePattern validates [schema.]function_name before it's quoted and used in SQL.
 var explainFunctionNamePattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$`)
 
+// db.server.query_plan is collected as part of top query collection, so on its own it reports nothing.
+var errQueryPlanWithoutTopQuery = errors.New("`db.server.query_plan` requires `db.server.top_query` to be enabled")
+
 type TopQueryCollection struct {
 	MaxRowsPerQuery        int64         `mapstructure:"max_rows_per_query"`
 	TopNQuery              int64         `mapstructure:"top_n_query"`
@@ -146,6 +149,10 @@ func (cfg *Config) Validate() error {
 
 	if cfg.TopQueryCollection.ExplainFunctionName != "" && !explainFunctionNamePattern.MatchString(cfg.TopQueryCollection.ExplainFunctionName) {
 		err = multierr.Append(err, errors.New(ErrInvalidExplainFunctionName))
+	}
+
+	if cfg.LogsBuilderConfig.Events.DbServerQueryPlan.Enabled && !cfg.LogsBuilderConfig.Events.DbServerTopQuery.Enabled {
+		err = multierr.Append(err, errQueryPlanWithoutTopQuery)
 	}
 
 	return err

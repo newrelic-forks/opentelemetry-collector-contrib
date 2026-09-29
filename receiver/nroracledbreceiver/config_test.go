@@ -8,11 +8,41 @@ import (
 	"testing"
 	"time"
 
+	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nroracledbreceiver/internal/metadata"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/confmap/confmaptest"
 	"go.opentelemetry.io/collector/scraper/scraperhelper"
 )
+
+// Bounds are only validated when the event is enabled, so these tests must turn it on.
+func procedureMetricsEnabledLogsConfig() metadata.LogsBuilderConfig {
+	logsCfg := metadata.DefaultLogsBuilderConfig()
+	logsCfg.Events.DbServerTopProcedure.Enabled = true
+	return logsCfg
+}
+
+func queryPlanOnlyLogsConfig() metadata.LogsBuilderConfig {
+	logsCfg := metadata.DefaultLogsBuilderConfig()
+	logsCfg.Events.DbServerQueryPlan.Enabled = true
+	return logsCfg
+}
+
+// A deployment that never enables the event must not be held to bounds it does not use.
+func TestProcedureMetricsBoundsOnlyValidatedWhenEnabled(t *testing.T) {
+	cfg := &Config{
+		DataSource:         "oracle://otel:password@localhost:1521/XE",
+		ControllerConfig:   scraperhelper.NewDefaultControllerConfig(),
+		LogsBuilderConfig:  metadata.DefaultLogsBuilderConfig(),
+		TopQueryCollection: TopQueryCollection{MaxQuerySampleCount: 1000, TopQueryCount: 200},
+		ProcedureMetrics:   ProcedureMetrics{MaxProcedureSampleCount: 0, TopProcedureCount: 0},
+	}
+
+	require.NoError(t, cfg.Validate(), "out-of-range procedure bounds must not fail validation while the event is disabled")
+
+	cfg.LogsBuilderConfig = procedureMetricsEnabledLogsConfig()
+	require.Error(t, cfg.Validate(), "the same bounds must fail once the event is enabled")
+}
 
 func TestValidateInvalidConfigs(t *testing.T) {
 	testCases := []struct {
@@ -105,6 +135,60 @@ func TestValidateInvalidConfigs(t *testing.T) {
 			},
 			expected: errBadDataSource,
 		},
+		{
+			name: "Top procedure count below range",
+			config: &Config{
+				DataSource:         "oracle://otel:password@localhost:1521/XE",
+				ControllerConfig:   scraperhelper.NewDefaultControllerConfig(),
+				LogsBuilderConfig:  procedureMetricsEnabledLogsConfig(),
+				TopQueryCollection: TopQueryCollection{MaxQuerySampleCount: 1000, TopQueryCount: 200},
+				ProcedureMetrics:   ProcedureMetrics{MaxProcedureSampleCount: 1000, TopProcedureCount: 0},
+			},
+			expected: errTopProcedureCount,
+		},
+		{
+			name: "Top procedure count above range",
+			config: &Config{
+				DataSource:         "oracle://otel:password@localhost:1521/XE",
+				ControllerConfig:   scraperhelper.NewDefaultControllerConfig(),
+				LogsBuilderConfig:  procedureMetricsEnabledLogsConfig(),
+				TopQueryCollection: TopQueryCollection{MaxQuerySampleCount: 1000, TopQueryCount: 200},
+				ProcedureMetrics:   ProcedureMetrics{MaxProcedureSampleCount: 1000, TopProcedureCount: 1001},
+			},
+			expected: errTopProcedureCount,
+		},
+		{
+			name: "Top procedure count above max procedure sample count",
+			config: &Config{
+				DataSource:         "oracle://otel:password@localhost:1521/XE",
+				ControllerConfig:   scraperhelper.NewDefaultControllerConfig(),
+				LogsBuilderConfig:  procedureMetricsEnabledLogsConfig(),
+				TopQueryCollection: TopQueryCollection{MaxQuerySampleCount: 1000, TopQueryCount: 200},
+				ProcedureMetrics:   ProcedureMetrics{MaxProcedureSampleCount: 100, TopProcedureCount: 250},
+			},
+			expected: errTopProcedureCount,
+		},
+		{
+			name: "Max procedure sample count above range",
+			config: &Config{
+				DataSource:         "oracle://otel:password@localhost:1521/XE",
+				ControllerConfig:   scraperhelper.NewDefaultControllerConfig(),
+				LogsBuilderConfig:  procedureMetricsEnabledLogsConfig(),
+				TopQueryCollection: TopQueryCollection{MaxQuerySampleCount: 1000, TopQueryCount: 200},
+				ProcedureMetrics:   ProcedureMetrics{MaxProcedureSampleCount: 10001, TopProcedureCount: 250},
+			},
+			expected: errMaxProcedureSampleCount,
+		},
+		{
+			name: "Query plan event without top query event",
+			config: &Config{
+				DataSource:         "oracle://otel:password@localhost:1521/XE",
+				ControllerConfig:   scraperhelper.NewDefaultControllerConfig(),
+				LogsBuilderConfig:  queryPlanOnlyLogsConfig(),
+				TopQueryCollection: TopQueryCollection{MaxQuerySampleCount: 1000, TopQueryCount: 200},
+			},
+			expected: errQueryPlanWithoutTopQuery,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -118,6 +202,9 @@ func TestValidateInvalidConfigs(t *testing.T) {
 func TestCreateDefaultConfig(t *testing.T) {
 	cfg := createDefaultConfig().(*Config)
 	assert.Equal(t, 10*time.Second, cfg.CollectionInterval)
+	assert.Equal(t, uint(1000), cfg.ProcedureMetrics.MaxProcedureSampleCount)
+	assert.Equal(t, uint(250), cfg.ProcedureMetrics.TopProcedureCount)
+	assert.Equal(t, time.Minute, cfg.ProcedureMetrics.CollectionInterval)
 }
 
 func TestParseConfig(t *testing.T) {
@@ -137,4 +224,7 @@ func TestParseConfig(t *testing.T) {
 	settings := cfg.Metrics
 	assert.False(t, settings.OracledbTablespaceSizeUsage.Enabled)
 	assert.False(t, settings.OracledbExchangeDeadlocks.Enabled)
+	assert.Equal(t, uint(555), cfg.ProcedureMetrics.MaxProcedureSampleCount)
+	assert.Equal(t, uint(111), cfg.ProcedureMetrics.TopProcedureCount)
+	assert.True(t, cfg.Events.DbServerTopProcedure.Enabled)
 }

@@ -10,6 +10,12 @@ resourceLogs:
         - key: service.instance.id
           value:
             stringValue: oraclehost:1521/ORCL
+        - key: server.address
+          value:
+            stringValue: oraclehost
+        - key: server.port
+          value:
+            intValue: "1521"
     scopeLogs:
       - logRecords:
           - attributes:
@@ -114,16 +120,16 @@ resourceLogs:
                   stringValue: "3123456789"
               - key: oracledb.plan.first_load
                 value:
-                  stringValue: 2025-12-31/23:00:00
+                  stringValue: "2025-12-31T23:00:00Z"
               - key: oracledb.plan.last_load
                 value:
-                  stringValue: 2026-01-01/12:00:00
+                  stringValue: "2026-01-01T12:00:00Z"
               - key: db.query.text.normalized.hash
                 value:
                   stringValue: 3ba5c46a8d14079edfe93b8c9cbaf907
             body: {}
             eventName: db.server.top_query
-            timeUnixNano: "1784619439223379000"
+            timeUnixNano: "1790677588289140000"
         scope:
           name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nroracledbreceiver
           version: latest
