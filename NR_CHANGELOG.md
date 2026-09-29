@@ -22,6 +22,21 @@ including confirmation of which breaking changes from [CHANGELOG.md](./CHANGELOG
   `postgresql.session.duration`, matching this receiver's existing dotted-namespace attribute
   convention (e.g. `postgresql.blocking.start_time`).
 
+### 💡 Enhancements 💡
+
+- `receiver/nrpostgresql`: added a `connect_database` config option controlling which database the
+  receiver connects to for cluster-wide queries (discovery, `pg_stat_statements`, bgwriter/WAL/
+  replication stats, query samples, top query). Defaults to `postgres`, so existing configs are
+  unaffected. Independent of `databases` — useful when `pg_stat_statements` is installed in a
+  database other than `postgres`, or when connecting through a dedicated monitoring-only database.
+  Adopted from upstream `receiver/postgresql` (#50921).
+
+### 🧰 Bug fixes 🧰
+
+- `receiver/nrpostgresql`: `postgresql.table.size` now reports a table's total disk usage, including
+  its indexes and TOAST storage, instead of only the main data heap. Adopted from upstream
+  `receiver/postgresql` (#50918).
+
 ## v0.160.0
 
 Synced with upstream contrib v0.160.0.

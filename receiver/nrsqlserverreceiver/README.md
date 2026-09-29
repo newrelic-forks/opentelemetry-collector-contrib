@@ -70,9 +70,27 @@ sqlserver:
     max_query_sample_count: 1000               # maximum number query we store in cache for top queries.
     top_query_count: 250                       # The maximum number of active queries to report in a single run.
     collection_interval: 60s                   # collection interval for top query collection specifically
+    collect_full_query_text: true              # also collect the full SQL batch text the statement came from
+    allowed_comment_keys:                      # SQL comment keys to extract into db.query.comment_tags
+      - nr_service_guid
   query_sample_collection:                     # this collection exports the currently (relate to the query time) executing queries as logs
     max_rows_per_query: 100                    # the maximum number of samples to return for one single query.
+    collect_full_query_text: true              # also collect the full SQL batch text the statement came from
+    allowed_comment_keys:                      # SQL comment keys to extract into db.query.comment_tags
+      - nr_service_guid
 ```
+
+`collect_full_query_text` and `allowed_comment_keys` are configured separately for each event
+collection, so `top_query_collection` and `query_sample_collection` can enable them independently.
+Setting them at the top level of the receiver config is not supported.
+
+- `collect_full_query_text` (default = `false`): Collect the full SQL batch text (`st.text`) in
+  addition to the statement-level substring already captured in `db.query.text`. When enabled,
+  `db.query.full_text` and `db.query.text.normalized.hash` are populated on that collection's log
+  records.
+- `allowed_comment_keys` (default = empty): Keys to extract from the SQL comments preceding the
+  statement into `db.query.comment_tags.*`. Only keys listed here are extracted; all other comment
+  content is discarded. Requires `collect_full_query_text` to be enabled on the same collection.
 
 The following settings are optional:
 - `collection_interval` (default = `10s`): The interval at which metrics should be emitted by this receiver.
@@ -166,8 +184,14 @@ Top query collection enabled:
           lookback_time: 60s
           max_query_sample_count: 1000
           top_query_count: 200
+          collect_full_query_text: true
+          allowed_comment_keys:
+            - nr_service_guid
         query_sample_collection:
           max_rows_per_query: 1450
+          collect_full_query_text: true
+          allowed_comment_keys:
+            - nr_service_guid
 ```
 
 ## Feature Gate
@@ -178,6 +202,31 @@ To enable it, pass the following argument to the Collector:
 
 ```
 --feature-gates=receiver.sqlserver.RemoveServerResourceAttribute
+```
+
+## Resource attributes
+
+`db.system.version` reports the SQL Server product version (e.g. `15.0.4261.1`). It is disabled by
+default and only available in direct connection mode. Enable it via:
+
+```yaml
+sqlserver:
+  resource_attributes:
+    db.system.version:
+      enabled: true
+```
+
+> **Note:** On Azure SQL Database and Azure SQL Managed Instance, `SERVERPROPERTY('ProductVersion')`
+> returns a fixed legacy version string rather than the actual engine version.
+
+`sqlserver.db.edition` reports the SQL Server edition string (e.g. `"Enterprise Edition (64-bit)"`).
+It is disabled by default and only available in direct connection mode. Enable it via:
+
+```yaml
+sqlserver:
+  resource_attributes:
+    sqlserver.db.edition:
+      enabled: true
 ```
 
 ## Metrics

@@ -178,6 +178,9 @@ attributes:
   mysql.blocking.blockers:
     description: A JSON array of {thread_id, session_id} tuples, one per concurrent InnoDB row-lock blocker for this session. Unordered. session_id is null when that blocker's PROCESSLIST_ID could not be resolved (e.g. it disconnected between reads). "[]" when not blocked. This is the only source for individual blocker identity (thread_id/session_id) — the receiver does not also expose those as separate scalar attributes, since doing so would only serve per-row display, which a dashboard/frontend can already get by parsing this JSON directly; use mysql.blocking.blocker.count (not a value from this array) for any NRQL-side filter, facet, or alert threshold.
     type: string
+  mysql.client.name:
+    description: The client driver's self-reported identity at connection time (performance_schema.session_connect_attrs, ATTR_NAME='_client_name'), e.g. "MySQL Connector/J" or "libmysql". Empty if the client reported no connect attributes or the connect-attrs feature is disabled server-side.
+    type: string
   mysql.event_id:
     description: The thread associated with the event and the thread current event number when the event starts.
     type: int
@@ -196,10 +199,10 @@ attributes:
   mysql.events_statements_summary_by_digest.digest:
     description: The statement digest SHA-256 value as a string of 64 hexadecimal characters, or empty if the statements_digest consumer is no.
     type: string
-  mysql.events_statements_summary_by_digest.sum_rows_examined:
+  mysql.events_statements_summary_by_digest.examined_rows:
     description: The number of rows examined by the statement, report in delta value.
     type: int
-  mysql.events_statements_summary_by_digest.sum_rows_sent:
+  mysql.events_statements_summary_by_digest.returned_rows:
     description: The number of rows returned by the statement, report in delta value.
     type: int
   mysql.events_statements_summary_by_digest.sum_timer_wait:
@@ -230,9 +233,6 @@ attributes:
     type: string
     enum: [io, sql]
     requirement_level: recommended
-  mysql.session.client_name:
-    description: The client driver's self-reported identity at connection time (performance_schema.session_connect_attrs, ATTR_NAME='_client_name'), e.g. "MySQL Connector/J" or "libmysql". Empty if the client reported no connect attributes or the connect-attrs feature is disabled server-side.
-    type: string
   mysql.session.id:
     description: The unique identifier for the session associated with the event.
     type: int
@@ -386,7 +386,7 @@ events:
       - db.query.comment_tags.nr_service_guid
       - db.query.text.normalized.hash
       - mysql.events_statements_current.timer_start
-      - mysql.session.client_name
+      - mysql.client.name
       - mysql.blocking.blockers
       - mysql.blocking.blocker.count
 
@@ -407,8 +407,8 @@ events:
       - db.query.comment_tags.nr_service_guid
       - db.query.text.normalized.hash
       - db.namespace
-      - mysql.events_statements_summary_by_digest.sum_rows_examined
-      - mysql.events_statements_summary_by_digest.sum_rows_sent
+      - mysql.events_statements_summary_by_digest.examined_rows
+      - mysql.events_statements_summary_by_digest.returned_rows
 
 metrics:
   mysql.buffer_pool.data_pages:

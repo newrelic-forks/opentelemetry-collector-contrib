@@ -21,6 +21,13 @@ func NewResourceBuilder(rac ResourceAttributesConfig) *ResourceBuilder {
 	}
 }
 
+// SetDbSystemVersion sets provided value as "db.system.version" attribute.
+func (rb *ResourceBuilder) SetDbSystemVersion(val string) {
+	if rb.config.DbSystemVersion.Enabled {
+		rb.res.Attributes().PutStr("db.system.version", val)
+	}
+}
+
 // SetHostName sets provided value as "host.name" attribute.
 func (rb *ResourceBuilder) SetHostName(val string) {
 	if rb.config.HostName.Enabled {
@@ -77,10 +84,10 @@ func (rb *ResourceBuilder) SetSqlserverDatabaseName(val string) {
 	}
 }
 
-// SetSqlserverHostName sets provided value as "sqlserver.host.name" attribute.
-func (rb *ResourceBuilder) SetSqlserverHostName(val string) {
-	if rb.config.SqlserverHostName.Enabled {
-		rb.res.Attributes().PutStr("sqlserver.host.name", val)
+// SetSqlserverDbEdition sets provided value as "sqlserver.db.edition" attribute.
+func (rb *ResourceBuilder) SetSqlserverDbEdition(val string) {
+	if rb.config.SqlserverDbEdition.Enabled {
+		rb.res.Attributes().PutStr("sqlserver.db.edition", val)
 	}
 }
 
@@ -88,6 +95,13 @@ func (rb *ResourceBuilder) SetSqlserverHostName(val string) {
 func (rb *ResourceBuilder) SetSqlserverInstanceName(val string) {
 	if rb.config.SqlserverInstanceName.Enabled {
 		rb.res.Attributes().PutStr("sqlserver.instance.name", val)
+	}
+}
+
+// SetSqlserverTargetHost sets provided value as "sqlserver.target.host" attribute.
+func (rb *ResourceBuilder) SetSqlserverTargetHost(val string) {
+	if rb.config.SqlserverTargetHost.Enabled {
+		rb.res.Attributes().PutStr("sqlserver.target.host", val)
 	}
 }
 

@@ -38,7 +38,8 @@ const (
 	databaseNameKey = "database_name"
 	instanceNameKey = "sql_instance"
 
-	defaultServiceName = "unknown_service:microsoft.sql_server"
+	defaultServiceName  = "unknown_service:microsoft.sql_server"
+	versionQueryTimeout = 5 * time.Second
 )
 
 type sqlServerScraperHelper struct {
@@ -58,6 +59,9 @@ type sqlServerScraperHelper struct {
 	lastExecutionTimestamp time.Time
 	obfuscator             *obfuscator
 	serviceInstanceID      string
+	dbVersion              string
+	dbEdition              string
+	instanceInfoFunc       func(context.Context, *zap.Logger) (version, edition string, resolved bool)
 }
 
 var (
@@ -67,7 +71,7 @@ var (
 
 func newSQLServerScraper(id component.ID,
 	query string,
-	telemetry sqlquery.TelemetryConfig,
+	telemetry sqlquery.TelemetryConfig, //nolint:unparam // Parameter is currently unused as callers always pass sqlquery.TelemetryConfig{}. cleanup in a follow-up PR.
 	dbProviderFunc sqlquery.DbProviderFunc,
 	clientProviderFunc sqlquery.ClientProviderFunc,
 	params receiver.Settings,
@@ -116,7 +120,49 @@ func (s *sqlServerScraperHelper) Start(context.Context, component.Host) error {
 	return nil
 }
 
+// detectSQLServerInstanceInfo queries ProductVersion and Edition in a single round-trip.
+// Returns (version, edition *string, error) — both are non-nil when resolved (empty string
+// for NULL from SERVERPROPERTY), nil on transient error (caller may retry), nil+nil when db
+// is not yet connected. Declared as a var so tests can stub it.
+var detectSQLServerInstanceInfo = func(ctx context.Context, db *sql.DB) (*string, *string, error) {
+	if db == nil {
+		return nil, nil, nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, versionQueryTimeout)
+	defer cancel()
+
+	var version, edition sql.NullString
+	row := db.QueryRowContext(ctx,
+		"SELECT CAST(SERVERPROPERTY('ProductVersion') AS NVARCHAR(128)), CAST(SERVERPROPERTY('Edition') AS NVARCHAR(128))")
+	if err := row.Scan(&version, &edition); err != nil {
+		return nil, nil, err
+	}
+
+	var v, e string
+	if version.Valid {
+		v = version.String
+	}
+	if edition.Valid {
+		e = edition.String
+	}
+	return &v, &e, nil
+}
+
+// ensureInstanceInfo resolves version and edition lazily in a single DB round-trip.
+func (s *sqlServerScraperHelper) ensureInstanceInfo(ctx context.Context) {
+	if s.instanceInfoFunc != nil {
+		version, edition, resolved := s.instanceInfoFunc(ctx, s.logger)
+		s.dbVersion = version
+		s.dbEdition = edition
+		if resolved {
+			s.instanceInfoFunc = nil
+		}
+	}
+}
+
 func (s *sqlServerScraperHelper) ScrapeMetrics(ctx context.Context) (pmetric.Metrics, error) {
+	s.ensureInstanceInfo(ctx)
 	var err error
 
 	switch s.sqlQuery {
@@ -140,8 +186,6 @@ func (s *sqlServerScraperHelper) ScrapeMetrics(ctx context.Context) (pmetric.Met
 		err = s.recordOSSchedulerMetrics(ctx)
 	case getSQLServerProcessCountQuery(s.config.InstanceName):
 		err = s.recordProcessCountMetrics(ctx)
-	case getSQLServerDatabasePageFileQuery(s.config.InstanceName):
-		err = s.recordDatabasePageFileMetrics(ctx)
 	case getSQLServerThreadPoolQuery(s.config.InstanceName):
 		err = s.recordThreadPoolMetrics(ctx)
 	case getSQLServerWorkerThreadsQuery(s.config.InstanceName):
@@ -176,6 +220,7 @@ func (s *sqlServerScraperHelper) ScrapeMetrics(ctx context.Context) (pmetric.Met
 }
 
 func (s *sqlServerScraperHelper) ScrapeLogs(ctx context.Context) (plog.Logs, error) {
+	s.ensureInstanceInfo(ctx)
 	var err error
 	var resources pcommon.Resource
 	var isQuerySample bool
@@ -379,13 +424,19 @@ func (s *sqlServerScraperHelper) setupResourceBuilder(rb *metadata.ResourceBuild
 	}
 
 	rb.SetHostName(hostName)
-	rb.SetSqlserverHostName(hostName)
+	rb.SetSqlserverTargetHost(hostName)
 	rb.SetServiceInstanceID(s.serviceInstanceID)
 	rb.SetServiceName(defaultServiceName)
 	rb.SetServiceNamespace("")
 
 	rb.SetServerAddress(serverAddress)
 	rb.SetServerPort(serverPort)
+	if s.dbVersion != "" {
+		rb.SetDbSystemVersion(s.dbVersion)
+	}
+	if s.dbEdition != "" {
+		rb.SetSqlserverDbEdition(s.dbEdition)
+	}
 
 	return rb
 }
@@ -1780,53 +1831,6 @@ func (s *sqlServerScraperHelper) recordProcessCountMetrics(ctx context.Context) 
 	return errors.Join(errs...)
 }
 
-func (s *sqlServerScraperHelper) recordDatabasePageFileMetrics(ctx context.Context) error {
-	const (
-		databaseName              = "db_name"
-		reservedSpaceBytes        = "reserved_space_bytes"
-		reservedSpaceNotUsedBytes = "reserved_space_not_used_bytes"
-	)
-
-	rows, err := s.client.QueryRows(ctx)
-	if err != nil {
-		if !errors.Is(err, sqlquery.ErrNullValueWarning) {
-			return fmt.Errorf("sqlServerScraperHelper: %w", err)
-		}
-		s.logger.Warn("problems encountered getting metric rows", zap.Error(err))
-	}
-
-	var errs []error
-	now := pcommon.NewTimestampFromTime(time.Now())
-	for i, row := range rows {
-		rb := s.setupResourceBuilder(s.mb.NewResourceBuilder(), row)
-		rb.SetSqlserverDatabaseName(row[databaseName])
-
-		totalVal, totalErr := retrieveInt(row, reservedSpaceBytes)
-		freeVal, freeErr := retrieveInt(row, reservedSpaceNotUsedBytes)
-		if totalErr != nil {
-			errs = append(errs, fmt.Errorf("failed to parse %s for row %d: %w", reservedSpaceBytes, i, totalErr))
-		}
-		if freeErr != nil {
-			errs = append(errs, fmt.Errorf("failed to parse %s for row %d: %w", reservedSpaceNotUsedBytes, i, freeErr))
-		}
-
-		if totalErr == nil {
-			errs = append(errs, s.mb.RecordSqlserverDatabasePageFileSizeDataPoint(now, row[reservedSpaceBytes], row[databaseName], metadata.AttributePageFileStateTotal))
-		}
-		if freeErr == nil {
-			errs = append(errs, s.mb.RecordSqlserverDatabasePageFileSizeDataPoint(now, row[reservedSpaceNotUsedBytes], row[databaseName], metadata.AttributePageFileStateFree))
-		}
-		if totalErr == nil && freeErr == nil {
-			usedBytes := max(totalVal.(int64)-freeVal.(int64), 0)
-			errs = append(errs, s.mb.RecordSqlserverDatabasePageFileSizeDataPoint(now, fmt.Sprintf("%d", usedBytes), row[databaseName], metadata.AttributePageFileStateUsed))
-		}
-
-		s.mb.EmitForResource(metadata.WithResource(rb.Emit()))
-	}
-
-	return errors.Join(errs...)
-}
-
 func (s *sqlServerScraperHelper) recordWorkerThreadMetrics(ctx context.Context) error {
 	const activeThreads = "active_threads"
 	const availableThreads = "available_threads"
@@ -2488,7 +2492,7 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 		databaseNameVal := row[databaseName]
 
 		var fullQueryTextVal, dbSQLCommentsVal, nrServiceGUIDVal, dbQueryTextNormalizedHashVal string
-		if s.config.CollectFullQueryText {
+		if s.config.TopQueryCollection.CollectFullQueryText {
 			rawFullText := row[fullQueryText]
 			if rawFullText != "" {
 				stmtStartOff, _ := strconv.Atoi(row[statementStartOffset])
@@ -2500,7 +2504,7 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 						commentText = stripParameterDeclarations(rawFullText[:startPos])
 					}
 				}
-				dbSQLCommentsVal = sqlcomments.ExtractAndFilterComments(commentText, s.config.AllowedCommentKeys)
+				dbSQLCommentsVal = sqlcomments.ExtractAndFilterComments(commentText, s.config.TopQueryCollection.AllowedCommentKeys)
 				nrServiceGUIDVal = sqlcomments.ExtractValueForKey(dbSQLCommentsVal, "nr_service_guid")
 				obfuscated, err := s.obfuscator.obfuscateFullSQLString(rawFullText, stmtStartOff, stmtEndOff)
 				if err != nil {
@@ -2769,7 +2773,7 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 	const reads = "reads"
 	const requestStatus = "request_status"
 	const rowCount = "row_count"
-	const sessionDurationMillisecond = "session_duration"
+	const sessionDurationSecond = "session_duration"
 	const sessionID = "session_id"
 	const sessionStartTime = "session_start_time"
 	const sessionStatus = "session_status"
@@ -2892,7 +2896,7 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 		}
 
 		var fullQueryTextVal, dbSQLCommentsVal, nrServiceGUIDVal, dbQueryTextNormalizedHashVal string
-		if s.config.CollectFullQueryText {
+		if s.config.QuerySample.CollectFullQueryText {
 			rawFullText := row[fullQueryTextCol]
 			if rawFullText != "" {
 				stmtStartOff, _ := strconv.Atoi(row[stmtStartOffsetCol])
@@ -2904,7 +2908,7 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 						commentText = stripParameterDeclarations(rawFullText[:startPos])
 					}
 				}
-				dbSQLCommentsVal = sqlcomments.ExtractAndFilterComments(commentText, s.config.AllowedCommentKeys)
+				dbSQLCommentsVal = sqlcomments.ExtractAndFilterComments(commentText, s.config.QuerySample.AllowedCommentKeys)
 				nrServiceGUIDVal = sqlcomments.ExtractValueForKey(dbSQLCommentsVal, "nr_service_guid")
 				obfuscated, err := s.obfuscator.obfuscateFullSQLString(rawFullText, stmtStartOff, stmtEndOff)
 				if err != nil {
@@ -2939,8 +2943,8 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 		rowCountVal := s.retrieveValue(row, rowCount, &errs, retrieveInt).(int64)
 		sessionIDVal := s.retrieveValue(row, sessionID, &errs, retrieveInt).(int64)
 		sessionStatusVal := row[sessionStatus]
-		sessionDurationSecondVal := s.retrieveValue(row, sessionDurationMillisecond, &errs, retrieveIntAndConvert(func(i int64) any {
-			return float64(i) / 1000.0
+		sessionDurationSecondVal := s.retrieveValue(row, sessionDurationSecond, &errs, retrieveIntAndConvert(func(i int64) any {
+			return float64(i)
 		})).(float64)
 		totalElapsedTimeSecondVal := s.retrieveValue(row, totalElapsedTimeMillisecond, &errs, retrieveIntAndConvert(func(i int64) any {
 			return float64(i) / 1000.0

@@ -174,7 +174,7 @@ func TestLoadConfig(t *testing.T) {
 				SqlserverComputerName: metadata.SqlserverComputerNameResourceAttributeConfig{
 					Enabled: true,
 				},
-				SqlserverHostName: metadata.SqlserverHostNameResourceAttributeConfig{
+				SqlserverTargetHost: metadata.SqlserverTargetHostResourceAttributeConfig{
 					Enabled: true,
 				},
 				ServerAddress: metadata.ServerAddressResourceAttributeConfig{
@@ -210,7 +210,7 @@ func TestLoadConfig(t *testing.T) {
 				SqlserverComputerName: metadata.SqlserverComputerNameResourceAttributeConfig{
 					Enabled: true,
 				},
-				SqlserverHostName: metadata.SqlserverHostNameResourceAttributeConfig{
+				SqlserverTargetHost: metadata.SqlserverTargetHostResourceAttributeConfig{
 					Enabled: true,
 				},
 				ServerAddress: metadata.ServerAddressResourceAttributeConfig{
@@ -227,9 +227,13 @@ func TestLoadConfig(t *testing.T) {
 		expected.TopQueryCollection.TopQueryCount = 200
 		expected.TopQueryCollection.MaxQuerySampleCount = 1000
 		expected.TopQueryCollection.CollectionInterval = 80 * time.Second
+		expected.TopQueryCollection.CollectFullQueryText = true
+		expected.TopQueryCollection.AllowedCommentKeys = []string{"nr_service_guid"}
 
 		expected.QuerySample = QuerySample{
-			MaxRowsPerQuery: 1450,
+			MaxRowsPerQuery:      1450,
+			CollectFullQueryText: true,
+			AllowedCommentKeys:   []string{"nr_service_guid", "traceparent"},
 		}
 
 		sub, err := cm.Sub("nrsqlserver/named")
@@ -246,6 +250,43 @@ func TestLoadConfig(t *testing.T) {
 		}, cmp.Ignore())); diff != "" {
 			t.Errorf("Config mismatch (-expected +actual):\n%s", diff)
 		}
+	})
+
+	t.Run("commentKeysAreScopedPerEvent", func(t *testing.T) {
+		// collect_full_query_text and allowed_comment_keys are configured
+		// independently for each event collection, so setting them on one
+		// collection must not leak into the other.
+		conf := confmap.NewFromStringMap(map[string]any{
+			"top_query_collection": map[string]any{
+				"collect_full_query_text": true,
+				"allowed_comment_keys":    []any{"nr_service_guid"},
+			},
+		})
+
+		cfg := NewFactory().CreateDefaultConfig().(*Config)
+		require.NoError(t, conf.Unmarshal(cfg))
+
+		assert.True(t, cfg.TopQueryCollection.CollectFullQueryText)
+		assert.Equal(t, []string{"nr_service_guid"}, cfg.TopQueryCollection.AllowedCommentKeys)
+
+		assert.False(t, cfg.QuerySample.CollectFullQueryText)
+		assert.Empty(t, cfg.QuerySample.AllowedCommentKeys)
+	})
+
+	t.Run("topLevelCommentKeysAreRejected", func(t *testing.T) {
+		// Both keys moved under the event collections; the former top-level
+		// spelling must fail loudly rather than be silently ignored.
+		conf := confmap.NewFromStringMap(map[string]any{
+			"collect_full_query_text": true,
+			"allowed_comment_keys":    []any{"nr_service_guid"},
+		})
+
+		cfg := NewFactory().CreateDefaultConfig().(*Config)
+		err := conf.Unmarshal(cfg)
+
+		require.Error(t, err)
+		assert.ErrorContains(t, err, "collect_full_query_text")
+		assert.ErrorContains(t, err, "allowed_comment_keys")
 	})
 
 	t.Run("effectiveLookBackTime", func(t *testing.T) {

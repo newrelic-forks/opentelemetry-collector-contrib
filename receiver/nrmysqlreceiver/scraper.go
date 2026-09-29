@@ -1232,12 +1232,11 @@ type blockerJSONEntry struct {
 // mysql.blocking.blockers (an empty/missing value normalizes to "[]",
 // matching the SQL COALESCE default) and the blocker count
 // (mysql.blocking.blocker.count). Order is whatever querySample.tmpl's
-// underlying data_lock_waits read naturally returns -- not sorted here; see
-// docs/mysql-receiver/blocking-blockers-ordering-spec-removed-2026-08-14.md
-// for the oldest-transaction-first ordering this replaces (it required the
-// PROCESS privilege via information_schema.INNODB_TRX, which failed the
-// entire query_sample collection query outright for any monitoring user
-// without that grant, the moment a real block existed).
+// underlying data_lock_waits read naturally returns -- not sorted here.
+// The older oldest-transaction-first ordering required
+// information_schema.INNODB_TRX and therefore the PROCESS privilege, which
+// caused the entire query_sample collection query to fail for a monitoring
+// user without that grant as soon as a real block existed.
 //
 // Individual blocker identity (thread_id/session_id) is intentionally not
 // extracted into scalar attributes here — that would only serve per-row

@@ -459,9 +459,14 @@ func (s *oracleScraper) start(ctx context.Context, _ component.Host) error {
 		return fmt.Errorf("failed to open db connection: %w", err)
 	}
 	if s.db != nil {
+		versionSQL := instanceVersionSQL
+		if s.metricsBuilderConfig.ResourceAttributes.OracleDbEdition.Enabled ||
+			s.logsBuilderConfig.ResourceAttributes.OracleDbEdition.Enabled {
+			versionSQL = instanceVersionEditionSQL
+		}
 		s.instanceInfo = detectInstanceInfo(
 			ctx,
-			s.clientProviderFunc(s.db, instanceVersionSQL, s.logger),
+			s.clientProviderFunc(s.db, versionSQL, s.logger),
 			s.clientProviderFunc(s.db, instanceCDBSQL, s.logger),
 			s.clientProviderFunc(s.db, instanceConTypeSQL, s.logger),
 			s.clientProviderFunc(s.db, instanceConNameSQL, s.logger),
@@ -2315,6 +2320,9 @@ func (s *oracleScraper) setupResourceBuilder(rb *metadata.ResourceBuilder) *meta
 	}
 	if s.instanceInfo.hostingType != "" {
 		rb.SetOracleDbHostingType(s.instanceInfo.hostingType)
+	}
+	if s.instanceInfo.dbEdition != "" {
+		rb.SetOracleDbEdition(s.instanceInfo.dbEdition)
 	}
 	return rb
 }

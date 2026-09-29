@@ -523,23 +523,6 @@ This metric is only available when the receiver is configured to directly connec
 | file_type | The type of file being monitored. | Any Str | Recommended | - |
 | direction | The direction of flow of bytes or operations. | Str: ``read``, ``write`` | Recommended | - |
 
-### sqlserver.database.page_file.size
-
-Reserved space allocated to the database, broken down by usage state.
-
-This metric is only available when the receiver is configured to directly connect to SQL Server.
-
-| Unit | Metric Type | Value Type | Stability |
-| ---- | ----------- | ---------- | --------- |
-| By | Gauge | Int | Development |
-
-#### Attributes
-
-| Name | Description | Values | Requirement Level | Semantic Convention |
-| ---- | ----------- | ------ | ----------------- | ------------------- |
-| db.namespace | The database name. | Any Str | Recommended | - |
-| page_file.state | The state of the database page file (reserved space) allocation. | Str: ``used``, ``free``, ``total`` | Recommended | - |
-
 ### sqlserver.database.tempdb.space
 
 Total free space in temporary DB.
@@ -1752,7 +1735,7 @@ query sample
 | sqlserver.wait.resource.id | SQL Server identifier for the locked or waited-on resource, if available. | Any Str | - |
 | sqlserver.wait.resource.type | SQL Server type of the locked or waited-on resource, if available. | Any Str | - |
 | sqlserver.row_count | Number of rows affected or returned by the query. | Any Int | - |
-| sqlserver.session.duration | Total elapsed time in seconds the session has been actively executing requests. | Any Double | - |
+| sqlserver.session.duration | Total elapsed time in seconds since the session was established (login time). | Any Double | - |
 | sqlserver.session.start_time | Timestamp when the session was established (ISO 8601 format). | Any Str | - |
 | sqlserver.session_id | ID of the SQL Server session. | Any Int | - |
 | sqlserver.session_status | Status of the session (e.g., running, sleeping). | Any Str | - |
@@ -1805,6 +1788,7 @@ top query
 
 | Name | Description | Values | Enabled | Semantic Convention | Stability |
 | ---- | ----------- | ------ | ------- | ------------------- | --------- |
+| db.system.version | The database version of the instance. Examples include "15.0.4261.1". | Any Str | false | - | - |
 | host.name | The host name of SQL Server | Any Str | true | - | - |
 | server.address | Name of the database host. | Any Str | true | - | - |
 | server.port | Server port number. | Any Int | true | - | - |
@@ -1813,5 +1797,6 @@ top query
 | service.namespace | Logical namespace for the service (for example team or environment). When enabled, defaults to an empty string until set via configuration. | Any Str | false | - | - |
 | sqlserver.computer.name | The name of the SQL Server instance being monitored. | Any Str | false | - | - |
 | sqlserver.database.name | The name of the SQL Server database. | Any Str | true | - | - |
-| sqlserver.host.name | The hostname of the SQL Server instance, extracted from service.instance.id. | Any Str | true | - | - |
+| sqlserver.db.edition | The edition of the SQL Server instance (e.g. "Standard Edition", "Enterprise Edition"). | Any Str | false | - | - |
 | sqlserver.instance.name | The name of the SQL Server instance being monitored. | Any Str | false | - | - |
+| sqlserver.target.host | The hostname or address used to connect to the SQL Server instance, as configured in the receiver. | Any Str | true | - | - |

@@ -126,11 +126,6 @@ func TestMetricsBuilderConfig(t *testing.T) {
 						AggregationStrategy: AggregationStrategySum,
 						EnabledAttributes:   []SqlserverDatabaseOperationsMetricAttributeKey{SqlserverDatabaseOperationsMetricAttributeKeyPhysicalFilename, SqlserverDatabaseOperationsMetricAttributeKeyLogicalFilename, SqlserverDatabaseOperationsMetricAttributeKeyFileType, SqlserverDatabaseOperationsMetricAttributeKeyDirection},
 					},
-					SqlserverDatabasePageFileSize: SqlserverDatabasePageFileSizeMetricConfig{
-						Enabled:             true,
-						AggregationStrategy: AggregationStrategyAvg,
-						EnabledAttributes:   []SqlserverDatabasePageFileSizeMetricAttributeKey{SqlserverDatabasePageFileSizeMetricAttributeKeyDbNamespace, SqlserverDatabasePageFileSizeMetricAttributeKeyPageFileState},
-					},
 					SqlserverDatabaseTempdbSpace: SqlserverDatabaseTempdbSpaceMetricConfig{
 						Enabled:             true,
 						AggregationStrategy: AggregationStrategySum,
@@ -533,6 +528,7 @@ func TestMetricsBuilderConfig(t *testing.T) {
 					},
 				},
 				ResourceAttributes: ResourceAttributesConfig{
+					DbSystemVersion:       DbSystemVersionResourceAttributeConfig{Enabled: true},
 					HostName:              HostNameResourceAttributeConfig{Enabled: true},
 					ServerAddress:         ServerAddressResourceAttributeConfig{Enabled: true},
 					ServerPort:            ServerPortResourceAttributeConfig{Enabled: true},
@@ -541,8 +537,9 @@ func TestMetricsBuilderConfig(t *testing.T) {
 					ServiceNamespace:      ServiceNamespaceResourceAttributeConfig{Enabled: true},
 					SqlserverComputerName: SqlserverComputerNameResourceAttributeConfig{Enabled: true},
 					SqlserverDatabaseName: SqlserverDatabaseNameResourceAttributeConfig{Enabled: true},
-					SqlserverHostName:     SqlserverHostNameResourceAttributeConfig{Enabled: true},
+					SqlserverDbEdition:    SqlserverDbEditionResourceAttributeConfig{Enabled: true},
 					SqlserverInstanceName: SqlserverInstanceNameResourceAttributeConfig{Enabled: true},
+					SqlserverTargetHost:   SqlserverTargetHostResourceAttributeConfig{Enabled: true},
 				},
 			},
 		},
@@ -649,11 +646,6 @@ func TestMetricsBuilderConfig(t *testing.T) {
 						AggregationStrategy: AggregationStrategySum,
 						EnabledAttributes:   []SqlserverDatabaseOperationsMetricAttributeKey{SqlserverDatabaseOperationsMetricAttributeKeyPhysicalFilename, SqlserverDatabaseOperationsMetricAttributeKeyLogicalFilename, SqlserverDatabaseOperationsMetricAttributeKeyFileType, SqlserverDatabaseOperationsMetricAttributeKeyDirection},
 					},
-					SqlserverDatabasePageFileSize: SqlserverDatabasePageFileSizeMetricConfig{
-						Enabled:             false,
-						AggregationStrategy: AggregationStrategyAvg,
-						EnabledAttributes:   []SqlserverDatabasePageFileSizeMetricAttributeKey{SqlserverDatabasePageFileSizeMetricAttributeKeyDbNamespace, SqlserverDatabasePageFileSizeMetricAttributeKeyPageFileState},
-					},
 					SqlserverDatabaseTempdbSpace: SqlserverDatabaseTempdbSpaceMetricConfig{
 						Enabled:             false,
 						AggregationStrategy: AggregationStrategySum,
@@ -1056,6 +1048,7 @@ func TestMetricsBuilderConfig(t *testing.T) {
 					},
 				},
 				ResourceAttributes: ResourceAttributesConfig{
+					DbSystemVersion:       DbSystemVersionResourceAttributeConfig{Enabled: false},
 					HostName:              HostNameResourceAttributeConfig{Enabled: false},
 					ServerAddress:         ServerAddressResourceAttributeConfig{Enabled: false},
 					ServerPort:            ServerPortResourceAttributeConfig{Enabled: false},
@@ -1064,8 +1057,9 @@ func TestMetricsBuilderConfig(t *testing.T) {
 					ServiceNamespace:      ServiceNamespaceResourceAttributeConfig{Enabled: false},
 					SqlserverComputerName: SqlserverComputerNameResourceAttributeConfig{Enabled: false},
 					SqlserverDatabaseName: SqlserverDatabaseNameResourceAttributeConfig{Enabled: false},
-					SqlserverHostName:     SqlserverHostNameResourceAttributeConfig{Enabled: false},
+					SqlserverDbEdition:    SqlserverDbEditionResourceAttributeConfig{Enabled: false},
 					SqlserverInstanceName: SqlserverInstanceNameResourceAttributeConfig{Enabled: false},
+					SqlserverTargetHost:   SqlserverTargetHostResourceAttributeConfig{Enabled: false},
 				},
 			},
 		},
@@ -1073,7 +1067,7 @@ func TestMetricsBuilderConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := loadMetricsBuilderConfig(t, tt.name)
-			diff := cmp.Diff(tt.want, cfg, cmpopts.IgnoreUnexported(SqlserverAccessScanRateMetricConfig{}, SqlserverAttentionRateMetricConfig{}, SqlserverAvailabilityGroupDatabaseReplicaQueueRateMetricConfig{}, SqlserverAvailabilityGroupDatabaseReplicaQueueSizeMetricConfig{}, SqlserverAvailabilityGroupDatabaseReplicaSecondaryLagMetricConfig{}, SqlserverBatchCompilationUtilizationMetricConfig{}, SqlserverBatchPageSplitUtilizationMetricConfig{}, SqlserverBatchRequestRateMetricConfig{}, SqlserverBatchSQLCompilationRateMetricConfig{}, SqlserverBatchSQLRecompilationRateMetricConfig{}, SqlserverClrExecutionTimeMetricConfig{}, SqlserverComputerUptimeMetricConfig{}, SqlserverConnectionResetRateMetricConfig{}, SqlserverCPUCountMetricConfig{}, SqlserverCPUUtilizationMetricConfig{}, SqlserverCursorCountMetricConfig{}, SqlserverCursorMemoryUsageMetricConfig{}, SqlserverCursorPlanCountMetricConfig{}, SqlserverCursorRequestRateMetricConfig{}, SqlserverDatabaseBackupOrRestoreRateMetricConfig{}, SqlserverDatabaseCountMetricConfig{}, SqlserverDatabaseExecutionErrorsMetricConfig{}, SqlserverDatabaseFileSizeMetricConfig{}, SqlserverDatabaseFullScanRateMetricConfig{}, SqlserverDatabaseIoMetricConfig{}, SqlserverDatabaseLatencyMetricConfig{}, SqlserverDatabaseOperationsMetricConfig{}, SqlserverDatabasePageFileSizeMetricConfig{}, SqlserverDatabaseTempdbSpaceMetricConfig{}, SqlserverDatabaseTempdbVersionStoreSizeMetricConfig{}, SqlserverDatabaseTransactionsActiveMetricConfig{}, SqlserverDeadlockRateMetricConfig{}, SqlserverDiskIoMetricConfig{}, SqlserverDiskOperationsMetricConfig{}, SqlserverErrorRateMetricConfig{}, SqlserverExtentOperationRateMetricConfig{}, SqlserverFailoverClusterAgClusterTypeMetricConfig{}, SqlserverFailoverClusterAgFailureConditionLevelMetricConfig{}, SqlserverFailoverClusterAgHealthCheckTimeoutMetricConfig{}, SqlserverFailoverClusterAgRequiredSyncSecondariesMetricConfig{}, SqlserverFailoverClusterReplicaDatabaseQueueSizeMetricConfig{}, SqlserverFailoverClusterReplicaDatabaseRedoRateMetricConfig{}, SqlserverFailoverClusterReplicaFlowControlTimeMetricConfig{}, SqlserverFailoverClusterReplicaRoleMetricConfig{}, SqlserverFailoverClusterReplicaSynchronizationHealthMetricConfig{}, SqlserverGhostRecordSkippedRateMetricConfig{}, SqlserverHostMemoryLimitMetricConfig{}, SqlserverHostMemoryUsageMetricConfig{}, SqlserverIndexFragmentationMetricConfig{}, SqlserverIndexPageCountMetricConfig{}, SqlserverIndexPageUtilizationMetricConfig{}, SqlserverIndexRecordCountMetricConfig{}, SqlserverIndexSearchRateMetricConfig{}, SqlserverIndexSizeMetricConfig{}, SqlserverLatchSuperlatchCountMetricConfig{}, SqlserverLatchSuperlatchTransitionRateMetricConfig{}, SqlserverLatchWaitRateMetricConfig{}, SqlserverLatchWaitTimeAvgMetricConfig{}, SqlserverLatchWaitTimeTotalMetricConfig{}, SqlserverLockBlockCountMetricConfig{}, SqlserverLockEscalationRateMetricConfig{}, SqlserverLockMemoryMetricConfig{}, SqlserverLockRequestRateMetricConfig{}, SqlserverLockTimeoutRateMetricConfig{}, SqlserverLockWaitCountMetricConfig{}, SqlserverLockWaitRateMetricConfig{}, SqlserverLockWaitTimeAvgMetricConfig{}, SqlserverLockWaitTimeTotalMetricConfig{}, SqlserverLoginRateMetricConfig{}, SqlserverLogoutRateMetricConfig{}, SqlserverMemoryAreaMetricConfig{}, SqlserverMemoryCacheObjectCountMetricConfig{}, SqlserverMemoryGrantsPendingCountMetricConfig{}, SqlserverMemoryPageCountMetricConfig{}, SqlserverMemoryUsageMetricConfig{}, SqlserverOsDiskSizeMetricConfig{}, SqlserverOsMemoryUsageMetricConfig{}, SqlserverOsMemoryUtilizationMetricConfig{}, SqlserverOsSchedulerRunnableTasksCountMetricConfig{}, SqlserverOsWaitDurationMetricConfig{}, SqlserverOsWaitTasksCountMetricConfig{}, SqlserverPageAllocationRateMetricConfig{}, SqlserverPageBufferCacheFreeListStallsRateMetricConfig{}, SqlserverPageBufferCacheHitRatioMetricConfig{}, SqlserverPageCheckpointFlushRateMetricConfig{}, SqlserverPageCompressionRateMetricConfig{}, SqlserverPageLazyWriteRateMetricConfig{}, SqlserverPageLifeExpectancyMetricConfig{}, SqlserverPageLookupRateMetricConfig{}, SqlserverPageOperationRateMetricConfig{}, SqlserverPageReadAheadRateMetricConfig{}, SqlserverPageSplitRateMetricConfig{}, SqlserverParameterizationRateMetricConfig{}, SqlserverPlanExecutionRateMetricConfig{}, SqlserverProcessCountMetricConfig{}, SqlserverProcessesBlockedMetricConfig{}, SqlserverRecompilationRatioMetricConfig{}, SqlserverReplicaDataRateMetricConfig{}, SqlserverResourcePoolDiskOperationsMetricConfig{}, SqlserverResourcePoolDiskThrottledReadRateMetricConfig{}, SqlserverResourcePoolDiskThrottledWriteRateMetricConfig{}, SqlserverScanPointRevalidationRateMetricConfig{}, SqlserverStoredProcedureInvocationRateMetricConfig{}, SqlserverTableCountMetricConfig{}, SqlserverTaskCountMetricConfig{}, SqlserverTaskRateMetricConfig{}, SqlserverTempdbAllocationWaitTimeTotalMetricConfig{}, SqlserverTempdbContentionWaitersCountMetricConfig{}, SqlserverTempdbDataFilesCountMetricConfig{}, SqlserverTempdbFileSizeMetricConfig{}, SqlserverTempdbSpaceUsageMetricConfig{}, SqlserverThreadPoolTasksCountMetricConfig{}, SqlserverThreadPoolWorkersCountMetricConfig{}, SqlserverThreadPoolWorkersMaxMetricConfig{}, SqlserverThreadPoolWorkersUtilizationMetricConfig{}, SqlserverTransactionDelayMetricConfig{}, SqlserverTransactionLongestRunningTimeMetricConfig{}, SqlserverTransactionMirrorWriteRateMetricConfig{}, SqlserverTransactionRateMetricConfig{}, SqlserverTransactionVersionCleanupRateMetricConfig{}, SqlserverTransactionVersionGenerationRateMetricConfig{}, SqlserverTransactionWriteRateMetricConfig{}, SqlserverTransactionLogFlushDataRateMetricConfig{}, SqlserverTransactionLogFlushRateMetricConfig{}, SqlserverTransactionLogFlushWaitRateMetricConfig{}, SqlserverTransactionLogGrowthCountMetricConfig{}, SqlserverTransactionLogShrinkCountMetricConfig{}, SqlserverTransactionLogUsageMetricConfig{}, SqlserverUserConnectionCountMetricConfig{}, SqlserverWorkerRequestCountMetricConfig{}, SqlserverWorkerThreadCountMetricConfig{}, SqlserverWorktableCacheHitRatioMetricConfig{}, HostNameResourceAttributeConfig{}, ServerAddressResourceAttributeConfig{}, ServerPortResourceAttributeConfig{}, ServiceInstanceIDResourceAttributeConfig{}, ServiceNameResourceAttributeConfig{}, ServiceNamespaceResourceAttributeConfig{}, SqlserverComputerNameResourceAttributeConfig{}, SqlserverDatabaseNameResourceAttributeConfig{}, SqlserverHostNameResourceAttributeConfig{}, SqlserverInstanceNameResourceAttributeConfig{}))
+			diff := cmp.Diff(tt.want, cfg, cmpopts.IgnoreUnexported(SqlserverAccessScanRateMetricConfig{}, SqlserverAttentionRateMetricConfig{}, SqlserverAvailabilityGroupDatabaseReplicaQueueRateMetricConfig{}, SqlserverAvailabilityGroupDatabaseReplicaQueueSizeMetricConfig{}, SqlserverAvailabilityGroupDatabaseReplicaSecondaryLagMetricConfig{}, SqlserverBatchCompilationUtilizationMetricConfig{}, SqlserverBatchPageSplitUtilizationMetricConfig{}, SqlserverBatchRequestRateMetricConfig{}, SqlserverBatchSQLCompilationRateMetricConfig{}, SqlserverBatchSQLRecompilationRateMetricConfig{}, SqlserverClrExecutionTimeMetricConfig{}, SqlserverComputerUptimeMetricConfig{}, SqlserverConnectionResetRateMetricConfig{}, SqlserverCPUCountMetricConfig{}, SqlserverCPUUtilizationMetricConfig{}, SqlserverCursorCountMetricConfig{}, SqlserverCursorMemoryUsageMetricConfig{}, SqlserverCursorPlanCountMetricConfig{}, SqlserverCursorRequestRateMetricConfig{}, SqlserverDatabaseBackupOrRestoreRateMetricConfig{}, SqlserverDatabaseCountMetricConfig{}, SqlserverDatabaseExecutionErrorsMetricConfig{}, SqlserverDatabaseFileSizeMetricConfig{}, SqlserverDatabaseFullScanRateMetricConfig{}, SqlserverDatabaseIoMetricConfig{}, SqlserverDatabaseLatencyMetricConfig{}, SqlserverDatabaseOperationsMetricConfig{}, SqlserverDatabaseTempdbSpaceMetricConfig{}, SqlserverDatabaseTempdbVersionStoreSizeMetricConfig{}, SqlserverDatabaseTransactionsActiveMetricConfig{}, SqlserverDeadlockRateMetricConfig{}, SqlserverDiskIoMetricConfig{}, SqlserverDiskOperationsMetricConfig{}, SqlserverErrorRateMetricConfig{}, SqlserverExtentOperationRateMetricConfig{}, SqlserverFailoverClusterAgClusterTypeMetricConfig{}, SqlserverFailoverClusterAgFailureConditionLevelMetricConfig{}, SqlserverFailoverClusterAgHealthCheckTimeoutMetricConfig{}, SqlserverFailoverClusterAgRequiredSyncSecondariesMetricConfig{}, SqlserverFailoverClusterReplicaDatabaseQueueSizeMetricConfig{}, SqlserverFailoverClusterReplicaDatabaseRedoRateMetricConfig{}, SqlserverFailoverClusterReplicaFlowControlTimeMetricConfig{}, SqlserverFailoverClusterReplicaRoleMetricConfig{}, SqlserverFailoverClusterReplicaSynchronizationHealthMetricConfig{}, SqlserverGhostRecordSkippedRateMetricConfig{}, SqlserverHostMemoryLimitMetricConfig{}, SqlserverHostMemoryUsageMetricConfig{}, SqlserverIndexFragmentationMetricConfig{}, SqlserverIndexPageCountMetricConfig{}, SqlserverIndexPageUtilizationMetricConfig{}, SqlserverIndexRecordCountMetricConfig{}, SqlserverIndexSearchRateMetricConfig{}, SqlserverIndexSizeMetricConfig{}, SqlserverLatchSuperlatchCountMetricConfig{}, SqlserverLatchSuperlatchTransitionRateMetricConfig{}, SqlserverLatchWaitRateMetricConfig{}, SqlserverLatchWaitTimeAvgMetricConfig{}, SqlserverLatchWaitTimeTotalMetricConfig{}, SqlserverLockBlockCountMetricConfig{}, SqlserverLockEscalationRateMetricConfig{}, SqlserverLockMemoryMetricConfig{}, SqlserverLockRequestRateMetricConfig{}, SqlserverLockTimeoutRateMetricConfig{}, SqlserverLockWaitCountMetricConfig{}, SqlserverLockWaitRateMetricConfig{}, SqlserverLockWaitTimeAvgMetricConfig{}, SqlserverLockWaitTimeTotalMetricConfig{}, SqlserverLoginRateMetricConfig{}, SqlserverLogoutRateMetricConfig{}, SqlserverMemoryAreaMetricConfig{}, SqlserverMemoryCacheObjectCountMetricConfig{}, SqlserverMemoryGrantsPendingCountMetricConfig{}, SqlserverMemoryPageCountMetricConfig{}, SqlserverMemoryUsageMetricConfig{}, SqlserverOsDiskSizeMetricConfig{}, SqlserverOsMemoryUsageMetricConfig{}, SqlserverOsMemoryUtilizationMetricConfig{}, SqlserverOsSchedulerRunnableTasksCountMetricConfig{}, SqlserverOsWaitDurationMetricConfig{}, SqlserverOsWaitTasksCountMetricConfig{}, SqlserverPageAllocationRateMetricConfig{}, SqlserverPageBufferCacheFreeListStallsRateMetricConfig{}, SqlserverPageBufferCacheHitRatioMetricConfig{}, SqlserverPageCheckpointFlushRateMetricConfig{}, SqlserverPageCompressionRateMetricConfig{}, SqlserverPageLazyWriteRateMetricConfig{}, SqlserverPageLifeExpectancyMetricConfig{}, SqlserverPageLookupRateMetricConfig{}, SqlserverPageOperationRateMetricConfig{}, SqlserverPageReadAheadRateMetricConfig{}, SqlserverPageSplitRateMetricConfig{}, SqlserverParameterizationRateMetricConfig{}, SqlserverPlanExecutionRateMetricConfig{}, SqlserverProcessCountMetricConfig{}, SqlserverProcessesBlockedMetricConfig{}, SqlserverRecompilationRatioMetricConfig{}, SqlserverReplicaDataRateMetricConfig{}, SqlserverResourcePoolDiskOperationsMetricConfig{}, SqlserverResourcePoolDiskThrottledReadRateMetricConfig{}, SqlserverResourcePoolDiskThrottledWriteRateMetricConfig{}, SqlserverScanPointRevalidationRateMetricConfig{}, SqlserverStoredProcedureInvocationRateMetricConfig{}, SqlserverTableCountMetricConfig{}, SqlserverTaskCountMetricConfig{}, SqlserverTaskRateMetricConfig{}, SqlserverTempdbAllocationWaitTimeTotalMetricConfig{}, SqlserverTempdbContentionWaitersCountMetricConfig{}, SqlserverTempdbDataFilesCountMetricConfig{}, SqlserverTempdbFileSizeMetricConfig{}, SqlserverTempdbSpaceUsageMetricConfig{}, SqlserverThreadPoolTasksCountMetricConfig{}, SqlserverThreadPoolWorkersCountMetricConfig{}, SqlserverThreadPoolWorkersMaxMetricConfig{}, SqlserverThreadPoolWorkersUtilizationMetricConfig{}, SqlserverTransactionDelayMetricConfig{}, SqlserverTransactionLongestRunningTimeMetricConfig{}, SqlserverTransactionMirrorWriteRateMetricConfig{}, SqlserverTransactionRateMetricConfig{}, SqlserverTransactionVersionCleanupRateMetricConfig{}, SqlserverTransactionVersionGenerationRateMetricConfig{}, SqlserverTransactionWriteRateMetricConfig{}, SqlserverTransactionLogFlushDataRateMetricConfig{}, SqlserverTransactionLogFlushRateMetricConfig{}, SqlserverTransactionLogFlushWaitRateMetricConfig{}, SqlserverTransactionLogGrowthCountMetricConfig{}, SqlserverTransactionLogShrinkCountMetricConfig{}, SqlserverTransactionLogUsageMetricConfig{}, SqlserverUserConnectionCountMetricConfig{}, SqlserverWorkerRequestCountMetricConfig{}, SqlserverWorkerThreadCountMetricConfig{}, SqlserverWorktableCacheHitRatioMetricConfig{}, DbSystemVersionResourceAttributeConfig{}, HostNameResourceAttributeConfig{}, ServerAddressResourceAttributeConfig{}, ServerPortResourceAttributeConfig{}, ServiceInstanceIDResourceAttributeConfig{}, ServiceNameResourceAttributeConfig{}, ServiceNamespaceResourceAttributeConfig{}, SqlserverComputerNameResourceAttributeConfig{}, SqlserverDatabaseNameResourceAttributeConfig{}, SqlserverDbEditionResourceAttributeConfig{}, SqlserverInstanceNameResourceAttributeConfig{}, SqlserverTargetHostResourceAttributeConfig{}))
 			require.Emptyf(t, diff, "Config mismatch (-expected +actual):\n%s", diff)
 		})
 	}
@@ -1183,18 +1177,6 @@ func TestSqlserverDatabaseOperationsMetricsConfig_Validate(t *testing.T) {
 	require.ErrorContains(t, cfg.Validate(), "metric sqlserver.database.operations doesn't have an attribute invalid, valid attributes: [physical_filename, logical_filename, file_type, direction]")
 
 	cfg = DefaultMetricsConfig().SqlserverDatabaseOperations
-	cfg.AggregationStrategy = "invalid"
-	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
-}
-
-func TestSqlserverDatabasePageFileSizeMetricsConfig_Validate(t *testing.T) {
-	cfg := DefaultMetricsConfig().SqlserverDatabasePageFileSize
-	require.NoError(t, cfg.Validate())
-
-	cfg.EnabledAttributes = []SqlserverDatabasePageFileSizeMetricAttributeKey{"invalid"}
-	require.ErrorContains(t, cfg.Validate(), "metric sqlserver.database.page_file.size doesn't have an attribute invalid, valid attributes: [db.namespace, page_file.state]")
-
-	cfg = DefaultMetricsConfig().SqlserverDatabasePageFileSize
 	cfg.AggregationStrategy = "invalid"
 	require.ErrorContains(t, cfg.Validate(), "invalid aggregation strategy")
 }
@@ -1759,6 +1741,7 @@ func TestResourceAttributesConfig(t *testing.T) {
 		{
 			name: "all_set",
 			want: ResourceAttributesConfig{
+				DbSystemVersion:       DbSystemVersionResourceAttributeConfig{Enabled: true},
 				HostName:              HostNameResourceAttributeConfig{Enabled: true},
 				ServerAddress:         ServerAddressResourceAttributeConfig{Enabled: true},
 				ServerPort:            ServerPortResourceAttributeConfig{Enabled: true},
@@ -1767,13 +1750,15 @@ func TestResourceAttributesConfig(t *testing.T) {
 				ServiceNamespace:      ServiceNamespaceResourceAttributeConfig{Enabled: true},
 				SqlserverComputerName: SqlserverComputerNameResourceAttributeConfig{Enabled: true},
 				SqlserverDatabaseName: SqlserverDatabaseNameResourceAttributeConfig{Enabled: true},
-				SqlserverHostName:     SqlserverHostNameResourceAttributeConfig{Enabled: true},
+				SqlserverDbEdition:    SqlserverDbEditionResourceAttributeConfig{Enabled: true},
 				SqlserverInstanceName: SqlserverInstanceNameResourceAttributeConfig{Enabled: true},
+				SqlserverTargetHost:   SqlserverTargetHostResourceAttributeConfig{Enabled: true},
 			},
 		},
 		{
 			name: "none_set",
 			want: ResourceAttributesConfig{
+				DbSystemVersion:       DbSystemVersionResourceAttributeConfig{Enabled: false},
 				HostName:              HostNameResourceAttributeConfig{Enabled: false},
 				ServerAddress:         ServerAddressResourceAttributeConfig{Enabled: false},
 				ServerPort:            ServerPortResourceAttributeConfig{Enabled: false},
@@ -1782,15 +1767,16 @@ func TestResourceAttributesConfig(t *testing.T) {
 				ServiceNamespace:      ServiceNamespaceResourceAttributeConfig{Enabled: false},
 				SqlserverComputerName: SqlserverComputerNameResourceAttributeConfig{Enabled: false},
 				SqlserverDatabaseName: SqlserverDatabaseNameResourceAttributeConfig{Enabled: false},
-				SqlserverHostName:     SqlserverHostNameResourceAttributeConfig{Enabled: false},
+				SqlserverDbEdition:    SqlserverDbEditionResourceAttributeConfig{Enabled: false},
 				SqlserverInstanceName: SqlserverInstanceNameResourceAttributeConfig{Enabled: false},
+				SqlserverTargetHost:   SqlserverTargetHostResourceAttributeConfig{Enabled: false},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := loadResourceAttributesConfig(t, tt.name)
-			diff := cmp.Diff(tt.want, cfg, cmpopts.IgnoreUnexported(HostNameResourceAttributeConfig{}, ServerAddressResourceAttributeConfig{}, ServerPortResourceAttributeConfig{}, ServiceInstanceIDResourceAttributeConfig{}, ServiceNameResourceAttributeConfig{}, ServiceNamespaceResourceAttributeConfig{}, SqlserverComputerNameResourceAttributeConfig{}, SqlserverDatabaseNameResourceAttributeConfig{}, SqlserverHostNameResourceAttributeConfig{}, SqlserverInstanceNameResourceAttributeConfig{}))
+			diff := cmp.Diff(tt.want, cfg, cmpopts.IgnoreUnexported(DbSystemVersionResourceAttributeConfig{}, HostNameResourceAttributeConfig{}, ServerAddressResourceAttributeConfig{}, ServerPortResourceAttributeConfig{}, ServiceInstanceIDResourceAttributeConfig{}, ServiceNameResourceAttributeConfig{}, ServiceNamespaceResourceAttributeConfig{}, SqlserverComputerNameResourceAttributeConfig{}, SqlserverDatabaseNameResourceAttributeConfig{}, SqlserverDbEditionResourceAttributeConfig{}, SqlserverInstanceNameResourceAttributeConfig{}, SqlserverTargetHostResourceAttributeConfig{}))
 			require.Emptyf(t, diff, "Config mismatch (-expected +actual):\n%s", diff)
 		})
 	}
@@ -1798,6 +1784,7 @@ func TestResourceAttributesConfig(t *testing.T) {
 
 func TestResourceAttributesOverrideConfig(t *testing.T) {
 	cfg := loadResourceAttributesConfig(t, "override_set")
+	assert.NotNil(t, cfg.DbSystemVersion.OverrideValue, "override_value should be set for db.system.version")
 	assert.NotNil(t, cfg.HostName.OverrideValue, "override_value should be set for host.name")
 	assert.NotNil(t, cfg.ServerAddress.OverrideValue, "override_value should be set for server.address")
 	assert.NotNil(t, cfg.ServerPort.OverrideValue, "override_value should be set for server.port")
@@ -1806,8 +1793,9 @@ func TestResourceAttributesOverrideConfig(t *testing.T) {
 	assert.NotNil(t, cfg.ServiceNamespace.OverrideValue, "override_value should be set for service.namespace")
 	assert.NotNil(t, cfg.SqlserverComputerName.OverrideValue, "override_value should be set for sqlserver.computer.name")
 	assert.NotNil(t, cfg.SqlserverDatabaseName.OverrideValue, "override_value should be set for sqlserver.database.name")
-	assert.NotNil(t, cfg.SqlserverHostName.OverrideValue, "override_value should be set for sqlserver.host.name")
+	assert.NotNil(t, cfg.SqlserverDbEdition.OverrideValue, "override_value should be set for sqlserver.db.edition")
 	assert.NotNil(t, cfg.SqlserverInstanceName.OverrideValue, "override_value should be set for sqlserver.instance.name")
+	assert.NotNil(t, cfg.SqlserverTargetHost.OverrideValue, "override_value should be set for sqlserver.target.host")
 }
 
 func loadResourceAttributesConfig(t *testing.T, name string) ResourceAttributesConfig {

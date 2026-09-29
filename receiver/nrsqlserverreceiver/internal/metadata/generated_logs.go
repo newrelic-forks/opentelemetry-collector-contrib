@@ -178,6 +178,12 @@ func NewLogsBuilder(lbc LogsBuilderConfig, settings receiver.Settings) *LogsBuil
 		resourceAttributeIncludeFilter: make(map[string]filter.Filter),
 		resourceAttributeExcludeFilter: make(map[string]filter.Filter),
 	}
+	if lbc.ResourceAttributes.DbSystemVersion.EventsInclude != nil {
+		lb.resourceAttributeIncludeFilter["db.system.version"] = filter.CreateFilter(lbc.ResourceAttributes.DbSystemVersion.EventsInclude)
+	}
+	if lbc.ResourceAttributes.DbSystemVersion.EventsExclude != nil {
+		lb.resourceAttributeExcludeFilter["db.system.version"] = filter.CreateFilter(lbc.ResourceAttributes.DbSystemVersion.EventsExclude)
+	}
 	if lbc.ResourceAttributes.HostName.EventsInclude != nil {
 		lb.resourceAttributeIncludeFilter["host.name"] = filter.CreateFilter(lbc.ResourceAttributes.HostName.EventsInclude)
 	}
@@ -226,17 +232,23 @@ func NewLogsBuilder(lbc LogsBuilderConfig, settings receiver.Settings) *LogsBuil
 	if lbc.ResourceAttributes.SqlserverDatabaseName.EventsExclude != nil {
 		lb.resourceAttributeExcludeFilter["sqlserver.database.name"] = filter.CreateFilter(lbc.ResourceAttributes.SqlserverDatabaseName.EventsExclude)
 	}
-	if lbc.ResourceAttributes.SqlserverHostName.EventsInclude != nil {
-		lb.resourceAttributeIncludeFilter["sqlserver.host.name"] = filter.CreateFilter(lbc.ResourceAttributes.SqlserverHostName.EventsInclude)
+	if lbc.ResourceAttributes.SqlserverDbEdition.EventsInclude != nil {
+		lb.resourceAttributeIncludeFilter["sqlserver.db.edition"] = filter.CreateFilter(lbc.ResourceAttributes.SqlserverDbEdition.EventsInclude)
 	}
-	if lbc.ResourceAttributes.SqlserverHostName.EventsExclude != nil {
-		lb.resourceAttributeExcludeFilter["sqlserver.host.name"] = filter.CreateFilter(lbc.ResourceAttributes.SqlserverHostName.EventsExclude)
+	if lbc.ResourceAttributes.SqlserverDbEdition.EventsExclude != nil {
+		lb.resourceAttributeExcludeFilter["sqlserver.db.edition"] = filter.CreateFilter(lbc.ResourceAttributes.SqlserverDbEdition.EventsExclude)
 	}
 	if lbc.ResourceAttributes.SqlserverInstanceName.EventsInclude != nil {
 		lb.resourceAttributeIncludeFilter["sqlserver.instance.name"] = filter.CreateFilter(lbc.ResourceAttributes.SqlserverInstanceName.EventsInclude)
 	}
 	if lbc.ResourceAttributes.SqlserverInstanceName.EventsExclude != nil {
 		lb.resourceAttributeExcludeFilter["sqlserver.instance.name"] = filter.CreateFilter(lbc.ResourceAttributes.SqlserverInstanceName.EventsExclude)
+	}
+	if lbc.ResourceAttributes.SqlserverTargetHost.EventsInclude != nil {
+		lb.resourceAttributeIncludeFilter["sqlserver.target.host"] = filter.CreateFilter(lbc.ResourceAttributes.SqlserverTargetHost.EventsInclude)
+	}
+	if lbc.ResourceAttributes.SqlserverTargetHost.EventsExclude != nil {
+		lb.resourceAttributeExcludeFilter["sqlserver.target.host"] = filter.CreateFilter(lbc.ResourceAttributes.SqlserverTargetHost.EventsExclude)
 	}
 
 	return lb

@@ -1078,11 +1078,11 @@ func TestScrapeQuerySamplesBlockers(t *testing.T) {
 	t.Run("multiple concurrent blockers are all preserved, in whatever order the query returned them", func(t *testing.T) {
 		// query_samples_multi_blocker.txt encodes three concurrent blockers
 		// for one thread -- unordered, since the receiver no longer sorts
-		// this array (that required information_schema.INNODB_TRX, which
-		// needs the PROCESS privilege; see
-		// docs/mysql-receiver/blocking-blockers-ordering-spec-removed-2026-08-14.md).
-		// The only guarantee now is that all blockers are present with the
-		// correct thread_id/session_id -- not any particular order.
+		// this array. The older ordering used information_schema.INNODB_TRX,
+		// which requires the PROCESS privilege and could fail the entire query
+		// for restricted monitoring users. The only guarantee now is that all
+		// blockers are present with the correct thread_id/session_id, not any
+		// particular order.
 		scraper, err := newMySQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, nil, newCache[int64](100), newTTLCache[string](0, time.Hour*24*365*10))
 		require.NoError(t, err)
 		scraper.sqlclient = &mockClient{querySamplesFile: "query_samples_multi_blocker"}
@@ -1137,8 +1137,8 @@ func TestScrapeQuerySamplesClientProgramName(t *testing.T) {
 		require.Equal(t, 1, result.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().Len())
 		record := result.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0)
 
-		val, ok := record.Attributes().Get("mysql.session.client_name")
-		require.True(t, ok, "mysql.session.client_name must be present")
+		val, ok := record.Attributes().Get("mysql.client.name")
+		require.True(t, ok, "mysql.client.name must be present")
 		assert.Equal(t, "MySQL Connector/J", val.Str())
 	})
 
@@ -1152,8 +1152,8 @@ func TestScrapeQuerySamplesClientProgramName(t *testing.T) {
 		require.Equal(t, 1, result.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().Len())
 		record := result.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0)
 
-		val, ok := record.Attributes().Get("mysql.session.client_name")
-		require.True(t, ok, "mysql.session.client_name must be present")
+		val, ok := record.Attributes().Get("mysql.client.name")
+		require.True(t, ok, "mysql.client.name must be present")
 		assert.Empty(t, val.Str())
 	})
 }
@@ -1895,9 +1895,9 @@ func TestQueryPlanCacheReuse(t *testing.T) {
 
 // TestQueryPlanArrayWrapping verifies that a non-empty query plan is wrapped in a
 // one-element JSON array before being emitted on mysql.query_plan, working around
-// New Relic log ingest's auto-flatten behavior for top-level JSON *objects* (see
-// docs/superpowers/specs/2026-08-05-query-plan-array-wrap-design.md). Empty plans
-// must stay empty ("" not "[]"), and a cached plan must not be wrapped a second time.
+// New Relic log ingest's auto-flatten behavior for top-level JSON objects. Empty
+// plans must stay empty ("" not "[]"), and a cached plan must not be wrapped a
+// second time.
 func TestQueryPlanArrayWrapping(t *testing.T) {
 	baseCfg := createDefaultConfig().(*Config)
 	baseCfg.Username = "otel"
@@ -2159,12 +2159,12 @@ func TestScrapeTopQueriesRowsExaminedSent(t *testing.T) {
 		require.Equal(t, 1, logs.ResourceLogs().Len())
 		lr := logs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0)
 
-		examinedVal, ok := lr.Attributes().Get("mysql.events_statements_summary_by_digest.sum_rows_examined")
-		require.True(t, ok, "mysql.events_statements_summary_by_digest.sum_rows_examined must be present")
+		examinedVal, ok := lr.Attributes().Get("mysql.events_statements_summary_by_digest.examined_rows")
+		require.True(t, ok, "mysql.events_statements_summary_by_digest.examined_rows must be present")
 		assert.Equal(t, int64(1), examinedVal.Int(), "must be the per-cycle delta (101-100), not the raw cumulative fixture value")
 
-		sentVal, ok := lr.Attributes().Get("mysql.events_statements_summary_by_digest.sum_rows_sent")
-		require.True(t, ok, "mysql.events_statements_summary_by_digest.sum_rows_sent must be present")
+		sentVal, ok := lr.Attributes().Get("mysql.events_statements_summary_by_digest.returned_rows")
+		require.True(t, ok, "mysql.events_statements_summary_by_digest.returned_rows must be present")
 		assert.Equal(t, int64(1), sentVal.Int(), "must be the per-cycle delta (51-50), not the raw cumulative fixture value")
 	})
 
@@ -2186,12 +2186,12 @@ func TestScrapeTopQueriesRowsExaminedSent(t *testing.T) {
 		require.Equal(t, 1, logs.ResourceLogs().Len())
 		lr := logs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0)
 
-		examinedVal, ok := lr.Attributes().Get("mysql.events_statements_summary_by_digest.sum_rows_examined")
-		require.True(t, ok, "mysql.events_statements_summary_by_digest.sum_rows_examined must be present")
+		examinedVal, ok := lr.Attributes().Get("mysql.events_statements_summary_by_digest.examined_rows")
+		require.True(t, ok, "mysql.events_statements_summary_by_digest.examined_rows must be present")
 		assert.Equal(t, int64(1), examinedVal.Int())
 
-		sentVal, ok := lr.Attributes().Get("mysql.events_statements_summary_by_digest.sum_rows_sent")
-		require.True(t, ok, "mysql.events_statements_summary_by_digest.sum_rows_sent must be present")
+		sentVal, ok := lr.Attributes().Get("mysql.events_statements_summary_by_digest.returned_rows")
+		require.True(t, ok, "mysql.events_statements_summary_by_digest.returned_rows must be present")
 		assert.Equal(t, int64(1), sentVal.Int())
 	})
 }

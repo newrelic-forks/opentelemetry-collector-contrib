@@ -172,10 +172,29 @@ controls how the receiver obtains the plan:
   connection — today's behavior, sufficient for `SELECT`-only workloads.
 - `procedure`: routes `EXPLAIN` through a `SQL SECURITY DEFINER` stored procedure named
   `<schema>.explain_statement`, so write statements can be explained without granting DML to
-  the monitoring user. The procedure must be created once per database by a privileged user
-  (see `docs/mysql-receiver/explain-plan-privilege-workaround-implementation-guide.md` for the
-  provisioning script); if it's missing for a schema, the receiver logs once and falls back to
-  `inline`. The monitoring user only ever needs `EXECUTE` on the procedure — no table grants.
+  the monitoring user. The procedure must be created once per database by a privileged user; if
+  it's missing for a schema, the receiver logs once and falls back to `inline`. The monitoring
+  user only ever needs `EXECUTE` on the procedure — no table grants.
+
+Example provisioning flow for one schema:
+
+```sql
+DELIMITER $$
+CREATE DEFINER = CURRENT_USER PROCEDURE `<schema>`.explain_statement(IN stmt LONGTEXT)
+SQL SECURITY DEFINER
+BEGIN
+  SET @nrmysql_stmt = CONCAT('EXPLAIN FORMAT=json ', stmt);
+  PREPARE nrmysql_explain_stmt FROM @nrmysql_stmt;
+  EXECUTE nrmysql_explain_stmt;
+  DEALLOCATE PREPARE nrmysql_explain_stmt;
+END $$
+DELIMITER ;
+
+GRANT EXECUTE ON PROCEDURE `<schema>`.explain_statement TO '<monitoring-user>'@'%';
+```
+
+Create the procedure in each schema whose write statements you want `explain_mode: procedure`
+to cover.
 
 ### `mysql.query_plan` and JSON-shaped log attributes
 
@@ -281,7 +300,7 @@ beyond the standard `SELECT ON performance_schema.*` are required.
 
 ### Client program name
 
-`db.server.query_sample` carries `mysql.session.client_name` — the client driver's self-reported
+`db.server.query_sample` carries `mysql.client.name` — the client driver's self-reported
 identity, sourced from `performance_schema.session_connect_attrs` (`ATTR_NAME = '_client_name'`),
 e.g. `"MySQL Connector/J"` or `"libmysql"`. This is MySQL's closest equivalent to SQL Server's
 `client.app.name` / Oracle's `program`.
@@ -296,9 +315,9 @@ building a dashboard that depends on it (e.g. faceting sessions by program) as a
 A few attributes worth calling out explicitly since they're easy to miss in `metadata.yaml`'s
 flat attribute list:
 
-- `mysql.events_statements_summary_by_digest.sum_rows_examined` /
-  `.sum_rows_sent` (on `db.server.top_query`) — diffed per scrape cycle with the same
-  `cacheAndDiff` primitive already used for `count_star`, so `sum_rows_examined / count_star`
+- `mysql.events_statements_summary_by_digest.examined_rows` /
+  `.returned_rows` (on `db.server.top_query`) — diffed per scrape cycle with the same
+  `cacheAndDiff` primitive already used for `count_star`, so `examined_rows / count_star`
   gives a meaningful **per-execution average rows examined**, not a raw cumulative total. This is
   a row *count*, not a page/buffer-fetch count — it is **not** logical reads, and shouldn't be
   labeled as such in any dashboard that shows it alongside other engines' logical-reads column.

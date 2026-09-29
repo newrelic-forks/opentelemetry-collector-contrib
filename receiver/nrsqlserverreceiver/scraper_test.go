@@ -21,9 +21,11 @@ import (
 	sqlquery "github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrsqlquery"
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver/internal/metadata"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/pdata/plog"
 	"go.opentelemetry.io/collector/receiver/receivertest"
+	"go.opentelemetry.io/collector/scraper/scrapererror"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
@@ -1052,6 +1054,8 @@ func TestSetupResourceBuilder(t *testing.T) {
 				cfg := createDefaultConfig().(*Config)
 				cfg.Server = "testserver.example.com"
 				cfg.Port = 1433
+				cfg.Username = "sa"
+				cfg.Password = "password"
 				cfg.MetricsBuilderConfig.ResourceAttributes.HostName.Enabled = true
 				return cfg
 			}(),
@@ -1274,4 +1278,328 @@ func TestRecordDatabaseStatusMetricsUsesResourceBuilderForMetrics(t *testing.T) 
 	serverPort, exists := resourceAttributes.Get("server.port")
 	assert.True(t, exists)
 	assert.Equal(t, int64(1434), serverPort.Int())
+}
+
+// TestScrapeErrorDoesNotBlockOtherMetrics verifies that when one scraper fails
+// (e.g., a permission error), the concurrent scraper still emits metrics from
+// every other query group.
+func TestScrapeErrorDoesNotBlockOtherMetrics(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.Username = "sa"
+	cfg.Password = "password"
+	cfg.Port = 1433
+	cfg.Server = "0.0.0.0"
+	assert.NoError(t, cfg.Validate())
+
+	// Disable everything, then enable only DatabaseIO and ProcessCount so we
+	// get exactly two child scrapers — one that succeeds and one that fails.
+	configureAllScraperMetricsAndEvents(cfg, false)
+	cfg.Metrics.SqlserverDatabaseIo.Enabled = true
+	cfg.Metrics.SqlserverProcessCount.Enabled = true
+
+	scrapers, provider := setupSQLServerScrapers(receivertest.NewNopSettings(metadata.Type), cfg)
+	assert.Len(t, scrapers, 2)
+	t.Cleanup(func() { assert.NoError(t, provider.close()) })
+
+	permissionErr := errors.New("permission denied: cannot access database")
+
+	for _, s := range scrapers {
+		assert.NoError(t, s.Start(t.Context(), componenttest.NewNopHost()))
+		defer assert.NoError(t, s.Shutdown(t.Context()))
+
+		switch s.sqlQuery {
+		case getSQLServerDatabaseIOQuery(s.config.InstanceName):
+			s.client = mockClient{instanceName: s.config.InstanceName, SQL: s.sqlQuery}
+		case getSQLServerProcessCountQuery(s.config.InstanceName):
+			s.client = queryRowsFuncClient{
+				queryRowsFunc: func(_ context.Context, _ ...any) ([]sqlquery.StringMap, error) {
+					return nil, permissionErr
+				},
+			}
+		}
+	}
+
+	concurrent := newConcurrentMetricsScraper(scrapers, 4, zap.NewNop())
+	md, err := concurrent.ScrapeMetrics(t.Context())
+
+	// The process_count failure must surface as a PartialScrapeError so the OTel
+	// framework forwards the successful metrics instead of dropping everything.
+	assert.True(t, scrapererror.IsPartialScrapeError(err), "error should be a PartialScrapeError so the OTel framework forwards partial metrics")
+	assert.ErrorContains(t, err, permissionErr.Error())
+
+	// DatabaseIO metrics must still be present despite the process_count failure.
+	assert.Positive(t, md.ResourceMetrics().Len(), "DatabaseIO metrics should still be emitted when process.count fails")
+
+	var foundProcessCount, foundDatabaseIO bool
+	for i := 0; i < md.ResourceMetrics().Len(); i++ {
+		scopeMetrics := md.ResourceMetrics().At(i).ScopeMetrics()
+		for j := 0; j < scopeMetrics.Len(); j++ {
+			metrics := scopeMetrics.At(j).Metrics()
+			for k := 0; k < metrics.Len(); k++ {
+				switch metrics.At(k).Name() {
+				case "sqlserver.process.count":
+					foundProcessCount = true
+				case "sqlserver.database.io":
+					foundDatabaseIO = true
+				}
+			}
+		}
+	}
+	assert.False(t, foundProcessCount, "sqlserver.process.count should not appear when its query errors")
+	assert.True(t, foundDatabaseIO, "sqlserver.database.io should still appear even when process.count errors")
+}
+
+// TestSetupResourceBuilder_SetsVersionAndEdition verifies that db.system.version and
+// sqlserver.db.edition are stamped onto the resource when non-empty and enabled.
+func TestSetupResourceBuilder_SetsVersionAndEdition(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.Server = "testserver.example.com"
+	cfg.Port = 1433
+	cfg.Username = "sa"
+	cfg.Password = "password"
+	cfg.MetricsBuilderConfig.ResourceAttributes.DbSystemVersion.Enabled = true
+	cfg.MetricsBuilderConfig.ResourceAttributes.SqlserverDbEdition.Enabled = true
+	require.NoError(t, cfg.Validate())
+
+	settings := receivertest.NewNopSettings(metadata.Type)
+	scraper := newSQLServerScraper(
+		settings.ID,
+		"SELECT 1",
+		sqlquery.TelemetryConfig{},
+		func() (*sql.DB, error) { return nil, nil },
+		func(_ sqlquery.Db, _ string, _ *zap.Logger, _ sqlquery.TelemetryConfig) sqlquery.DbClient {
+			return nil
+		},
+		settings,
+		cfg,
+		nil,
+	)
+	scraper.mb = metadata.NewMetricsBuilder(cfg.MetricsBuilderConfig, settings)
+	scraper.dbVersion = "15.0.4261.1"
+	scraper.dbEdition = "Enterprise Edition (64-bit)"
+
+	row := sqlquery.StringMap{
+		computerNameKey: "test-computer",
+		instanceNameKey: "test-instance",
+	}
+
+	rb := scraper.setupResourceBuilder(scraper.mb.NewResourceBuilder(), row)
+	resource := rb.Emit()
+
+	version, ok := resource.Attributes().Get("db.system.version")
+	assert.True(t, ok, "db.system.version should be present")
+	assert.Equal(t, "15.0.4261.1", version.Str())
+
+	edition, ok := resource.Attributes().Get("sqlserver.db.edition")
+	assert.True(t, ok, "sqlserver.db.edition should be present")
+	assert.Equal(t, "Enterprise Edition (64-bit)", edition.Str())
+}
+
+// TestSetupResourceBuilder_EmptyVersionAndEditionNotEmitted verifies that db.system.version
+// and sqlserver.db.edition are not emitted when empty.
+func TestSetupResourceBuilder_EmptyVersionAndEditionNotEmitted(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.Server = "testserver.example.com"
+	cfg.Port = 1433
+	cfg.Username = "sa"
+	cfg.Password = "password"
+	cfg.MetricsBuilderConfig.ResourceAttributes.DbSystemVersion.Enabled = true
+	cfg.MetricsBuilderConfig.ResourceAttributes.SqlserverDbEdition.Enabled = true
+	require.NoError(t, cfg.Validate())
+
+	settings := receivertest.NewNopSettings(metadata.Type)
+	scraper := newSQLServerScraper(
+		settings.ID,
+		"SELECT 1",
+		sqlquery.TelemetryConfig{},
+		func() (*sql.DB, error) { return nil, nil },
+		func(_ sqlquery.Db, _ string, _ *zap.Logger, _ sqlquery.TelemetryConfig) sqlquery.DbClient {
+			return nil
+		},
+		settings,
+		cfg,
+		nil,
+	)
+	scraper.mb = metadata.NewMetricsBuilder(cfg.MetricsBuilderConfig, settings)
+	// dbVersion and dbEdition left as "" (zero value)
+
+	row := sqlquery.StringMap{
+		computerNameKey: "test-computer",
+		instanceNameKey: "test-instance",
+	}
+
+	rb := scraper.setupResourceBuilder(scraper.mb.NewResourceBuilder(), row)
+	resource := rb.Emit()
+
+	_, ok := resource.Attributes().Get("db.system.version")
+	assert.False(t, ok, "db.system.version should not be emitted when empty")
+
+	_, ok = resource.Attributes().Get("sqlserver.db.edition")
+	assert.False(t, ok, "sqlserver.db.edition should not be emitted when empty")
+}
+
+// findLogAttr returns the first value recorded for attrName across all log
+// records whose event name is eventName.
+func findLogAttr(logs plog.Logs, eventName, attrName string) (string, bool) {
+	for i := 0; i < logs.ResourceLogs().Len(); i++ {
+		scopeLogs := logs.ResourceLogs().At(i).ScopeLogs()
+		for j := 0; j < scopeLogs.Len(); j++ {
+			records := scopeLogs.At(j).LogRecords()
+			for k := 0; k < records.Len(); k++ {
+				record := records.At(k)
+				if record.EventName() != eventName {
+					continue
+				}
+				if val, ok := record.Attributes().Get(attrName); ok {
+					return val.Str(), true
+				}
+			}
+		}
+	}
+	return "", false
+}
+
+// seedTopQueryCacheForTests primes the counter cache with values below the ones
+// in queryTextAndPlanQueryData.txt. The top query collection only reports a row
+// whose total elapsed time grew since the previous scrape, so without this the
+// first scrape emits nothing. No-op for scrapers that do not collect top queries.
+func seedTopQueryCacheForTests(scraper *sqlServerScraperHelper) {
+	const (
+		executionCount          = "execution_count"
+		logicalReads            = "total_logical_reads"
+		logicalWrites           = "total_logical_writes"
+		physicalReads           = "total_physical_reads"
+		procedureExecutionCount = "procedure_execution_count"
+		rowsReturned            = "total_rows"
+		totalElapsedTime        = "total_elapsed_time"
+		totalGrant              = "total_grant_kb"
+		totalWorkerTime         = "total_worker_time"
+	)
+
+	queryHash := hex.EncodeToString([]byte("0x37849E874171E3F3"))
+	queryPlanHash := hex.EncodeToString([]byte("0xD3112909429A1B50"))
+	procedureID := "0"
+
+	for column, value := range map[string]int64{
+		totalElapsedTime:        846,
+		totalWorkerTime:         845,
+		rowsReturned:            1,
+		logicalReads:            1,
+		logicalWrites:           1,
+		physicalReads:           1,
+		executionCount:          1,
+		totalGrant:              1,
+		procedureExecutionCount: 0,
+	} {
+		scraper.cacheAndDiff(queryHash, queryPlanHash, procedureID, column, value)
+	}
+}
+
+// TestCommentKeysAreScopedPerEventCollection asserts each event collection reads
+// collect_full_query_text and allowed_comment_keys from its own config block, so
+// enabling them for one collection does not enable them for the other.
+func TestCommentKeysAreScopedPerEventCollection(t *testing.T) {
+	const guidAttr = "db.query.comment_tags.nr_service_guid"
+
+	// Both testdata fixtures carry an nr_service_guid comment, with a distinct
+	// value per event, so a cross-wired read would be visible.
+	const topQueryGUID = "test-guid-123"
+	const querySampleGUID = "test-guid-456"
+
+	tests := map[string]struct {
+		configure         func(cfg *Config)
+		wantTopQueryGUID  string
+		wantQuerySampleID string
+	}{
+		"top query only": {
+			configure: func(cfg *Config) {
+				cfg.TopQueryCollection.CollectFullQueryText = true
+				cfg.TopQueryCollection.AllowedCommentKeys = []string{"nr_service_guid"}
+			},
+			wantTopQueryGUID:  topQueryGUID,
+			wantQuerySampleID: "",
+		},
+		"query sample only": {
+			configure: func(cfg *Config) {
+				cfg.QuerySample.CollectFullQueryText = true
+				cfg.QuerySample.AllowedCommentKeys = []string{"nr_service_guid"}
+			},
+			wantTopQueryGUID:  "",
+			wantQuerySampleID: querySampleGUID,
+		},
+		"both collections": {
+			configure: func(cfg *Config) {
+				cfg.TopQueryCollection.CollectFullQueryText = true
+				cfg.TopQueryCollection.AllowedCommentKeys = []string{"nr_service_guid"}
+				cfg.QuerySample.CollectFullQueryText = true
+				cfg.QuerySample.AllowedCommentKeys = []string{"nr_service_guid"}
+			},
+			wantTopQueryGUID:  topQueryGUID,
+			wantQuerySampleID: querySampleGUID,
+		},
+		"neither collection": {
+			configure:         func(*Config) {},
+			wantTopQueryGUID:  "",
+			wantQuerySampleID: "",
+		},
+		"allowed keys omitted": {
+			// collect_full_query_text alone must not surface the comment tag:
+			// the key still has to be allow-listed on the same block.
+			configure: func(cfg *Config) {
+				cfg.TopQueryCollection.CollectFullQueryText = true
+				cfg.QuerySample.CollectFullQueryText = true
+			},
+			wantTopQueryGUID:  "",
+			wantQuerySampleID: "",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			cfg := createDefaultConfig().(*Config)
+			cfg.Username = "sa"
+			cfg.Password = "password"
+			cfg.Port = 1433
+			cfg.Server = "0.0.0.0"
+			enableSQLServerResourceAttributesForTests(&cfg.LogsBuilderConfig.ResourceAttributes)
+			require.NoError(t, cfg.Validate())
+
+			configureAllScraperMetricsAndEvents(cfg, false)
+			cfg.Events.DbServerTopQuery.Enabled = true
+			cfg.Events.DbServerQuerySample.Enabled = true
+			cfg.TopQueryCollection.CollectionInterval = cfg.CollectionInterval
+			tc.configure(cfg)
+
+			scrapers, _ := setupSQLServerLogsScrapers(receivertest.NewNopSettings(metadata.Type), cfg)
+			require.NotEmpty(t, scrapers)
+
+			var gotTopQueryGUID, gotQuerySampleGUID string
+			for _, scraper := range scrapers {
+				scraper.client = mockClient{
+					instanceName:        scraper.config.InstanceName,
+					SQL:                 scraper.sqlQuery,
+					maxQuerySampleCount: 1000,
+					lookbackTime:        20,
+					topQueryCount:       200,
+					maxRowsPerQuery:     100,
+				}
+				seedTopQueryCacheForTests(scraper)
+
+				logs, err := scraper.ScrapeLogs(t.Context())
+				require.NoError(t, err)
+
+				if val, ok := findLogAttr(logs, "db.server.top_query", guidAttr); ok && val != "" {
+					gotTopQueryGUID = val
+				}
+				if val, ok := findLogAttr(logs, "db.server.query_sample", guidAttr); ok && val != "" {
+					gotQuerySampleGUID = val
+				}
+			}
+
+			assert.Equal(t, tc.wantTopQueryGUID, gotTopQueryGUID,
+				"db.server.top_query must read allowed_comment_keys from top_query_collection only")
+			assert.Equal(t, tc.wantQuerySampleID, gotQuerySampleGUID,
+				"db.server.query_sample must read allowed_comment_keys from query_sample_collection only")
+		})
+	}
 }

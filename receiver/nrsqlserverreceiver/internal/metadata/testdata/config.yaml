@@ -64,9 +64,6 @@ all_set:
     sqlserver.database.operations:
       enabled: true
       attributes: ["physical_filename","logical_filename","file_type","direction"]
-    sqlserver.database.page_file.size:
-      enabled: true
-      attributes: ["db.namespace","page_file.state"]
     sqlserver.database.tempdb.space:
       enabled: true
       attributes: ["tempdb.state"]
@@ -325,6 +322,8 @@ all_set:
     db.server.top_query:
       enabled: true
   resource_attributes:
+    db.system.version:
+      enabled: true
     host.name:
       enabled: true
     server.address:
@@ -341,9 +340,11 @@ all_set:
       enabled: true
     sqlserver.database.name:
       enabled: true
-    sqlserver.host.name:
+    sqlserver.db.edition:
       enabled: true
     sqlserver.instance.name:
+      enabled: true
+    sqlserver.target.host:
       enabled: true
 reaggregate_set:
   metrics:
@@ -410,9 +411,6 @@ reaggregate_set:
     sqlserver.database.operations:
       enabled: true
       attributes: []
-    sqlserver.database.page_file.size:
-      enabled: true
-      attributes: []
     sqlserver.database.tempdb.space:
       enabled: true
       attributes: []
@@ -671,6 +669,8 @@ reaggregate_set:
     db.server.top_query:
       enabled: true
   resource_attributes:
+    db.system.version:
+      enabled: true
     host.name:
       enabled: true
     server.address:
@@ -687,9 +687,11 @@ reaggregate_set:
       enabled: true
     sqlserver.database.name:
       enabled: true
-    sqlserver.host.name:
+    sqlserver.db.edition:
       enabled: true
     sqlserver.instance.name:
+      enabled: true
+    sqlserver.target.host:
       enabled: true
 none_set:
   metrics:
@@ -756,9 +758,6 @@ none_set:
     sqlserver.database.operations:
       enabled: false
       attributes: ["physical_filename","logical_filename","file_type","direction"]
-    sqlserver.database.page_file.size:
-      enabled: false
-      attributes: ["db.namespace","page_file.state"]
     sqlserver.database.tempdb.space:
       enabled: false
       attributes: ["tempdb.state"]
@@ -1017,6 +1016,8 @@ none_set:
     db.server.top_query:
       enabled: false
   resource_attributes:
+    db.system.version:
+      enabled: false
     host.name:
       enabled: false
     server.address:
@@ -1033,12 +1034,17 @@ none_set:
       enabled: false
     sqlserver.database.name:
       enabled: false
-    sqlserver.host.name:
+    sqlserver.db.edition:
       enabled: false
     sqlserver.instance.name:
       enabled: false
+    sqlserver.target.host:
+      enabled: false
 override_set:
   resource_attributes:
+    db.system.version:
+      enabled: true
+      override_value: "override-db.system.version"
     host.name:
       enabled: true
       override_value: "override-host.name"
@@ -1063,14 +1069,23 @@ override_set:
     sqlserver.database.name:
       enabled: true
       override_value: "override-sqlserver.database.name"
-    sqlserver.host.name:
+    sqlserver.db.edition:
       enabled: true
-      override_value: "override-sqlserver.host.name"
+      override_value: "override-sqlserver.db.edition"
     sqlserver.instance.name:
       enabled: true
       override_value: "override-sqlserver.instance.name"
+    sqlserver.target.host:
+      enabled: true
+      override_value: "override-sqlserver.target.host"
 filter_set_include:
   resource_attributes:
+    db.system.version:
+      enabled: true
+      metrics_include:
+        - regexp: ".*"
+      events_include:
+        - regexp: ".*"
     host.name:
       enabled: true
       metrics_include:
@@ -1119,13 +1134,19 @@ filter_set_include:
         - regexp: ".*"
       events_include:
         - regexp: ".*"
-    sqlserver.host.name:
+    sqlserver.db.edition:
       enabled: true
       metrics_include:
         - regexp: ".*"
       events_include:
         - regexp: ".*"
     sqlserver.instance.name:
+      enabled: true
+      metrics_include:
+        - regexp: ".*"
+      events_include:
+        - regexp: ".*"
+    sqlserver.target.host:
       enabled: true
       metrics_include:
         - regexp: ".*"
@@ -1133,6 +1154,12 @@ filter_set_include:
         - regexp: ".*"
 filter_set_exclude:
   resource_attributes:
+    db.system.version:
+      enabled: true
+      metrics_exclude:
+        - strict: "db.system.version-val"
+      events_exclude:
+        - strict: "db.system.version-val"
     host.name:
       enabled: true
       metrics_exclude:
@@ -1181,15 +1208,21 @@ filter_set_exclude:
         - strict: "sqlserver.database.name-val"
       events_exclude:
         - strict: "sqlserver.database.name-val"
-    sqlserver.host.name:
+    sqlserver.db.edition:
       enabled: true
       metrics_exclude:
-        - strict: "sqlserver.host.name-val"
+        - strict: "sqlserver.db.edition-val"
       events_exclude:
-        - strict: "sqlserver.host.name-val"
+        - strict: "sqlserver.db.edition-val"
     sqlserver.instance.name:
       enabled: true
       metrics_exclude:
         - strict: "sqlserver.instance.name-val"
       events_exclude:
         - strict: "sqlserver.instance.name-val"
+    sqlserver.target.host:
+      enabled: true
+      metrics_exclude:
+        - strict: "sqlserver.target.host-val"
+      events_exclude:
+        - strict: "sqlserver.target.host-val"

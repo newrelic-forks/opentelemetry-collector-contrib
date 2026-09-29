@@ -24,6 +24,11 @@ func versionRow(v string) []metricRow {
 	return []metricRow{{"VERSION": v}}
 }
 
+// versionEditionRow builds the fakeDbClient response for the v$instance version+edition query.
+func versionEditionRow(v, edition string) []metricRow {
+	return []metricRow{{"VERSION": v, colEdition: edition}}
+}
+
 // cdbRow builds the fakeDbClient response for the v$database CDB/role/open_mode query.
 func cdbRow(cdb, role, openMode string) []metricRow {
 	return []metricRow{{"CDB": cdb, "DATABASE_ROLE": role, "OPEN_MODE": openMode}}
@@ -105,6 +110,33 @@ func TestMajorVersion(t *testing.T) {
 
 // -- detectInstanceInfo tests -------------------------------------------------
 
+func TestDetectInstanceInfo_EditionPopulated(t *testing.T) {
+	// Edition is read from the same row as version; verify it is populated.
+	info := detectInstanceInfo(t.Context(),
+		rowClient(versionEditionRow("19.0.0.0.0", "EE")),
+		rowClient(cdbRow("NO", "PRIMARY", "READ WRITE")),
+		noopClient(t), noopClient(t),
+		emptyClient(), emptyClient(), emptyClient(),
+		zap.NewNop(),
+	)
+
+	assert.Equal(t, "19.0.0.0.0", info.dbVersion)
+	assert.Equal(t, "EE", info.dbEdition)
+}
+
+func TestDetectInstanceInfo_EditionUnknownTreatedAsEmpty(t *testing.T) {
+	// Oracle returns "UNKNOWN" for edition on some releases; treat it as absent.
+	info := detectInstanceInfo(t.Context(),
+		rowClient(versionEditionRow("19.0.0.0.0", "UNKNOWN")),
+		rowClient(cdbRow("NO", "PRIMARY", "READ WRITE")),
+		noopClient(t), noopClient(t),
+		emptyClient(), emptyClient(), emptyClient(),
+		zap.NewNop(),
+	)
+	assert.Equal(t, "19.0.0.0.0", info.dbVersion)
+	assert.Empty(t, info.dbEdition)
+}
+
 func TestDetectInstanceInfo_VersionQueryFails(t *testing.T) {
 	// Version query fails: all fields stay at zero, detection stops.
 	core, logs := observer.New(zapcore.WarnLevel)
@@ -120,7 +152,7 @@ func TestDetectInstanceInfo_VersionQueryFails(t *testing.T) {
 	assert.False(t, info.isCDB)
 	assert.False(t, info.connectedToPDB)
 	assert.Empty(t, info.pdbName)
-	assert.Equal(t, 1, logs.FilterMessage("oracledbreceiver: failed to detect Oracle version; oracle.db.version attribute will not be set").Len())
+	assert.Equal(t, 1, logs.FilterMessage("failed to detect Oracle version. oracle.db.version and oracle.db.edition will not be set").Len())
 }
 
 func TestDetectInstanceInfo_Pre12c(t *testing.T) {
@@ -519,6 +551,7 @@ func TestSetupResourceBuilder_NoPDB(t *testing.T) {
 
 func TestSetupResourceBuilder_AllMetadataFields(t *testing.T) {
 	cfg := metadata.NewDefaultMetricsBuilderConfig()
+	cfg.ResourceAttributes.OracleDbEdition.Enabled = true
 	scrpr := oracleScraper{
 		mb:                   metadata.NewMetricsBuilder(cfg, receivertest.NewNopSettings(metadata.Type)),
 		metricsBuilderConfig: cfg,
@@ -526,6 +559,7 @@ func TestSetupResourceBuilder_AllMetadataFields(t *testing.T) {
 		hostName:             "myhost",
 		instanceInfo: oracleInstanceInfo{
 			dbVersion:    "19.0.0.0.0",
+			dbEdition:    "EE",
 			databaseRole: "PRIMARY",
 			openMode:     "READ WRITE",
 			hostingType:  hostingTypeSelfManaged,
@@ -537,6 +571,10 @@ func TestSetupResourceBuilder_AllMetadataFields(t *testing.T) {
 	version, ok := res.Attributes().Get("oracle.db.version")
 	require.True(t, ok)
 	assert.Equal(t, "19.0.0.0.0", version.Str())
+
+	edition, ok := res.Attributes().Get("oracle.db.edition")
+	require.True(t, ok)
+	assert.Equal(t, "EE", edition.Str())
 
 	role, ok := res.Attributes().Get("oracle.db.role")
 	require.True(t, ok)
@@ -553,6 +591,7 @@ func TestSetupResourceBuilder_AllMetadataFields(t *testing.T) {
 
 func TestSetupResourceBuilder_EmptyMetadataFieldsNotEmitted(t *testing.T) {
 	cfg := metadata.NewDefaultMetricsBuilderConfig()
+	cfg.ResourceAttributes.OracleDbEdition.Enabled = true
 	scrpr := oracleScraper{
 		mb:                   metadata.NewMetricsBuilder(cfg, receivertest.NewNopSettings(metadata.Type)),
 		metricsBuilderConfig: cfg,
@@ -561,7 +600,7 @@ func TestSetupResourceBuilder_EmptyMetadataFieldsNotEmitted(t *testing.T) {
 
 	res := scrpr.setupResourceBuilder(scrpr.mb.NewResourceBuilder()).Emit()
 
-	for _, attr := range []string{"oracle.db.version", "oracle.db.role", "oracle.db.open_mode", "oracle.db.hosting_type"} {
+	for _, attr := range []string{"oracle.db.version", "oracle.db.edition", "oracle.db.role", "oracle.db.open_mode", "oracle.db.hosting_type"} {
 		_, exists := res.Attributes().Get(attr)
 		assert.False(t, exists, "attribute %q should not be emitted when empty", attr)
 	}
