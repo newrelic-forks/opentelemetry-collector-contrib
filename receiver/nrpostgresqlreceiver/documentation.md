@@ -677,8 +677,8 @@ query sample
 | user.name | Name of the user logged into this backend. | Any Str | - |
 | postgresql.state | Current overall state of this backend | Any Str | - |
 | postgresql.pid | Process ID of this backend. | Any Int | - |
-| postgresql.backend_start | UTC timestamp (RFC3339) when this backend (connection) was started, from pg_stat_activity.backend_start. Stable for the lifetime of the connection, unlike postgresql.query_start which changes on every query. | Any Str | - |
-| postgresql.session_duration | Whole seconds since this backend (connection) was started, computed as now() minus pg_stat_activity.backend_start. 0 if backend_start is unavailable. | Any Int | - |
+| postgresql.backend.connection.start | UTC timestamp (RFC3339) when this backend (connection) was started, from pg_stat_activity.backend_start. Stable for the lifetime of the connection, unlike postgresql.query_start which changes on every query. | Any Str | - |
+| postgresql.session.duration | Whole seconds since this backend (connection) was started, computed as now() minus pg_stat_activity.backend_start. 0 if backend_start is unavailable. | Any Int | - |
 | postgresql.application_name | Name of the application that is connected to this backend. | Any Str | - |
 | network.peer.address | IP address of the client connected to this backend. | Any Str | - |
 | network.peer.port | TCP port number that the client is using for communication with this backend. | Any Int | - |
@@ -748,6 +748,6 @@ This component has the following feature gates:
 | `postgresqlreceiver.preciselagmetrics` | beta | Metric `postgresql.wal.lag` is replaced by more precise `postgresql.wal.delay`. | v0.89.0 | N/A | [Link](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/30831) |
 | `receiver.nrpostgresql.connectionPool` | beta | Use of connection pooling | v0.96.0 | N/A | [Link](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/30831) |
 | `receiver.nrpostgresql.separateSchemaAttr` | alpha | Moves Schema Names into dedicated Attribute | v0.122.0 | N/A | [Link](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/29559) |
-| `receiver.nrpostgresql.useOTelSemconv` | alpha | When enabled, uses a single resource per server with server.address, server.port, and service.instance.id (UUID v5) resource attributes, aligning with OpenTelemetry semantic conventions. When disabled, uses the legacy per-entity resource model with postgresql.database.name, postgresql.table.name, postgresql.index.name, and postgresql.schema.name resource attributes. | v0.156.0 | N/A | [Link](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/45347) |
+| `receiver.nrpostgresql.useOTelSemconv` | beta | When enabled, uses a single resource per server with server.address, server.port, and service.instance.id (UUID v5) resource attributes, aligning with OpenTelemetry semantic conventions. When disabled, uses the legacy per-entity resource model with postgresql.database.name, postgresql.table.name, postgresql.index.name, and postgresql.schema.name resource attributes. | v0.156.0 | N/A | [Link](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/45347) |
 
 For more information about feature gates, see the [Feature Gates](https://github.com/open-telemetry/opentelemetry-collector/blob/main/featuregate/README.md) documentation.
