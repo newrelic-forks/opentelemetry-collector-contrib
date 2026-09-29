@@ -4,6 +4,12 @@ resourceLogs:
         - key: service.instance.id
           value:
             stringValue: localhost:5432
+        - key: server.address
+          value:
+            stringValue: localhost
+        - key: server.port
+          value:
+            intValue: "5432"
     scopeLogs:
       - logRecords:
           - attributes:

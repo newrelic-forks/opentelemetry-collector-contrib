@@ -143,8 +143,7 @@ func createLogsReceiver(
 	}
 
 	if cfg.LogsBuilderConfig.Events.DbServerTopQuery.Enabled {
-		// we have 10 updated only attributes. so we set the cache size accordingly.
-		ns, err := newPostgreSQLScraper(params, cfg, clientFactory, newCache(int(cfg.TopQueryCollection.TopNQuery*10*2)), newTTLCache[string](cfg.TopQueryCollection.QueryPlanCacheSize, cfg.TopQueryCollection.QueryPlanCacheTTL), newTTLCache[explainSetupState](cfg.TopQueryCollection.QueryPlanCacheSize, cfg.TopQueryCollection.ExplainFunctionCacheTTL))
+		ns, err := newTopQueryScraper(params, cfg, clientFactory)
 		if err != nil {
 			return nil, err
 		}
@@ -166,4 +165,12 @@ func createLogsReceiver(
 	return scraperhelper.NewLogsController(
 		&cfg.ControllerConfig, params, logsConsumer, opts...,
 	)
+}
+
+func newTopQueryScraper(params receiver.Settings, cfg *Config, clientFactory postgreSQLClientFactory) (*postgreSQLScraper, error) {
+	// Deltas are calculated for every fetched statement before selecting the top queries.
+	return newPostgreSQLScraper(params, cfg, clientFactory,
+		newCache(int(cfg.TopQueryCollection.MaxRowsPerQuery*10*2)),
+		newTTLCache[string](cfg.TopQueryCollection.QueryPlanCacheSize, cfg.TopQueryCollection.QueryPlanCacheTTL),
+		newTTLCache[explainSetupState](cfg.TopQueryCollection.QueryPlanCacheSize, cfg.TopQueryCollection.ExplainFunctionCacheTTL))
 }

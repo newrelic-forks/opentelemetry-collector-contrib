@@ -1,6 +1,12 @@
 resourceMetrics:
   - resource:
       attributes:
+        - key: server.address
+          value:
+            stringValue: localhost
+        - key: server.port
+          value:
+            intValue: "5432"
         - key: service.instance.id
           value:
             stringValue: FQ1FY1H6L4:5432
@@ -201,6 +207,12 @@ resourceMetrics:
         - key: postgresql.database.name
           value:
             stringValue: open
+        - key: server.address
+          value:
+            stringValue: localhost
+        - key: server.port
+          value:
+            intValue: "5432"
         - key: service.instance.id
           value:
             stringValue: FQ1FY1H6L4:5432
@@ -392,6 +404,12 @@ resourceMetrics:
         - key: postgresql.database.name
           value:
             stringValue: otel
+        - key: server.address
+          value:
+            stringValue: localhost
+        - key: server.port
+          value:
+            intValue: "5432"
         - key: service.instance.id
           value:
             stringValue: FQ1FY1H6L4:5432
@@ -583,6 +601,12 @@ resourceMetrics:
         - key: postgresql.database.name
           value:
             stringValue: telemetry
+        - key: server.address
+          value:
+            stringValue: localhost
+        - key: server.port
+          value:
+            intValue: "5432"
         - key: service.instance.id
           value:
             stringValue: FQ1FY1H6L4:5432
@@ -777,6 +801,12 @@ resourceMetrics:
         - key: postgresql.table.name
           value:
             stringValue: public.table1
+        - key: server.address
+          value:
+            stringValue: localhost
+        - key: server.port
+          value:
+            intValue: "5432"
         - key: service.instance.id
           value:
             stringValue: FQ1FY1H6L4:5432
@@ -940,6 +970,12 @@ resourceMetrics:
         - key: postgresql.table.name
           value:
             stringValue: public.table2
+        - key: server.address
+          value:
+            stringValue: localhost
+        - key: server.port
+          value:
+            intValue: "5432"
         - key: service.instance.id
           value:
             stringValue: FQ1FY1H6L4:5432
@@ -1103,6 +1139,12 @@ resourceMetrics:
         - key: postgresql.table.name
           value:
             stringValue: public.table1
+        - key: server.address
+          value:
+            stringValue: localhost
+        - key: server.port
+          value:
+            intValue: "5432"
         - key: service.instance.id
           value:
             stringValue: FQ1FY1H6L4:5432
@@ -1266,6 +1308,12 @@ resourceMetrics:
         - key: postgresql.table.name
           value:
             stringValue: public.table2
+        - key: server.address
+          value:
+            stringValue: localhost
+        - key: server.port
+          value:
+            intValue: "5432"
         - key: service.instance.id
           value:
             stringValue: FQ1FY1H6L4:5432
@@ -1429,6 +1477,12 @@ resourceMetrics:
         - key: postgresql.table.name
           value:
             stringValue: public.table1
+        - key: server.address
+          value:
+            stringValue: localhost
+        - key: server.port
+          value:
+            intValue: "5432"
         - key: service.instance.id
           value:
             stringValue: FQ1FY1H6L4:5432
@@ -1592,6 +1646,12 @@ resourceMetrics:
         - key: postgresql.table.name
           value:
             stringValue: public.table2
+        - key: server.address
+          value:
+            stringValue: localhost
+        - key: server.port
+          value:
+            intValue: "5432"
         - key: service.instance.id
           value:
             stringValue: FQ1FY1H6L4:5432
@@ -1758,6 +1818,12 @@ resourceMetrics:
         - key: postgresql.table.name
           value:
             stringValue: table1
+        - key: server.address
+          value:
+            stringValue: localhost
+        - key: server.port
+          value:
+            intValue: "5432"
         - key: service.instance.id
           value:
             stringValue: FQ1FY1H6L4:5432
@@ -1795,6 +1861,12 @@ resourceMetrics:
         - key: postgresql.table.name
           value:
             stringValue: table2
+        - key: server.address
+          value:
+            stringValue: localhost
+        - key: server.port
+          value:
+            intValue: "5432"
         - key: service.instance.id
           value:
             stringValue: FQ1FY1H6L4:5432
@@ -1832,6 +1904,12 @@ resourceMetrics:
         - key: postgresql.table.name
           value:
             stringValue: table1
+        - key: server.address
+          value:
+            stringValue: localhost
+        - key: server.port
+          value:
+            intValue: "5432"
         - key: service.instance.id
           value:
             stringValue: FQ1FY1H6L4:5432
@@ -1869,6 +1947,12 @@ resourceMetrics:
         - key: postgresql.table.name
           value:
             stringValue: table2
+        - key: server.address
+          value:
+            stringValue: localhost
+        - key: server.port
+          value:
+            intValue: "5432"
         - key: service.instance.id
           value:
             stringValue: FQ1FY1H6L4:5432
@@ -1906,6 +1990,12 @@ resourceMetrics:
         - key: postgresql.table.name
           value:
             stringValue: table1
+        - key: server.address
+          value:
+            stringValue: localhost
+        - key: server.port
+          value:
+            intValue: "5432"
         - key: service.instance.id
           value:
             stringValue: FQ1FY1H6L4:5432
@@ -1943,6 +2033,12 @@ resourceMetrics:
         - key: postgresql.table.name
           value:
             stringValue: table2
+        - key: server.address
+          value:
+            stringValue: localhost
+        - key: server.port
+          value:
+            intValue: "5432"
         - key: service.instance.id
           value:
             stringValue: FQ1FY1H6L4:5432
