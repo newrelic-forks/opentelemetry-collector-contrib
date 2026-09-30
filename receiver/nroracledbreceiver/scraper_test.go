@@ -13,6 +13,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
@@ -79,6 +80,22 @@ var queryResponses = map[string][]metricRow{
 		{"NAME": sqlnetBytesSentToClient, "VALUE": "600000"},
 		{"NAME": sqlnetBytesRecvFromDBLink, "VALUE": "150000"},
 		{"NAME": sqlnetBytesSentToDBLink, "VALUE": "75000"},
+		// Session, JVM & OS resource v$sysstat rows
+		{"NAME": sessionNonIdleWaitCount, "VALUE": "98765"},
+		{"NAME": sessionNonIdleWaitTime, "VALUE": "4500"}, // cs -> 45 s
+		{"NAME": sessionStoredProcedureSpace, "VALUE": "262144"},
+		{"NAME": javaCallHeapUsedSize, "VALUE": "2097152"},
+		{"NAME": javaCallHeapTotalSize, "VALUE": "4194304"},
+		{"NAME": javaCallHeapLiveSize, "VALUE": "1048576"},
+		{"NAME": osSwaps, "VALUE": "17"},
+		// Transactions, Locks & Recovery v$sysstat rows
+		{"NAME": transactionRollbacks, "VALUE": "4521"},
+		{"NAME": transactionLockBackgroundTime, "VALUE": "350"},  // cs -> 3.5 s
+		{"NAME": transactionLockForegroundTime, "VALUE": "1200"}, // cs -> 12 s
+		{"NAME": recoveryBlocksRead, "VALUE": "8800"},
+		{"NAME": smonInstanceRecoveryPosts, "VALUE": "12"},
+		{"NAME": smonTxnRecoveryPosts, "VALUE": "7"},
+		{"NAME": gcCurrentBlockReceiveTime, "VALUE": "640"}, // cs -> 6.4 s
 		// Workload analysis v$sysstat rows
 		{"NAME": tableScansDirectReadStat, "VALUE": "100"},
 		{"NAME": tableScansLongTablesStat, "VALUE": "200"},
@@ -3410,8 +3427,8 @@ func TestScraper_ScrapeSGAInfo(t *testing.T) {
 					metric := metrics.At(i)
 					switch metric.Name() {
 					case "oracledb.sga.usage":
-						for j := 0; j < metric.Sum().DataPoints().Len(); j++ {
-							dp := metric.Sum().DataPoints().At(j)
+						for j := 0; j < metric.Gauge().DataPoints().Len(); j++ {
+							dp := metric.Gauge().DataPoints().At(j)
 							name, _ := dp.Attributes().Get("oracledb.sga.component.name")
 							gotUsage[name.Str()] = dp.IntValue()
 						}
@@ -3432,4 +3449,212 @@ func readFile(fname string) []byte {
 		log.Fatal(err)
 	}
 	return file
+}
+
+// onlyMetricsEnabled returns a config with every metric disabled, so a test can
+// verify that enabling just its target metrics is enough to trigger the query.
+func onlyMetricsEnabled(enable func(*metadata.MetricsConfig)) metadata.MetricsBuilderConfig {
+	cfg := metadata.NewDefaultMetricsBuilderConfig()
+	for _, f := range reflect.ValueOf(&cfg.Metrics).Elem().Fields() {
+		f.FieldByName("Enabled").SetBool(false)
+	}
+	enable(&cfg.Metrics)
+	return cfg
+}
+
+func TestScraper_ScrapeSessionJVMOSMetrics(t *testing.T) {
+	cfg := onlyMetricsEnabled(func(m *metadata.MetricsConfig) {
+		m.OracledbJvmMemoryCommitted.Enabled = true
+		m.OracledbJvmMemoryLive.Enabled = true
+		m.OracledbJvmMemoryUsed.Enabled = true
+		m.OracledbOsSwaps.Enabled = true
+		m.OracledbSessionStoredProcedureMemory.Enabled = true
+		m.OracledbSessionWaitTime.Enabled = true
+		m.OracledbSessionWaits.Enabled = true
+	})
+
+	m := scrapeWithConfig(t, cfg)
+
+	require.Equal(t, 1, m.ResourceMetrics().Len())
+	metrics := m.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
+	seen := 0
+	for i := 0; i < metrics.Len(); i++ {
+		me := metrics.At(i)
+		switch me.Name() {
+		case "oracledb.jvm.memory.committed":
+			seen++
+			assert.Equal(t, int64(4194304), me.Gauge().DataPoints().At(0).IntValue())
+		case "oracledb.jvm.memory.live":
+			seen++
+			assert.Equal(t, int64(1048576), me.Gauge().DataPoints().At(0).IntValue())
+		case "oracledb.jvm.memory.used":
+			seen++
+			assert.Equal(t, int64(2097152), me.Gauge().DataPoints().At(0).IntValue())
+		case "oracledb.os.swaps":
+			seen++
+			assert.Equal(t, int64(17), me.Sum().DataPoints().At(0).IntValue())
+		case "oracledb.session.stored_procedure.memory":
+			seen++
+			assert.Equal(t, int64(262144), me.Gauge().DataPoints().At(0).IntValue())
+		case "oracledb.session.wait.time":
+			seen++
+			dp := me.Sum().DataPoints().At(0)
+			state, _ := dp.Attributes().Get("oracledb.session.wait.state")
+			assert.Equal(t, "non_idle", state.Str())
+			assert.InDelta(t, 45.0, dp.DoubleValue(), 1e-9)
+		case "oracledb.session.waits":
+			seen++
+			dp := me.Sum().DataPoints().At(0)
+			state, _ := dp.Attributes().Get("oracledb.session.wait.state")
+			assert.Equal(t, "non_idle", state.Str())
+			assert.Equal(t, int64(98765), dp.IntValue())
+		}
+	}
+	assert.Equal(t, 7, seen)
+}
+
+func TestScraper_ScrapeTransactionLockRecoveryMetrics(t *testing.T) {
+	cfg := onlyMetricsEnabled(func(m *metadata.MetricsConfig) {
+		m.OracledbGcCurrentBlockTime.Enabled = true
+		m.OracledbLockTime.Enabled = true
+		m.OracledbRecoveryBlocks.Enabled = true
+		m.OracledbSmonPosts.Enabled = true
+		m.OracledbTransactionRollbacks.Enabled = true
+	})
+
+	m := scrapeWithConfig(t, cfg)
+
+	require.Equal(t, 1, m.ResourceMetrics().Len())
+	metrics := m.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
+	seen := 0
+	for i := 0; i < metrics.Len(); i++ {
+		me := metrics.At(i)
+		if me.Type() != pmetric.MetricTypeSum {
+			continue
+		}
+		dps := me.Sum().DataPoints()
+		switch me.Name() {
+		case "oracledb.gc.current_block.time":
+			seen++
+			gcDir, _ := dps.At(0).Attributes().Get("network.io.direction")
+			assert.Equal(t, "receive", gcDir.Str())
+			assert.InDelta(t, 6.4, dps.At(0).DoubleValue(), 1e-9)
+		case "oracledb.lock.time":
+			seen++
+			for j := 0; j < dps.Len(); j++ {
+				dp := dps.At(j)
+				sessionType, _ := dp.Attributes().Get("oracledb.session.type")
+				switch sessionType.Str() {
+				case "background":
+					assert.InDelta(t, 3.5, dp.DoubleValue(), 1e-9)
+				case "foreground":
+					assert.InDelta(t, 12.0, dp.DoubleValue(), 1e-9)
+				default:
+					t.Errorf("unexpected oracledb.session.type %q", sessionType.Str())
+				}
+			}
+		case "oracledb.recovery.blocks":
+			seen++
+			assert.Equal(t, int64(8800), dps.At(0).IntValue())
+		case "oracledb.smon.posts":
+			seen++
+			for j := 0; j < dps.Len(); j++ {
+				dp := dps.At(j)
+				smonType, _ := dp.Attributes().Get("oracledb.smon.type")
+				switch smonType.Str() {
+				case "instance":
+					assert.Equal(t, int64(12), dp.IntValue())
+				case "transaction":
+					assert.Equal(t, int64(7), dp.IntValue())
+				default:
+					t.Errorf("unexpected oracledb.smon.type %q", smonType.Str())
+				}
+			}
+		case "oracledb.transaction.rollbacks":
+			seen++
+			assert.Equal(t, int64(4521), dps.At(0).IntValue())
+		}
+	}
+	assert.Equal(t, 5, seen)
+}
+
+func TestScraper_SysmetricRateMetricsAloneTriggerQuery(t *testing.T) {
+	cfg := onlyMetricsEnabled(func(m *metadata.MetricsConfig) {
+		m.OracledbExecutionsRate.Enabled = true
+	})
+	sysmetricQueried := false
+	scrpr := oracleScraper{
+		logger: zap.NewNop(),
+		mb:     metadata.NewMetricsBuilder(cfg, receivertest.NewNopSettings(metadata.Type)),
+		dbProviderFunc: func() (*sql.DB, error) {
+			return nil, nil
+		},
+		clientProviderFunc: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+			if s == sysmetricSQL {
+				sysmetricQueried = true
+				return &fakeDbClient{Responses: [][]metricRow{{{"METRIC_NAME": sysmetricExecutionsPerSec, "VALUE": "12.5"}}}}
+			}
+			return &fakeDbClient{Responses: [][]metricRow{queryResponses[s]}}
+		},
+		id:                   component.ID{},
+		metricsBuilderConfig: cfg,
+	}
+	require.NoError(t, scrpr.start(t.Context(), componenttest.NewNopHost()))
+	t.Cleanup(func() { assert.NoError(t, scrpr.shutdown(t.Context())) })
+	m, err := scrpr.scrape(t.Context())
+	require.NoError(t, err)
+
+	require.True(t, sysmetricQueried)
+	require.Equal(t, 1, m.ResourceMetrics().Len())
+	metrics := m.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
+	require.Equal(t, 1, metrics.Len())
+	assert.Equal(t, "oracledb.executions.rate", metrics.At(0).Name())
+	assert.InDelta(t, 12.5, metrics.At(0).Gauge().DataPoints().At(0).DoubleValue(), 1e-9)
+}
+
+func TestGetChildAddressToPlanMapReturnsError(t *testing.T) {
+	scrpr := oracleScraper{
+		logger: zap.NewNop(),
+		clientProviderFunc: func(*sql.DB, string, *zap.Logger) dbClient {
+			return &fakeDbClient{Err: errors.New("boom")}
+		},
+	}
+	_, err := scrpr.getChildAddressToPlanMap(t.Context(), []queryMetricCacheHit{{childAddress: "ABCD"}})
+	require.ErrorContains(t, err, "failed to fetch Oracle execution plan data")
+	require.ErrorContains(t, err, "boom")
+}
+
+func TestScraper_SysstatPdbNameFallsBackToConnectedPDB(t *testing.T) {
+	cfg := onlyMetricsEnabled(func(m *metadata.MetricsConfig) {
+		m.OracledbExecutions.Enabled = true
+	})
+	cfg.Metrics.OracledbExecutions.EnabledAttributes = append(
+		cfg.Metrics.OracledbExecutions.EnabledAttributes,
+		metadata.OracledbExecutionsMetricAttributeKeyOracleDbPdb,
+	)
+
+	scrpr := oracleScraper{
+		logger: zap.NewNop(),
+		mb:     metadata.NewMetricsBuilder(cfg, receivertest.NewNopSettings(metadata.Type)),
+		dbProviderFunc: func() (*sql.DB, error) {
+			return nil, nil
+		},
+		clientProviderFunc: func(_ *sql.DB, s string, _ *zap.Logger) dbClient {
+			return &fakeDbClient{Responses: [][]metricRow{queryResponses[s]}}
+		},
+		id:                   component.ID{},
+		metricsBuilderConfig: cfg,
+		instanceInfo:         oracleInstanceInfo{isCDB: true, connectedToPDB: true, pdbName: "PDB1"},
+	}
+	require.NoError(t, scrpr.start(t.Context(), componenttest.NewNopHost()))
+	t.Cleanup(func() { assert.NoError(t, scrpr.shutdown(t.Context())) })
+	m, err := scrpr.scrape(t.Context())
+	require.NoError(t, err)
+
+	require.Equal(t, 1, m.ResourceMetrics().Len())
+	metrics := m.ResourceMetrics().At(0).ScopeMetrics().At(0).Metrics()
+	require.Equal(t, 1, metrics.Len())
+	pdb, ok := metrics.At(0).Sum().DataPoints().At(0).Attributes().Get("oracle.db.pdb")
+	require.True(t, ok)
+	assert.Equal(t, "PDB1", pdb.Str())
 }

@@ -1,0 +1,7 @@
+change_type: breaking
+component: receiver/nroracledb
+note: Normalize obfuscated `db.query.text` with `ObfuscateAndNormalize`, change `oracledb.sga.usage` from a sum to a gauge, and upgrade `github.com/DataDog/datadog-agent/pkg/obfuscate` to v0.83.2.
+issues: []
+subtext: |
+  `db.query.text` format changes. `oracledb.sga.usage` is now a gauge.
+change_logs: [user]
