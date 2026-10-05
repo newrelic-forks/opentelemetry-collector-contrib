@@ -8,7 +8,7 @@ require (
 	github.com/go-sql-driver/mysql v1.10.0
 	github.com/google/go-cmp v0.7.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
-	github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon v0.162.0
+	github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon v0.162.1
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/golden v0.162.0
 	github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatatest v0.162.0
 	github.com/stretchr/testify v1.12.1
