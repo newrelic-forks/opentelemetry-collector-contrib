@@ -685,13 +685,25 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 		s.metricsBuilderConfig.Metrics.OracledbCursorOpen.Enabled ||
 		s.metricsBuilderConfig.Metrics.OracledbDbTime.Enabled ||
 		s.metricsBuilderConfig.Metrics.OracledbEnqueueOperations.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbGcCurrentBlockTime.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbJvmMemoryCommitted.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbJvmMemoryLive.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbJvmMemoryUsed.Enabled ||
 		s.metricsBuilderConfig.Metrics.OracledbLobOperations.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbLockTime.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbOsSwaps.Enabled ||
 		s.metricsBuilderConfig.Metrics.OracledbParseCPUTime.Enabled ||
 		s.metricsBuilderConfig.Metrics.OracledbParseElapsedTime.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbRecoveryBlocks.Enabled ||
 		s.metricsBuilderConfig.Metrics.OracledbScanCount.Enabled ||
 		s.metricsBuilderConfig.Metrics.OracledbScanTableRows.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbSessionStoredProcedureMemory.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbSessionWaitTime.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbSessionWaits.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbSmonPosts.Enabled ||
 		s.metricsBuilderConfig.Metrics.OracledbSortOperations.Enabled ||
-		s.metricsBuilderConfig.Metrics.OracledbSortRows.Enabled
+		s.metricsBuilderConfig.Metrics.OracledbSortRows.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbTransactionRollbacks.Enabled
 	if runStats {
 		now := pcommon.NewTimestampFromTime(time.Now())
 		statsQueryName := statsSQL
@@ -705,7 +717,7 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 
 		for _, row := range rows {
 			// pdbName is set for CDB-root queries; empty for non-CDB or direct-PDB connections.
-			pdbName := row["PDB_NAME"]
+			pdbName := s.pdbNameForRow(row)
 			switch row["NAME"] {
 			case enqueueDeadlocks:
 				err := s.mb.RecordOracledbEnqueueDeadlocksDataPoint(now, row["VALUE"], pdbName)
@@ -1181,7 +1193,7 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 		for _, row := range rows {
 			// pdbName is populated from PDB_NAME in CDB-root queries; empty for non-CDB.
 			err := s.mb.RecordOracledbSessionsUsageDataPoint(pcommon.NewTimestampFromTime(time.Now()), row["VALUE"],
-				row["TYPE"], row["STATUS"], row["PDB_NAME"])
+				row["TYPE"], row["STATUS"], s.pdbNameForRow(row))
 			if err != nil {
 				scrapeErrors = append(scrapeErrors, err)
 			}
@@ -1609,7 +1621,22 @@ func (s *oracleScraper) collectSysMetrics(ctx context.Context, scrapeErrors *[]e
 		s.metricsBuilderConfig.Metrics.OracledbIoSingleBlockReadLatency.Enabled ||
 		s.metricsBuilderConfig.Metrics.OracledbPgaCacheUtilization.Enabled ||
 		s.metricsBuilderConfig.Metrics.OracledbSessionAverage.Enabled ||
-		s.metricsBuilderConfig.Metrics.OracledbTransactionResponseTime.Enabled
+		s.metricsBuilderConfig.Metrics.OracledbTransactionResponseTime.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbBufferCacheBlockChangesRate.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbIoRequestsRate.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbIoThroughputRate.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbLogicalReadsRate.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbPhysicalIoRequestsRate.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbPhysicalIoTransferredRate.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbPhysicalOperationsRate.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbRedoSizeRate.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbCursorOpenRate.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbEnqueueDeadlocksRate.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbEnqueueTimeoutsRate.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbExecutionsRate.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbHardParsesRate.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbLogonsRate.Enabled ||
+		s.metricsBuilderConfig.Metrics.OracledbTransactionsRate.Enabled
 	if !anySysmetricEnabled {
 		return
 	}
@@ -1632,7 +1659,7 @@ func (s *oracleScraper) collectSysMetrics(ctx context.Context, scrapeErrors *[]e
 			for _, row := range rows {
 				metricName := row["METRIC_NAME"]
 				rawVal := row["VALUE"]
-				pdbName := row["PDB_NAME"]
+				pdbName := s.pdbNameForRow(row)
 				val, parseErr := strconv.ParseFloat(rawVal, 64)
 				if parseErr != nil {
 					*scrapeErrors = append(*scrapeErrors, fmt.Errorf("sysmetric %q: failed to parse float64 from %q: %w", metricName, rawVal, parseErr))
@@ -2121,7 +2148,10 @@ func (s *oracleScraper) collectTopNMetricData(ctx context.Context, logs plog.Log
 	hits = hits[:maxHitsSize]
 
 	hits = s.obfuscateCacheHits(hits)
-	childAddressToPlanMap := s.getChildAddressToPlanMap(ctx, hits)
+	childAddressToPlanMap, err := s.getChildAddressToPlanMap(ctx, hits)
+	if err != nil {
+		errs = append(errs, err)
+	}
 
 	rb := s.setupResourceBuilder(s.lb.NewResourceBuilder())
 
@@ -2612,10 +2642,10 @@ func (s *oracleScraper) obfuscateCacheHits(hits []queryMetricCacheHit) []queryMe
 	return obfuscatedHits
 }
 
-func (s *oracleScraper) getChildAddressToPlanMap(ctx context.Context, hits []queryMetricCacheHit) map[string][]metricRow {
+func (s *oracleScraper) getChildAddressToPlanMap(ctx context.Context, hits []queryMetricCacheHit) (map[string][]metricRow, error) {
 	childAddressToPlanMap := map[string][]metricRow{}
 	if len(hits) == 0 {
-		return childAddressToPlanMap
+		return childAddressToPlanMap, nil
 	}
 
 	var childAddressSlice []any
@@ -2630,7 +2660,10 @@ func (s *oracleScraper) getChildAddressToPlanMap(ctx context.Context, hits []que
 
 	s.logger.Debug("Fetching execution plans")
 	s.oraclePlanDataClient = s.clientProviderFunc(s.db, sqlQuery, s.logger)
-	planData, _ := s.oraclePlanDataClient.metricRows(ctx, childAddressSlice...)
+	planData, err := s.oraclePlanDataClient.metricRows(ctx, childAddressSlice...)
+	if err != nil {
+		return childAddressToPlanMap, fmt.Errorf("failed to fetch Oracle execution plan data: %w", err)
+	}
 
 	for _, row := range planData {
 		currentChildAddress := row[childAddressAttr]
@@ -2644,7 +2677,7 @@ func (s *oracleScraper) getChildAddressToPlanMap(ctx context.Context, hits []que
 		}
 	}
 
-	return childAddressToPlanMap
+	return childAddressToPlanMap, nil
 }
 
 func (*oracleScraper) getTopNMetricNames() []string {
