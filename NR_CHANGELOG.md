@@ -5,6 +5,41 @@ including confirmation of which breaking changes from [CHANGELOG.md](./CHANGELOG
 
 <!-- next version -->
 
+## v0.162.1
+
+Patch release for `receiver/nroracledb` only — no new upstream contrib version this cycle.
+
+### 🛑 Breaking changes 🛑
+
+- `receiver/nroracledb` (upstream [#50230](https://github.com/open-telemetry/opentelemetry-collector-contrib/pull/50230)):
+  `db.query.text` is now produced using the obfuscator's `ObfuscateAndNormalize` mode directly,
+  instead of `obfuscate_only` plus a separate pass that manually anonymized collected comments.
+  Comments and formatting (whitespace, line breaks) are now stripped from the text in addition to
+  literals, so the same Oracle `sql_id` no longer yields different `query_text`/
+  `db.query.text.normalized.hash` values purely from formatting differences — but the text format
+  itself changes for every query. `KeepIdentifierQuotation` is also enabled, so a quoted identifier
+  such as `"a b"` is no longer collapsed into the unquoted `a b`. Ported.
+
+- `receiver/nroracledb`: `oracledb.sga.usage` changed from a non-monotonic cumulative sum to a gauge.
+  Values are unchanged; only the metric type/aggregation temporality changes.
+
+- `receiver/nroracledb`: upgraded `github.com/DataDog/datadog-agent/pkg/obfuscate` to v0.83.2.
+
+### 🧰 Bug fixes 🧰
+
+- `receiver/nroracledb`: the `V$SYSSTAT` and `V$SYSMETRIC` queries now also run when only a metric
+  added in a previous cycle (e.g. the JVM/OS/session/lock/recovery `v$sysstat` metrics, or the
+  `*.rate` `v$sysmetric` metrics) is enabled on its own. Previously the shared "is anything enabled"
+  check for each query had not been updated when those metrics were ported, so enabling only one of
+  them silently collected nothing.
+
+- `receiver/nroracledb`: `oracle.db.pdb` now falls back to the connected PDB name when a row's
+  `PDB_NAME` column is empty but the connection is to a specific PDB (e.g. direct-PDB connections such
+  as on AWS RDS Oracle), instead of leaving the attribute blank.
+
+- `receiver/nroracledb`: errors fetching execution-plan data for `db.server.top_query` are now
+  surfaced as scrape errors instead of being silently discarded.
+
 ## v0.162.0
 
 Synced with upstream contrib v0.162.0.

@@ -1,0 +1,6 @@
+change_type: bug_fix
+component: receiver/nroracledb
+note: Run the V$SYSSTAT and V$SYSMETRIC queries when only newer metrics are enabled, fall back to the connected PDB for `oracle.db.pdb`, and report execution plan query errors.
+issues: []
+subtext:
+change_logs: [user]
