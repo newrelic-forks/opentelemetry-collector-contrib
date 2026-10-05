@@ -40,6 +40,9 @@ Patch release for `receiver/nroracledb` only — no new upstream contrib version
 - `receiver/nroracledb`: errors fetching execution-plan data for `db.server.top_query` are now
   surfaced as scrape errors instead of being silently discarded.
 
+- `receiver/nrsqlserver`: fixed `sqlserver.session.duration` to prevent query failure
+  caused by overflow when session `login_time` is a sentinel value like `1900-01-01`.
+
 ## v0.162.0
 
 Synced with upstream contrib v0.162.0.
