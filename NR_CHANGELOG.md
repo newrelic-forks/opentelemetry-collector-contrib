@@ -7,7 +7,10 @@ including confirmation of which breaking changes from [CHANGELOG.md](./CHANGELOG
 
 ## v0.162.1
 
-Patch release for `receiver/nroracledb` only — no new upstream contrib version this cycle.
+Patch release — no new upstream contrib version this cycle. `receiver/nroracledb` and
+`receiver/nrsqlserver` have fixes below; `receiver/nrpostgresql` and `receiver/nrmysql` are
+re-tagged at this version with no functional change, to keep every `nr`-prefixed receiver on the
+same version.
 
 ### 🛑 Breaking changes 🛑
 
