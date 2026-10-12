@@ -36,6 +36,10 @@ import (
 
 const querySampleTraceContextKey = "_otel_trace_context"
 
+// detachedCleanupTimeout bounds the best-effort DEALLOCATE PREPARE cleanup in
+// explainQuery so a truly unresponsive backend can't hang cleanup forever.
+const detachedCleanupTimeout = 5 * time.Second
+
 // Row-attribute keys carrying comment tags, nr_service_guid, and the normalized-query hash to scraper.go.
 const (
 	dbQueryCommentTagsAttributeKey              = "db.query.comment_tags"
@@ -85,7 +89,7 @@ type client interface {
 	getVersion(ctx context.Context) (string, error)
 	getQuerySamples(ctx context.Context, limit int64, newestQueryTimestamp float64, excludedDatabases, allowedCommentKeys []string, logger *zap.Logger) ([]map[string]any, float64, error)
 	getTopQuery(ctx context.Context, limit int64, excludedDatabases, allowedCommentKeys []string, logger *zap.Logger) ([]map[string]any, error)
-	explainQuery(query, queryID, explainFunction string, logger *zap.Logger) (string, error)
+	explainQuery(ctx context.Context, query, queryID, explainFunction string, logger *zap.Logger) (string, error)
 	probeExplainFunction(ctx context.Context, quotedFunctionName string) error
 }
 
@@ -390,26 +394,32 @@ func withinAnySpan(spans [][2]int, offset int) bool {
 }
 
 // explainQuery implements client.
-func (c *postgreSQLClient) explainQuery(query, queryID, explainFunction string, logger *zap.Logger) (string, error) {
+func (c *postgreSQLClient) explainQuery(ctx context.Context, query, queryID, explainFunction string, logger *zap.Logger) (string, error) {
 	// Check if the query is explainable before attempting EXPLAIN
 	if !isExplainableQuery(query) {
 		logger.Debug("skipping EXPLAIN for non-explainable query", zap.String("queryID", queryID))
 		return "", nil
 	}
 
-	query = repairNormalizedQuery(query)
-
-	if explainFunction != "" {
-		return c.explainQueryViaFunction(query, queryID, explainFunction, logger)
+	if repaired := repairNormalizedQuery(query); repaired != query {
+		logger.Debug("repaired normalized query before EXPLAIN",
+			zap.String("queryID", queryID),
+			zap.String("normalizedQuery", query),
+			zap.String("preparedQuery", repaired))
+		query = repaired
 	}
 
-	return c.explainQueryInline(query, queryID, logger)
+	if explainFunction != "" {
+		return c.explainQueryViaFunction(ctx, query, queryID, explainFunction, logger)
+	}
+
+	return c.explainQueryInline(ctx, query, queryID, logger)
 }
 
 // explainQueryViaFunction runs EXPLAIN through a DBA-provisioned SECURITY DEFINER helper function.
 // Requires PostgreSQL 12+, same as explainQueryInline.
-func (c *postgreSQLClient) explainQueryViaFunction(query, queryID, explainFunction string, logger *zap.Logger) (string, error) {
-	supported, err := c.supportsPlanCacheMode(queryID, logger)
+func (c *postgreSQLClient) explainQueryViaFunction(ctx context.Context, query, queryID, explainFunction string, logger *zap.Logger) (string, error) {
+	supported, err := c.supportsPlanCacheMode(ctx, queryID, logger)
 	if err != nil {
 		return "", err
 	}
@@ -420,7 +430,7 @@ func (c *postgreSQLClient) explainQueryViaFunction(query, queryID, explainFuncti
 	sql := fmt.Sprintf("SELECT %s($1)", explainFunction)
 	wrappedDb := sqlquery.NewDbClient(sqlquery.DbWrapper{Db: c.client}, sql, logger, sqlquery.TelemetryConfig{})
 
-	result, err := wrappedDb.QueryRows(context.Background(), query)
+	result, err := wrappedDb.QueryRows(ctx, query)
 	if err != nil {
 		logger.Error("failed to explain statement via function", zap.Error(err), zap.String("queryID", queryID))
 		return "", err
@@ -450,8 +460,8 @@ const minPlanCacheModeVersion = 12
 
 // supportsPlanCacheMode reports whether the server supports plan_cache_mode (PostgreSQL 12+).
 // A false, nil-error return means "skip EXPLAIN for this query", not a failure.
-func (c *postgreSQLClient) supportsPlanCacheMode(queryID string, logger *zap.Logger) (bool, error) {
-	version, err := c.getVersion(context.Background())
+func (c *postgreSQLClient) supportsPlanCacheMode(ctx context.Context, queryID string, logger *zap.Logger) (bool, error) {
+	version, err := c.getVersion(ctx)
 	if err != nil {
 		logger.Error("failed to determine PostgreSQL version for EXPLAIN", zap.Error(err), zap.String("queryID", queryID))
 		return false, err
@@ -471,8 +481,8 @@ func (c *postgreSQLClient) supportsPlanCacheMode(queryID string, logger *zap.Log
 
 // explainQueryInline runs EXPLAIN directly as the monitoring user (PREPARE/EXPLAIN EXECUTE/DEALLOCATE).
 // Param count comes from pg_prepared_statements, not text counting, since "$1" can repeat.
-func (c *postgreSQLClient) explainQueryInline(query, queryID string, logger *zap.Logger) (string, error) {
-	supported, err := c.supportsPlanCacheMode(queryID, logger)
+func (c *postgreSQLClient) explainQueryInline(ctx context.Context, query, queryID string, logger *zap.Logger) (string, error) {
+	supported, err := c.supportsPlanCacheMode(ctx, queryID, logger)
 	if err != nil {
 		return "", err
 	}
@@ -483,22 +493,28 @@ func (c *postgreSQLClient) explainQueryInline(query, queryID string, logger *zap
 	normalizedQueryID := strings.ReplaceAll(queryID, "-", "_")
 
 	// PREPARE is session-scoped, so PREPARE/lookup/EXPLAIN/DEALLOCATE must share one connection.
-	conn, err := c.client.Conn(context.Background())
+	conn, err := c.client.Conn(ctx)
 	if err != nil {
 		logger.Error("failed to obtain a dedicated connection for EXPLAIN", zap.Error(err), zap.String("queryID", queryID))
 		return "", err
 	}
 	defer conn.Close()
 
+	// Deallocate the prepared statement on a context detached from ctx so the
+	// cleanup still runs even if ctx was already canceled or timed out. Runs on the
+	// same dedicated connection that ran PREPARE, since DEALLOCATE on any other
+	// connection wouldn't find it.
 	defer func() {
-		_, _ = conn.ExecContext(context.Background(), fmt.Sprintf("/* otel-collector-ignore */ DEALLOCATE PREPARE otel_%s", normalizedQueryID))
+		cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), detachedCleanupTimeout)
+		defer cancel()
+		_, _ = conn.ExecContext(cleanupCtx, fmt.Sprintf("/* otel-collector-ignore */ DEALLOCATE PREPARE otel_%s", normalizedQueryID))
 	}()
 
 	setPlanCacheMode := "/* otel-collector-ignore */ SET plan_cache_mode = force_generic_plan;"
 	prepareStatement := fmt.Sprintf("PREPARE otel_%s AS %s;", normalizedQueryID, query)
 
 	prepareDb := sqlquery.NewDbClient(sqlquery.ConnWrapper{Conn: conn}, setPlanCacheMode+prepareStatement, logger, sqlquery.TelemetryConfig{})
-	if _, err = prepareDb.QueryRows(context.Background()); err != nil {
+	if _, err = prepareDb.QueryRows(ctx); err != nil {
 		logger.Error("failed to prepare statement for EXPLAIN", zap.Error(err), zap.String("queryID", queryID))
 		return "", err
 	}
@@ -508,7 +524,7 @@ func (c *postgreSQLClient) explainQueryInline(query, queryID string, logger *zap
 		normalizedQueryID,
 	)
 	paramCountDb := sqlquery.NewDbClient(sqlquery.ConnWrapper{Conn: conn}, paramCountSQL, logger, sqlquery.TelemetryConfig{})
-	paramCountResult, err := paramCountDb.QueryRows(context.Background())
+	paramCountResult, err := paramCountDb.QueryRows(ctx)
 	if err != nil {
 		logger.Error("failed to look up prepared statement parameter count", zap.Error(err), zap.String("queryID", queryID))
 		return "", err
@@ -535,7 +551,7 @@ func (c *postgreSQLClient) explainQueryInline(query, queryID string, logger *zap
 	explainStatement := fmt.Sprintf("EXPLAIN(FORMAT JSON) EXECUTE otel_%s%s;", normalizedQueryID, nullsString)
 
 	explainDb := sqlquery.NewDbClient(sqlquery.ConnWrapper{Conn: conn}, explainStatement, logger, sqlquery.TelemetryConfig{})
-	result, err := explainDb.QueryRows(context.Background())
+	result, err := explainDb.QueryRows(ctx)
 	if err != nil {
 		logger.Error("failed to explain statement", zap.Error(err))
 		return "", err
