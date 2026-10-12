@@ -366,3 +366,55 @@ func TestGetVersion(t *testing.T) {
 		})
 	}
 }
+
+func TestGetVectorSearchStats(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	require.NoError(t, err)
+	defer db.Close()
+
+	c := &postgreSQLClient{client: db}
+
+	rows := sqlmock.NewRows([]string{"distance_function", "calls", "total_exec_time", "rows_returned"}).
+		AddRow("cosine", int64(50), 8.429, int64(500)).
+		AddRow("l2", int64(50), 10.408, int64(510))
+	mock.ExpectQuery(vectorSearchStatsQuery).WillReturnRows(rows)
+
+	stats, err := c.getVectorSearchStats(t.Context())
+	require.NoError(t, err)
+	require.Len(t, stats, 2)
+
+	assert.Equal(t, "cosine", stats[0].distanceFunction)
+	assert.Equal(t, int64(50), stats[0].calls)
+	// total_exec_time is reported in milliseconds by pg_stat_statements and converted to seconds.
+	assert.InDelta(t, 0.008429, stats[0].totalExecTime, 1e-9)
+	assert.Equal(t, int64(500), stats[0].rowsReturned)
+
+	assert.Equal(t, "l2", stats[1].distanceFunction)
+	assert.Equal(t, int64(50), stats[1].calls)
+	assert.InDelta(t, 0.010408, stats[1].totalExecTime, 1e-9)
+	assert.Equal(t, int64(510), stats[1].rowsReturned)
+
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestGetVectorInsertStats(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	require.NoError(t, err)
+	defer db.Close()
+
+	c := &postgreSQLClient{client: db}
+
+	rows := sqlmock.NewRows([]string{"rows", "total_exec_time"}).
+		AddRow(int64(1234), 56.789)
+	mock.ExpectQuery(vectorInsertStatsQuery).WillReturnRows(rows)
+
+	stats, err := c.getVectorInsertStats(t.Context())
+	require.NoError(t, err)
+	require.Len(t, stats, 1)
+
+	assert.Equal(t, int64(1234), stats[0].rows)
+	// total_exec_time is reported in milliseconds by pg_stat_statements and converted to seconds.
+	assert.InDelta(t, 0.056789, stats[0].totalExecTime, 1e-9)
+
+	require.NoError(t, mock.ExpectationsWereMet())
+}

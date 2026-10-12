@@ -637,7 +637,7 @@ func (p *postgreSQLScraper) collectTopQuery(ctx context.Context, clientFactory p
 				if state, cached := p.explainFunctionCache.Get(database); cached && state.available {
 					explainFunction = quoteExplainFunctionName(p.config.TopQueryCollection.ExplainFunctionName)
 				}
-				plan, err = dbClient.explainQuery(rawQuery, queryID, explainFunction, logger)
+				plan, err = dbClient.explainQuery(ctx, rawQuery, queryID, explainFunction, logger)
 				if err != nil {
 					// Log once per query_plan_cache_ttl, not every scrape, since permission
 					// errors retry forever until a grant changes.

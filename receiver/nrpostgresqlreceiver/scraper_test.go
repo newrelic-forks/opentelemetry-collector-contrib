@@ -232,6 +232,42 @@ func TestScraper(t *testing.T) {
 	runTest(false, "expected.yaml")
 }
 
+func TestScraperVectorMetrics(t *testing.T) {
+	factory := new(mockClientFactory)
+	factory.initMocks([]string{"otel"})
+
+	defer testutil.SetFeatureGateForTest(t, metadata.ReceiverNrpostgresqlSeparateSchemaAttrFeatureGate, false)()
+
+	cfg := createDefaultConfig().(*Config)
+	cfg.Databases = []string{"otel"}
+	// Opt in to all pgvector metrics; everything else stays at defaults.
+	require.False(t, cfg.MetricsBuilderConfig.Metrics.PostgresqlVectorSearchCalls.Enabled)
+	cfg.MetricsBuilderConfig.Metrics.PostgresqlVectorSearchCalls.Enabled = true
+	require.False(t, cfg.MetricsBuilderConfig.Metrics.PostgresqlVectorSearchDuration.Enabled)
+	cfg.MetricsBuilderConfig.Metrics.PostgresqlVectorSearchDuration.Enabled = true
+	require.False(t, cfg.MetricsBuilderConfig.Metrics.PostgresqlVectorSearchRowsReturned.Enabled)
+	cfg.MetricsBuilderConfig.Metrics.PostgresqlVectorSearchRowsReturned.Enabled = true
+	require.False(t, cfg.MetricsBuilderConfig.Metrics.PostgresqlVectorInsertRows.Enabled)
+	cfg.MetricsBuilderConfig.Metrics.PostgresqlVectorInsertRows.Enabled = true
+	require.False(t, cfg.MetricsBuilderConfig.Metrics.PostgresqlVectorInsertDuration.Enabled)
+	cfg.MetricsBuilderConfig.Metrics.PostgresqlVectorInsertDuration.Enabled = true
+
+	scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, factory, newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
+	require.NoError(t, err)
+
+	actualMetrics, err := scraper.scrape(t.Context())
+	require.NoError(t, err)
+
+	expectedFile := filepath.Join("testdata", "scraper", "otel", "expected_vector.yaml")
+	// Uncomment line below to re-generate expected metrics.
+	// golden.WriteMetrics(t, expectedFile, actualMetrics)
+	expectedMetrics, err := golden.ReadMetrics(expectedFile)
+	require.NoError(t, err)
+
+	require.NoError(t, pmetrictest.CompareMetrics(expectedMetrics, actualMetrics, pmetrictest.IgnoreResourceAttributeValue("service.instance.id"), pmetrictest.IgnoreResourceAttributeValue("server.address"), pmetrictest.IgnoreResourceMetricsOrder(),
+		pmetrictest.IgnoreMetricDataPointsOrder(), pmetrictest.IgnoreStartTimestamp(), pmetrictest.IgnoreTimestamp()))
+}
+
 func TestScraperSkipsQueriesForDisabledMetrics(t *testing.T) {
 	factory := new(mockClientFactory)
 	factory.initMocks([]string{"otel"})
@@ -388,6 +424,34 @@ func TestScraperSkipsServerWideQueriesForDisabledMetrics(t *testing.T) {
 			listClient.AssertNotCalled(t, tc.mockMethod, mock.Anything)
 		})
 	}
+}
+
+func TestCollectDatabaseLocksError(t *testing.T) {
+	c := new(mockClient)
+	c.On("getDatabaseLocks", mock.Anything).Return([]databaseLocks(nil), errors.New("some error"))
+	factory := NewFactory()
+	cfg := factory.CreateDefaultConfig().(*Config)
+	// Disabled by default; enable it so the query actually runs.
+	cfg.MetricsBuilderConfig.Metrics.PostgresqlDatabaseLocks.Enabled = true
+	scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, newDefaultClientFactory(cfg), newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
+	require.NoError(t, err)
+	var errs errsMux
+	scraper.collectDatabaseLocks(t.Context(), pcommon.NewTimestampFromTime(time.Now()), c, "otel", &errs)
+	require.Error(t, errs.combine())
+}
+
+func TestCollectServerScopedLocksError(t *testing.T) {
+	c := new(mockClient)
+	c.On("getServerScopedLocks", mock.Anything).Return([]databaseLocks(nil), errors.New("some error"))
+	factory := NewFactory()
+	cfg := factory.CreateDefaultConfig().(*Config)
+	// Disabled by default; enable it so the query actually runs.
+	cfg.MetricsBuilderConfig.Metrics.PostgresqlDatabaseLocks.Enabled = true
+	scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, newDefaultClientFactory(cfg), newCache(1), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
+	require.NoError(t, err)
+	var errs errsMux
+	scraper.collectServerScopedLocks(t.Context(), pcommon.NewTimestampFromTime(time.Now()), c, &errs)
+	require.Error(t, errs.combine())
 }
 
 // queryGuard maps one *MetricsEnabled guard method (scraper.go) to the
@@ -1444,6 +1508,46 @@ var topQueryColumns = []string{
 //go:embed testdata/scraper/top-query/expectedSql.sql
 var expectedScrapeTopQuery string
 
+func TestTopQueryTemplateRendering(t *testing.T) {
+	tmpl := template.Must(template.New("topQuery").Option("missingkey=error").Parse(topQueryTemplate))
+
+	tests := []struct {
+		name           string
+		excludes       []string
+		expectedClause string
+	}{
+		{
+			name:     "no excludes emits no filter",
+			excludes: nil,
+		},
+		{
+			name:           "excludes are filtered server side",
+			excludes:       []string{"rdsadmin", "azure_maintenance"},
+			expectedClause: "AND datname NOT IN ('rdsadmin','azure_maintenance')",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			buf := bytes.Buffer{}
+			err := tmpl.Execute(&buf, map[string]any{
+				"limit":             int64(10),
+				"excludedDatabases": quoteDatabaseList(tc.excludes),
+			})
+			require.NoError(t, err)
+
+			rendered := buf.String()
+			assert.Contains(t, rendered, "LIMIT 10;")
+
+			if tc.expectedClause == "" {
+				assert.NotContains(t, rendered, "datname NOT IN (", "no database filter should be emitted without excludes")
+			} else {
+				assert.Contains(t, rendered, tc.expectedClause)
+			}
+		})
+	}
+}
+
 func TestScrapeTopQueries(t *testing.T) {
 	defer testutil.SetFeatureGateForTest(t, metadata.ReceiverNrpostgresqlUseOTelSemconvFeatureGate, false)()
 
@@ -1530,6 +1634,128 @@ func TestScrapeTopQueries(t *testing.T) {
 	planTime, planTimeExists := scraper.cache.Get(cacheKeyPrefix + totalPlanTimeColumnName)
 	assert.True(t, planTimeExists)
 	assert.Equal(t, float64(12), planTime)
+}
+
+func TestScrapeTopQueriesHonorsExcludeDatabases(t *testing.T) {
+	// Exclusion must behave the same with and without the semconv feature gate.
+	for _, useSemconv := range []bool{false, true} {
+		t.Run(fmt.Sprintf("semconv=%t", useSemconv), func(t *testing.T) {
+			defer testutil.SetFeatureGateForTest(t, metadata.ReceiverNrpostgresqlUseOTelSemconvFeatureGate, useSemconv)()
+
+			cfg := createDefaultConfig().(*Config)
+			cfg.Databases = []string{}
+			cfg.ExcludeDatabases = []string{"rdsadmin"}
+			cfg.LogsBuilderConfig.Events.DbServerTopQuery.Enabled = true
+
+			// Regexp matches the clause itself, not a re-render of the template.
+			db, mock, err := sqlmock.New()
+			require.NoError(t, err)
+			defer db.Close()
+
+			settings := receivertest.NewNopSettings(metadata.Type)
+			logger, err := zap.NewProduction()
+			require.NoError(t, err)
+			settings.TelemetrySettings = component.TelemetrySettings{Logger: logger}
+
+			factory := &recordingClientFactory{mockSimpleClientFactory: mockSimpleClientFactory{db: db}}
+			scraper, err := newPostgreSQLScraper(settings, cfg, factory, newCache(30), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
+			require.NoError(t, err)
+
+			// The server filters this row out; return it anyway to exercise the EXPLAIN guard.
+			mock.ExpectQuery(`AND datname NOT IN \('rdsadmin'\)`).
+				WillReturnRows(newSQLMockRows(topQueryColumns, map[string]any{
+					callsColumnName:             "123",
+					"datname":                   "rdsadmin",
+					sharedBlksDirtiedColumnName: "1111",
+					sharedBlksHitColumnName:     "1112",
+					sharedBlksReadColumnName:    "1113",
+					sharedBlksWrittenColumnName: "1114",
+					tempBlksReadColumnName:      "1115",
+					tempBlksWrittenColumnName:   "1116",
+					"query":                     "select s.* from rds_get_stat_dxl_counters() as s",
+					queryidColumnName:           "114514",
+					"userid":                    "16415",
+					"rolname":                   "rdsadmin",
+					rowsColumnName:              "30",
+					totalExecTimeColumnName:     "11000",
+					totalPlanTimeColumnName:     "12000",
+				}))
+
+			actualLogs, err := scraper.scrapeTopQuery(t.Context(), 31, 32, 33, time.Minute)
+			require.NoError(t, err)
+
+			require.NoError(t, mock.ExpectationsWereMet())
+			// No EXPLAIN connection to the excluded database.
+			require.Equal(t, []string{defaultPostgreSQLDatabase}, factory.requestedDatabases)
+			assert.Equal(t, 0, actualLogs.LogRecordCount())
+		})
+	}
+}
+
+func TestScrapeQuerySamplesHonorsExcludeDatabases(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.Databases = []string{}
+	cfg.ExcludeDatabases = []string{"rdsadmin"}
+	cfg.LogsBuilderConfig.Events.DbServerQuerySample.Enabled = true
+
+	// Regexp matches the clause itself, not a re-render of the template.
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	settings := receivertest.NewNopSettings(metadata.Type)
+	logger, err := zap.NewProduction()
+	require.NoError(t, err)
+	settings.TelemetrySettings = component.TelemetrySettings{Logger: logger}
+
+	scraper, err := newPostgreSQLScraper(settings, cfg, mockSimpleClientFactory{db: db}, newCache(30), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
+	require.NoError(t, err)
+
+	// Exclusion happens server side only, so the clause is the assertion.
+	mock.ExpectQuery(`AND COALESCE\(sa\.datname, ''\) NOT IN \('rdsadmin'\)`).
+		WillReturnRows(sqlmock.NewRows(querySampleColumns))
+
+	_, err = scraper.scrapeQuerySamples(t.Context(), 30)
+	require.NoError(t, err)
+
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestScrapeTopQueriesSkipsNilDatabase(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.Databases = []string{}
+	cfg.LogsBuilderConfig.Events.DbServerTopQuery.Enabled = true
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	require.NoError(t, err)
+	defer db.Close()
+
+	factory := mockSimpleClientFactory{db: db}
+
+	settings := receivertest.NewNopSettings(metadata.Type)
+	logger, err := zap.NewProduction()
+	require.NoError(t, err)
+	settings.TelemetrySettings = component.TelemetrySettings{Logger: logger}
+
+	scraper, scraperErr := newPostgreSQLScraper(settings, cfg, factory, newCache(30), newTTLCache[string](1, time.Second), newTTLCache[explainSetupState](1, time.Second))
+	require.NoError(t, scraperErr)
+
+	cols := []string{
+		"calls", "datname", "shared_blks_dirtied", "shared_blks_hit",
+		"shared_blks_read", "shared_blks_written", "temp_blks_read",
+		"temp_blks_written", "query", "queryid", "userid", "rolname", "rows",
+		"total_exec_time", "total_plan_time",
+	}
+	// queryid is present so the earlier queryid guard passes; datname is NULL, so
+	// the row scanner omits db.namespace and the nil guard under test must fire.
+	rows := sqlmock.NewRows(cols).AddRow(
+		"123", nil, "1", "1", "1", "1", "1", "1",
+		"select 1", "999", "16415", "master", "1", "1", "1",
+	)
+	mock.ExpectQuery(expectedScrapeTopQuery).WillReturnRows(rows)
+
+	actualLogs, err := scraper.scrapeTopQuery(t.Context(), 31, 32, 33, time.Minute)
+	require.NoError(t, err)
+	assert.Equal(t, 0, actualLogs.LogRecordCount(), "row with nil db.namespace must be skipped, not emitted")
 }
 
 // TestScrapeTopQueriesDbServerQueryPlanEvent covers both sides of the db.server.query_plan switch.
@@ -2646,11 +2872,129 @@ func TestExplainQuery(t *testing.T) {
 			}
 			expectPrepareLookupExplain(mock, tc.normalizedQueryID, expectedPrepared, tc.paramCount, tc.mockPlanResult)
 
-			plan, err := client.explainQuery(tc.query, tc.queryID, "", logger)
+			plan, err := client.explainQuery(t.Context(), tc.query, tc.queryID, "", logger)
 			require.NoError(t, err)
 			assert.Equal(t, tc.mockPlanResult, plan)
 		})
 	}
+}
+
+func TestExplainQueryLogsRepair(t *testing.T) {
+	const repairMessage = "repaired normalized query before EXPLAIN"
+
+	testCases := []struct {
+		name          string
+		query         string
+		preparedQuery string // expected PREPAREd text; defaults to query if empty (no repair fires)
+		paramCount    int
+	}{
+		{
+			name:          "a repaired query logs the text before and after",
+			query:         "SELECT * FROM orders WHERE EXTRACT($1 FROM order_date) = $2",
+			preparedQuery: "SELECT * FROM orders WHERE pg_catalog.extract($1, order_date) = $2",
+			paramCount:    2,
+		},
+		{
+			// The log is only useful when it means a rewrite happened, so a query that
+			// passes through untouched must not produce one.
+			name:       "an unrepaired query logs nothing",
+			query:      "SELECT * FROM orders WHERE order_date = $1",
+			paramCount: 1,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+			require.NoError(t, err)
+			defer db.Close()
+
+			core, logs := observer.New(zapcore.DebugLevel)
+			client := &postgreSQLClient{
+				client:  db,
+				closeFn: func() error { return nil },
+			}
+
+			preparedQuery := tc.preparedQuery
+			if preparedQuery == "" {
+				preparedQuery = tc.query
+			}
+			expectPrepareLookupExplain(mock, "40001", preparedQuery, tc.paramCount, `[{"Plan":{"Node Type":"Seq Scan"}}]`)
+
+			_, err = client.explainQuery(t.Context(), tc.query, "40001", "", zap.New(core))
+			require.NoError(t, err)
+			require.NoError(t, mock.ExpectationsWereMet())
+
+			entries := logs.FilterMessage(repairMessage).All()
+			if tc.preparedQuery == "" {
+				assert.Empty(t, entries)
+				return
+			}
+			require.Len(t, entries, 1)
+			assert.Equal(t, zapcore.DebugLevel, entries[0].Level)
+			assert.Equal(t, map[string]any{
+				"queryID":         "40001",
+				"normalizedQuery": tc.query,
+				"preparedQuery":   tc.preparedQuery,
+			}, entries[0].ContextMap())
+		})
+	}
+}
+
+func TestExplainQueryUsesContext(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	require.NoError(t, err)
+	defer db.Close()
+
+	logger := zap.NewNop()
+	client := &postgreSQLClient{
+		client:  db,
+		closeFn: func() error { return nil },
+	}
+
+	expectServerVersion(mock, "14.5")
+	expectedPrepareSQL := "/* otel-collector-ignore */ SET plan_cache_mode = force_generic_plan;PREPARE otel_12345 AS SELECT * FROM users;"
+	mock.ExpectQuery(expectedPrepareSQL).
+		WillDelayFor(200 * time.Millisecond).
+		WillReturnRows(sqlmock.NewRows([]string{"result"}))
+
+	// Cleanup (DEALLOCATE PREPARE) must still run even though ctx expires
+	// mid-query, otherwise the prepared statement leaks on pooled connections.
+	mock.ExpectExec("/* otel-collector-ignore */ DEALLOCATE PREPARE otel_12345").
+		WillReturnResult(sqlmock.NewResult(0, 0))
+
+	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Millisecond)
+	defer cancel()
+
+	_, err = client.explainQuery(ctx, "SELECT * FROM users", "12345", "", logger)
+	require.Error(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestExplainQueryViaFunctionUsesContext(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherEqual))
+	require.NoError(t, err)
+	defer db.Close()
+
+	logger := zap.NewNop()
+	client := &postgreSQLClient{
+		client:  db,
+		closeFn: func() error { return nil },
+	}
+
+	query := "SELECT * FROM orders WHERE id = $1 FOR UPDATE"
+	expectServerVersion(mock, "16.4")
+	mock.ExpectQuery(`SELECT "otel"."explain_statement"($1)`).
+		WithArgs(query).
+		WillDelayFor(200 * time.Millisecond).
+		WillReturnRows(sqlmock.NewRows([]string{"explain_statement"}).AddRow(`[{"Plan":{"Node Type":"LockRows"}}]`))
+
+	ctx, cancel := context.WithTimeout(t.Context(), 20*time.Millisecond)
+	defer cancel()
+
+	_, err = client.explainQuery(ctx, query, "12345", `"otel"."explain_statement"`, logger)
+	require.Error(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestExplainQueryInlineParamCountLookupEmpty(t *testing.T) {
@@ -2678,7 +3022,7 @@ func TestExplainQueryInlineParamCountLookupEmpty(t *testing.T) {
 	mock.ExpectQuery("/* otel-collector-ignore */ SELECT COALESCE(array_length(parameter_types, 1), 0) AS param_count FROM pg_prepared_statements WHERE name = 'otel_30001';").
 		WillReturnRows(sqlmock.NewRows([]string{"param_count"}))
 
-	plan, err := client.explainQuery(query, queryID, "", logger)
+	plan, err := client.explainQuery(t.Context(), query, queryID, "", logger)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found in pg_prepared_statements")
 	assert.Empty(t, plan)
@@ -2711,7 +3055,7 @@ func TestExplainQueryInlineParamCountLookupFails(t *testing.T) {
 		WillReturnError(errors.New("dial tcp: connection reset by peer"))
 	mock.ExpectExec("/* otel-collector-ignore */ DEALLOCATE PREPARE otel_30002").WillReturnResult(sqlmock.NewResult(0, 0))
 
-	plan, err := client.explainQuery(query, queryID, "", logger)
+	plan, err := client.explainQuery(t.Context(), query, queryID, "", logger)
 	require.Error(t, err)
 	assert.Empty(t, plan)
 	require.NoError(t, mock.ExpectationsWereMet())
@@ -2740,7 +3084,7 @@ func TestExplainQueryInlinePrepareFails(t *testing.T) {
 		WillReturnError(errors.New("pq: syntax error"))
 	mock.ExpectExec("/* otel-collector-ignore */ DEALLOCATE PREPARE otel_30003").WillReturnResult(sqlmock.NewResult(0, 0))
 
-	plan, err := client.explainQuery(query, queryID, "", logger)
+	plan, err := client.explainQuery(t.Context(), query, queryID, "", logger)
 	require.Error(t, err)
 	assert.Empty(t, plan)
 	require.NoError(t, mock.ExpectationsWereMet())
@@ -2774,7 +3118,7 @@ func TestExplainQueryInlineExplainExecuteFails(t *testing.T) {
 		WillReturnError(errors.New("pq: permission denied for table orders"))
 	mock.ExpectExec("/* otel-collector-ignore */ DEALLOCATE PREPARE otel_30004").WillReturnResult(sqlmock.NewResult(0, 0))
 
-	plan, err := client.explainQuery(query, queryID, "", logger)
+	plan, err := client.explainQuery(t.Context(), query, queryID, "", logger)
 	require.Error(t, err)
 	assert.Empty(t, plan)
 	require.NoError(t, mock.ExpectationsWereMet())
@@ -2800,7 +3144,7 @@ func TestExplainQueryInlineEmptyExplainResult(t *testing.T) {
 
 	expectPrepareLookupExplain(mock, "30005", query, 1, "")
 
-	plan, err := client.explainQuery(query, queryID, "", logger)
+	plan, err := client.explainQuery(t.Context(), query, queryID, "", logger)
 	require.NoError(t, err)
 	assert.Empty(t, plan)
 }
@@ -2851,7 +3195,7 @@ func TestExplainQueryInlineVersionGate(t *testing.T) {
 			// the test if explainQuery touches PREPARE/EXPLAIN at all, proving the version gate
 			// short-circuits before any of that.
 
-			plan, err := client.explainQuery(query, queryID, "", logger)
+			plan, err := client.explainQuery(t.Context(), query, queryID, "", logger)
 			require.NoError(t, err)
 			if tc.expectPrepareAndRun {
 				assert.Equal(t, `[{"Plan":{"Node Type":"Index Scan"}}]`, plan)
@@ -2883,7 +3227,7 @@ func TestExplainQueryInlineVersionLookupFails(t *testing.T) {
 
 	mock.ExpectQuery("SHOW server_version;").WillReturnError(errors.New("dial tcp: connection reset by peer"))
 
-	plan, err := client.explainQuery(query, queryID, "", logger)
+	plan, err := client.explainQuery(t.Context(), query, queryID, "", logger)
 	require.Error(t, err)
 	assert.Empty(t, plan)
 	require.NoError(t, mock.ExpectationsWereMet())
@@ -2909,7 +3253,7 @@ func TestExplainQueryInlineVersionUnparseable(t *testing.T) {
 
 	expectServerVersion(mock, "not-a-version")
 
-	plan, err := client.explainQuery(query, queryID, "", logger)
+	plan, err := client.explainQuery(t.Context(), query, queryID, "", logger)
 	require.Error(t, err)
 	assert.Empty(t, plan)
 	require.NoError(t, mock.ExpectationsWereMet())
@@ -2942,7 +3286,7 @@ func TestExplainQueryInlineDedicatedConnectionFails(t *testing.T) {
 	query := "SELECT * FROM users WHERE id = $1"
 	queryID := "40004"
 
-	plan, err := client.explainQuery(query, queryID, "", logger)
+	plan, err := client.explainQuery(t.Context(), query, queryID, "", logger)
 	require.Error(t, err)
 	assert.Empty(t, plan)
 }
@@ -3064,7 +3408,7 @@ func TestExplainQueryInlinePermissionDeniedIsNotCachedAcrossScrapes(t *testing.T
 		WillReturnError(&pq.Error{Code: pqerror.InsufficientPrivilege, Message: "permission denied for table orders"})
 	mock.ExpectExec("/* otel-collector-ignore */ DEALLOCATE PREPARE otel_50001").WillReturnResult(sqlmock.NewResult(0, 0))
 
-	plan, err := client.explainQuery(query, queryID, "", logger)
+	plan, err := client.explainQuery(t.Context(), query, queryID, "", logger)
 	require.Error(t, err)
 	assert.Empty(t, plan)
 	assert.False(t, shouldCacheExplainFailure(err), "collectTopQuery must not cache this error, so the query is retried next scrape")
@@ -3089,7 +3433,7 @@ func TestExplainQueryViaFunction(t *testing.T) {
 			WithArgs(query).
 			WillReturnRows(sqlmock.NewRows([]string{"explain_statement"}).AddRow(mockPlan))
 
-		plan, err := client.explainQuery(query, "12345", `"otel"."explain_statement"`, logger)
+		plan, err := client.explainQuery(t.Context(), query, "12345", `"otel"."explain_statement"`, logger)
 		require.NoError(t, err)
 		assert.Equal(t, mockPlan, plan)
 	})
@@ -3111,7 +3455,7 @@ func TestExplainQueryViaFunction(t *testing.T) {
 			WithArgs(query).
 			WillReturnRows(sqlmock.NewRows([]string{"explain_statement"}).AddRow(mockPlan))
 
-		plan, err := client.explainQuery(query, "12346", `"otel"."explain_statement"`, logger)
+		plan, err := client.explainQuery(t.Context(), query, "12346", `"otel"."explain_statement"`, logger)
 		require.NoError(t, err)
 		assert.Equal(t, mockPlan, plan)
 	})
@@ -3132,7 +3476,7 @@ func TestExplainQueryViaFunction(t *testing.T) {
 			WithArgs(query).
 			WillReturnError(&pq.Error{Code: pqerror.UndefinedFunction, Message: "function does not exist"})
 
-		plan, err := client.explainQuery(query, "12347", `"otel"."explain_statement"`, logger)
+		plan, err := client.explainQuery(t.Context(), query, "12347", `"otel"."explain_statement"`, logger)
 		require.Error(t, err)
 		assert.Empty(t, plan)
 		var pqErr *pq.Error
@@ -3156,7 +3500,7 @@ func TestExplainQueryViaFunction(t *testing.T) {
 			WithArgs(query).
 			WillReturnError(&pq.Error{Code: pqerror.Code("42501"), Message: "permission denied for table orders"})
 
-		plan, err := client.explainQuery(query, "12349", `"otel"."explain_statement"`, logger)
+		plan, err := client.explainQuery(t.Context(), query, "12349", `"otel"."explain_statement"`, logger)
 		require.Error(t, err)
 		assert.Empty(t, plan)
 		var pqErr *pq.Error
@@ -3174,7 +3518,7 @@ func TestExplainQueryViaFunction(t *testing.T) {
 
 		client := &postgreSQLClient{client: db, closeFn: func() error { return nil }}
 
-		plan, err := client.explainQuery("GRANT SELECT ON users TO demo", "12348", `"otel"."explain_statement"`, logger)
+		plan, err := client.explainQuery(t.Context(), "GRANT SELECT ON users TO demo", "12348", `"otel"."explain_statement"`, logger)
 		require.NoError(t, err)
 		assert.Empty(t, plan)
 		// no mock.ExpectQuery set up — sqlmock fails the test if explainQuery touches the DB
@@ -3194,7 +3538,7 @@ func TestExplainQueryViaFunction(t *testing.T) {
 		// expects the INLINE sequence, not the function — proves explainFunction=="" always wins
 		expectPrepareLookupExplain(mock, "12350", query, 1, `[{"Plan":{"Node Type":"LockRows"}}]`)
 
-		plan, err := client.explainQuery(query, "12350", "", logger)
+		plan, err := client.explainQuery(t.Context(), query, "12350", "", logger)
 		require.NoError(t, err)
 		assert.Equal(t, `[{"Plan":{"Node Type":"LockRows"}}]`, plan)
 	})
@@ -3237,7 +3581,7 @@ func TestExplainQueryViaFunctionVersionGate(t *testing.T) {
 			}
 			// If expectFunctionCall is false, sqlmock fails the test if the function gets called.
 
-			plan, err := client.explainQuery(query, queryID, `"otel"."explain_statement"`, logger)
+			plan, err := client.explainQuery(t.Context(), query, queryID, `"otel"."explain_statement"`, logger)
 			require.NoError(t, err)
 			if tc.expectFunctionCall {
 				assert.Equal(t, `[{"Plan":{"Node Type":"LockRows"}}]`, plan)
@@ -3531,7 +3875,7 @@ type (
 )
 
 // explainQuery implements client.
-func (*mockClient) explainQuery(string, string, string, *zap.Logger) (string, error) {
+func (*mockClient) explainQuery(context.Context, string, string, string, *zap.Logger) (string, error) {
 	panic("unimplemented")
 }
 
