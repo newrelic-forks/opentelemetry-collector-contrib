@@ -1256,7 +1256,7 @@ Number of free list stalls.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
-| {stalls}/s | Gauge | Int | Development |
+| {stalls}/s | Gauge | Double | Development |
 
 ### sqlserver.page.compression.rate
 
@@ -1835,6 +1835,6 @@ top query
 | service.namespace | Logical namespace for the service (for example team or environment). When enabled, defaults to an empty string until set via configuration. | Any Str | false | - | - |
 | sqlserver.computer.name | The name of the SQL Server instance being monitored. | Any Str | false | - | - |
 | sqlserver.database.name | The name of the SQL Server database. | Any Str | true | - | - |
-| sqlserver.db.edition | The edition of the SQL Server instance (e.g. "Standard Edition", "Enterprise Edition"). | Any Str | false | - | - |
+| sqlserver.db.edition | The edition of the SQL Server instance (e.g. "standard", "enterprise", "express"). | Str: ``standard``, ``enterprise``, ``express``, ``azure_sql_database``, ``managed_instance``, ``unknown`` | false | - | - |
 | sqlserver.instance.name | The name of the SQL Server instance being monitored. | Any Str | false | - | - |
 | sqlserver.target.host | The hostname or address used to connect to the SQL Server instance, as configured in the receiver. | Any Str | true | - | - |

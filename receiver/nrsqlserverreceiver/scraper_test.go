@@ -168,6 +168,43 @@ func TestSuccessfulScrape(t *testing.T) {
 		assert.NoError(t, err)
 		defer assert.NoError(t, scraper.Shutdown(t.Context()))
 
+		if scraper.sqlQuery == getSQLServerPerformanceCounterQuery(scraper.config.InstanceName) {
+			scrapeTimes := []time.Time{
+				time.Unix(100, 0),
+				time.Unix(101, 0),
+			}
+			timeCall := 0
+			scraper.now = func() time.Time {
+				now := scrapeTimes[timeCall]
+				timeCall++
+				return now
+			}
+
+			queryCall := 0
+			scraper.client = queryRowsFuncClient{
+				queryRowsFunc: func(context.Context, ...any) ([]sqlquery.StringMap, error) {
+					rows, readErr := readFile("perfCounterQueryData.txt")
+					if readErr != nil {
+						return nil, readErr
+					}
+
+					if queryCall == 0 {
+						for _, row := range rows {
+							if isPerformanceCounterRate(row["counter_type"], row["counter"]) {
+								row["value"] = "0"
+								row["raw_value"] = "0"
+							}
+						}
+					}
+					queryCall++
+					return rows, nil
+				},
+			}
+
+			_, scrapeErr := scraper.ScrapeMetrics(t.Context())
+			assert.NoError(t, scrapeErr)
+		}
+
 		scraper.client = mockClient{
 			instanceName:        scraper.config.InstanceName,
 			SQL:                 scraper.sqlQuery,
@@ -1651,7 +1688,7 @@ func TestSetupResourceBuilder_SetsVersionAndEdition(t *testing.T) {
 	)
 	scraper.mb = metadata.NewMetricsBuilder(cfg.MetricsBuilderConfig, settings)
 	scraper.dbVersion = "15.0.4261.1"
-	scraper.dbEdition = "Enterprise Edition (64-bit)"
+	scraper.dbEdition = "enterprise"
 
 	row := sqlquery.StringMap{
 		computerNameKey: "test-computer",
@@ -1667,7 +1704,7 @@ func TestSetupResourceBuilder_SetsVersionAndEdition(t *testing.T) {
 
 	edition, ok := resource.Attributes().Get("sqlserver.db.edition")
 	assert.True(t, ok, "sqlserver.db.edition should be present")
-	assert.Equal(t, "Enterprise Edition (64-bit)", edition.Str())
+	assert.Equal(t, "enterprise", edition.Str())
 }
 
 // TestSetupResourceBuilder_EmptyVersionAndEditionNotEmitted verifies that db.system.version

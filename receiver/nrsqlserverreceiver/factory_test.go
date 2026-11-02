@@ -421,6 +421,25 @@ func TestSetupQueries(t *testing.T) {
 		"and only then, update the expected metric count here.")
 }
 
+func TestEngineEditionToString(t *testing.T) {
+	tests := []struct {
+		edition       string
+		engineEdition int
+		expected      string
+	}{
+		{"Standard Edition", 2, "standard"},
+		{"Enterprise Edition", 3, "enterprise"},
+		{"Express Edition", 4, "express"},
+		{"SQL Azure", 5, "azure_sql_database"},
+		{"SQL Azure", 8, "managed_instance"},
+		{"", 0, "unknown"},
+		{"Unknown Edition", 0, "unknown"},
+	}
+	for _, tc := range tests {
+		require.Equal(t, tc.expected, engineEditionToString(tc.edition, tc.engineEdition), "edition %q engineEdition %d", tc.edition, tc.engineEdition)
+	}
+}
+
 // TestDetectSQLServerInstanceInfo_NilDB verifies that a nil db returns nil pointers safely.
 func TestDetectSQLServerInstanceInfo_NilDB(t *testing.T) {
 	v, e, err := detectSQLServerInstanceInfo(t.Context(), nil)

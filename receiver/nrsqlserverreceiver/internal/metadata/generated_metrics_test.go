@@ -850,7 +850,7 @@ func TestMetricsBuilder(t *testing.T) {
 			rb.SetServiceNamespace("service.namespace-val")
 			rb.SetSqlserverComputerName("sqlserver.computer.name-val")
 			rb.SetSqlserverDatabaseName("sqlserver.database.name-val")
-			rb.SetSqlserverDbEdition("sqlserver.db.edition-val")
+			rb.SetSqlserverDbEditionStandard()
 			rb.SetSqlserverInstanceName("sqlserver.instance.name-val")
 			rb.SetSqlserverTargetHost("sqlserver.target.host-val")
 			res := rb.Emit()
@@ -3284,8 +3284,8 @@ func TestMetricsBuilder(t *testing.T) {
 					dp := mi.Gauge().DataPoints().At(0)
 					assert.Equal(t, start, dp.StartTimestamp())
 					assert.Equal(t, ts, dp.Timestamp())
-					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
-					assert.Equal(t, int64(1), dp.IntValue())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeDouble, dp.ValueType())
+					assert.InDelta(t, float64(1), dp.DoubleValue(), 0.01)
 				case "sqlserver.page.buffer_cache.hit_ratio":
 					assert.False(t, validatedMetrics["sqlserver.page.buffer_cache.hit_ratio"], "Found a duplicate in the metrics slice: sqlserver.page.buffer_cache.hit_ratio")
 					validatedMetrics["sqlserver.page.buffer_cache.hit_ratio"] = true

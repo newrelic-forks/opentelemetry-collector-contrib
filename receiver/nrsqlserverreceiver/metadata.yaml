@@ -58,9 +58,10 @@ resource_attributes:
     enabled: true
     type: string
   sqlserver.db.edition:
-    description: The edition of the SQL Server instance (e.g. "Standard Edition", "Enterprise Edition").
+    description: The edition of the SQL Server instance (e.g. "standard", "enterprise", "express").
     enabled: false
     type: string
+    enum: [standard, enterprise, express, azure_sql_database, managed_instance, unknown]
   sqlserver.instance.name:
     description: The name of the SQL Server instance being monitored.
     enabled: false
@@ -1428,7 +1429,7 @@ metrics:
     stability: development
     unit: "{stalls}/s"
     gauge:
-      value_type: int
+      value_type: double
     attributes: []
   sqlserver.page.buffer_cache.hit_ratio:
     enabled: true

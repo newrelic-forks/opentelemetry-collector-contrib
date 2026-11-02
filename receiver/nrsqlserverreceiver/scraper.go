@@ -38,6 +38,11 @@ const (
 	databaseNameKey = "database_name"
 	instanceNameKey = "sql_instance"
 
+	// Windows performance counter types that contain cumulative values and
+	// require two samples to calculate a per-second rate.
+	perfCounterCounterType   = "272696320"
+	perfCounterBulkCountType = "272696576"
+
 	// Windows performance counter type whose value accumulates a total that only
 	// becomes an average once divided by a companion base counter.
 	perfCounterAverageBulkType = "1073874176"
@@ -77,6 +82,7 @@ type sqlServerScraperHelper struct {
 	cache                     *lru.Cache[string, int64]
 	performanceCounterSamples map[performanceCounterKey]performanceCounterSample
 	lastExecutionTimestamp    time.Time
+	now                       func() time.Time
 	obfuscator                *obfuscator
 	serviceInstanceID         string
 	serverAddress             string
@@ -130,6 +136,7 @@ func newSQLServerScraper(id component.ID,
 		cache:                     cache,
 		performanceCounterSamples: make(map[performanceCounterKey]performanceCounterSample),
 		lastExecutionTimestamp:    time.Unix(0, 0),
+		now:                       time.Now,
 		obfuscator:                newObfuscator(),
 		serviceInstanceID:         serviceInstanceID,
 		serverAddress:             serverAddress,
@@ -155,10 +162,32 @@ func (s *sqlServerScraperHelper) Start(context.Context, component.Host) error {
 	return nil
 }
 
-// detectSQLServerInstanceInfo queries ProductVersion and Edition in a single round-trip.
-// Returns (version, edition *string, error) — both are non-nil when resolved (empty string
-// for NULL from SERVERPROPERTY), nil on transient error (caller may retry), nil+nil when db
-// is not yet connected. Declared as a var so tests can stub it.
+// engineEditionToString maps SERVERPROPERTY('Edition') and SERVERPROPERTY('EngineEdition')
+// to the lowercase enum values declared in metadata.yaml.
+// Both Azure SQL Database (EngineEdition=5) and Managed Instance (EngineEdition=8) return
+// "SQL Azure" from Edition, so engineEdition is required to distinguish them.
+func engineEditionToString(edition string, engineEdition int) string {
+	switch {
+	case strings.HasPrefix(edition, "Enterprise"):
+		return "enterprise"
+	case strings.HasPrefix(edition, "Standard"):
+		return "standard"
+	case strings.HasPrefix(edition, "Express"):
+		return "express"
+	case strings.HasPrefix(edition, "SQL Azure"):
+		if engineEdition == 8 {
+			return "managed_instance"
+		}
+		return "azure_sql_database"
+	default:
+		return "unknown"
+	}
+}
+
+// detectSQLServerInstanceInfo queries ProductVersion, Edition and EngineEdition in a single round-trip.
+// Returns (version, edition *string, error) — both non-nil when resolved (empty string
+// for NULL), nil on transient error (caller may retry), nil+nil when db is not yet connected.
+// Declared as a var so tests can stub it.
 var detectSQLServerInstanceInfo = func(ctx context.Context, db *sql.DB) (*string, *string, error) {
 	if db == nil {
 		return nil, nil, nil
@@ -168,9 +197,10 @@ var detectSQLServerInstanceInfo = func(ctx context.Context, db *sql.DB) (*string
 	defer cancel()
 
 	var version, edition sql.NullString
+	var engineEdition sql.NullInt64
 	row := db.QueryRowContext(ctx,
-		"SELECT CAST(SERVERPROPERTY('ProductVersion') AS NVARCHAR(128)), CAST(SERVERPROPERTY('Edition') AS NVARCHAR(128))")
-	if err := row.Scan(&version, &edition); err != nil {
+		"SELECT CAST(SERVERPROPERTY('ProductVersion') AS NVARCHAR(128)), CAST(SERVERPROPERTY('Edition') AS NVARCHAR(128)), CAST(SERVERPROPERTY('EngineEdition') AS INT)")
+	if err := row.Scan(&version, &edition, &engineEdition); err != nil {
 		return nil, nil, err
 	}
 
@@ -179,7 +209,11 @@ var detectSQLServerInstanceInfo = func(ctx context.Context, db *sql.DB) (*string
 		v = version.String
 	}
 	if edition.Valid {
-		e = edition.String
+		ee := 0
+		if engineEdition.Valid {
+			ee = int(engineEdition.Int64)
+		}
+		e = engineEditionToString(edition.String, ee)
 	}
 	return &v, &e, nil
 }
@@ -494,8 +528,19 @@ func (s *sqlServerScraperHelper) setupResourceBuilder(rb *metadata.ResourceBuild
 	if s.dbVersion != "" {
 		rb.SetDbSystemVersion(s.dbVersion)
 	}
-	if s.dbEdition != "" {
-		rb.SetSqlserverDbEdition(s.dbEdition)
+	switch s.dbEdition {
+	case "standard":
+		rb.SetSqlserverDbEditionStandard()
+	case "enterprise":
+		rb.SetSqlserverDbEditionEnterprise()
+	case "express":
+		rb.SetSqlserverDbEditionExpress()
+	case "azure_sql_database":
+		rb.SetSqlserverDbEditionAzureSQLDatabase()
+	case "managed_instance":
+		rb.SetSqlserverDbEditionManagedInstance()
+	case "unknown":
+		rb.SetSqlserverDbEditionUnknown()
 	}
 
 	return rb
@@ -687,6 +732,77 @@ func averageBulkBaseValues(rows []sqlquery.StringMap) map[performanceCounterKey]
 	return bases
 }
 
+func isPerformanceCounterRate(counterType, counterName string) bool {
+	switch counterType {
+	case perfCounterCounterType, perfCounterBulkCountType:
+	default:
+		return false
+	}
+
+	switch counterName {
+	case "Auto-Param Attempts/sec",
+		"Backup/Restore Throughput/sec",
+		"Batch Requests/sec",
+		"Bytes Received from Replica/sec",
+		"Bytes Sent to Replica/sec",
+		"Connection Reset/sec",
+		"Cursor Requests/sec",
+		"Disk Read IO Throttled/sec",
+		"Disk Read IO/sec",
+		"Disk Write IO Throttled/sec",
+		"Disk Write IO/sec",
+		"Errors/sec",
+		"Extent Deallocations/sec",
+		"Extents Allocated/sec",
+		"Failed Auto-Params/sec",
+		"Forced Parameterizations/sec",
+		"Free list stalls/sec",
+		"FreeSpace Scans/sec",
+		"Full Scans/sec",
+		"Guided plan executions/sec",
+		"Index Searches/sec",
+		"Latch Waits/sec",
+		"Lazy writes/sec",
+		"Lock Requests/sec",
+		"Lock Timeouts (timeout > 0)/sec",
+		"Lock Timeouts/sec",
+		"Lock Waits/sec",
+		"Logins/sec",
+		"Logouts/sec",
+		"Mirrored Write Transactions/sec",
+		"Misguided plan executions/sec",
+		"Mixed page allocations/sec",
+		"Number of Deadlocks/sec",
+		"Page Compression Attempts/sec",
+		"Page Deallocations/sec",
+		"Page lookups/sec",
+		"Page reads/sec",
+		"Page writes/sec",
+		"Pages Allocated/sec",
+		"Pages Compressed/sec",
+		"Probe Scans/sec",
+		"Range Scans/sec",
+		"Readahead pages/sec",
+		"SQL Attention rate",
+		"SQL Compilations/sec",
+		"SQL Re-Compilations/sec",
+		"Safe Auto-Params/sec",
+		"Scan Point Revalidations/sec",
+		"Skipped Ghosted Records/sec",
+		"Stored Procedures Invoked/sec",
+		"SuperLatch Demotions/sec",
+		"SuperLatch Promotions/sec",
+		"Table Lock Escalations/sec",
+		"Tasks Aborted/sec",
+		"Tasks Started/sec",
+		"Transactions/sec",
+		"Unsafe Auto-Params/sec":
+		return true
+	default:
+		return false
+	}
+}
+
 func performanceCounterKeyFromRow(row sqlquery.StringMap) performanceCounterKey {
 	// Key on the unmodified instance name so the _Total aggregate and a database that
 	// happens to be called Total keep separate samples. [instance] renames the former
@@ -746,6 +862,48 @@ func (s *sqlServerScraperHelper) calculatePerformanceCounterAverage(
 	}
 
 	return float64(current-previous.value) / float64(baseDelta), true, nil
+}
+
+func (s *sqlServerScraperHelper) calculatePerformanceCounterRate(
+	row sqlquery.StringMap,
+	now time.Time,
+) (float64, bool, error) {
+	val, err := retrieveInt(row, "raw_value")
+	if err != nil {
+		return 0, false, err
+	}
+	current := val.(int64)
+
+	key := performanceCounterKeyFromRow(row)
+
+	previous, found := s.performanceCounterSamples[key]
+	if !found {
+		s.performanceCounterSamples[key] = performanceCounterSample{
+			value:     current,
+			timestamp: now,
+		}
+		return 0, false, nil
+	}
+
+	if current < previous.value {
+		s.performanceCounterSamples[key] = performanceCounterSample{
+			value:     current,
+			timestamp: now,
+		}
+		return 0, false, nil
+	}
+
+	elapsed := now.Sub(previous.timestamp).Seconds()
+	if elapsed <= 0 {
+		return 0, false, nil
+	}
+
+	s.performanceCounterSamples[key] = performanceCounterSample{
+		value:     current,
+		timestamp: now,
+	}
+
+	return float64(current-previous.value) / elapsed, true, nil
 }
 
 func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Context) error {
@@ -875,7 +1033,7 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 	}
 
 	var errs []error
-	scrapeTime := time.Now()
+	scrapeTime := s.now()
 	now := pcommon.NewTimestampFromTime(scrapeTime)
 
 	// Track SQL compilation and recompilation rates so the derived
@@ -916,6 +1074,22 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 				continue
 			}
 			row[valueKey] = strconv.FormatFloat(average, 'f', -1, 64)
+		}
+
+		if isPerformanceCounterRate(row["counter_type"], row[counterKey]) {
+			rate, emit, err := s.calculatePerformanceCounterRate(row, scrapeTime)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("failed to calculate performance counter rate for row %d: %w", i, err))
+				continue
+			}
+
+			key := performanceCounterKeyFromRow(row)
+			seenPerformanceCounterKeys[key] = struct{}{}
+
+			if !emit {
+				continue
+			}
+			row[valueKey] = strconv.FormatFloat(rate, 'f', -1, 64)
 		}
 
 		switch row[counterKey] {
@@ -1046,12 +1220,12 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 				s.mb.RecordSqlserverErrorRateDataPoint(now, val.(float64), category)
 			}
 		case freeListStalls:
-			val, err := retrieveInt(row, valueKey)
+			val, err := retrieveFloat(row, valueKey)
 			if err != nil {
 				err = fmt.Errorf("failed to parse valueKey for row %d: %w in %s", i, err, freeListStalls)
 				errs = append(errs, err)
 			} else {
-				s.mb.RecordSqlserverPageBufferCacheFreeListStallsRateDataPoint(now, val.(int64))
+				s.mb.RecordSqlserverPageBufferCacheFreeListStallsRateDataPoint(now, val.(float64))
 			}
 		case fullScansPerSec:
 			val, err := retrieveFloat(row, valueKey)

@@ -24,7 +24,7 @@ func TestResourceBuilder(t *testing.T) {
 			rb.SetServiceNamespace("service.namespace-val")
 			rb.SetSqlserverComputerName("sqlserver.computer.name-val")
 			rb.SetSqlserverDatabaseName("sqlserver.database.name-val")
-			rb.SetSqlserverDbEdition("sqlserver.db.edition-val")
+			rb.SetSqlserverDbEditionStandard()
 			rb.SetSqlserverInstanceName("sqlserver.instance.name-val")
 			rb.SetSqlserverTargetHost("sqlserver.target.host-val")
 
@@ -90,7 +90,7 @@ func TestResourceBuilder(t *testing.T) {
 			sqlserverDbEditionAttrVal, ok := res.Attributes().Get("sqlserver.db.edition")
 			assert.Equal(t, tt == "all_set", ok)
 			if ok {
-				assert.Equal(t, "sqlserver.db.edition-val", sqlserverDbEditionAttrVal.Str())
+				assert.Equal(t, "standard", sqlserverDbEditionAttrVal.Str())
 			}
 			sqlserverInstanceNameAttrVal, ok := res.Attributes().Get("sqlserver.instance.name")
 			assert.Equal(t, tt == "all_set", ok)
@@ -119,7 +119,7 @@ func TestResourceBuilderOverrideValue(t *testing.T) {
 	rb.SetServiceNamespace("service.namespace-val")
 	rb.SetSqlserverComputerName("sqlserver.computer.name-val")
 	rb.SetSqlserverDatabaseName("sqlserver.database.name-val")
-	rb.SetSqlserverDbEdition("sqlserver.db.edition-val")
+	rb.SetSqlserverDbEditionStandard()
 	rb.SetSqlserverInstanceName("sqlserver.instance.name-val")
 	rb.SetSqlserverTargetHost("sqlserver.target.host-val")
 
@@ -191,7 +191,7 @@ func TestResourceBuilderOverrideValue(t *testing.T) {
 		val, ok := res.Attributes().Get("sqlserver.db.edition")
 		assert.True(t, ok, "sqlserver.db.edition should be present")
 		if ok {
-			assert.Equal(t, "override-sqlserver.db.edition", val.Str())
+			assert.Equal(t, "standard", val.Str())
 		}
 	}
 	{
@@ -284,7 +284,7 @@ func TestResourceBuilderOverrideWithoutSet(t *testing.T) {
 		val, ok := res.Attributes().Get("sqlserver.db.edition")
 		assert.True(t, ok, "sqlserver.db.edition should be present even without calling Set")
 		if ok {
-			assert.Equal(t, "override-sqlserver.db.edition", val.Str())
+			assert.Equal(t, "standard", val.Str())
 		}
 	}
 	{
@@ -351,7 +351,7 @@ func TestResourceBuilderNoOverride(t *testing.T) {
 	rb.SetServiceNamespace("service.namespace-val")
 	rb.SetSqlserverComputerName("sqlserver.computer.name-val")
 	rb.SetSqlserverDatabaseName("sqlserver.database.name-val")
-	rb.SetSqlserverDbEdition("sqlserver.db.edition-val")
+	rb.SetSqlserverDbEditionStandard()
 	rb.SetSqlserverInstanceName("sqlserver.instance.name-val")
 	rb.SetSqlserverTargetHost("sqlserver.target.host-val")
 
@@ -405,7 +405,7 @@ func TestResourceBuilderNoOverride(t *testing.T) {
 	sqlserverDbEditionAttrVal, ok := res.Attributes().Get("sqlserver.db.edition")
 	assert.True(t, ok)
 	if ok {
-		assert.Equal(t, "sqlserver.db.edition-val", sqlserverDbEditionAttrVal.Str())
+		assert.Equal(t, "standard", sqlserverDbEditionAttrVal.Str())
 	}
 	sqlserverInstanceNameAttrVal, ok := res.Attributes().Get("sqlserver.instance.name")
 	assert.True(t, ok)

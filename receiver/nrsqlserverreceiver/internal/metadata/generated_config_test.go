@@ -1798,6 +1798,17 @@ func TestResourceAttributesOverrideConfig(t *testing.T) {
 	assert.NotNil(t, cfg.SqlserverTargetHost.OverrideValue, "override_value should be set for sqlserver.target.host")
 }
 
+func TestResourceAttributesOverrideEnumValidation(t *testing.T) {
+	{
+		invalidVal := "invalid-enum-value"
+		cfg := SqlserverDbEditionResourceAttributeConfig{
+			Enabled:       true,
+			OverrideValue: &invalidVal,
+		}
+		assert.Error(t, cfg.Validate())
+	}
+}
+
 func loadResourceAttributesConfig(t *testing.T, name string) ResourceAttributesConfig {
 	cm, err := confmaptest.LoadConf(filepath.Join("testdata", "config.yaml"))
 	require.NoError(t, err)
