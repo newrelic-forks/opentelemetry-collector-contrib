@@ -25,7 +25,7 @@ See PostgreSQL documentation for [supported versions](https://www.postgresql.org
 The monitoring user must be granted `SELECT` on `pg_stat_database`.
 
 > [!NOTE]
-> The feature gate `receiver.postgresql.separateSchemaAttr` addresses an inconsistency in how schema names
+> The feature gate `receiver.nrpostgresql.separateSchemaAttr` addresses an inconsistency in how schema names
 > are reported across different metric types. When enabled, schema names are consistently reported in a
 > dedicated `postgresql.schema.name` resource attribute.
 >
@@ -43,12 +43,12 @@ The monitoring user must be granted `SELECT` on `pg_stat_database`.
 >
 > This ensures reliable correlation of metrics when tables with identical names exist across different schemas.
 >
-> **Note:** This gate is mutually exclusive with `receiver.postgresql.useOTelSemconv`, which is enabled
+> **Note:** This gate is mutually exclusive with `receiver.nrpostgresql.useOTelSemconv`, which is enabled
 > by default (see [OpenTelemetry semantic conventions feature gate](#opentelemetry-semantic-conventions-feature-gate)
 > below). To enable `separateSchemaAttr`, first disable `useOTelSemconv`:
 >
 > ```bash
-> otelcol-contrib --feature-gates=-receiver.postgresql.useOTelSemconv,receiver.postgresql.separateSchemaAttr
+> otelcol-contrib --feature-gates=-receiver.nrpostgresql.useOTelSemconv,receiver.nrpostgresql.separateSchemaAttr
 > ```
 >
 > See https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/29559 for more details.
@@ -128,6 +128,9 @@ The following settings are also optional and nested under `tls` to help configur
 
 - `collection_interval` (default = `10s`): This receiver collects metrics on an interval. This value must be a string readable by Golang's [time.ParseDuration](https://pkg.go.dev/time#ParseDuration). Valid time units are `ns`, `us` (or `µs`), `ms`, `s`, `m`, `h`.
 - `initial_delay` (default = `1s`): defines how long this receiver waits before starting.
+- `timeout` (default = `60s`): The context deadline for each metrics or logs collection cycle, shared across its queries and databases. It is independent of `collection_interval` and is not a separate timeout for each query. Increase it if legitimate scrapes need more time. Setting `timeout: 0` disables the deadline and allows blocked queries to stall collection and shutdown indefinitely.
+
+The timeout also applies to enabled query sample and top query log collectors; collectors in the same logs controller share the deadline. During shutdown, the receiver waits for an active scrape to finish, which can take the remaining timeout plus cancellation and cleanup time. The timeout does not make shutdown immediate or impose a strict process-exit deadline. Existing partial telemetry and error handling also apply to timed-out scrapes.
 
 ### Query Sample Collection
 We provide functionality to collect the query sample from PostgreSQL. It will get historical query 
@@ -464,7 +467,7 @@ The full list of settings exposed for this receiver are documented in [config.go
 
 ## Connection pool feature
 
-The feature gate `receiver.postgresql.connectionPool` allows to enable the creation & reuse of a pool per database for the connections instead of creating & closing on each scrape.
+The feature gate `receiver.nrpostgresql.connectionPool` allows to enable the creation & reuse of a pool per database for the connections instead of creating & closing on each scrape.
 This is generally a useful optimization but also alleviates the volume of generated audit logs when the PostgreSQL instance is configured with `log_connections=on` and/or `log_disconnections=on`.
 
 When this feature gate is enabled, the following optional settings are available nested under `connection_pool` to help configure the connection pools:
@@ -502,17 +505,17 @@ receivers:
 
 ## OpenTelemetry semantic conventions feature gate
 
-The feature gate `receiver.postgresql.useOTelSemconv` (beta, enabled by default) controls the resource model used by this receiver:
+The feature gate `receiver.nrpostgresql.useOTelSemconv` (beta, enabled by default) controls the resource model used by this receiver:
 
 - **Gate enabled (default):** Single resource per server. All metrics are emitted under one resource with `service.instance.id` (UUID v5) as a resource attribute, aligning with OpenTelemetry semantic conventions. Metric-level attributes `db.namespace`, `db.collection.name`, and `postgresql.index.name` are present on applicable metrics.
 - **Gate disabled:** Legacy per-entity resource model. Each database, table, and index emits metrics under a separate resource with `postgresql.database.name`, `postgresql.table.name`, `postgresql.index.name`, and `postgresql.schema.name` as resource attributes. `service.instance.id` is in `host:port` format. To opt back into this model:
   ```bash
-  otelcol-contrib --feature-gates=-receiver.postgresql.useOTelSemconv
+  otelcol-contrib --feature-gates=-receiver.nrpostgresql.useOTelSemconv
   ```
 
 `server.address` and `server.port` are emitted in both models and are not affected by this gate.
 
-This gate is mutually exclusive with `receiver.postgresql.separateSchemaAttr` — both cannot be enabled simultaneously.
+This gate is mutually exclusive with `receiver.nrpostgresql.separateSchemaAttr` — both cannot be enabled simultaneously.
 
 ### Server address resolution
 
