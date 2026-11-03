@@ -5,6 +5,90 @@ including confirmation of which breaking changes from [CHANGELOG.md](./CHANGELOG
 
 <!-- next version -->
 
+## v0.163.0
+
+Synced with upstream contrib v0.163.0.
+
+### 🛑 Breaking changes 🛑
+
+- `receiver/nrpostgresql` (upstream [#51448](https://github.com/open-telemetry/opentelemetry-collector-contrib/pull/51448)):
+  default scrape `timeout` increased to 60s, to cancel blocked PostgreSQL queries. **Already
+  matched — no fork change was needed**; the fork's default was already `time.Minute`.
+
+- `receiver/nrsqlserver` (upstream [#51471](https://github.com/open-telemetry/opentelemetry-collector-contrib/pull/51471)):
+  performance counters read from the SQL Server `Databases` object on a direct database connection
+  now carry the `sqlserver.database.name` resource attribute and no longer emit an unlabeled
+  `_Total` aggregate, which changes the series identity of `sqlserver.database.backup_or_restore.rate`
+  and other per-database counters on this path. Previously every database produced a data point with
+  an identical, unlabeled resource, so the values collapsed into a single series (only one database's
+  value survived) while the `_Total` aggregate double-counted alongside them. Ported.
+
+### 🧰 Bug fixes 🧰
+
+- `receiver/nrsqlserver` (upstream [#50844](https://github.com/open-telemetry/opentelemetry-collector-contrib/pull/50844),
+  fixes [#50773](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/50773)):
+  removed an `AND @@SERVERNAME = '<instance_name>'` predicate that the direct-connection path added
+  to every query whenever `instance_name` was configured. For a named instance, `@@SERVERNAME`
+  returns a qualified name (e.g. `SQL04\DB13`) while `instance_name` is just `DB13` — the values
+  never matched, so the predicate silently filtered out every row of every query, with no error (the
+  scrape still reported success). A direct connection is already scoped to one instance, so the
+  predicate was redundant even when it did match. Ported, along with the README's prior claim that
+  omitting `instance_name` scrapes metrics from all instances, which is not possible through a
+  connection bound to one.
+
+- `receiver/nrsqlserver` (upstream [#51231](https://github.com/open-telemetry/opentelemetry-collector-contrib/pull/51231),
+  fixes [#50772](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/50772)):
+  direct-connection performance-counter rate metrics (`Batch Requests/sec`, `Free list stalls/sec`,
+  and ~50 others) were emitting SQL Server's raw cumulative counter value instead of a per-second
+  rate — the Windows PDH path already computed this correctly, the direct-connection path did not.
+  `sqlserver.page.buffer_cache.free_list.stalls.rate` also changes from an integer-valued gauge to a
+  double-valued gauge, since the corrected rate can be fractional even when both raw samples are
+  integers. Ported.
+
+- `receiver/nrsqlserver` (upstream [#51415](https://github.com/open-telemetry/opentelemetry-collector-contrib/pull/51415)):
+  `sqlserver.db.edition` now reports a normalized enum (`standard`, `enterprise`, `express`,
+  `azure_sql_database`, `managed_instance`, `unknown`) instead of the raw
+  `SERVERPROPERTY('Edition')` string (e.g. `"Enterprise Edition (64-bit)"`), matching base and
+  distinguishing Azure SQL Database from Managed Instance via `SERVERPROPERTY('EngineEdition')`.
+  The fork had ported the resource attribute itself in an earlier cycle but not this normalization.
+
+- `receiver/nrmysql` (upstream [#49597](https://github.com/open-telemetry/opentelemetry-collector-contrib/pull/49597)):
+  fixed `mysql.index.io.wait.count` and `mysql.index.io.wait.time` being reported under the wrong
+  `operation` attribute (e.g. delete counts appearing under `operation=fetch`) — the query's
+  `COUNT_`/`SUM_TIMER_` columns were listed in `FETCH, INSERT, UPDATE, DELETE` order but scanned into
+  `DELETE, FETCH, INSERT, UPDATE` fields. Ported.
+
+- `receiver/nrmysql`: fixed a typo in the `mysql.events_statements_summary_by_digest.examined_rows`
+  and `.returned_rows` attribute descriptions ("report in delta value" → "reported as a delta
+  value"). Documentation only, no behavior change.
+
+Confirmed already matched, no fork change needed:
+
+- `receiver/nroracledb`'s Kerberos authentication support (upstream
+  [#50401](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/50401)).
+- `receiver/nrpostgresql`'s `postgresql.userid`-based top-query/plan cache keying (upstream
+  [#51319](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/51319)).
+- `receiver/nrpostgresql`'s `connect_database` config option (upstream
+  [#50920](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/50920)).
+- `receiver/nrmysql`'s row-count and database-namespace context on the top query event (upstream
+  [#51312](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/51312)) — the
+  `count_star`, `examined_rows` and `returned_rows` attributes on `db.server.top_query`.
+- `receiver/nrsqlserver`'s direct-connection fix for 5 metrics that previously only emitted via the
+  Windows PDH path (`sqlserver.lock.wait_time.avg`, `sqlserver.transaction.rate`,
+  `sqlserver.page.operation.rate`, `sqlserver.page.lazy_write.rate`,
+  `sqlserver.transaction_log.growth.count`) — upstream
+  [#51384](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/51384), part of
+  the same PR as the `database.name` attribution fix above. Ported in an earlier cycle.
+- `receiver/nrsqlserver`'s `sqlserver.session.duration` already reports whole seconds since login via
+  `DATEDIFF(SECOND, s.login_time, GETDATE())` (upstream
+  [#51419](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/51419)), not the
+  millisecond `total_elapsed_time` value that overflowed after ~25 days.
+
+`receiver/sqlserver`'s rename to `sql_server` (upstream, kept as a deprecated alias) is a
+base-receiver-only naming-convention change and does not apply to this fork's own `nrsqlserver`
+naming. No other breaking or bug-fix change in upstream v0.163.0 applies to these receivers beyond
+what's listed above.
+
 ## v0.162.1
 
 Patch release — no new upstream contrib version this cycle. `receiver/nroracledb` and
