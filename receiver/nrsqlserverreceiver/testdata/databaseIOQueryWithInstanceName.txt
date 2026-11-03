@@ -52,7 +52,7 @@ SELECT
 	+ @Columns + N'
 FROM sys.dm_io_virtual_file_stats(NULL, NULL) AS vfs'
 + @JoinClause + N'
-WHERE @@SERVERNAME = ''instanceName'''
+'
 + @Tables;
 
 EXEC sp_executesql @SqlStatement

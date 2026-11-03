@@ -91,6 +91,6 @@ SELECT
 			,SUM(CASE WHEN [state] IN (6,10) THEN 1 ELSE 0 END) AS [db_offline]
 		FROM sys.databases
 	) AS dbs
-WHERE @@SERVERNAME = ''instanceName'''
+'
 
 EXEC sp_executesql @SqlStatement

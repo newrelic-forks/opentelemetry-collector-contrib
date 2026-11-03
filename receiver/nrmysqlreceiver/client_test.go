@@ -8,6 +8,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"regexp"
+	"strings"
 	"testing"
 	"time"
 
@@ -607,7 +608,7 @@ func TestRowsIterationErrorIsReturned(t *testing.T) {
 		},
 		{
 			name:    "getIndexIoWaitsStats",
-			columns: []string{"OBJECT_SCHEMA", "OBJECT_NAME", "INDEX_NAME", "COUNT_FETCH", "COUNT_INSERT", "COUNT_UPDATE", "COUNT_DELETE", "SUM_TIMER_FETCH", "SUM_TIMER_INSERT", "SUM_TIMER_UPDATE", "SUM_TIMER_DELETE"},
+			columns: []string{"OBJECT_SCHEMA", "OBJECT_NAME", "INDEX_NAME", "COUNT_DELETE", "COUNT_FETCH", "COUNT_INSERT", "COUNT_UPDATE", "SUM_TIMER_DELETE", "SUM_TIMER_FETCH", "SUM_TIMER_INSERT", "SUM_TIMER_UPDATE"},
 			values:  []driver.Value{"schema", "table", "index", 1, 2, 3, 4, 5, 6, 7, 8},
 			call: func(c *mySQLClient) (any, error) {
 				return c.getIndexIoWaitsStats()
@@ -937,5 +938,27 @@ func TestSplitClientHostPort(t *testing.T) {
 			assert.Equal(t, tt.expectedHost, host)
 			assert.Equal(t, tt.expectedPort, port)
 		})
+	}
+}
+
+// TestIndexIoWaitsQueryColumnOrder guards against the mismatch fixed for index io_waits metrics:
+// getIndexIoWaitsStats scans columns positionally into countDelete, countFetch, countInsert,
+// countUpdate (and the matching time fields), so indexIoWaitsQuery must list the COUNT_ and
+// SUM_TIMER_ columns in DELETE, FETCH, INSERT, UPDATE order. Previously they were listed as
+// FETCH, INSERT, UPDATE, DELETE, so every mysql.index.io.wait.* datapoint was reported under the
+// wrong operation attribute.
+func TestIndexIoWaitsQueryColumnOrder(t *testing.T) {
+	for _, prefix := range []string{"COUNT_", "SUM_TIMER_"} {
+		del := strings.Index(indexIoWaitsQuery, prefix+"DELETE")
+		fetch := strings.Index(indexIoWaitsQuery, prefix+"FETCH")
+		insert := strings.Index(indexIoWaitsQuery, prefix+"INSERT")
+		update := strings.Index(indexIoWaitsQuery, prefix+"UPDATE")
+		require.NotEqual(t, -1, del, "%sDELETE column missing from indexIoWaitsQuery", prefix)
+		require.NotEqual(t, -1, fetch, "%sFETCH column missing from indexIoWaitsQuery", prefix)
+		require.NotEqual(t, -1, insert, "%sINSERT column missing from indexIoWaitsQuery", prefix)
+		require.NotEqual(t, -1, update, "%sUPDATE column missing from indexIoWaitsQuery", prefix)
+		assert.True(t, del < fetch && fetch < insert && insert < update,
+			"%s columns must appear in DELETE, FETCH, INSERT, UPDATE order to match the scan; got delete=%d fetch=%d insert=%d update=%d",
+			prefix, del, fetch, insert, update)
 	}
 }

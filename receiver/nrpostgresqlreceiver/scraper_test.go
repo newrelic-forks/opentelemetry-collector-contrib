@@ -2646,7 +2646,7 @@ func TestExplainQuery(t *testing.T) {
 			}
 			expectPrepareLookupExplain(mock, tc.normalizedQueryID, expectedPrepared, tc.paramCount, tc.mockPlanResult)
 
-			plan, err := client.explainQuery(tc.query, tc.queryID, "", logger)
+			plan, err := client.explainQuery(t.Context(), tc.query, tc.queryID, "", logger)
 			require.NoError(t, err)
 			assert.Equal(t, tc.mockPlanResult, plan)
 		})
@@ -2678,7 +2678,7 @@ func TestExplainQueryInlineParamCountLookupEmpty(t *testing.T) {
 	mock.ExpectQuery("/* otel-collector-ignore */ SELECT COALESCE(array_length(parameter_types, 1), 0) AS param_count FROM pg_prepared_statements WHERE name = 'otel_30001';").
 		WillReturnRows(sqlmock.NewRows([]string{"param_count"}))
 
-	plan, err := client.explainQuery(query, queryID, "", logger)
+	plan, err := client.explainQuery(t.Context(), query, queryID, "", logger)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not found in pg_prepared_statements")
 	assert.Empty(t, plan)
@@ -2711,7 +2711,7 @@ func TestExplainQueryInlineParamCountLookupFails(t *testing.T) {
 		WillReturnError(errors.New("dial tcp: connection reset by peer"))
 	mock.ExpectExec("/* otel-collector-ignore */ DEALLOCATE PREPARE otel_30002").WillReturnResult(sqlmock.NewResult(0, 0))
 
-	plan, err := client.explainQuery(query, queryID, "", logger)
+	plan, err := client.explainQuery(t.Context(), query, queryID, "", logger)
 	require.Error(t, err)
 	assert.Empty(t, plan)
 	require.NoError(t, mock.ExpectationsWereMet())
@@ -2740,7 +2740,7 @@ func TestExplainQueryInlinePrepareFails(t *testing.T) {
 		WillReturnError(errors.New("pq: syntax error"))
 	mock.ExpectExec("/* otel-collector-ignore */ DEALLOCATE PREPARE otel_30003").WillReturnResult(sqlmock.NewResult(0, 0))
 
-	plan, err := client.explainQuery(query, queryID, "", logger)
+	plan, err := client.explainQuery(t.Context(), query, queryID, "", logger)
 	require.Error(t, err)
 	assert.Empty(t, plan)
 	require.NoError(t, mock.ExpectationsWereMet())
@@ -2774,7 +2774,7 @@ func TestExplainQueryInlineExplainExecuteFails(t *testing.T) {
 		WillReturnError(errors.New("pq: permission denied for table orders"))
 	mock.ExpectExec("/* otel-collector-ignore */ DEALLOCATE PREPARE otel_30004").WillReturnResult(sqlmock.NewResult(0, 0))
 
-	plan, err := client.explainQuery(query, queryID, "", logger)
+	plan, err := client.explainQuery(t.Context(), query, queryID, "", logger)
 	require.Error(t, err)
 	assert.Empty(t, plan)
 	require.NoError(t, mock.ExpectationsWereMet())
@@ -2800,7 +2800,7 @@ func TestExplainQueryInlineEmptyExplainResult(t *testing.T) {
 
 	expectPrepareLookupExplain(mock, "30005", query, 1, "")
 
-	plan, err := client.explainQuery(query, queryID, "", logger)
+	plan, err := client.explainQuery(t.Context(), query, queryID, "", logger)
 	require.NoError(t, err)
 	assert.Empty(t, plan)
 }
@@ -2851,7 +2851,7 @@ func TestExplainQueryInlineVersionGate(t *testing.T) {
 			// the test if explainQuery touches PREPARE/EXPLAIN at all, proving the version gate
 			// short-circuits before any of that.
 
-			plan, err := client.explainQuery(query, queryID, "", logger)
+			plan, err := client.explainQuery(t.Context(), query, queryID, "", logger)
 			require.NoError(t, err)
 			if tc.expectPrepareAndRun {
 				assert.Equal(t, `[{"Plan":{"Node Type":"Index Scan"}}]`, plan)
@@ -2883,7 +2883,7 @@ func TestExplainQueryInlineVersionLookupFails(t *testing.T) {
 
 	mock.ExpectQuery("SHOW server_version;").WillReturnError(errors.New("dial tcp: connection reset by peer"))
 
-	plan, err := client.explainQuery(query, queryID, "", logger)
+	plan, err := client.explainQuery(t.Context(), query, queryID, "", logger)
 	require.Error(t, err)
 	assert.Empty(t, plan)
 	require.NoError(t, mock.ExpectationsWereMet())
@@ -2909,7 +2909,7 @@ func TestExplainQueryInlineVersionUnparseable(t *testing.T) {
 
 	expectServerVersion(mock, "not-a-version")
 
-	plan, err := client.explainQuery(query, queryID, "", logger)
+	plan, err := client.explainQuery(t.Context(), query, queryID, "", logger)
 	require.Error(t, err)
 	assert.Empty(t, plan)
 	require.NoError(t, mock.ExpectationsWereMet())
@@ -2942,7 +2942,7 @@ func TestExplainQueryInlineDedicatedConnectionFails(t *testing.T) {
 	query := "SELECT * FROM users WHERE id = $1"
 	queryID := "40004"
 
-	plan, err := client.explainQuery(query, queryID, "", logger)
+	plan, err := client.explainQuery(t.Context(), query, queryID, "", logger)
 	require.Error(t, err)
 	assert.Empty(t, plan)
 }
@@ -3064,7 +3064,7 @@ func TestExplainQueryInlinePermissionDeniedIsNotCachedAcrossScrapes(t *testing.T
 		WillReturnError(&pq.Error{Code: pqerror.InsufficientPrivilege, Message: "permission denied for table orders"})
 	mock.ExpectExec("/* otel-collector-ignore */ DEALLOCATE PREPARE otel_50001").WillReturnResult(sqlmock.NewResult(0, 0))
 
-	plan, err := client.explainQuery(query, queryID, "", logger)
+	plan, err := client.explainQuery(t.Context(), query, queryID, "", logger)
 	require.Error(t, err)
 	assert.Empty(t, plan)
 	assert.False(t, shouldCacheExplainFailure(err), "collectTopQuery must not cache this error, so the query is retried next scrape")
@@ -3089,7 +3089,7 @@ func TestExplainQueryViaFunction(t *testing.T) {
 			WithArgs(query).
 			WillReturnRows(sqlmock.NewRows([]string{"explain_statement"}).AddRow(mockPlan))
 
-		plan, err := client.explainQuery(query, "12345", `"otel"."explain_statement"`, logger)
+		plan, err := client.explainQuery(t.Context(), query, "12345", `"otel"."explain_statement"`, logger)
 		require.NoError(t, err)
 		assert.Equal(t, mockPlan, plan)
 	})
@@ -3111,7 +3111,7 @@ func TestExplainQueryViaFunction(t *testing.T) {
 			WithArgs(query).
 			WillReturnRows(sqlmock.NewRows([]string{"explain_statement"}).AddRow(mockPlan))
 
-		plan, err := client.explainQuery(query, "12346", `"otel"."explain_statement"`, logger)
+		plan, err := client.explainQuery(t.Context(), query, "12346", `"otel"."explain_statement"`, logger)
 		require.NoError(t, err)
 		assert.Equal(t, mockPlan, plan)
 	})
@@ -3132,7 +3132,7 @@ func TestExplainQueryViaFunction(t *testing.T) {
 			WithArgs(query).
 			WillReturnError(&pq.Error{Code: pqerror.UndefinedFunction, Message: "function does not exist"})
 
-		plan, err := client.explainQuery(query, "12347", `"otel"."explain_statement"`, logger)
+		plan, err := client.explainQuery(t.Context(), query, "12347", `"otel"."explain_statement"`, logger)
 		require.Error(t, err)
 		assert.Empty(t, plan)
 		var pqErr *pq.Error
@@ -3156,7 +3156,7 @@ func TestExplainQueryViaFunction(t *testing.T) {
 			WithArgs(query).
 			WillReturnError(&pq.Error{Code: pqerror.Code("42501"), Message: "permission denied for table orders"})
 
-		plan, err := client.explainQuery(query, "12349", `"otel"."explain_statement"`, logger)
+		plan, err := client.explainQuery(t.Context(), query, "12349", `"otel"."explain_statement"`, logger)
 		require.Error(t, err)
 		assert.Empty(t, plan)
 		var pqErr *pq.Error
@@ -3174,7 +3174,7 @@ func TestExplainQueryViaFunction(t *testing.T) {
 
 		client := &postgreSQLClient{client: db, closeFn: func() error { return nil }}
 
-		plan, err := client.explainQuery("GRANT SELECT ON users TO demo", "12348", `"otel"."explain_statement"`, logger)
+		plan, err := client.explainQuery(t.Context(), "GRANT SELECT ON users TO demo", "12348", `"otel"."explain_statement"`, logger)
 		require.NoError(t, err)
 		assert.Empty(t, plan)
 		// no mock.ExpectQuery set up — sqlmock fails the test if explainQuery touches the DB
@@ -3194,7 +3194,7 @@ func TestExplainQueryViaFunction(t *testing.T) {
 		// expects the INLINE sequence, not the function — proves explainFunction=="" always wins
 		expectPrepareLookupExplain(mock, "12350", query, 1, `[{"Plan":{"Node Type":"LockRows"}}]`)
 
-		plan, err := client.explainQuery(query, "12350", "", logger)
+		plan, err := client.explainQuery(t.Context(), query, "12350", "", logger)
 		require.NoError(t, err)
 		assert.Equal(t, `[{"Plan":{"Node Type":"LockRows"}}]`, plan)
 	})
@@ -3237,7 +3237,7 @@ func TestExplainQueryViaFunctionVersionGate(t *testing.T) {
 			}
 			// If expectFunctionCall is false, sqlmock fails the test if the function gets called.
 
-			plan, err := client.explainQuery(query, queryID, `"otel"."explain_statement"`, logger)
+			plan, err := client.explainQuery(t.Context(), query, queryID, `"otel"."explain_statement"`, logger)
 			require.NoError(t, err)
 			if tc.expectFunctionCall {
 				assert.Equal(t, `[{"Plan":{"Node Type":"LockRows"}}]`, plan)
@@ -3531,7 +3531,7 @@ type (
 )
 
 // explainQuery implements client.
-func (*mockClient) explainQuery(string, string, string, *zap.Logger) (string, error) {
+func (*mockClient) explainQuery(context.Context, string, string, string, *zap.Logger) (string, error) {
 	panic("unimplemented")
 }
 
