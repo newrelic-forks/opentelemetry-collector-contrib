@@ -73,12 +73,7 @@ FROM sys.dm_io_virtual_file_stats(NULL, NULL) AS vfs'
 EXEC sp_executesql @SqlStatement
 `
 
-func getSQLServerDatabaseIOQuery(instanceName string) string {
-	if instanceName != "" {
-		whereClause := fmt.Sprintf("WHERE @@SERVERNAME = ''%s''", instanceName)
-		return fmt.Sprintf(sqlServerDatabaseIOQuery, whereClause)
-	}
-
+func getSQLServerDatabaseIOQuery(_ string) string {
 	return fmt.Sprintf(sqlServerDatabaseIOQuery, "")
 }
 
@@ -355,13 +350,7 @@ WHERE
 OPTION(RECOMPILE)
 `
 
-func getSQLServerPerformanceCounterQuery(instanceName string) string {
-	if instanceName != "" {
-		whereClause := fmt.Sprintf("\tAND @@SERVERNAME = '%s'", instanceName)
-		r := strings.NewReplacer("{filter_instance_name}", whereClause)
-		return r.Replace(sqlServerPerformanceCountersQuery)
-	}
-
+func getSQLServerPerformanceCounterQuery(_ string) string {
 	r := strings.NewReplacer("{filter_instance_name}", "")
 	return r.Replace(sqlServerPerformanceCountersQuery)
 }
@@ -464,24 +453,15 @@ SELECT
 EXEC sp_executesql @SqlStatement
 `
 
-func getSQLServerPropertiesQuery(instanceName string) string {
-	if instanceName != "" {
-		whereClause := fmt.Sprintf("WHERE @@SERVERNAME = ''%s''", instanceName)
-		return fmt.Sprintf(sqlServerProperties, whereClause)
-	}
-
+func getSQLServerPropertiesQuery(_ string) string {
 	return fmt.Sprintf(sqlServerProperties, "")
 }
 
 //go:embed templates/topProcedureQuery.tmpl
 var sqlServerTopProcedureQueryTemplate string
 
-func getSQLServerTopProcedureQuery(instanceName string) string {
-	instanceFilter := ""
-	if instanceName != "" {
-		instanceFilter = fmt.Sprintf("  AND @@SERVERNAME = '%s'", instanceName)
-	}
-	return fmt.Sprintf(sqlServerTopProcedureQueryTemplate, instanceFilter)
+func getSQLServerTopProcedureQuery(_ string) string {
+	return fmt.Sprintf(sqlServerTopProcedureQueryTemplate, "")
 }
 
 //go:embed templates/dbQueryAndTextQuery.tmpl
@@ -1137,13 +1117,7 @@ ELSE
 {filter_instance_name};
 `
 
-func getSQLServerWaitStatsQuery(instanceName string) string {
-	if instanceName != "" {
-		whereClause := fmt.Sprintf("\tAND @@SERVERNAME = '%s'", instanceName)
-		r := strings.NewReplacer("{filter_instance_name}", whereClause)
-		return r.Replace(sqlServerWaitStatsQuery)
-	}
-
+func getSQLServerWaitStatsQuery(_ string) string {
 	r := strings.NewReplacer("{filter_instance_name}", "")
 	return r.Replace(sqlServerWaitStatsQuery)
 }
@@ -1185,13 +1159,7 @@ ELSE BEGIN -- Instance-level editions (on-premises, managed instance)
 END
 `
 
-func getSQLServerDatabaseSizeQuery(instanceName string) string {
-	if instanceName != "" {
-		whereClause := fmt.Sprintf("\tAND @@SERVERNAME = '%s'", instanceName)
-		r := strings.NewReplacer("{filter_instance_name}", whereClause)
-		return r.Replace(sqlServerDatabaseSizeQuery)
-	}
-
+func getSQLServerDatabaseSizeQuery(_ string) string {
 	r := strings.NewReplacer("{filter_instance_name}", "")
 	return r.Replace(sqlServerDatabaseSizeQuery)
 }
@@ -1220,13 +1188,7 @@ WHERE 1=1
 {filter_instance_name};
 `
 
-func getSQLServerOSMemoryQuery(instanceName string) string {
-	if instanceName != "" {
-		whereClause := fmt.Sprintf("\tAND @@SERVERNAME = '%s'", instanceName)
-		r := strings.NewReplacer("{filter_instance_name}", whereClause)
-		return r.Replace(sqlServerOSMemoryQuery)
-	}
-
+func getSQLServerOSMemoryQuery(_ string) string {
 	r := strings.NewReplacer("{filter_instance_name}", "")
 	return r.Replace(sqlServerOSMemoryQuery)
 }
@@ -1255,13 +1217,7 @@ WHERE 1=1
 {filter_instance_name};
 `
 
-func getSQLServerOSDiskQuery(instanceName string) string {
-	if instanceName != "" {
-		whereClause := fmt.Sprintf("\tAND @@SERVERNAME = '%s'", instanceName)
-		r := strings.NewReplacer("{filter_instance_name}", whereClause)
-		return r.Replace(sqlServerOSDiskQuery)
-	}
-
+func getSQLServerOSDiskQuery(_ string) string {
 	r := strings.NewReplacer("{filter_instance_name}", "")
 	return r.Replace(sqlServerOSDiskQuery)
 }
@@ -1285,13 +1241,7 @@ WHERE scheduler_id < 255
 {filter_instance_name};
 `
 
-func getSQLServerOSSchedulerRunnableTasksQuery(instanceName string) string {
-	if instanceName != "" {
-		whereClause := fmt.Sprintf("\tAND @@SERVERNAME = '%s'", instanceName)
-		r := strings.NewReplacer("{filter_instance_name}", whereClause)
-		return r.Replace(sqlServerOSSchedulerRunnableTasksQuery)
-	}
-
+func getSQLServerOSSchedulerRunnableTasksQuery(_ string) string {
 	r := strings.NewReplacer("{filter_instance_name}", "")
 	return r.Replace(sqlServerOSSchedulerRunnableTasksQuery)
 }
@@ -1329,13 +1279,7 @@ WHERE 1=1
 {filter_instance_name};
 `
 
-func getSQLServerProcessCountQuery(instanceName string) string {
-	if instanceName != "" {
-		whereClause := fmt.Sprintf("\tAND @@SERVERNAME = '%s'", instanceName)
-		r := strings.NewReplacer("{filter_instance_name}", whereClause)
-		return r.Replace(sqlServerProcessCountQuery)
-	}
-
+func getSQLServerProcessCountQuery(_ string) string {
 	r := strings.NewReplacer("{filter_instance_name}", "")
 	return r.Replace(sqlServerProcessCountQuery)
 }
@@ -1386,13 +1330,7 @@ WHERE 1=1
 {filter_instance_name};
 `
 
-func getSQLServerThreadPoolQuery(instanceName string) string {
-	if instanceName != "" {
-		whereClause := fmt.Sprintf("\tAND @@SERVERNAME = '%s'", instanceName)
-		r := strings.NewReplacer("{filter_instance_name}", whereClause)
-		return r.Replace(sqlServerThreadPoolQuery)
-	}
-
+func getSQLServerThreadPoolQuery(_ string) string {
 	r := strings.NewReplacer("{filter_instance_name}", "")
 	return r.Replace(sqlServerThreadPoolQuery)
 }
@@ -1422,13 +1360,7 @@ GROUP BY si.max_workers_count
 OPTION(RECOMPILE)
 `
 
-func getSQLServerWorkerThreadsQuery(instanceName string) string {
-	if instanceName != "" {
-		whereClause := fmt.Sprintf("\tAND @@SERVERNAME = '%s'", instanceName)
-		r := strings.NewReplacer("{filter_instance_name}", whereClause)
-		return r.Replace(sqlServerWorkerThreadsQuery)
-	}
-
+func getSQLServerWorkerThreadsQuery(_ string) string {
 	r := strings.NewReplacer("{filter_instance_name}", "")
 	return r.Replace(sqlServerWorkerThreadsQuery)
 }
@@ -1491,13 +1423,7 @@ WHERE 1=1
 {filter_instance_name};
 `
 
-func getSQLServerTempDBQuery(instanceName string) string {
-	if instanceName != "" {
-		whereClause := fmt.Sprintf("\tAND @@SERVERNAME = '%s'", instanceName)
-		r := strings.NewReplacer("{filter_instance_name}", whereClause)
-		return r.Replace(sqlServerTempDBQuery)
-	}
-
+func getSQLServerTempDBQuery(_ string) string {
 	r := strings.NewReplacer("{filter_instance_name}", "")
 	return r.Replace(sqlServerTempDBQuery)
 }
@@ -1522,13 +1448,7 @@ WHERE database_id = 2 AND type IN (0, 1)
 {filter_instance_name};
 `
 
-func getSQLServerTempDBFileQuery(instanceName string) string {
-	if instanceName != "" {
-		whereClause := fmt.Sprintf("\tAND @@SERVERNAME = '%s'", instanceName)
-		r := strings.NewReplacer("{filter_instance_name}", whereClause)
-		return r.Replace(sqlServerTempDBFileQuery)
-	}
-
+func getSQLServerTempDBFileQuery(_ string) string {
 	r := strings.NewReplacer("{filter_instance_name}", "")
 	return r.Replace(sqlServerTempDBFileQuery)
 }
@@ -1555,12 +1475,7 @@ WHERE 1=1
 {filter_instance_name};
 `
 
-func getSQLServerFailoverClusterAGQuery(instanceName string) string {
-	if instanceName != "" {
-		whereClause := fmt.Sprintf("\tAND @@SERVERNAME = '%s'", instanceName)
-		r := strings.NewReplacer("{filter_instance_name}", whereClause)
-		return r.Replace(sqlServerFailoverClusterAGQuery)
-	}
+func getSQLServerFailoverClusterAGQuery(_ string) string {
 	r := strings.NewReplacer("{filter_instance_name}", "")
 	return r.Replace(sqlServerFailoverClusterAGQuery)
 }
@@ -1588,12 +1503,7 @@ WHERE 1=1
 {filter_instance_name};
 `
 
-func getSQLServerFailoverClusterReplicaQuery(instanceName string) string {
-	if instanceName != "" {
-		whereClause := fmt.Sprintf("\tAND @@SERVERNAME = '%s'", instanceName)
-		r := strings.NewReplacer("{filter_instance_name}", whereClause)
-		return r.Replace(sqlServerFailoverClusterReplicaQuery)
-	}
+func getSQLServerFailoverClusterReplicaQuery(_ string) string {
 	r := strings.NewReplacer("{filter_instance_name}", "")
 	return r.Replace(sqlServerFailoverClusterReplicaQuery)
 }
@@ -1624,12 +1534,7 @@ WHERE 1=1
 {filter_instance_name};
 `
 
-func getSQLServerFailoverClusterReplicaDatabaseQuery(instanceName string) string {
-	if instanceName != "" {
-		whereClause := fmt.Sprintf("\tAND @@SERVERNAME = '%s'", instanceName)
-		r := strings.NewReplacer("{filter_instance_name}", whereClause)
-		return r.Replace(sqlServerFailoverClusterReplicaDatabaseQuery)
-	}
+func getSQLServerFailoverClusterReplicaDatabaseQuery(_ string) string {
 	r := strings.NewReplacer("{filter_instance_name}", "")
 	return r.Replace(sqlServerFailoverClusterReplicaDatabaseQuery)
 }
@@ -1657,12 +1562,7 @@ WHERE tat.transaction_type IN (1,2,4)
 {filter_instance_name};
 `
 
-func getSQLServerLongestRunningTransactionQuery(instanceName string) string {
-	if instanceName != "" {
-		whereClause := fmt.Sprintf("\tAND @@SERVERNAME = '%s'", instanceName)
-		r := strings.NewReplacer("{filter_instance_name}", whereClause)
-		return r.Replace(sqlServerLongestRunningTransactionQuery)
-	}
+func getSQLServerLongestRunningTransactionQuery(_ string) string {
 	r := strings.NewReplacer("{filter_instance_name}", "")
 	return r.Replace(sqlServerLongestRunningTransactionQuery)
 }
@@ -1779,13 +1679,7 @@ BEGIN
 END
 `
 
-func getSQLServerIndexPhysicalStatsQuery(instanceName string) string {
-	if instanceName != "" {
-		whereClause := fmt.Sprintf("WHERE @@SERVERNAME = '%s'", instanceName)
-		r := strings.NewReplacer("{filter_instance_name}", whereClause)
-		return r.Replace(sqlServerIndexPhysicalStatsQuery)
-	}
-
+func getSQLServerIndexPhysicalStatsQuery(_ string) string {
 	r := strings.NewReplacer("{filter_instance_name}", "")
 	return r.Replace(sqlServerIndexPhysicalStatsQuery)
 }
@@ -1826,13 +1720,7 @@ ORDER BY ag.[name], ar.[replica_server_name], DB_NAME(sec.[database_id]);'
 EXEC sp_executesql @SqlStatement;
 `
 
-func getSQLServerAvailabilityGroupQuery(instanceName string) string {
-	if instanceName != "" {
-		whereClause := fmt.Sprintf("\n\tAND @@SERVERNAME = ''%s''", instanceName)
-		r := strings.NewReplacer("{filter_instance_name}", whereClause)
-		return r.Replace(sqlServerAvailabilityGroupQuery)
-	}
-
+func getSQLServerAvailabilityGroupQuery(_ string) string {
 	r := strings.NewReplacer("{filter_instance_name}", "")
 	return r.Replace(sqlServerAvailabilityGroupQuery)
 }
@@ -1868,13 +1756,7 @@ WHERE 1=1
 OPTION(RECOMPILE)
 `
 
-func getSQLServerCPUMemoryQuery(instanceName string) string {
-	if instanceName != "" {
-		whereClause := fmt.Sprintf("\tAND @@SERVERNAME = '%s'", instanceName)
-		r := strings.NewReplacer("{filter_instance_name}", whereClause)
-		return r.Replace(sqlServerCPUMemoryQuery)
-	}
-
+func getSQLServerCPUMemoryQuery(_ string) string {
 	r := strings.NewReplacer("{filter_instance_name}", "")
 	return r.Replace(sqlServerCPUMemoryQuery)
 }
@@ -1938,13 +1820,7 @@ OPTION(RECOMPILE)'
 EXEC sp_executesql @SqlStatement
 `
 
-func getSQLServerDiskIOQuery(instanceName string) string {
-	if instanceName != "" {
-		whereClause := fmt.Sprintf("\tAND @@SERVERNAME = ''%s''", instanceName)
-		r := strings.NewReplacer("{filter_instance_name}", whereClause)
-		return r.Replace(sqlServerDiskIOQuery)
-	}
-
+func getSQLServerDiskIOQuery(_ string) string {
 	r := strings.NewReplacer("{filter_instance_name}", "")
 	return r.Replace(sqlServerDiskIOQuery)
 }

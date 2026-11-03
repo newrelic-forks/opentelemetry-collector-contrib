@@ -49,7 +49,8 @@ const (
 
 	// instanceRawKey holds the instance name as SQL Server reports it, before
 	// [instance] renames the _Total aggregate.
-	instanceRawKey = "instance_raw"
+	instanceRawKey    = "instance_raw"
+	totalInstanceName = "_Total"
 
 	defaultServiceName  = "unknown_service:microsoft.sql_server"
 	versionQueryTimeout = 5 * time.Second
@@ -910,6 +911,7 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 	const counterKey = "counter"
 	const instanceKey = "instance"
 	const valueKey = "value"
+	const objectKey = "object"
 	// Direct-connect counters for metrics that were previously only wired on the
 	// Windows PDH path (ported from upstream sqlserverreceiver #51471).
 	const lockWaitTimeAvgMS = "Average Wait Time (ms)"
@@ -1090,6 +1092,22 @@ func (s *sqlServerScraperHelper) recordDatabasePerfCounterMetrics(ctx context.Co
 				continue
 			}
 			row[valueKey] = strconv.FormatFloat(rate, 'f', -1, 64)
+		}
+
+		// Counters on the Databases object are reported once per database plus a
+		// _Total aggregate. Keep only the per-database rows, attributed with the
+		// database name as the Windows PDH path does: the aggregate is exactly the
+		// sum of the others, so emitting both would double-count any aggregation,
+		// and without the name every database would collapse into one series.
+		if strings.HasSuffix(row[objectKey], ":Databases") {
+			// Match on the unmodified instance name: the query renames the aggregate
+			// from _Total to Total, which is also a legal database name.
+			if row[instanceRawKey] == totalInstanceName {
+				continue
+			}
+			if instance := row[instanceKey]; instance != "" {
+				rb.SetSqlserverDatabaseName(instance)
+			}
 		}
 
 		switch row[counterKey] {

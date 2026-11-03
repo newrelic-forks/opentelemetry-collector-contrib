@@ -31,8 +31,8 @@ resourceMetrics:
             gauge:
               dataPoints:
                 - asDouble: 1341
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.database.full_scan.rate
             unit: '{scans}/s'
         scope:
@@ -70,8 +70,8 @@ resourceMetrics:
             gauge:
               dataPoints:
                 - asDouble: 179630
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.index.search.rate
             unit: '{searches}/s'
         scope:
@@ -113,8 +113,8 @@ resourceMetrics:
                     - key: replica.direction
                       value:
                         stringValue: receive
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.replica.data.rate
             unit: By/s
         scope:
@@ -156,8 +156,8 @@ resourceMetrics:
                     - key: replica.direction
                       value:
                         stringValue: transmit
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.replica.data.rate
             unit: By/s
         scope:
@@ -195,8 +195,8 @@ resourceMetrics:
             gauge:
               dataPoints:
                 - asDouble: 100
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.page.buffer_cache.hit_ratio
             unit: '%'
         scope:
@@ -238,8 +238,8 @@ resourceMetrics:
                     - key: page.pool
                       value:
                         stringValue: database
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.memory.page.count
             unit: '{page}'
         scope:
@@ -277,8 +277,8 @@ resourceMetrics:
             gauge:
               dataPoints:
                 - asDouble: 0
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.page.buffer_cache.free_list.stalls.rate
             unit: '{stalls}/s'
         scope:
@@ -316,8 +316,8 @@ resourceMetrics:
             gauge:
               dataPoints:
                 - asDouble: 0
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.page.lazy_write.rate
             unit: '{writes}/s'
         scope:
@@ -359,8 +359,8 @@ resourceMetrics:
                     - key: performance_counter.object_name
                       value:
                         stringValue: SQLServer:Buffer Manager
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.page.life_expectancy
             unit: s
         scope:
@@ -398,8 +398,8 @@ resourceMetrics:
             gauge:
               dataPoints:
                 - asDouble: 389865
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.page.lookup.rate
             unit: '{lookups}/s'
         scope:
@@ -441,8 +441,8 @@ resourceMetrics:
                     - key: type
                       value:
                         stringValue: read
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.page.operation.rate
             unit: '{operations}/s'
         scope:
@@ -484,8 +484,8 @@ resourceMetrics:
                     - key: type
                       value:
                         stringValue: write
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.page.operation.rate
             unit: '{operations}/s'
         scope:
@@ -527,8 +527,8 @@ resourceMetrics:
                     - key: page.pool
                       value:
                         stringValue: database
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.memory.page.count
             unit: '{page}'
         scope:
@@ -570,8 +570,8 @@ resourceMetrics:
                     - key: performance_counter.object_name
                       value:
                         stringValue: SQLServer:Buffer Node
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.page.life_expectancy
             unit: s
         scope:
@@ -609,8 +609,8 @@ resourceMetrics:
             gauge:
               dataPoints:
                 - asDouble: 0
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.transaction.mirror_write.rate
             unit: '{transactions}/s'
         scope:
@@ -650,961 +650,9 @@ resourceMetrics:
               aggregationTemporality: 2
               dataPoints:
                 - asDouble: 0
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             unit: ms
-        scope:
-          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
-          version: latest
-  - resource:
-      attributes:
-        - key: host.name
-          value:
-            stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
-        - key: service.instance.id
-          value:
-            stringValue: 0.0.0.0:1433
-        - key: service.name
-          value:
-            stringValue: unknown_service:microsoft.sql_server
-        - key: service.namespace
-          value:
-            stringValue: ""
-        - key: sqlserver.instance.name
-          value:
-            stringValue: d26d40521426
-        - key: sqlserver.target.host
-          value:
-            stringValue: 0.0.0.0
-    scopeMetrics:
-      - metrics:
-          - description: Total number of backups/restores.
-            gauge:
-              dataPoints:
-                - asDouble: 0
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
-            name: sqlserver.database.backup_or_restore.rate
-            unit: '{backups_or_restores}/s'
-        scope:
-          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
-          version: latest
-  - resource:
-      attributes:
-        - key: host.name
-          value:
-            stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
-        - key: service.instance.id
-          value:
-            stringValue: 0.0.0.0:1433
-        - key: service.name
-          value:
-            stringValue: unknown_service:microsoft.sql_server
-        - key: service.namespace
-          value:
-            stringValue: ""
-        - key: sqlserver.instance.name
-          value:
-            stringValue: d26d40521426
-        - key: sqlserver.target.host
-          value:
-            stringValue: 0.0.0.0
-    scopeMetrics:
-      - metrics:
-          - description: Total number of transaction log expansions for a database.
-            name: sqlserver.transaction_log.growth.count
-            sum:
-              aggregationTemporality: 2
-              dataPoints:
-                - asInt: "18"
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
-              isMonotonic: true
-            unit: '{growths}'
-        scope:
-          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
-          version: latest
-  - resource:
-      attributes:
-        - key: host.name
-          value:
-            stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
-        - key: service.instance.id
-          value:
-            stringValue: 0.0.0.0:1433
-        - key: service.name
-          value:
-            stringValue: unknown_service:microsoft.sql_server
-        - key: service.namespace
-          value:
-            stringValue: ""
-        - key: sqlserver.instance.name
-          value:
-            stringValue: d26d40521426
-        - key: sqlserver.target.host
-          value:
-            stringValue: 0.0.0.0
-    scopeMetrics:
-      - metrics:
-          - description: Number of transactions started for the database (not including XTP-only transactions).
-            gauge:
-              dataPoints:
-                - asDouble: 2166
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
-            name: sqlserver.transaction.rate
-            unit: '{transactions}/s'
-        scope:
-          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
-          version: latest
-  - resource:
-      attributes:
-        - key: host.name
-          value:
-            stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
-        - key: service.instance.id
-          value:
-            stringValue: 0.0.0.0:1433
-        - key: service.name
-          value:
-            stringValue: unknown_service:microsoft.sql_server
-        - key: service.namespace
-          value:
-            stringValue: ""
-        - key: sqlserver.instance.name
-          value:
-            stringValue: d26d40521426
-        - key: sqlserver.target.host
-          value:
-            stringValue: 0.0.0.0
-    scopeMetrics:
-      - metrics:
-          - description: Number of transactions started for the database (not including XTP-only transactions).
-            gauge:
-              dataPoints:
-                - asDouble: 458
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
-            name: sqlserver.transaction.rate
-            unit: '{transactions}/s'
-        scope:
-          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
-          version: latest
-  - resource:
-      attributes:
-        - key: host.name
-          value:
-            stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
-        - key: service.instance.id
-          value:
-            stringValue: 0.0.0.0:1433
-        - key: service.name
-          value:
-            stringValue: unknown_service:microsoft.sql_server
-        - key: service.namespace
-          value:
-            stringValue: ""
-        - key: sqlserver.instance.name
-          value:
-            stringValue: d26d40521426
-        - key: sqlserver.target.host
-          value:
-            stringValue: 0.0.0.0
-    scopeMetrics:
-      - metrics:
-          - description: Total number of transaction log expansions for a database.
-            name: sqlserver.transaction_log.growth.count
-            sum:
-              aggregationTemporality: 2
-              dataPoints:
-                - asInt: "6"
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
-              isMonotonic: true
-            unit: '{growths}'
-        scope:
-          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
-          version: latest
-  - resource:
-      attributes:
-        - key: host.name
-          value:
-            stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
-        - key: service.instance.id
-          value:
-            stringValue: 0.0.0.0:1433
-        - key: service.name
-          value:
-            stringValue: unknown_service:microsoft.sql_server
-        - key: service.namespace
-          value:
-            stringValue: ""
-        - key: sqlserver.instance.name
-          value:
-            stringValue: d26d40521426
-        - key: sqlserver.target.host
-          value:
-            stringValue: 0.0.0.0
-    scopeMetrics:
-      - metrics:
-          - description: Total number of backups/restores.
-            gauge:
-              dataPoints:
-                - asDouble: 0
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
-            name: sqlserver.database.backup_or_restore.rate
-            unit: '{backups_or_restores}/s'
-        scope:
-          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
-          version: latest
-  - resource:
-      attributes:
-        - key: host.name
-          value:
-            stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
-        - key: service.instance.id
-          value:
-            stringValue: 0.0.0.0:1433
-        - key: service.name
-          value:
-            stringValue: unknown_service:microsoft.sql_server
-        - key: service.namespace
-          value:
-            stringValue: ""
-        - key: sqlserver.instance.name
-          value:
-            stringValue: d26d40521426
-        - key: sqlserver.target.host
-          value:
-            stringValue: 0.0.0.0
-    scopeMetrics:
-      - metrics:
-          - description: Total number of backups/restores.
-            gauge:
-              dataPoints:
-                - asDouble: 0
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
-            name: sqlserver.database.backup_or_restore.rate
-            unit: '{backups_or_restores}/s'
-        scope:
-          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
-          version: latest
-  - resource:
-      attributes:
-        - key: host.name
-          value:
-            stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
-        - key: service.instance.id
-          value:
-            stringValue: 0.0.0.0:1433
-        - key: service.name
-          value:
-            stringValue: unknown_service:microsoft.sql_server
-        - key: service.namespace
-          value:
-            stringValue: ""
-        - key: sqlserver.instance.name
-          value:
-            stringValue: d26d40521426
-        - key: sqlserver.target.host
-          value:
-            stringValue: 0.0.0.0
-    scopeMetrics:
-      - metrics:
-          - description: Total number of transaction log expansions for a database.
-            name: sqlserver.transaction_log.growth.count
-            sum:
-              aggregationTemporality: 2
-              dataPoints:
-                - asInt: "0"
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
-              isMonotonic: true
-            unit: '{growths}'
-        scope:
-          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
-          version: latest
-  - resource:
-      attributes:
-        - key: host.name
-          value:
-            stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
-        - key: service.instance.id
-          value:
-            stringValue: 0.0.0.0:1433
-        - key: service.name
-          value:
-            stringValue: unknown_service:microsoft.sql_server
-        - key: service.namespace
-          value:
-            stringValue: ""
-        - key: sqlserver.instance.name
-          value:
-            stringValue: d26d40521426
-        - key: sqlserver.target.host
-          value:
-            stringValue: 0.0.0.0
-    scopeMetrics:
-      - metrics:
-          - description: Number of transactions started for the database (not including XTP-only transactions).
-            gauge:
-              dataPoints:
-                - asDouble: 430
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
-            name: sqlserver.transaction.rate
-            unit: '{transactions}/s'
-        scope:
-          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
-          version: latest
-  - resource:
-      attributes:
-        - key: host.name
-          value:
-            stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
-        - key: service.instance.id
-          value:
-            stringValue: 0.0.0.0:1433
-        - key: service.name
-          value:
-            stringValue: unknown_service:microsoft.sql_server
-        - key: service.namespace
-          value:
-            stringValue: ""
-        - key: sqlserver.instance.name
-          value:
-            stringValue: d26d40521426
-        - key: sqlserver.target.host
-          value:
-            stringValue: 0.0.0.0
-    scopeMetrics:
-      - metrics:
-          - description: Number of transactions started for the database (not including XTP-only transactions).
-            gauge:
-              dataPoints:
-                - asDouble: 158
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
-            name: sqlserver.transaction.rate
-            unit: '{transactions}/s'
-        scope:
-          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
-          version: latest
-  - resource:
-      attributes:
-        - key: host.name
-          value:
-            stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
-        - key: service.instance.id
-          value:
-            stringValue: 0.0.0.0:1433
-        - key: service.name
-          value:
-            stringValue: unknown_service:microsoft.sql_server
-        - key: service.namespace
-          value:
-            stringValue: ""
-        - key: sqlserver.instance.name
-          value:
-            stringValue: d26d40521426
-        - key: sqlserver.target.host
-          value:
-            stringValue: 0.0.0.0
-    scopeMetrics:
-      - metrics:
-          - description: Total number of transaction log expansions for a database.
-            name: sqlserver.transaction_log.growth.count
-            sum:
-              aggregationTemporality: 2
-              dataPoints:
-                - asInt: "3"
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
-              isMonotonic: true
-            unit: '{growths}'
-        scope:
-          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
-          version: latest
-  - resource:
-      attributes:
-        - key: host.name
-          value:
-            stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
-        - key: service.instance.id
-          value:
-            stringValue: 0.0.0.0:1433
-        - key: service.name
-          value:
-            stringValue: unknown_service:microsoft.sql_server
-        - key: service.namespace
-          value:
-            stringValue: ""
-        - key: sqlserver.instance.name
-          value:
-            stringValue: d26d40521426
-        - key: sqlserver.target.host
-          value:
-            stringValue: 0.0.0.0
-    scopeMetrics:
-      - metrics:
-          - description: Total number of backups/restores.
-            gauge:
-              dataPoints:
-                - asDouble: 0
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
-            name: sqlserver.database.backup_or_restore.rate
-            unit: '{backups_or_restores}/s'
-        scope:
-          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
-          version: latest
-  - resource:
-      attributes:
-        - key: host.name
-          value:
-            stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
-        - key: service.instance.id
-          value:
-            stringValue: 0.0.0.0:1433
-        - key: service.name
-          value:
-            stringValue: unknown_service:microsoft.sql_server
-        - key: service.namespace
-          value:
-            stringValue: ""
-        - key: sqlserver.instance.name
-          value:
-            stringValue: d26d40521426
-        - key: sqlserver.target.host
-          value:
-            stringValue: 0.0.0.0
-    scopeMetrics:
-      - metrics:
-          - description: Total number of backups/restores.
-            gauge:
-              dataPoints:
-                - asDouble: 0
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
-            name: sqlserver.database.backup_or_restore.rate
-            unit: '{backups_or_restores}/s'
-        scope:
-          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
-          version: latest
-  - resource:
-      attributes:
-        - key: host.name
-          value:
-            stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
-        - key: service.instance.id
-          value:
-            stringValue: 0.0.0.0:1433
-        - key: service.name
-          value:
-            stringValue: unknown_service:microsoft.sql_server
-        - key: service.namespace
-          value:
-            stringValue: ""
-        - key: sqlserver.instance.name
-          value:
-            stringValue: d26d40521426
-        - key: sqlserver.target.host
-          value:
-            stringValue: 0.0.0.0
-    scopeMetrics:
-      - metrics:
-          - description: Total number of transaction log expansions for a database.
-            name: sqlserver.transaction_log.growth.count
-            sum:
-              aggregationTemporality: 2
-              dataPoints:
-                - asInt: "6"
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
-              isMonotonic: true
-            unit: '{growths}'
-        scope:
-          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
-          version: latest
-  - resource:
-      attributes:
-        - key: host.name
-          value:
-            stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
-        - key: service.instance.id
-          value:
-            stringValue: 0.0.0.0:1433
-        - key: service.name
-          value:
-            stringValue: unknown_service:microsoft.sql_server
-        - key: service.namespace
-          value:
-            stringValue: ""
-        - key: sqlserver.instance.name
-          value:
-            stringValue: d26d40521426
-        - key: sqlserver.target.host
-          value:
-            stringValue: 0.0.0.0
-    scopeMetrics:
-      - metrics:
-          - description: Number of transactions started for the database (not including XTP-only transactions).
-            gauge:
-              dataPoints:
-                - asDouble: 161
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
-            name: sqlserver.transaction.rate
-            unit: '{transactions}/s'
-        scope:
-          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
-          version: latest
-  - resource:
-      attributes:
-        - key: host.name
-          value:
-            stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
-        - key: service.instance.id
-          value:
-            stringValue: 0.0.0.0:1433
-        - key: service.name
-          value:
-            stringValue: unknown_service:microsoft.sql_server
-        - key: service.namespace
-          value:
-            stringValue: ""
-        - key: sqlserver.instance.name
-          value:
-            stringValue: d26d40521426
-        - key: sqlserver.target.host
-          value:
-            stringValue: 0.0.0.0
-    scopeMetrics:
-      - metrics:
-          - description: Number of transactions started for the database (not including XTP-only transactions).
-            gauge:
-              dataPoints:
-                - asDouble: 447
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
-            name: sqlserver.transaction.rate
-            unit: '{transactions}/s'
-        scope:
-          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
-          version: latest
-  - resource:
-      attributes:
-        - key: host.name
-          value:
-            stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
-        - key: service.instance.id
-          value:
-            stringValue: 0.0.0.0:1433
-        - key: service.name
-          value:
-            stringValue: unknown_service:microsoft.sql_server
-        - key: service.namespace
-          value:
-            stringValue: ""
-        - key: sqlserver.instance.name
-          value:
-            stringValue: d26d40521426
-        - key: sqlserver.target.host
-          value:
-            stringValue: 0.0.0.0
-    scopeMetrics:
-      - metrics:
-          - description: Total number of transaction log expansions for a database.
-            name: sqlserver.transaction_log.growth.count
-            sum:
-              aggregationTemporality: 2
-              dataPoints:
-                - asInt: "3"
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
-              isMonotonic: true
-            unit: '{growths}'
-        scope:
-          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
-          version: latest
-  - resource:
-      attributes:
-        - key: host.name
-          value:
-            stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
-        - key: service.instance.id
-          value:
-            stringValue: 0.0.0.0:1433
-        - key: service.name
-          value:
-            stringValue: unknown_service:microsoft.sql_server
-        - key: service.namespace
-          value:
-            stringValue: ""
-        - key: sqlserver.instance.name
-          value:
-            stringValue: d26d40521426
-        - key: sqlserver.target.host
-          value:
-            stringValue: 0.0.0.0
-    scopeMetrics:
-      - metrics:
-          - description: Total number of backups/restores.
-            gauge:
-              dataPoints:
-                - asDouble: 0
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
-            name: sqlserver.database.backup_or_restore.rate
-            unit: '{backups_or_restores}/s'
-        scope:
-          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
-          version: latest
-  - resource:
-      attributes:
-        - key: host.name
-          value:
-            stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
-        - key: service.instance.id
-          value:
-            stringValue: 0.0.0.0:1433
-        - key: service.name
-          value:
-            stringValue: unknown_service:microsoft.sql_server
-        - key: service.namespace
-          value:
-            stringValue: ""
-        - key: sqlserver.instance.name
-          value:
-            stringValue: d26d40521426
-        - key: sqlserver.target.host
-          value:
-            stringValue: 0.0.0.0
-    scopeMetrics:
-      - metrics:
-          - description: Total number of backups/restores.
-            gauge:
-              dataPoints:
-                - asDouble: 0
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
-            name: sqlserver.database.backup_or_restore.rate
-            unit: '{backups_or_restores}/s'
-        scope:
-          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
-          version: latest
-  - resource:
-      attributes:
-        - key: host.name
-          value:
-            stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
-        - key: service.instance.id
-          value:
-            stringValue: 0.0.0.0:1433
-        - key: service.name
-          value:
-            stringValue: unknown_service:microsoft.sql_server
-        - key: service.namespace
-          value:
-            stringValue: ""
-        - key: sqlserver.instance.name
-          value:
-            stringValue: d26d40521426
-        - key: sqlserver.target.host
-          value:
-            stringValue: 0.0.0.0
-    scopeMetrics:
-      - metrics:
-          - description: Total number of transaction log expansions for a database.
-            name: sqlserver.transaction_log.growth.count
-            sum:
-              aggregationTemporality: 2
-              dataPoints:
-                - asInt: "0"
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
-              isMonotonic: true
-            unit: '{growths}'
-        scope:
-          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
-          version: latest
-  - resource:
-      attributes:
-        - key: host.name
-          value:
-            stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
-        - key: service.instance.id
-          value:
-            stringValue: 0.0.0.0:1433
-        - key: service.name
-          value:
-            stringValue: unknown_service:microsoft.sql_server
-        - key: service.namespace
-          value:
-            stringValue: ""
-        - key: sqlserver.instance.name
-          value:
-            stringValue: d26d40521426
-        - key: sqlserver.target.host
-          value:
-            stringValue: 0.0.0.0
-    scopeMetrics:
-      - metrics:
-          - description: Number of transactions started for the database (not including XTP-only transactions).
-            gauge:
-              dataPoints:
-                - asDouble: 6
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
-            name: sqlserver.transaction.rate
-            unit: '{transactions}/s'
-        scope:
-          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
-          version: latest
-  - resource:
-      attributes:
-        - key: host.name
-          value:
-            stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
-        - key: service.instance.id
-          value:
-            stringValue: 0.0.0.0:1433
-        - key: service.name
-          value:
-            stringValue: unknown_service:microsoft.sql_server
-        - key: service.namespace
-          value:
-            stringValue: ""
-        - key: sqlserver.instance.name
-          value:
-            stringValue: d26d40521426
-        - key: sqlserver.target.host
-          value:
-            stringValue: 0.0.0.0
-    scopeMetrics:
-      - metrics:
-          - description: Number of transactions started for the database (not including XTP-only transactions).
-            gauge:
-              dataPoints:
-                - asDouble: 506
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
-            name: sqlserver.transaction.rate
-            unit: '{transactions}/s'
-        scope:
-          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
-          version: latest
-  - resource:
-      attributes:
-        - key: host.name
-          value:
-            stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
-        - key: service.instance.id
-          value:
-            stringValue: 0.0.0.0:1433
-        - key: service.name
-          value:
-            stringValue: unknown_service:microsoft.sql_server
-        - key: service.namespace
-          value:
-            stringValue: ""
-        - key: sqlserver.instance.name
-          value:
-            stringValue: d26d40521426
-        - key: sqlserver.target.host
-          value:
-            stringValue: 0.0.0.0
-    scopeMetrics:
-      - metrics:
-          - description: Total number of transaction log expansions for a database.
-            name: sqlserver.transaction_log.growth.count
-            sum:
-              aggregationTemporality: 2
-              dataPoints:
-                - asInt: "0"
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
-              isMonotonic: true
-            unit: '{growths}'
-        scope:
-          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
-          version: latest
-  - resource:
-      attributes:
-        - key: host.name
-          value:
-            stringValue: 0.0.0.0
-        - key: server.address
-          value:
-            stringValue: 0.0.0.0
-        - key: server.port
-          value:
-            intValue: "1433"
-        - key: service.instance.id
-          value:
-            stringValue: 0.0.0.0:1433
-        - key: service.name
-          value:
-            stringValue: unknown_service:microsoft.sql_server
-        - key: service.namespace
-          value:
-            stringValue: ""
-        - key: sqlserver.instance.name
-          value:
-            stringValue: d26d40521426
-        - key: sqlserver.target.host
-          value:
-            stringValue: 0.0.0.0
-    scopeMetrics:
-      - metrics:
-          - description: Total number of backups/restores.
-            gauge:
-              dataPoints:
-                - asDouble: 0
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
-            name: sqlserver.database.backup_or_restore.rate
-            unit: '{backups_or_restores}/s'
         scope:
           name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
           version: latest
@@ -1640,8 +688,8 @@ resourceMetrics:
             gauge:
               dataPoints:
                 - asInt: "18256656"
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.database.execution.errors
             unit: '{errors}'
         scope:
@@ -1688,8 +736,8 @@ resourceMetrics:
                     - key: table.status
                       value:
                         stringValue: temporary
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             unit: '{tables}'
         scope:
           name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
@@ -1726,8 +774,8 @@ resourceMetrics:
             gauge:
               dataPoints:
                 - asDouble: 75
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.login.rate
             unit: '{logins}/s'
         scope:
@@ -1765,8 +813,8 @@ resourceMetrics:
             gauge:
               dataPoints:
                 - asDouble: 72
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.logout.rate
             unit: '{logouts}/s'
         scope:
@@ -1804,8 +852,8 @@ resourceMetrics:
             gauge:
               dataPoints:
                 - asInt: "0"
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.processes.blocked
             unit: '{processes}'
         scope:
@@ -1843,8 +891,8 @@ resourceMetrics:
             gauge:
               dataPoints:
                 - asInt: "3"
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.user.connection.count
             unit: '{connections}'
         scope:
@@ -1882,8 +930,8 @@ resourceMetrics:
             gauge:
               dataPoints:
                 - asDouble: 0.162
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.latch.wait_time.avg
             unit: s
         scope:
@@ -1921,8 +969,8 @@ resourceMetrics:
             gauge:
               dataPoints:
                 - asDouble: 935
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.latch.wait.rate
             unit: '{wait}/s'
         scope:
@@ -1962,8 +1010,8 @@ resourceMetrics:
               aggregationTemporality: 2
               dataPoints:
                 - asDouble: 48.25
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
               isMonotonic: true
             unit: s
         scope:
@@ -2001,8 +1049,8 @@ resourceMetrics:
             gauge:
               dataPoints:
                 - asInt: "12"
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.latch.superlatch.count
             unit: '{superlatch}'
         scope:
@@ -2044,8 +1092,8 @@ resourceMetrics:
                     - key: transition.direction
                       value:
                         stringValue: promotion
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.latch.superlatch.transition.rate
             unit: '{transition}/s'
         scope:
@@ -2087,8 +1135,8 @@ resourceMetrics:
                     - key: transition.direction
                       value:
                         stringValue: demotion
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.latch.superlatch.transition.rate
             unit: '{transition}/s'
         scope:
@@ -2130,8 +1178,8 @@ resourceMetrics:
                     - key: sqlserver.lock.timeout.type
                       value:
                         stringValue: nonzero
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.lock.timeout.rate
             unit: '{timeout}/s'
         scope:
@@ -2173,8 +1221,8 @@ resourceMetrics:
                     - key: sqlserver.lock.timeout.type
                       value:
                         stringValue: all
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.lock.timeout.rate
             unit: '{timeout}/s'
         scope:
@@ -2212,8 +1260,8 @@ resourceMetrics:
             gauge:
               dataPoints:
                 - asDouble: 15
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.lock.wait.rate
             unit: '{requests}/s'
         scope:
@@ -2251,8 +1299,8 @@ resourceMetrics:
             gauge:
               dataPoints:
                 - asDouble: 0
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.deadlock.rate
             unit: '{deadlocks}/s'
         scope:
@@ -2292,8 +1340,8 @@ resourceMetrics:
               aggregationTemporality: 2
               dataPoints:
                 - asInt: "0"
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             unit: '{grants}'
         scope:
           name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
@@ -2334,8 +1382,8 @@ resourceMetrics:
                     - key: memory.pool
                       value:
                         stringValue: target
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.memory.area
             unit: By
         scope:
@@ -2377,8 +1425,8 @@ resourceMetrics:
                     - key: memory.pool
                       value:
                         stringValue: total
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.memory.area
             unit: By
         scope:
@@ -2422,8 +1470,8 @@ resourceMetrics:
                     - key: workload_group.name
                       value:
                         stringValue: default
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             unit: kBy
         scope:
           name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
@@ -2460,8 +1508,8 @@ resourceMetrics:
             gauge:
               dataPoints:
                 - asInt: "0"
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.resource_pool.disk.throttled.read.rate
             unit: '{reads}/s'
         scope:
@@ -2503,8 +1551,8 @@ resourceMetrics:
                     - key: direction
                       value:
                         stringValue: read
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.resource_pool.disk.operations
             unit: '{operations}/s'
         scope:
@@ -2542,8 +1590,8 @@ resourceMetrics:
             gauge:
               dataPoints:
                 - asDouble: 0
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.resource_pool.disk.throttled.write.rate
             unit: '{writes}/s'
         scope:
@@ -2585,8 +1633,8 @@ resourceMetrics:
                     - key: direction
                       value:
                         stringValue: write
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.resource_pool.disk.operations
             unit: '{operations}/s'
         scope:
@@ -2628,8 +1676,8 @@ resourceMetrics:
                     - key: direction
                       value:
                         stringValue: write
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.resource_pool.disk.operations
             unit: '{operations}/s'
         scope:
@@ -2667,8 +1715,8 @@ resourceMetrics:
             gauge:
               dataPoints:
                 - asDouble: 0
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.resource_pool.disk.throttled.write.rate
             unit: '{writes}/s'
         scope:
@@ -2710,8 +1758,8 @@ resourceMetrics:
                     - key: direction
                       value:
                         stringValue: read
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.resource_pool.disk.operations
             unit: '{operations}/s'
         scope:
@@ -2749,8 +1797,8 @@ resourceMetrics:
             gauge:
               dataPoints:
                 - asInt: "0"
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.resource_pool.disk.throttled.read.rate
             unit: '{reads}/s'
         scope:
@@ -2794,8 +1842,8 @@ resourceMetrics:
                     - key: workload_group.name
                       value:
                         stringValue: internal
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             unit: kBy
         scope:
           name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
@@ -2832,8 +1880,8 @@ resourceMetrics:
             gauge:
               dataPoints:
                 - asDouble: 431
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.batch.request.rate
             unit: '{requests}/s'
         scope:
@@ -2871,8 +1919,8 @@ resourceMetrics:
             gauge:
               dataPoints:
                 - asDouble: 264
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.batch.sql_compilation.rate
             unit: '{compilations}/s'
         scope:
@@ -2910,8 +1958,8 @@ resourceMetrics:
             gauge:
               dataPoints:
                 - asDouble: 25
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.batch.sql_recompilation.rate
             unit: '{compilations}/s'
         scope:
@@ -2955,8 +2003,8 @@ resourceMetrics:
                     - key: tempdb.state
                       value:
                         stringValue: free
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             unit: kBy
         scope:
           name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
@@ -2993,8 +2041,8 @@ resourceMetrics:
             gauge:
               dataPoints:
                 - asDouble: 0
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.database.tempdb.version_store.size
             unit: kBy
         scope:
@@ -3038,8 +2086,8 @@ resourceMetrics:
                     - key: workload_group.name
                       value:
                         stringValue: default
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
               isMonotonic: true
             unit: '{wait}'
         scope:
@@ -3083,8 +2131,8 @@ resourceMetrics:
                     - key: workload_group.name
                       value:
                         stringValue: internal
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
               isMonotonic: true
             unit: '{wait}'
         scope:
@@ -3126,8 +2174,8 @@ resourceMetrics:
                     - key: memory.pool
                       value:
                         stringValue: sql_cache
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.memory.area
             unit: By
         scope:
@@ -3169,8 +2217,8 @@ resourceMetrics:
                     - key: memory.pool
                       value:
                         stringValue: optimizer
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.memory.area
             unit: By
         scope:
@@ -3212,8 +2260,8 @@ resourceMetrics:
                     - key: memory.pool
                       value:
                         stringValue: connection
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.memory.area
             unit: By
         scope:
@@ -3255,8 +2303,8 @@ resourceMetrics:
                     - key: memory.pool
                       value:
                         stringValue: granted_workspace
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.memory.area
             unit: By
         scope:
@@ -3298,8 +2346,8 @@ resourceMetrics:
                     - key: memory.pool
                       value:
                         stringValue: max_workspace
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.memory.area
             unit: By
         scope:
@@ -3341,8 +2389,8 @@ resourceMetrics:
                     - key: page.pool
                       value:
                         stringValue: cache
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.memory.page.count
             unit: '{page}'
         scope:
@@ -3384,8 +2432,8 @@ resourceMetrics:
                     - key: page.pool
                       value:
                         stringValue: total
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.memory.page.count
             unit: '{page}'
         scope:
@@ -3427,8 +2475,8 @@ resourceMetrics:
                     - key: page.pool
                       value:
                         stringValue: target
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.memory.page.count
             unit: '{page}'
         scope:
@@ -3470,8 +2518,8 @@ resourceMetrics:
                     - key: page.pool
                       value:
                         stringValue: stolen
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.memory.page.count
             unit: '{page}'
         scope:
@@ -3513,8 +2561,8 @@ resourceMetrics:
                     - key: page.pool
                       value:
                         stringValue: reserved
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.memory.page.count
             unit: '{page}'
         scope:
@@ -3556,8 +2604,8 @@ resourceMetrics:
                     - key: page.pool
                       value:
                         stringValue: free
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.memory.page.count
             unit: '{page}'
         scope:
@@ -3599,8 +2647,8 @@ resourceMetrics:
                     - key: cache.state
                       value:
                         stringValue: total
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.memory.cache.object.count
             unit: '{object}'
         scope:
@@ -3642,8 +2690,8 @@ resourceMetrics:
                     - key: cache.state
                       value:
                         stringValue: in_use
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.memory.cache.object.count
             unit: '{object}'
         scope:
@@ -3681,10 +2729,906 @@ resourceMetrics:
             gauge:
               dataPoints:
                 - asDouble: 9.469696969696969
-                  startTimeUnixNano: "1000000"
-                  timeUnixNano: "2000000"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
             name: sqlserver.recompilation.ratio
             unit: '%'
+        scope:
+          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
+          version: latest
+  - resource:
+      attributes:
+        - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: server.address
+          value:
+            stringValue: 0.0.0.0
+        - key: server.port
+          value:
+            intValue: "1433"
+        - key: service.instance.id
+          value:
+            stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
+        - key: sqlserver.database.name
+          value:
+            stringValue: master
+        - key: sqlserver.instance.name
+          value:
+            stringValue: d26d40521426
+        - key: sqlserver.target.host
+          value:
+            stringValue: 0.0.0.0
+    scopeMetrics:
+      - metrics:
+          - description: Number of transactions started for the database (not including XTP-only transactions).
+            gauge:
+              dataPoints:
+                - asDouble: 458
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
+            name: sqlserver.transaction.rate
+            unit: '{transactions}/s'
+        scope:
+          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
+          version: latest
+  - resource:
+      attributes:
+        - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: server.address
+          value:
+            stringValue: 0.0.0.0
+        - key: server.port
+          value:
+            intValue: "1433"
+        - key: service.instance.id
+          value:
+            stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
+        - key: sqlserver.database.name
+          value:
+            stringValue: master
+        - key: sqlserver.instance.name
+          value:
+            stringValue: d26d40521426
+        - key: sqlserver.target.host
+          value:
+            stringValue: 0.0.0.0
+    scopeMetrics:
+      - metrics:
+          - description: Total number of transaction log expansions for a database.
+            name: sqlserver.transaction_log.growth.count
+            sum:
+              aggregationTemporality: 2
+              dataPoints:
+                - asInt: "6"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
+              isMonotonic: true
+            unit: '{growths}'
+        scope:
+          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
+          version: latest
+  - resource:
+      attributes:
+        - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: server.address
+          value:
+            stringValue: 0.0.0.0
+        - key: server.port
+          value:
+            intValue: "1433"
+        - key: service.instance.id
+          value:
+            stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
+        - key: sqlserver.database.name
+          value:
+            stringValue: master
+        - key: sqlserver.instance.name
+          value:
+            stringValue: d26d40521426
+        - key: sqlserver.target.host
+          value:
+            stringValue: 0.0.0.0
+    scopeMetrics:
+      - metrics:
+          - description: Total number of backups/restores.
+            gauge:
+              dataPoints:
+                - asDouble: 0
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
+            name: sqlserver.database.backup_or_restore.rate
+            unit: '{backups_or_restores}/s'
+        scope:
+          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
+          version: latest
+  - resource:
+      attributes:
+        - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: server.address
+          value:
+            stringValue: 0.0.0.0
+        - key: server.port
+          value:
+            intValue: "1433"
+        - key: service.instance.id
+          value:
+            stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
+        - key: sqlserver.database.name
+          value:
+            stringValue: model
+        - key: sqlserver.instance.name
+          value:
+            stringValue: d26d40521426
+        - key: sqlserver.target.host
+          value:
+            stringValue: 0.0.0.0
+    scopeMetrics:
+      - metrics:
+          - description: Total number of backups/restores.
+            gauge:
+              dataPoints:
+                - asDouble: 0
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
+            name: sqlserver.database.backup_or_restore.rate
+            unit: '{backups_or_restores}/s'
+        scope:
+          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
+          version: latest
+  - resource:
+      attributes:
+        - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: server.address
+          value:
+            stringValue: 0.0.0.0
+        - key: server.port
+          value:
+            intValue: "1433"
+        - key: service.instance.id
+          value:
+            stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
+        - key: sqlserver.database.name
+          value:
+            stringValue: model
+        - key: sqlserver.instance.name
+          value:
+            stringValue: d26d40521426
+        - key: sqlserver.target.host
+          value:
+            stringValue: 0.0.0.0
+    scopeMetrics:
+      - metrics:
+          - description: Total number of transaction log expansions for a database.
+            name: sqlserver.transaction_log.growth.count
+            sum:
+              aggregationTemporality: 2
+              dataPoints:
+                - asInt: "0"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
+              isMonotonic: true
+            unit: '{growths}'
+        scope:
+          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
+          version: latest
+  - resource:
+      attributes:
+        - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: server.address
+          value:
+            stringValue: 0.0.0.0
+        - key: server.port
+          value:
+            intValue: "1433"
+        - key: service.instance.id
+          value:
+            stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
+        - key: sqlserver.database.name
+          value:
+            stringValue: model
+        - key: sqlserver.instance.name
+          value:
+            stringValue: d26d40521426
+        - key: sqlserver.target.host
+          value:
+            stringValue: 0.0.0.0
+    scopeMetrics:
+      - metrics:
+          - description: Number of transactions started for the database (not including XTP-only transactions).
+            gauge:
+              dataPoints:
+                - asDouble: 430
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
+            name: sqlserver.transaction.rate
+            unit: '{transactions}/s'
+        scope:
+          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
+          version: latest
+  - resource:
+      attributes:
+        - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: server.address
+          value:
+            stringValue: 0.0.0.0
+        - key: server.port
+          value:
+            intValue: "1433"
+        - key: service.instance.id
+          value:
+            stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
+        - key: sqlserver.database.name
+          value:
+            stringValue: model_msdb
+        - key: sqlserver.instance.name
+          value:
+            stringValue: d26d40521426
+        - key: sqlserver.target.host
+          value:
+            stringValue: 0.0.0.0
+    scopeMetrics:
+      - metrics:
+          - description: Number of transactions started for the database (not including XTP-only transactions).
+            gauge:
+              dataPoints:
+                - asDouble: 158
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
+            name: sqlserver.transaction.rate
+            unit: '{transactions}/s'
+        scope:
+          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
+          version: latest
+  - resource:
+      attributes:
+        - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: server.address
+          value:
+            stringValue: 0.0.0.0
+        - key: server.port
+          value:
+            intValue: "1433"
+        - key: service.instance.id
+          value:
+            stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
+        - key: sqlserver.database.name
+          value:
+            stringValue: model_msdb
+        - key: sqlserver.instance.name
+          value:
+            stringValue: d26d40521426
+        - key: sqlserver.target.host
+          value:
+            stringValue: 0.0.0.0
+    scopeMetrics:
+      - metrics:
+          - description: Total number of transaction log expansions for a database.
+            name: sqlserver.transaction_log.growth.count
+            sum:
+              aggregationTemporality: 2
+              dataPoints:
+                - asInt: "3"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
+              isMonotonic: true
+            unit: '{growths}'
+        scope:
+          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
+          version: latest
+  - resource:
+      attributes:
+        - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: server.address
+          value:
+            stringValue: 0.0.0.0
+        - key: server.port
+          value:
+            intValue: "1433"
+        - key: service.instance.id
+          value:
+            stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
+        - key: sqlserver.database.name
+          value:
+            stringValue: model_msdb
+        - key: sqlserver.instance.name
+          value:
+            stringValue: d26d40521426
+        - key: sqlserver.target.host
+          value:
+            stringValue: 0.0.0.0
+    scopeMetrics:
+      - metrics:
+          - description: Total number of backups/restores.
+            gauge:
+              dataPoints:
+                - asDouble: 0
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
+            name: sqlserver.database.backup_or_restore.rate
+            unit: '{backups_or_restores}/s'
+        scope:
+          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
+          version: latest
+  - resource:
+      attributes:
+        - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: server.address
+          value:
+            stringValue: 0.0.0.0
+        - key: server.port
+          value:
+            intValue: "1433"
+        - key: service.instance.id
+          value:
+            stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
+        - key: sqlserver.database.name
+          value:
+            stringValue: model_replicatedmaster
+        - key: sqlserver.instance.name
+          value:
+            stringValue: d26d40521426
+        - key: sqlserver.target.host
+          value:
+            stringValue: 0.0.0.0
+    scopeMetrics:
+      - metrics:
+          - description: Total number of backups/restores.
+            gauge:
+              dataPoints:
+                - asDouble: 0
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
+            name: sqlserver.database.backup_or_restore.rate
+            unit: '{backups_or_restores}/s'
+        scope:
+          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
+          version: latest
+  - resource:
+      attributes:
+        - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: server.address
+          value:
+            stringValue: 0.0.0.0
+        - key: server.port
+          value:
+            intValue: "1433"
+        - key: service.instance.id
+          value:
+            stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
+        - key: sqlserver.database.name
+          value:
+            stringValue: model_replicatedmaster
+        - key: sqlserver.instance.name
+          value:
+            stringValue: d26d40521426
+        - key: sqlserver.target.host
+          value:
+            stringValue: 0.0.0.0
+    scopeMetrics:
+      - metrics:
+          - description: Total number of transaction log expansions for a database.
+            name: sqlserver.transaction_log.growth.count
+            sum:
+              aggregationTemporality: 2
+              dataPoints:
+                - asInt: "6"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
+              isMonotonic: true
+            unit: '{growths}'
+        scope:
+          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
+          version: latest
+  - resource:
+      attributes:
+        - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: server.address
+          value:
+            stringValue: 0.0.0.0
+        - key: server.port
+          value:
+            intValue: "1433"
+        - key: service.instance.id
+          value:
+            stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
+        - key: sqlserver.database.name
+          value:
+            stringValue: model_replicatedmaster
+        - key: sqlserver.instance.name
+          value:
+            stringValue: d26d40521426
+        - key: sqlserver.target.host
+          value:
+            stringValue: 0.0.0.0
+    scopeMetrics:
+      - metrics:
+          - description: Number of transactions started for the database (not including XTP-only transactions).
+            gauge:
+              dataPoints:
+                - asDouble: 161
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
+            name: sqlserver.transaction.rate
+            unit: '{transactions}/s'
+        scope:
+          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
+          version: latest
+  - resource:
+      attributes:
+        - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: server.address
+          value:
+            stringValue: 0.0.0.0
+        - key: server.port
+          value:
+            intValue: "1433"
+        - key: service.instance.id
+          value:
+            stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
+        - key: sqlserver.database.name
+          value:
+            stringValue: msdb
+        - key: sqlserver.instance.name
+          value:
+            stringValue: d26d40521426
+        - key: sqlserver.target.host
+          value:
+            stringValue: 0.0.0.0
+    scopeMetrics:
+      - metrics:
+          - description: Number of transactions started for the database (not including XTP-only transactions).
+            gauge:
+              dataPoints:
+                - asDouble: 447
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
+            name: sqlserver.transaction.rate
+            unit: '{transactions}/s'
+        scope:
+          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
+          version: latest
+  - resource:
+      attributes:
+        - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: server.address
+          value:
+            stringValue: 0.0.0.0
+        - key: server.port
+          value:
+            intValue: "1433"
+        - key: service.instance.id
+          value:
+            stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
+        - key: sqlserver.database.name
+          value:
+            stringValue: msdb
+        - key: sqlserver.instance.name
+          value:
+            stringValue: d26d40521426
+        - key: sqlserver.target.host
+          value:
+            stringValue: 0.0.0.0
+    scopeMetrics:
+      - metrics:
+          - description: Total number of transaction log expansions for a database.
+            name: sqlserver.transaction_log.growth.count
+            sum:
+              aggregationTemporality: 2
+              dataPoints:
+                - asInt: "3"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
+              isMonotonic: true
+            unit: '{growths}'
+        scope:
+          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
+          version: latest
+  - resource:
+      attributes:
+        - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: server.address
+          value:
+            stringValue: 0.0.0.0
+        - key: server.port
+          value:
+            intValue: "1433"
+        - key: service.instance.id
+          value:
+            stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
+        - key: sqlserver.database.name
+          value:
+            stringValue: msdb
+        - key: sqlserver.instance.name
+          value:
+            stringValue: d26d40521426
+        - key: sqlserver.target.host
+          value:
+            stringValue: 0.0.0.0
+    scopeMetrics:
+      - metrics:
+          - description: Total number of backups/restores.
+            gauge:
+              dataPoints:
+                - asDouble: 0
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
+            name: sqlserver.database.backup_or_restore.rate
+            unit: '{backups_or_restores}/s'
+        scope:
+          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
+          version: latest
+  - resource:
+      attributes:
+        - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: server.address
+          value:
+            stringValue: 0.0.0.0
+        - key: server.port
+          value:
+            intValue: "1433"
+        - key: service.instance.id
+          value:
+            stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
+        - key: sqlserver.database.name
+          value:
+            stringValue: mssqlsystemresource
+        - key: sqlserver.instance.name
+          value:
+            stringValue: d26d40521426
+        - key: sqlserver.target.host
+          value:
+            stringValue: 0.0.0.0
+    scopeMetrics:
+      - metrics:
+          - description: Total number of backups/restores.
+            gauge:
+              dataPoints:
+                - asDouble: 0
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
+            name: sqlserver.database.backup_or_restore.rate
+            unit: '{backups_or_restores}/s'
+        scope:
+          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
+          version: latest
+  - resource:
+      attributes:
+        - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: server.address
+          value:
+            stringValue: 0.0.0.0
+        - key: server.port
+          value:
+            intValue: "1433"
+        - key: service.instance.id
+          value:
+            stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
+        - key: sqlserver.database.name
+          value:
+            stringValue: mssqlsystemresource
+        - key: sqlserver.instance.name
+          value:
+            stringValue: d26d40521426
+        - key: sqlserver.target.host
+          value:
+            stringValue: 0.0.0.0
+    scopeMetrics:
+      - metrics:
+          - description: Total number of transaction log expansions for a database.
+            name: sqlserver.transaction_log.growth.count
+            sum:
+              aggregationTemporality: 2
+              dataPoints:
+                - asInt: "0"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
+              isMonotonic: true
+            unit: '{growths}'
+        scope:
+          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
+          version: latest
+  - resource:
+      attributes:
+        - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: server.address
+          value:
+            stringValue: 0.0.0.0
+        - key: server.port
+          value:
+            intValue: "1433"
+        - key: service.instance.id
+          value:
+            stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
+        - key: sqlserver.database.name
+          value:
+            stringValue: mssqlsystemresource
+        - key: sqlserver.instance.name
+          value:
+            stringValue: d26d40521426
+        - key: sqlserver.target.host
+          value:
+            stringValue: 0.0.0.0
+    scopeMetrics:
+      - metrics:
+          - description: Number of transactions started for the database (not including XTP-only transactions).
+            gauge:
+              dataPoints:
+                - asDouble: 6
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
+            name: sqlserver.transaction.rate
+            unit: '{transactions}/s'
+        scope:
+          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
+          version: latest
+  - resource:
+      attributes:
+        - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: server.address
+          value:
+            stringValue: 0.0.0.0
+        - key: server.port
+          value:
+            intValue: "1433"
+        - key: service.instance.id
+          value:
+            stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
+        - key: sqlserver.database.name
+          value:
+            stringValue: tempdb
+        - key: sqlserver.instance.name
+          value:
+            stringValue: d26d40521426
+        - key: sqlserver.target.host
+          value:
+            stringValue: 0.0.0.0
+    scopeMetrics:
+      - metrics:
+          - description: Number of transactions started for the database (not including XTP-only transactions).
+            gauge:
+              dataPoints:
+                - asDouble: 506
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
+            name: sqlserver.transaction.rate
+            unit: '{transactions}/s'
+        scope:
+          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
+          version: latest
+  - resource:
+      attributes:
+        - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: server.address
+          value:
+            stringValue: 0.0.0.0
+        - key: server.port
+          value:
+            intValue: "1433"
+        - key: service.instance.id
+          value:
+            stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
+        - key: sqlserver.database.name
+          value:
+            stringValue: tempdb
+        - key: sqlserver.instance.name
+          value:
+            stringValue: d26d40521426
+        - key: sqlserver.target.host
+          value:
+            stringValue: 0.0.0.0
+    scopeMetrics:
+      - metrics:
+          - description: Total number of transaction log expansions for a database.
+            name: sqlserver.transaction_log.growth.count
+            sum:
+              aggregationTemporality: 2
+              dataPoints:
+                - asInt: "0"
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
+              isMonotonic: true
+            unit: '{growths}'
+        scope:
+          name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
+          version: latest
+  - resource:
+      attributes:
+        - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: server.address
+          value:
+            stringValue: 0.0.0.0
+        - key: server.port
+          value:
+            intValue: "1433"
+        - key: service.instance.id
+          value:
+            stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
+        - key: sqlserver.database.name
+          value:
+            stringValue: tempdb
+        - key: sqlserver.instance.name
+          value:
+            stringValue: d26d40521426
+        - key: sqlserver.target.host
+          value:
+            stringValue: 0.0.0.0
+    scopeMetrics:
+      - metrics:
+          - description: Total number of backups/restores.
+            gauge:
+              dataPoints:
+                - asDouble: 0
+                  startTimeUnixNano: "2000000"
+                  timeUnixNano: "1000000"
+            name: sqlserver.database.backup_or_restore.rate
+            unit: '{backups_or_restores}/s'
         scope:
           name: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver
           version: latest

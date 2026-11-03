@@ -559,7 +559,7 @@ ws.wait_type NOT IN (
 	N'SOS_WORK_DISPATCHER','RESERVED_MEMORY_ALLOCATION_EXT')
 AND waiting_tasks_count > 0
 AND wait_time_ms > 100
-	AND @@SERVERNAME = 'instanceName';
+;
 
 ELSE
 	SELECT
@@ -611,4 +611,4 @@ ELSE
 		N'SOS_WORK_DISPATCHER','RESERVED_MEMORY_ALLOCATION_EXT')
 	AND waiting_tasks_count > 0
 	AND wait_time_ms > 100
-	AND @@SERVERNAME = 'instanceName';
+;
