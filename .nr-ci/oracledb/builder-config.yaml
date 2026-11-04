@@ -12,19 +12,33 @@ dist:
 
 receivers:
   - gomod: go.opentelemetry.io/collector/receiver/otlpreceiver v0.162.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/hostmetricsreceiver v0.162.0
   - gomod: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nroracledbreceiver v0.0.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/oracledbreceiver v0.162.0
 
 processors:
   - gomod: go.opentelemetry.io/collector/processor/memorylimiterprocessor v0.162.0
   - gomod: go.opentelemetry.io/collector/processor/batchprocessor v0.162.0
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/transformprocessor v0.162.0
   - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor v0.162.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/filterprocessor v0.162.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/metricstransformprocessor v0.162.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/cumulativetodeltaprocessor v0.162.0
 
 exporters:
   - gomod: go.opentelemetry.io/collector/exporter/otlphttpexporter v0.162.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/exporter/fileexporter v0.159.0
+
+extensions:
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/extension/healthcheckextension v0.162.0
 
 replaces:
   # 3 levels, not 2: OCB generates its own go.mod inside output_path
   # (.nr-ci/oracledb/_build/), and Go's replace directive resolves relative
   # paths from THAT directory, not from this config file's own directory.
   - github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nroracledbreceiver => ../../../receiver/nroracledbreceiver
+  # nroracledbreceiver's own go.mod also replaces nrcommon, but Go only
+  # honors replace directives from the MAIN module (this generated go.mod),
+  # not from a dependency's go.mod -- so it must be repeated here, or local
+  # nrcommon changes would silently never reach the built binary.
+  - github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon => ../../../internal/nrcommon
