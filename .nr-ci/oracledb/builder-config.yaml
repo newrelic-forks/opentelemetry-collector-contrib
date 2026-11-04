@@ -1,0 +1,30 @@
+# OCB manifest for the Oracle receiver release-build workflow
+# (.github/workflows/oracledb-release.yml). Produces a minimal collector
+# binary containing nroracledbreceiver, for db-test-lab's Oracle
+# release-validation GC workflow to download and run. Not an official
+# distribution -- see cmd/otelcontribcol/builder-config.yaml for that.
+dist:
+  module: github.com/newrelic-forks/opentelemetry-collector-contrib/nrci/oracledb
+  name: nrdotcol
+  description: Minimal collector build for Oracle receiver release validation.
+  version: 0.0.0-oracle
+  output_path: ./.nr-ci/oracledb/_build
+
+receivers:
+  - gomod: go.opentelemetry.io/collector/receiver/otlpreceiver v0.162.0
+  - gomod: github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nroracledbreceiver v0.0.0
+
+processors:
+  - gomod: go.opentelemetry.io/collector/processor/memorylimiterprocessor v0.162.0
+  - gomod: go.opentelemetry.io/collector/processor/batchprocessor v0.162.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/transformprocessor v0.162.0
+  - gomod: github.com/open-telemetry/opentelemetry-collector-contrib/processor/resourcedetectionprocessor v0.162.0
+
+exporters:
+  - gomod: go.opentelemetry.io/collector/exporter/otlphttpexporter v0.162.0
+
+replaces:
+  # 3 levels, not 2: OCB generates its own go.mod inside output_path
+  # (.nr-ci/oracledb/_build/), and Go's replace directive resolves relative
+  # paths from THAT directory, not from this config file's own directory.
+  - github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nroracledbreceiver => ../../../receiver/nroracledbreceiver
