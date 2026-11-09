@@ -3,7 +3,7 @@ name: Oracle receiver release build
 on:
   push:
     branches:
-      - pre-release
+      - oracle-test-release-nov9
     paths:
       - "receiver/nroracledbreceiver/**"
       - "receiver/oracledbreceiver/**"
