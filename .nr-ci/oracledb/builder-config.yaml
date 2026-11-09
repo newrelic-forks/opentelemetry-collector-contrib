@@ -42,3 +42,4 @@ replaces:
   # not from a dependency's go.mod -- so it must be repeated here, or local
   # nrcommon changes would silently never reach the built binary.
   - github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon => ../../../internal/nrcommon
+# trigger test 1794199918
