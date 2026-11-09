@@ -3059,7 +3059,7 @@ func (s *sqlServerScraperHelper) recordDatabaseTopProcedure(ctx context.Context)
 			row[colLastExecTime],
 		)
 
-		if s.config.LogsBuilderConfig.Events.DbServerProcedureDefinition.Enabled {
+		if s.config.Events.DbServerProcedureDefinition.Enabled {
 			s.lb.RecordDbServerProcedureDefinitionEvent(
 				context.Background(),
 				timestamp,

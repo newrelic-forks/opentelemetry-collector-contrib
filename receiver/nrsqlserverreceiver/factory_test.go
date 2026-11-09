@@ -608,8 +608,8 @@ func TestProcedureDefinitionWithoutTopProcedureLogsWarning(t *testing.T) {
 	cfg.Password = "password"
 	cfg.Server = "0.0.0.0"
 	cfg.Port = 1433
-	cfg.LogsBuilderConfig.Events.DbServerProcedureDefinition.Enabled = true
-	cfg.LogsBuilderConfig.Events.DbServerTopProcedure.Enabled = false
+	cfg.Events.DbServerProcedureDefinition.Enabled = true
+	cfg.Events.DbServerTopProcedure.Enabled = false
 	require.NoError(t, cfg.Validate())
 
 	setupSQLServerLogsScrapers(params, cfg)
@@ -628,8 +628,8 @@ func TestProcedureDefinitionWithTopProcedureLogsNoWarning(t *testing.T) {
 	cfg.Password = "password"
 	cfg.Server = "0.0.0.0"
 	cfg.Port = 1433
-	cfg.LogsBuilderConfig.Events.DbServerProcedureDefinition.Enabled = true
-	cfg.LogsBuilderConfig.Events.DbServerTopProcedure.Enabled = true
+	cfg.Events.DbServerProcedureDefinition.Enabled = true
+	cfg.Events.DbServerTopProcedure.Enabled = true
 	require.NoError(t, cfg.Validate())
 
 	setupSQLServerLogsScrapers(params, cfg)

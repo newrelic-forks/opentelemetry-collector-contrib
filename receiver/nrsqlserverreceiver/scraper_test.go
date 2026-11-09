@@ -2248,8 +2248,8 @@ func newProcedureDefinitionScraper(t *testing.T) *sqlServerScraperHelper {
 	cfg.Server = "0.0.0.0"
 	enableSQLServerResourceAttributesForTests(&cfg.LogsBuilderConfig.ResourceAttributes)
 	configureAllScraperMetricsAndEvents(cfg, false)
-	cfg.LogsBuilderConfig.Events.DbServerTopProcedure.Enabled = true
-	cfg.LogsBuilderConfig.Events.DbServerProcedureDefinition.Enabled = true
+	cfg.Events.DbServerTopProcedure.Enabled = true
+	cfg.Events.DbServerProcedureDefinition.Enabled = true
 	require.NoError(t, cfg.Validate())
 
 	scrapers, _ := setupSQLServerLogsScrapers(receivertest.NewNopSettings(metadata.Type), cfg)
