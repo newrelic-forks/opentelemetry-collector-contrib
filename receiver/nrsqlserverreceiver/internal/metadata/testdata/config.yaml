@@ -260,6 +260,9 @@ all_set:
     sqlserver.tempdb.allocation.wait_time.total:
       enabled: true
       attributes: ["allocation.page_type"]
+    sqlserver.tempdb.allocation.waiters.count:
+      enabled: true
+      attributes: ["sqlserver.tempdb.allocation.page_type"]
     sqlserver.tempdb.contention.waiters.count:
       enabled: true
     sqlserver.tempdb.data_files.count:
@@ -317,6 +320,8 @@ all_set:
     sqlserver.worktable.cache.hit_ratio:
       enabled: true
   events:
+    db.server.procedure_definition:
+      enabled: true
     db.server.query_plan:
       enabled: true
     db.server.query_sample:
@@ -611,6 +616,9 @@ reaggregate_set:
     sqlserver.tempdb.allocation.wait_time.total:
       enabled: true
       attributes: []
+    sqlserver.tempdb.allocation.waiters.count:
+      enabled: true
+      attributes: []
     sqlserver.tempdb.contention.waiters.count:
       enabled: true
     sqlserver.tempdb.data_files.count:
@@ -668,6 +676,8 @@ reaggregate_set:
     sqlserver.worktable.cache.hit_ratio:
       enabled: true
   events:
+    db.server.procedure_definition:
+      enabled: true
     db.server.query_plan:
       enabled: true
     db.server.query_sample:
@@ -962,6 +972,9 @@ none_set:
     sqlserver.tempdb.allocation.wait_time.total:
       enabled: false
       attributes: ["allocation.page_type"]
+    sqlserver.tempdb.allocation.waiters.count:
+      enabled: false
+      attributes: ["sqlserver.tempdb.allocation.page_type"]
     sqlserver.tempdb.contention.waiters.count:
       enabled: false
     sqlserver.tempdb.data_files.count:
@@ -1019,6 +1032,8 @@ none_set:
     sqlserver.worktable.cache.hit_ratio:
       enabled: false
   events:
+    db.server.procedure_definition:
+      enabled: false
     db.server.query_plan:
       enabled: false
     db.server.query_sample:
