@@ -5,6 +5,60 @@ including confirmation of which breaking changes from [CHANGELOG.md](./CHANGELOG
 
 <!-- next version -->
 
+## v0.164.1
+
+Synced with upstream contrib v0.164.1. Upstream v0.164.x has no breaking changes for these receivers,
+and the fork has no fork-authored breaking changes this cycle.
+
+### 💡 Enhancements 💡
+
+- `receiver/nrsqlserver` (upstream [#52059](https://github.com/open-telemetry/opentelemetry-collector-contrib/pull/52059)):
+  added `sqlserver.tempdb.allocation.waiters.count` (disabled by default), the number of tasks waiting
+  on a tempdb page latch, broken down by the new `sqlserver.tempdb.allocation.page_type` attribute
+  (`gam`, `sgam`, `pfs`, `other`). Ported.
+
+- `receiver/nrsqlserver` (upstream [#52059](https://github.com/open-telemetry/opentelemetry-collector-contrib/pull/52059)):
+  `sqlserver.database.tempdb.space` (disabled by default) reports a data point for each of the
+  mutually exclusive `tempdb.state` values `free`, `user_objects`, `internal_objects`,
+  `version_store` and `mixed_extents`, read from `tempdb.sys.dm_db_file_space_usage`, where it
+  previously reported only `free` from the `Free Space in tempdb (KB)` performance counter. Summing the
+  metric across `tempdb.state` gives total tempdb space. The `used` enum value stays defined for
+  compatibility but is not emitted. Ported.
+
+- `receiver/nrsqlserver` (upstream [#51947](https://github.com/open-telemetry/opentelemetry-collector-contrib/pull/51947)):
+  added the `db.server.procedure_definition` event (disabled by default), carrying the SQL source of
+  each stored procedure observed in `db.server.top_procedure` as `sqlserver.procedure.definition`. It
+  emits nothing unless `db.server.top_procedure` is also enabled, and the receiver logs a warning at
+  startup in that case. Requires `VIEW ANY DEFINITION`. Ported.
+
+### 🧰 Bug fixes 🧰
+
+- `receiver/nrpostgresql` (upstream [#52042](https://github.com/open-telemetry/opentelemetry-collector-contrib/pull/52042),
+  fixes [#52041](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/52041)):
+  a table or index dropped while the receiver was collecting made the scrape fail with
+  `converting NULL to int64 is unsupported` and discarded every metric for that table, or every
+  index metric in that database. Only `postgresql.table.size` / `postgresql.index.size` is now
+  skipped for the dropped relation. Ported.
+
+- `receiver/nrsqlserver` (upstream [#52059](https://github.com/open-telemetry/opentelemetry-collector-contrib/pull/52059)):
+  `sqlserver.tempdb.file.size` reported each file's configured startup size from `sys.master_files`.
+  It now reads `tempdb.sys.database_files`, which reflects the current size after autogrowth. Ported.
+
+- `receiver/nrsqlserver` (upstream [#51048](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/51048)):
+  on Windows, a PDH query handle leaked when adding a performance counter failed. Picked up through
+  the `pkg/winperfcounters` v0.164.1 dependency.
+
+Confirmed already matched, no fork change needed:
+
+- `receiver/nrmysql`'s `mysql.client.name` attribute on `db.server.query_sample` (upstream
+  [#51317](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/51317)). The
+  upstream `COMPATIBILITY.md` section on `session_connect_attrs` was ported.
+
+Deliberate divergence from upstream:
+
+- `receiver/nrsqlserver`'s `sqlserver.tempdb.file.size` keeps the `tempdb.file.id` attribute; upstream
+  names it `sqlserver.tempdb.file.id`.
+
 ## v0.163.0
 
 Synced with upstream contrib v0.163.0.

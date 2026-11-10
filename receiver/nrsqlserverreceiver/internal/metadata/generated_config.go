@@ -3491,6 +3491,54 @@ func (ms *SqlserverTempdbAllocationWaitTimeTotalMetricConfig) Validate() error {
 	return nil
 }
 
+// SqlserverTempdbAllocationWaitersCountMetricAttributeKey specifies the key of an attribute for the sqlserver.tempdb.allocation.waiters.count metric.
+type SqlserverTempdbAllocationWaitersCountMetricAttributeKey string
+
+const (
+	SqlserverTempdbAllocationWaitersCountMetricAttributeKeySqlserverTempdbAllocationPageType SqlserverTempdbAllocationWaitersCountMetricAttributeKey = "sqlserver.tempdb.allocation.page_type"
+)
+
+// SqlserverTempdbAllocationWaitersCountMetricConfig provides config for the sqlserver.tempdb.allocation.waiters.count metric.
+type SqlserverTempdbAllocationWaitersCountMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+
+	AggregationStrategy string                                                    `mapstructure:"aggregation_strategy"`
+	EnabledAttributes   []SqlserverTempdbAllocationWaitersCountMetricAttributeKey `mapstructure:"attributes"`
+}
+
+func (ms *SqlserverTempdbAllocationWaitersCountMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
+	return nil
+}
+
+func (ms *SqlserverTempdbAllocationWaitersCountMetricConfig) Validate() error {
+	for _, val := range ms.EnabledAttributes {
+		switch val {
+		case SqlserverTempdbAllocationWaitersCountMetricAttributeKeySqlserverTempdbAllocationPageType:
+		default:
+			return fmt.Errorf("metric sqlserver.tempdb.allocation.waiters.count doesn't have an attribute %v, valid attributes: [sqlserver.tempdb.allocation.page_type]", val)
+		}
+	}
+
+	switch ms.AggregationStrategy {
+	case AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax:
+	default:
+		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
+	}
+
+	return nil
+}
+
 // SqlserverTempdbContentionWaitersCountMetricConfig provides config for the sqlserver.tempdb.contention.waiters.count metric.
 type SqlserverTempdbContentionWaitersCountMetricConfig struct {
 	Enabled          bool `mapstructure:"enabled"`
@@ -4268,6 +4316,7 @@ type MetricsConfig struct {
 	SqlserverTaskCount                                    SqlserverTaskCountMetricConfig                                    `mapstructure:"sqlserver.task.count"`
 	SqlserverTaskRate                                     SqlserverTaskRateMetricConfig                                     `mapstructure:"sqlserver.task.rate"`
 	SqlserverTempdbAllocationWaitTimeTotal                SqlserverTempdbAllocationWaitTimeTotalMetricConfig                `mapstructure:"sqlserver.tempdb.allocation.wait_time.total"`
+	SqlserverTempdbAllocationWaitersCount                 SqlserverTempdbAllocationWaitersCountMetricConfig                 `mapstructure:"sqlserver.tempdb.allocation.waiters.count"`
 	SqlserverTempdbContentionWaitersCount                 SqlserverTempdbContentionWaitersCountMetricConfig                 `mapstructure:"sqlserver.tempdb.contention.waiters.count"`
 	SqlserverTempdbDataFilesCount                         SqlserverTempdbDataFilesCountMetricConfig                         `mapstructure:"sqlserver.tempdb.data_files.count"`
 	SqlserverTempdbFileSize                               SqlserverTempdbFileSizeMetricConfig                               `mapstructure:"sqlserver.tempdb.file.size"`
@@ -4709,6 +4758,11 @@ func DefaultMetricsConfig() MetricsConfig {
 			AggregationStrategy: AggregationStrategySum,
 			EnabledAttributes:   []SqlserverTempdbAllocationWaitTimeTotalMetricAttributeKey{SqlserverTempdbAllocationWaitTimeTotalMetricAttributeKeyAllocationPageType},
 		},
+		SqlserverTempdbAllocationWaitersCount: SqlserverTempdbAllocationWaitersCountMetricConfig{
+			Enabled:             false,
+			AggregationStrategy: AggregationStrategyAvg,
+			EnabledAttributes:   []SqlserverTempdbAllocationWaitersCountMetricAttributeKey{SqlserverTempdbAllocationWaitersCountMetricAttributeKeySqlserverTempdbAllocationPageType},
+		},
 		SqlserverTempdbContentionWaitersCount: SqlserverTempdbContentionWaitersCountMetricConfig{
 			Enabled: false,
 		},
@@ -4820,14 +4874,18 @@ func (ec *EventConfig) Unmarshal(parser *confmap.Conf) error {
 
 // EventsConfig provides config for nrsqlserver events.
 type EventsConfig struct {
-	DbServerQueryPlan    EventConfig `mapstructure:"db.server.query_plan"`
-	DbServerQuerySample  EventConfig `mapstructure:"db.server.query_sample"`
-	DbServerTopProcedure EventConfig `mapstructure:"db.server.top_procedure"`
-	DbServerTopQuery     EventConfig `mapstructure:"db.server.top_query"`
+	DbServerProcedureDefinition EventConfig `mapstructure:"db.server.procedure_definition"`
+	DbServerQueryPlan           EventConfig `mapstructure:"db.server.query_plan"`
+	DbServerQuerySample         EventConfig `mapstructure:"db.server.query_sample"`
+	DbServerTopProcedure        EventConfig `mapstructure:"db.server.top_procedure"`
+	DbServerTopQuery            EventConfig `mapstructure:"db.server.top_query"`
 }
 
 func DefaultEventsConfig() EventsConfig {
 	return EventsConfig{
+		DbServerProcedureDefinition: EventConfig{
+			Enabled: false,
+		},
 		DbServerQueryPlan: EventConfig{
 			Enabled: false,
 		},

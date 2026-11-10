@@ -125,6 +125,14 @@ func setupQueries(cfg *Config) []string {
 		queries = append(queries, getSQLServerTempDBQuery(cfg.InstanceName))
 	}
 
+	if isTempDBSpaceQueryEnabled(&cfg.Metrics) {
+		queries = append(queries, getSQLServerTempDBSpaceQuery())
+	}
+
+	if isTempDBContentionQueryEnabled(&cfg.Metrics) {
+		queries = append(queries, getSQLServerTempDBContentionQuery())
+	}
+
 	if cfg.Metrics.SqlserverTempdbFileSize.Enabled {
 		queries = append(queries, getSQLServerTempDBFileQuery(cfg.InstanceName))
 	}
@@ -243,6 +251,22 @@ func isTempDBQueryEnabled(metrics *metadata.MetricsConfig) bool {
 		metrics.SqlserverTempdbContentionWaitersCount.Enabled ||
 		metrics.SqlserverTempdbDataFilesCount.Enabled ||
 		metrics.SqlserverTempdbSpaceUsage.Enabled
+}
+
+func isTempDBSpaceQueryEnabled(metrics *metadata.MetricsConfig) bool {
+	if metrics == nil {
+		return false
+	}
+
+	return metrics.SqlserverDatabaseTempdbSpace.Enabled
+}
+
+func isTempDBContentionQueryEnabled(metrics *metadata.MetricsConfig) bool {
+	if metrics == nil {
+		return false
+	}
+
+	return metrics.SqlserverTempdbAllocationWaitersCount.Enabled
 }
 
 func setupLogQueries(cfg *Config) []string {
@@ -508,6 +532,11 @@ func setupSQLServerLogsScrapers(params receiver.Settings, cfg *Config) ([]*sqlSe
 
 	queries := setupLogQueries(cfg)
 
+	if cfg.Events.DbServerProcedureDefinition.Enabled &&
+		!cfg.Events.DbServerTopProcedure.Enabled {
+		params.Logger.Warn("db.server.procedure_definition is enabled but db.server.top_procedure is not — no definition events will be emitted")
+	}
+
 	if len(queries) == 0 {
 		params.Logger.Info("No direct connection will be made to the SQL Server: No logs are enabled requiring it.")
 		return nil, nil
@@ -654,7 +683,6 @@ func isPerfCounterQueryEnabled(metrics *metadata.MetricsConfig) bool {
 		metrics.SqlserverDatabaseExecutionErrors.Enabled ||
 		metrics.SqlserverDatabaseFullScanRate.Enabled ||
 		metrics.SqlserverDatabaseTransactionsActive.Enabled ||
-		metrics.SqlserverDatabaseTempdbSpace.Enabled ||
 		metrics.SqlserverDatabaseTempdbVersionStoreSize.Enabled ||
 		metrics.SqlserverDeadlockRate.Enabled ||
 		metrics.SqlserverErrorRate.Enabled ||
