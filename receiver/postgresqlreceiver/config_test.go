@@ -35,6 +35,19 @@ func TestValidate(t *testing.T) {
 			},
 		},
 		{
+			desc: "database names that are not valid UTF-8",
+			defaultConfigModifier: func(cfg *Config) {
+				cfg.Username = "otel"
+				cfg.Password = "otel"
+				cfg.Databases = []string{"\xff*"}
+				cfg.ExcludeDatabases = []string{"ok", "bad\xfe"}
+			},
+			expected: []error{
+				fmt.Errorf(ErrInvalidDatabaseName, "\xff*", "databases"),
+				fmt.Errorf(ErrInvalidDatabaseName, "bad\xfe", "exclude_databases"),
+			},
+		},
+		{
 			desc: "missing password",
 			defaultConfigModifier: func(cfg *Config) {
 				cfg.Username = "otel"

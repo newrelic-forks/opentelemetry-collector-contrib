@@ -22,6 +22,7 @@ import (
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config/confignet"
 	"go.opentelemetry.io/collector/config/configtls"
+	"go.opentelemetry.io/collector/pdata/plog"
 	"go.opentelemetry.io/collector/receiver"
 	"go.opentelemetry.io/collector/scraper/scraperhelper"
 	"go.uber.org/zap"
@@ -45,6 +46,8 @@ func TestIntegration(t *testing.T) {
 	t.Run("single_db", integrationTest("single_db", []string{"otel"}, pre17TestVersion))
 	t.Run("multi_db", integrationTest("multi_db", []string{"otel", "otel2"}, pre17TestVersion))
 	t.Run("all_db", integrationTest("all_db", []string{}, pre17TestVersion))
+	// The fixture's non-template databases are postgres, otel and otel2.
+	t.Run("multi_db_wildcard", integrationTest("multi_db", []string{"otel*"}, pre17TestVersion))
 
 	t.Run("single_db_post17", integrationTest("single_db_post17", []string{"otel"}, post17TestVersion))
 }
@@ -810,6 +813,170 @@ func TestScrapeLogsFromContainer(t *testing.T) {
 		found = true
 	}
 	assert.True(t, found, "Expected to find a log record with the query text from the first time top query")
+}
+
+// TestDatabasePatternsFromContainer checks wildcard databases and
+// exclude_databases entries against a real server: the LIKE translation used
+// for server-side filtering, metric database resolution, and the query sample
+// and top query filters.
+func TestDatabasePatternsFromContainer(t *testing.T) {
+	ci, err := testcontainers.GenericContainer(
+		t.Context(),
+		testcontainers.GenericContainerRequest{
+			ContainerRequest: testcontainers.ContainerRequest{
+				Image: fmt.Sprintf("postgres:%s", post17TestVersion),
+				Env: map[string]string{
+					"POSTGRES_USER":     "root",
+					"POSTGRES_PASSWORD": "otel",
+					"POSTGRES_DB":       "otel",
+				},
+				Files: []testcontainers.ContainerFile{
+					{
+						HostFilePath:      filepath.Join("testdata", "integration", "01-init.sql"),
+						ContainerFilePath: "/docker-entrypoint-initdb.d/01-init.sql",
+						FileMode:          700,
+					},
+					{
+						HostFilePath:      filepath.Join("testdata", "integration", "02-create-extension.sh"),
+						ContainerFilePath: "/docker-entrypoint-initdb.d/02-create-extension.sh",
+						FileMode:          700,
+					},
+				},
+				ExposedPorts: []string{postgresqlPort},
+				Cmd:          []string{"-c", "shared_preload_libraries=pg_stat_statements"},
+				// The listening-port check also waits for the host port mapping, which
+				// some Docker setups make available only after the server is ready.
+				WaitingFor: wait.ForAll(
+					wait.ForLog("database system is ready to accept connections").WithOccurrence(2),
+					wait.ForListeningPort(postgresqlPort+"/tcp"),
+				).WithDeadline(2 * time.Minute),
+			},
+			Started: true,
+		},
+	)
+	require.NoError(t, err)
+	defer testcontainers.CleanupContainer(t, ci)
+	host, err := ci.Host(t.Context())
+	require.NoError(t, err)
+	p, err := ci.MappedPort(t.Context(), postgresqlPort)
+	require.NoError(t, err)
+	endpoint := net.JoinHostPort(host, p.Port())
+
+	newScraper := func(t *testing.T, databases, excludeDatabases []string) *postgreSQLScraper {
+		cfg := Config{
+			Databases:        databases,
+			ExcludeDatabases: excludeDatabases,
+			Username:         "otelu",
+			Password:         "otelp",
+			ConnectDatabase:  "postgres",
+			ControllerConfig: scraperhelper.ControllerConfig{
+				CollectionInterval: 1 * time.Second,
+			},
+			ClientConfig: configtls.ClientConfig{
+				Insecure: true,
+			},
+			AddrConfig: confignet.AddrConfig{
+				Endpoint: endpoint,
+			},
+			LogsBuilderConfig: func() metadata.LogsBuilderConfig {
+				cfg := metadata.DefaultLogsBuilderConfig()
+				cfg.Events.DbServerQuerySample.Enabled = true
+				cfg.Events.DbServerTopQuery.Enabled = true
+				return cfg
+			}(),
+		}
+		ns, err := newPostgreSQLScraper(receiver.Settings{
+			TelemetrySettings: component.TelemetrySettings{
+				Logger: zap.Must(zap.NewProduction()),
+			},
+		}, &cfg, newDefaultClientFactory(&cfg), newCache(1), newTTLCache[string](1000, time.Second))
+		require.NoError(t, err)
+		return ns
+	}
+
+	t.Run("like_matches_go_matcher", func(t *testing.T) {
+		db, err := sql.Open("postgres", fmt.Sprintf("postgres://root:otel@%s/otel?sslmode=disable", endpoint))
+		require.NoError(t, err)
+		defer db.Close()
+
+		patterns := []string{"sales*", "*sales", "*sales*", "sales_??", "a_b*", "100%*", `a\*`, "it's*", "Sales*", "ü?"}
+		names := []string{"", "sales", "Sales", "sales_eu", "salesXeu", "presales", "a_b", "axb", "100%", "1000", `a\`, `a\b`, "ab", "it's", "ü1", "u1"}
+		for _, pattern := range patterns {
+			f := newDatabaseFilter([]string{pattern})
+			query := "SELECT $1::name LIKE " + quoteLikePatterns([]string{pattern})[0] + ` ESCAPE E'\\'`
+			for _, name := range names {
+				var matches bool
+				require.NoError(t, db.QueryRowContext(t.Context(), query, name).Scan(&matches))
+				assert.Equal(t, matches, f.matches(name), "pattern %q disagrees with PostgreSQL on %q", pattern, name)
+			}
+		}
+	})
+
+	t.Run("metric_databases", func(t *testing.T) {
+		tests := []struct {
+			databases        []string
+			excludeDatabases []string
+			expected         []string
+		}{
+			{databases: []string{"otel*"}, expected: []string{"otel", "otel2"}},
+			{databases: []string{"otel", "otel?"}, expected: []string{"otel", "otel2"}},
+			{databases: []string{"OTEL*"}},
+			{excludeDatabases: []string{"otel?", "post*"}, expected: []string{"otel"}},
+			{databases: []string{"*"}, excludeDatabases: []string{"*s"}, expected: []string{"otel", "otel2"}},
+		}
+		for _, tc := range tests {
+			ns := newScraper(t, tc.databases, tc.excludeDatabases)
+			listClient, err := ns.clientFactory.getClient(t.Context(), "postgres")
+			require.NoError(t, err)
+			databases, err := ns.metricDatabases(t.Context(), listClient)
+			require.NoError(t, err)
+			assert.ElementsMatch(t, tc.expected, databases, "databases %q, exclude_databases %q", tc.databases, tc.excludeDatabases)
+			require.NoError(t, listClient.Close())
+			require.NoError(t, ns.shutdown(t.Context()))
+		}
+	})
+
+	t.Run("query_logs", func(t *testing.T) {
+		db, err := sql.Open("postgres", fmt.Sprintf("postgres://root:otel@%s/otel2?sslmode=disable", endpoint))
+		require.NoError(t, err)
+		defer db.Close()
+		_, err = db.Exec("Select * from test2 where id = 67")
+		require.NoError(t, err)
+
+		hasOtel2Query := func(logs plog.Logs) bool {
+			for _, rl := range logs.ResourceLogs().All() {
+				for _, sl := range rl.ScopeLogs().All() {
+					for _, record := range sl.LogRecords().All() {
+						attributes := record.Attributes().AsRaw()
+						query, _ := attributes["db.query.text"].(string)
+						if strings.HasPrefix(strings.ToLower(query), "select * from test2 where") && attributes["db.namespace"] == "otel2" {
+							return true
+						}
+					}
+				}
+			}
+			return false
+		}
+
+		for _, tc := range []struct {
+			excludeDatabases []string
+			expected         bool
+		}{
+			{excludeDatabases: []string{"nomatch*", "x?"}, expected: true},
+			{excludeDatabases: []string{"otel?"}, expected: false},
+			{excludeDatabases: []string{"rdsadmin", "*2"}, expected: false},
+		} {
+			ns := newScraper(t, nil, tc.excludeDatabases)
+			samples, err := ns.scrapeQuerySamples(t.Context(), 30)
+			require.NoError(t, err)
+			assert.Equal(t, tc.expected, hasOtel2Query(samples), "query samples with exclude_databases %q", tc.excludeDatabases)
+
+			topQueries, err := ns.scrapeTopQuery(t.Context(), 30, 30, 30, time.Minute)
+			require.NoError(t, err)
+			assert.Equal(t, tc.expected, hasOtel2Query(topQueries), "top queries with exclude_databases %q", tc.excludeDatabases)
+			require.NoError(t, ns.shutdown(t.Context()))
+		}
+	})
 }
 
 // pgvector image published on Docker Hub (same registry as the postgres image used

@@ -9,6 +9,7 @@ import (
 	"net"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config/confignet"
@@ -32,6 +33,7 @@ const (
 	// #nosec G101 - not hardcoded credentials
 	ErrPasswordAndDBAuth    = "invalid config: set either 'password' or 'db_auth', not both"
 	ErrEmptyConnectDatabase = "invalid config: 'connect_database' cannot be empty"
+	ErrInvalidDatabaseName  = "invalid config: %q in '%s' is not valid UTF-8"
 )
 
 // db.server.query_plan is collected as part of top query collection, so on its own it reports nothing.
@@ -58,8 +60,12 @@ type Config struct {
 	ControllerConfig scraperhelper.ControllerConfig `mapstructure:",squash"`
 	Username         string                         `mapstructure:"username"`
 	Password         configopaque.String            `mapstructure:"password"`
-	Databases        []string                       `mapstructure:"databases"`
-	ExcludeDatabases []string                       `mapstructure:"exclude_databases"`
+	// Databases scopes metric collection; empty means all non-template databases.
+	// Entries may use the wildcards `*` (any run of characters) and `?` (one character).
+	Databases []string `mapstructure:"databases"`
+	// ExcludeDatabases lists databases left out of metrics, query samples and top queries.
+	// Entries may use the wildcards `*` (any run of characters) and `?` (one character).
+	ExcludeDatabases []string `mapstructure:"exclude_databases"`
 	// ConnectDatabase is the connection target for cluster-wide queries.
 	// Defaults to "postgres" (see createDefaultConfig). Independent of
 	// Databases (the reporting scope).
@@ -97,6 +103,18 @@ func (cfg *Config) Validate() error {
 	// instead of this receiver's documented default.
 	if strings.TrimSpace(cfg.ConnectDatabase) == "" {
 		err = multierr.Append(err, errors.New(ErrEmptyConnectDatabase))
+	}
+
+	// Database names become wildcard patterns, which must be valid UTF-8.
+	for _, setting := range []struct {
+		name  string
+		names []string
+	}{{"databases", cfg.Databases}, {"exclude_databases", cfg.ExcludeDatabases}} {
+		for _, name := range setting.names {
+			if !utf8.ValidString(name) {
+				err = multierr.Append(err, fmt.Errorf(ErrInvalidDatabaseName, name, setting.name))
+			}
+		}
 	}
 
 	// Credential source precedence (R12): a static password and a db_auth block

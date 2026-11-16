@@ -69,10 +69,12 @@ type postgreSQLScraper struct {
 	lb            *metadata.LogsBuilder
 	// excludedDatabases and excludes are the canonical exclusion config, built
 	// together at construction: the slice feeds the collection-query templates,
-	// the map answers membership checks. Read these, not config.ExcludeDatabases.
+	// the filter answers membership checks. Read these, not config.ExcludeDatabases.
 	excludedDatabases []string
-	excludes          map[string]struct{}
+	excludes          databaseFilter
 	cache             *lru.Cache[string, float64]
+	// includes matches config.Databases entries; see metricDatabases.
+	includes databaseFilter
 	// if enabled, uses a separated attribute for the schema
 	separateSchemaAttr     bool
 	useOTelSemconv         bool
@@ -115,10 +117,6 @@ func newPostgreSQLScraper(
 	queryPlanCache *expirable.LRU[string, string],
 ) (*postgreSQLScraper, error) {
 	excludedDatabases := config.ExcludeDatabases
-	excludes := make(map[string]struct{}, len(excludedDatabases))
-	for _, db := range excludedDatabases {
-		excludes[db] = struct{}{}
-	}
 	separateSchemaAttr := metadata.ReceiverPostgresqlSeparateSchemaAttrFeatureGate.IsEnabled()
 	useOTelSemconv := metadata.ReceiverPostgresqlUseOTelSemconvFeatureGate.IsEnabled()
 
@@ -148,7 +146,8 @@ func newPostgreSQLScraper(
 		mb:                 metadata.NewMetricsBuilder(mbConfig, settings),
 		lb:                 metadata.NewLogsBuilder(config.LogsBuilderConfig, settings),
 		excludedDatabases:  excludedDatabases,
-		excludes:           excludes,
+		excludes:           newDatabaseFilter(excludedDatabases),
+		includes:           newDatabaseFilter(config.Databases),
 		cache:              cache,
 		queryPlanCache:     queryPlanCache,
 		separateSchemaAttr: separateSchemaAttr,
@@ -164,10 +163,41 @@ var semconvModeMetricAttributeNames = [...]string{
 	string(metadata.PostgresqlIndexScansMetricAttributeKeyPostgresqlIndexName),
 }
 
-// isExcluded reports whether the database is listed in exclude_databases.
+// isExcluded reports whether the database matches an exclude_databases entry.
 func (p *postgreSQLScraper) isExcluded(database string) bool {
-	_, excluded := p.excludes[database]
-	return excluded
+	return p.excludes.matches(database)
+}
+
+// metricDatabases resolves the databases to collect metrics for. Without
+// wildcards in databases the configured names are used as given; patterns are
+// matched against the listed databases, and literal names are kept as given
+// alongside them.
+func (p *postgreSQLScraper) metricDatabases(ctx context.Context, listClient client) ([]string, error) {
+	databases := p.config.Databases
+	if len(databases) == 0 || p.includes.hasPatterns() {
+		dbList, err := listClient.listDatabases(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if len(databases) == 0 {
+			databases = dbList
+		} else {
+			literals, _ := splitDatabasePatterns(databases)
+			databases = literals
+			for _, db := range dbList {
+				if p.includes.matchesPattern(db) && !slices.Contains(literals, db) {
+					databases = append(databases, db)
+				}
+			}
+		}
+	}
+	var filteredDatabases []string
+	for _, db := range databases {
+		if !p.isExcluded(db) {
+			filteredDatabases = append(filteredDatabases, db)
+		}
+	}
+	return filteredDatabases, nil
 }
 
 func metricsBuilderConfigForFeatureGate(config metadata.MetricsBuilderConfig, useOTelSemconv bool) metadata.MetricsBuilderConfig {
@@ -227,7 +257,6 @@ type dbRetrieval struct {
 
 // scrape scrapes the metric stats, transforms them and attributes them into a metric slices.
 func (p *postgreSQLScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
-	databases := p.config.Databases
 	listClient, err := p.clientFactory.getClient(ctx, p.config.ConnectDatabase)
 	if err != nil {
 		p.logger.Error("Failed to initialize connection to configured connect_database", zap.String("connect_database", p.config.ConnectDatabase), zap.Error(err))
@@ -237,21 +266,11 @@ func (p *postgreSQLScraper) scrape(ctx context.Context) (pmetric.Metrics, error)
 
 	p.ensureDBVersion(ctx, listClient)
 
-	if len(databases) == 0 {
-		dbList, dbErr := listClient.listDatabases(ctx)
-		if dbErr != nil {
-			p.logger.Error("Failed to request list of databases from configured connect_database", zap.String("connect_database", p.config.ConnectDatabase), zap.Error(dbErr))
-			return pmetric.NewMetrics(), dbErr
-		}
-		databases = dbList
+	databases, dbErr := p.metricDatabases(ctx, listClient)
+	if dbErr != nil {
+		p.logger.Error("Failed to request list of databases from configured connect_database", zap.String("connect_database", p.config.ConnectDatabase), zap.Error(dbErr))
+		return pmetric.NewMetrics(), dbErr
 	}
-	var filteredDatabases []string
-	for _, db := range databases {
-		if !p.isExcluded(db) {
-			filteredDatabases = append(filteredDatabases, db)
-		}
-	}
-	databases = filteredDatabases
 
 	now := pcommon.NewTimestampFromTime(time.Now())
 

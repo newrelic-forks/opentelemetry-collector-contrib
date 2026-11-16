@@ -25,5 +25,8 @@ WHERE
   {{- if .excludedDatabases }}
   AND datname NOT IN ({{ .excludedDatabases }})
   {{- end }}
+  {{- if .excludedDatabasePatterns }}
+  AND NOT ({{ range $i, $p := .excludedDatabasePatterns }}{{ if $i }} OR {{ end }}datname LIKE {{ $p }} ESCAPE E'\\'{{ end }})
+  {{- end }}
 ORDER BY calls DESC
 LIMIT {{ .limit }};

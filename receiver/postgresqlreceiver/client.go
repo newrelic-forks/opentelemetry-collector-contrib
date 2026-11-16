@@ -1507,10 +1507,12 @@ var querySampleTmpl = template.Must(template.New("querySample").Option("missingk
 func (c *postgreSQLClient) getQuerySamples(ctx context.Context, limit int64, newestQueryTimestamp float64, excludedDatabases []string, logger *zap.Logger) ([]map[string]any, float64, error) {
 	buf := bytes.Buffer{}
 
+	excludedLiterals, excludedPatterns := splitDatabasePatterns(excludedDatabases)
 	if tmplErr := querySampleTmpl.Execute(&buf, map[string]any{
-		"limit":                limit,
-		"newestQueryTimestamp": newestQueryTimestamp,
-		"excludedDatabases":    quoteDatabaseList(excludedDatabases),
+		"limit":                    limit,
+		"newestQueryTimestamp":     newestQueryTimestamp,
+		"excludedDatabases":        quoteDatabaseList(excludedLiterals),
+		"excludedDatabasePatterns": quoteLikePatterns(excludedPatterns),
 	}); tmplErr != nil {
 		logger.Error("failed to execute template", zap.Error(tmplErr))
 		return []map[string]any{}, newestQueryTimestamp, fmt.Errorf("failed executing template: %w", tmplErr)
@@ -1663,9 +1665,11 @@ func (c *postgreSQLClient) getTopQuery(ctx context.Context, limit int64, exclude
 	// TODO: Only get query after the oldest query we got from the previous sample query colelction.
 	// For instance, if from the last sample query we got queries executed between 8:00 ~ 8:15,
 	// in this query, we should only gather query after 8:15
+	excludedLiterals, excludedPatterns := splitDatabasePatterns(excludedDatabases)
 	if err := topQueryTmpl.Execute(&buf, map[string]any{
-		"limit":             limit,
-		"excludedDatabases": quoteDatabaseList(excludedDatabases),
+		"limit":                    limit,
+		"excludedDatabases":        quoteDatabaseList(excludedLiterals),
+		"excludedDatabasePatterns": quoteLikePatterns(excludedPatterns),
 	}); err != nil {
 		logger.Error("failed to execute template", zap.Error(err))
 		return []map[string]any{}, fmt.Errorf("failed executing template: %w", err)
