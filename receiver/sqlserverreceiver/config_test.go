@@ -146,6 +146,16 @@ func TestValidate(t *testing.T) {
 			expectedSuccess: true,
 		},
 		{
+			desc: "valid config with database patterns",
+			cfg: &Config{
+				MetricsBuilderConfig: metadata.NewDefaultMetricsBuilderConfig(),
+				ControllerConfig:     scraperhelper.NewDefaultControllerConfig(),
+				Databases:            []string{"sales*", "*", "hr_??"},
+				ExcludeDatabases:     []string{"*_test", "[x]%\\"},
+			},
+			expectedSuccess: true,
+		},
+		{
 			desc: "config with an empty name in databases",
 			cfg: &Config{
 				MetricsBuilderConfig: metadata.NewDefaultMetricsBuilderConfig(),

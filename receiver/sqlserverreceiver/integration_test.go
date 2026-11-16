@@ -497,6 +497,17 @@ func TestDatabaseFilter(t *testing.T) {
 				assert.NotContains(tt, databases, "mydb")
 			},
 		},
+		{
+			// Both patterns match otherdb, which exclude_databases drops.
+			name: "patterns",
+			configure: func(cfg *Config) {
+				cfg.Databases = []string{"MY*", "o?her*"}
+				cfg.ExcludeDatabases = []string{"*rdb"}
+			},
+			check: func(tt *assert.CollectT, databases []string) {
+				assert.Equal(tt, []string{"mydb"}, databases)
+			},
+		},
 	}
 
 	signals := []struct {

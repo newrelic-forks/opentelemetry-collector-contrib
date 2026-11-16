@@ -7,7 +7,7 @@ change_type: enhancement
 component: receiver/sql_server
 
 # A brief description of the change.  Surround your text with quotes ("") if it needs to start with a backtick (`).
-note: Add `databases` and `exclude_databases` options to limit the databases that metrics and events report on.
+note: Add `databases` and `exclude_databases` options, which accept `*` and `?` wildcards, to limit the databases that metrics and events report on.
 
 # Mandatory: One or more tracking issues related to the change. You can use the PR number here if no issue exists.
 issues: [52529]
