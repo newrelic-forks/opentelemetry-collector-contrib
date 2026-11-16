@@ -87,11 +87,14 @@ type Config struct {
 	// scrapers of this receiver.
 	ConnectionPool ConnectionPool `mapstructure:"connection_pool,omitempty"`
 
-	// Databases limits the per-database metrics and the events to the listed
-	// databases. Empty reports on every database.
+	// Databases limits the per-database metrics and the events to the databases
+	// matching the listed names. Empty reports on every database. Names match
+	// case-insensitively, and in them `*` matches any run of characters and `?`
+	// exactly one character.
 	Databases []string `mapstructure:"databases,omitempty"`
-	// ExcludeDatabases lists databases left out of the per-database metrics and
-	// the events. A database in both lists is excluded.
+	// ExcludeDatabases lists names, matched like those of Databases, of databases
+	// left out of the per-database metrics and the events. A database matching
+	// both lists is excluded.
 	ExcludeDatabases []string `mapstructure:"exclude_databases,omitempty"`
 
 	InstanceName string `mapstructure:"instance_name"`

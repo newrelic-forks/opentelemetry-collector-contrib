@@ -157,7 +157,7 @@ only when connecting to an instance with strict connection limits or a large num
 
 The databases reported on over a direct connection can be limited with:
 - `databases` (default = `[]`): Report only on these databases. Empty reports on every database.
-- `exclude_databases` (default = `[]`): Do not report on these databases. A database in both lists is excluded.
+- `exclude_databases` (default = `[]`): Do not report on these databases. A database matching both lists is excluded.
 
 ```yaml
 sql_server:
@@ -165,7 +165,18 @@ sql_server:
   exclude_databases: [rdsadmin]
 ```
 
-Names match case-insensitively. The filter applies to:
+Names match case-insensitively. In a name, `*` matches any run of characters, including none, and `?`
+matches exactly one character; every other character, including `_`, `%`, `[` and `\`, matches only
+itself. A name without `*` or `?` matches only that database. For example, this reports on every database
+whose name starts with `sales`, except those ending in `_test`:
+
+```yaml
+sql_server:
+  databases: ["sales*"]
+  exclude_databases: ["*_test"]
+```
+
+The filter applies to:
 - the `db.server.top_query`, `db.server.query_plan`, `db.server.query_sample` and `db.server.top_procedure`
   events. It is applied in the query, so `max_query_sample_count`, `max_rows_per_query` and
   `max_procedure_sample_count` count only rows of the allowed databases. A query whose database SQL Server

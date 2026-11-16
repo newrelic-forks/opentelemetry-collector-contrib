@@ -497,6 +497,17 @@ func TestDatabaseFilter(t *testing.T) {
 				assert.NotContains(tt, databases, "mydb")
 			},
 		},
+		{
+			// Both patterns match otherdb, which exclude_databases drops.
+			name: "patterns",
+			configure: func(cfg *Config) {
+				cfg.Databases = []string{"MY*", "o?her*"}
+				cfg.ExcludeDatabases = []string{"*rdb"}
+			},
+			check: func(tt *assert.CollectT, databases []string) {
+				assert.Equal(tt, []string{"mydb"}, databases)
+			},
+		},
 	}
 
 	signals := []struct {
@@ -602,6 +613,42 @@ func TestDatabaseFilter(t *testing.T) {
 				}, time.Minute, time.Second)
 				t.Logf("reported databases: %v", databases)
 			})
+		}
+	}
+}
+
+// TestDatabaseFilterMatchesServer runs the filter condition the receiver sends
+// against SQL Server for pairs of pattern and name, and checks that the server
+// and the metric-row filter agree on each.
+func TestDatabaseFilterMatchesServer(t *testing.T) {
+	ci, err := setupContainer()
+	require.NoError(t, err)
+	require.NoError(t, ci.Start(t.Context()))
+	defer testcontainers.CleanupContainer(t, ci)
+
+	p, err := ci.MappedPort(t.Context(), "1433")
+	require.NoError(t, err)
+	db, err := sql.Open("sqlserver", fmt.Sprintf("Server=localhost,%s;User Id=otelcollectoruser;Password=otel-password123;", p.Port()))
+	require.NoError(t, err)
+	defer db.Close()
+
+	patterns := []string{
+		"sales", "Sales*", "*sales", "*sales*", "sales_??", "?", "*",
+		"a_b", "100%", "[ab]db", `a\b`, `a\*`, "a]b", "a^b", "a-b", "*_*", "x?y", "café",
+	}
+	names := []string{
+		"", "sales", "SALES", "presales", "sales_eu", "salesxeu", "s",
+		"a_b", "axb", "100%", "1000", "[ab]db", "adb", "bdb", `a\b`, `a\\b`, "ab", "a]b", "a^b", "a-b",
+		"x_y", "xy", "café", "CAFÉ", "cafe",
+	}
+	for _, pattern := range patterns {
+		filter := newDatabaseFilter(&Config{Databases: []string{pattern}})
+		query := filter.apply("SELECT CASE WHEN 1 = 1{database_filter AND @name} THEN 1 ELSE 0 END")
+		for _, name := range names {
+			var matched int
+			args := append(filter.args(), sql.Named("name", name))
+			require.NoError(t, db.QueryRowContext(t.Context(), query, args...).Scan(&matched), query)
+			assert.Equal(t, filter.allows(name), matched == 1, "pattern %q, database %q", pattern, name)
 		}
 	}
 }
