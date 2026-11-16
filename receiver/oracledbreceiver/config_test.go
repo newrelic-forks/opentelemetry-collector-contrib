@@ -401,6 +401,26 @@ func TestValidateInvalidConfigs(t *testing.T) {
 			},
 			expected: errQueryPlanWithoutTopQuery,
 		},
+		{
+			name: "Empty name in pdbs",
+			config: &Config{
+				DataSource:         "oracle://otel:password@localhost:1521/XE",
+				ControllerConfig:   scraperhelper.NewDefaultControllerConfig(),
+				TopQueryCollection: TopQueryCollection{MaxQuerySampleCount: 1000, TopQueryCount: 200},
+				PDBs:               []string{"PDB1", ""},
+			},
+			expected: errEmptyPDBName,
+		},
+		{
+			name: "Empty name in exclude_pdbs",
+			config: &Config{
+				DataSource:         "oracle://otel:password@localhost:1521/XE",
+				ControllerConfig:   scraperhelper.NewDefaultControllerConfig(),
+				TopQueryCollection: TopQueryCollection{MaxQuerySampleCount: 1000, TopQueryCount: 200},
+				ExcludePDBs:        []string{""},
+			},
+			expected: errEmptyExcludePDBName,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -517,4 +537,7 @@ func TestParseConfig(t *testing.T) {
 	assert.Equal(t, uint(555), cfg.ProcedureMetrics.MaxProcedureSampleCount)
 	assert.Equal(t, uint(111), cfg.ProcedureMetrics.TopProcedureCount)
 	assert.True(t, cfg.LogsBuilderConfig.Events.DbServerTopProcedure.Enabled)
+	assert.Equal(t, []string{"PDB1", "PDB2"}, cfg.PDBs)
+	assert.Equal(t, []string{"PDB2"}, cfg.ExcludePDBs)
+	require.NoError(t, cfg.Validate())
 }

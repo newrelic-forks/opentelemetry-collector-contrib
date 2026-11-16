@@ -86,11 +86,21 @@ properties:
     $ref: go.opentelemetry.io/collector/config/configopaque.string
   endpoint:
     type: string
+  exclude_pdbs:
+    description: ExcludePDBs lists containers left out of the per-PDB metrics and the events. A container in both lists is excluded.
+    type: array
+    items:
+      type: string
   kerberos:
     x-pointer: true
     $ref: kerberos_config
   password:
     $ref: go.opentelemetry.io/collector/config/configopaque.string
+  pdbs:
+    description: 'PDBs limits the per-PDB metrics and the events to the listed containers: pluggable databases, or CDB$ROOT. Empty reports on every container.'
+    type: array
+    items:
+      type: string
   query_sample_collection:
     $ref: query_sample
   service:

@@ -126,7 +126,7 @@ func createReceiverFunc(sqlOpenerFunc sqlOpenerFunc, clientProviderFunc clientPr
 			if dbCleanup != nil {
 				dbCleanup()
 			}
-		})
+		}, newPDBFilter(sqlCfg))
 		if err != nil {
 			return nil, err
 		}
@@ -191,7 +191,7 @@ func createLogsReceiverFunc(sqlOpenerFunc sqlOpenerFunc, clientProviderFunc clie
 			if dbCleanup != nil {
 				dbCleanup()
 			}
-		}, procedureMetricCache, sqlCfg.ProcedureMetrics)
+		}, procedureMetricCache, sqlCfg.ProcedureMetrics, newPDBFilter(sqlCfg))
 		if err != nil {
 			return nil, err
 		}

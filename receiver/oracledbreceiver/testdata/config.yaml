@@ -12,6 +12,8 @@ oracledb:
   top_procedure_collection:
     max_procedure_sample_count: 555
     top_procedure_count: 111
+  pdbs: [PDB1, PDB2]
+  exclude_pdbs: [PDB2]
   metrics:
     oracledb.exchange_deadlocks:
       enabled: false

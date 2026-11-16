@@ -2044,7 +2044,8 @@ func TestEnrichSamplesBatchesInLists(t *testing.T) {
 }
 
 var sessionEventQueryResponses = map[string][]metricRow{
-	sessionEventQuery: {
+	// Keyed by the query sent without a PDB filter.
+	pdbFilter{}.apply(sessionEventQuery): {
 		{
 			"SID": "100", "SERIAL#": "12345", "EVENT": "db file sequential read", "WAIT_CLASS": "User I/O",
 			"TOTAL_WAITS": "1500", "TOTAL_TIMEOUTS": "12", "TOTAL_TIME_WAITED_SECS": "25.5", "DB_NAMESPACE": "ORCL",
