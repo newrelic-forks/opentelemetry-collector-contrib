@@ -50,6 +50,7 @@ properties:
   connection_pool:
     $ref: connection_pool
   databases:
+    description: Databases scopes metric collection; empty means all non-template databases. Entries may use the wildcards `*` (any run of characters) and `?` (one character).
     type: array
     items:
       type: string
@@ -57,6 +58,7 @@ properties:
     description: DBAuth optionally sources the connection credential from a db_auth provider extension (e.g. AWS IAM) instead of a static password. When set, the provider supplies the password at connection-open time. Mutually exclusive with the top-level password field.
     $ref: /config/configdbauth.id
   exclude_databases:
+    description: ExcludeDatabases lists databases left out of metrics, query samples and top queries. Entries may use the wildcards `*` (any run of characters) and `?` (one character).
     type: array
     items:
       type: string

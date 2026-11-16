@@ -682,6 +682,160 @@ func TestScraperExcludeDatabase(t *testing.T) {
 	runTest(false, "exclude.yaml")
 }
 
+func TestMetricDatabases(t *testing.T) {
+	listed := []string{"postgres", "otel", "otel2", "sales_eu", "sales_us", "Sales_apac", "presales"}
+	tests := []struct {
+		name     string
+		include  []string
+		exclude  []string
+		expected []string
+		listed   bool
+	}{
+		{
+			name:     "empty databases lists all",
+			expected: listed,
+			listed:   true,
+		},
+		{
+			name:     "exact names are used as given without listing",
+			include:  []string{"otel", "missing"},
+			expected: []string{"otel", "missing"},
+		},
+		{
+			name:     "exact exclude",
+			exclude:  []string{"otel", "postgres"},
+			expected: []string{"otel2", "sales_eu", "sales_us", "Sales_apac", "presales"},
+			listed:   true,
+		},
+		{
+			name:     "prefix pattern",
+			include:  []string{"sales*"},
+			expected: []string{"sales_eu", "sales_us"},
+			listed:   true,
+		},
+		{
+			name:     "suffix and contains patterns",
+			include:  []string{"*_us", "*esal*"},
+			expected: []string{"sales_us", "presales"},
+			listed:   true,
+		},
+		{
+			name:     "single character pattern",
+			include:  []string{"sales_??"},
+			expected: []string{"sales_eu", "sales_us"},
+			listed:   true,
+		},
+		{
+			name:     "literal names are kept alongside patterns",
+			include:  []string{"missing", "otel", "otel*"},
+			expected: []string{"missing", "otel", "otel2"},
+			listed:   true,
+		},
+		{
+			name:     "exclude pattern",
+			exclude:  []string{"sales*", "otel?"},
+			expected: []string{"postgres", "otel", "Sales_apac", "presales"},
+			listed:   true,
+		},
+		{
+			name:     "exclude wins over include",
+			include:  []string{"sales*", "otel"},
+			exclude:  []string{"*_us", "otel"},
+			expected: []string{"sales_eu"},
+			listed:   true,
+		},
+		{
+			name:    "pattern matching nothing",
+			include: []string{"nomatch*"},
+			listed:  true,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := createDefaultConfig().(*Config)
+			cfg.Databases = tc.include
+			cfg.ExcludeDatabases = tc.exclude
+			scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, &mockClientFactory{}, newCache(1), newTTLCache[string](1, time.Second))
+			require.NoError(t, err)
+
+			listClient := new(mockClient)
+			listClient.On("listDatabases").Return(listed, nil)
+
+			databases, err := scraper.metricDatabases(t.Context(), listClient)
+			require.NoError(t, err)
+			assert.Equal(t, tc.expected, databases)
+			if tc.listed {
+				listClient.AssertCalled(t, "listDatabases")
+			} else {
+				listClient.AssertNotCalled(t, "listDatabases")
+			}
+		})
+	}
+}
+
+func TestMetricDatabasesListError(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.Databases = []string{"otel*"}
+	scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, &mockClientFactory{}, newCache(1), newTTLCache[string](1, time.Second))
+	require.NoError(t, err)
+
+	listClient := new(mockClient)
+	listClient.On("listDatabases").Return([]string(nil), errors.New("boom"))
+
+	_, err = scraper.metricDatabases(t.Context(), listClient)
+	require.EqualError(t, err, "boom")
+}
+
+// TestScraperDatabasePatterns checks that wildcard databases and
+// exclude_databases entries decide which databases get metrics and connections.
+func TestScraperDatabasePatterns(t *testing.T) {
+	tests := []struct {
+		name    string
+		include []string
+		exclude []string
+	}{
+		{name: "include pattern", include: []string{"ot*"}},
+		{name: "exclude pattern", exclude: []string{"tele*", "sales_??"}},
+		{name: "exclude wins over include pattern", include: []string{"*e*"}, exclude: []string{"*y", "*_eu"}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			factory := new(mockClientFactory)
+			factory.initMocksWithListedDatabases([]string{"otel", "telemetry", "sales_eu"}, []string{"otel"})
+
+			cfg := createDefaultConfig().(*Config)
+			cfg.Databases = tc.include
+			cfg.ExcludeDatabases = tc.exclude
+			scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, factory, newCache(1), newTTLCache[string](1, time.Second))
+			require.NoError(t, err)
+
+			actualMetrics, err := scraper.scrape(t.Context())
+			require.NoError(t, err)
+
+			listClient, err := factory.getClient(t.Context(), defaultPostgreSQLDatabase)
+			require.NoError(t, err)
+			listClient.(*mockClient).AssertCalled(t, "getDatabaseSize", []string{"otel"})
+			factory.AssertNotCalled(t, "getClient", mock.Anything, "telemetry")
+			factory.AssertNotCalled(t, "getClient", mock.Anything, "sales_eu")
+
+			var databaseCount int64 = -1
+			rms := actualMetrics.ResourceMetrics()
+			for i := 0; i < rms.Len(); i++ {
+				sms := rms.At(i).ScopeMetrics()
+				for j := 0; j < sms.Len(); j++ {
+					ms := sms.At(j).Metrics()
+					for k := 0; k < ms.Len(); k++ {
+						if ms.At(k).Name() == "postgresql.database.count" {
+							databaseCount = ms.At(k).Sum().DataPoints().At(0).IntValue()
+						}
+					}
+				}
+			}
+			assert.Equal(t, int64(1), databaseCount)
+		})
+	}
+}
+
 func TestMutualExclusionOfFeatureGates(t *testing.T) {
 	defer testutil.SetFeatureGateForTest(t, metadata.ReceiverPostgresqlSeparateSchemaAttrFeatureGate, true)()
 	defer testutil.SetFeatureGateForTest(t, metadata.ReceiverPostgresqlUseOTelSemconvFeatureGate, true)()
@@ -931,28 +1085,41 @@ func TestQuerySampleTemplateRendering(t *testing.T) {
 		{
 			name: "renders with standard parameters",
 			params: map[string]any{
-				"limit":                int64(50),
-				"newestQueryTimestamp": 999999.555,
-				"excludedDatabases":    "",
+				"limit":                    int64(50),
+				"newestQueryTimestamp":     999999.555,
+				"excludedDatabases":        "",
+				"excludedDatabasePatterns": []string(nil),
 			},
 		},
 		{
 			name: "renders with zero timestamp",
 			params: map[string]any{
-				"limit":                int64(10),
-				"newestQueryTimestamp": float64(0),
-				"excludedDatabases":    "",
+				"limit":                    int64(10),
+				"newestQueryTimestamp":     float64(0),
+				"excludedDatabases":        "",
+				"excludedDatabasePatterns": []string(nil),
 			},
 		},
 		{
 			name: "renders excluded databases filter",
 			params: map[string]any{
-				"limit":                int64(10),
-				"newestQueryTimestamp": float64(0),
-				"excludedDatabases":    quoteDatabaseList([]string{"rdsadmin", "template0"}),
+				"limit":                    int64(10),
+				"newestQueryTimestamp":     float64(0),
+				"excludedDatabases":        quoteDatabaseList([]string{"rdsadmin", "template0"}),
+				"excludedDatabasePatterns": []string(nil),
 			},
 			// COALESCE keeps NULL datname rows (background workers) that a bare NOT IN would drop.
 			expectedClause: "AND COALESCE(sa.datname, '') NOT IN ('rdsadmin','template0')",
+		},
+		{
+			name: "renders excluded database patterns filter",
+			params: map[string]any{
+				"limit":                    int64(10),
+				"newestQueryTimestamp":     float64(0),
+				"excludedDatabases":        "",
+				"excludedDatabasePatterns": quoteLikePatterns([]string{"azure_*", "tmp?"}),
+			},
+			expectedClause: `AND NOT (COALESCE(sa.datname, '') LIKE E'azure\\_%' ESCAPE E'\\' OR COALESCE(sa.datname, '') LIKE 'tmp_' ESCAPE E'\\')`,
 		},
 	}
 
@@ -978,6 +1145,7 @@ func TestQuerySampleTemplateRendering(t *testing.T) {
 			// Narrow match: the template has an unrelated sa.pid NOT IN (...) subquery.
 			if tc.expectedClause == "" {
 				assert.NotContains(t, rendered, "sa.datname, '') NOT IN (", "no database filter should be emitted without excludes")
+				assert.NotContains(t, rendered, "LIKE E'", "no database pattern filter should be emitted without excludes")
 			} else {
 				assert.Contains(t, rendered, tc.expectedClause)
 			}
@@ -1002,14 +1170,21 @@ func TestTopQueryTemplateRendering(t *testing.T) {
 			excludes:       []string{"rdsadmin", "azure_maintenance"},
 			expectedClause: "AND datname NOT IN ('rdsadmin','azure_maintenance')",
 		},
+		{
+			name:           "exclude patterns are filtered server side",
+			excludes:       []string{"rdsadmin", "*_maint?", "100%*"},
+			expectedClause: "AND datname NOT IN ('rdsadmin')\n  AND NOT (datname LIKE E'%\\\\_maint_' ESCAPE E'\\\\' OR datname LIKE E'100\\\\%%' ESCAPE E'\\\\')",
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			buf := bytes.Buffer{}
+			literals, patterns := splitDatabasePatterns(tc.excludes)
 			err := tmpl.Execute(&buf, map[string]any{
-				"limit":             int64(10),
-				"excludedDatabases": quoteDatabaseList(tc.excludes),
+				"limit":                    int64(10),
+				"excludedDatabases":        quoteDatabaseList(literals),
+				"excludedDatabasePatterns": quoteLikePatterns(patterns),
 			})
 			require.NoError(t, err)
 
@@ -1018,6 +1193,7 @@ func TestTopQueryTemplateRendering(t *testing.T) {
 
 			if tc.expectedClause == "" {
 				assert.NotContains(t, rendered, "datname NOT IN (", "no database filter should be emitted without excludes")
+				assert.NotContains(t, rendered, "LIKE E'", "no database pattern filter should be emitted without excludes")
 			} else {
 				assert.Contains(t, rendered, tc.expectedClause)
 			}
@@ -1301,6 +1477,71 @@ func TestScrapeTopQueriesHonorsExcludeDatabases(t *testing.T) {
 			assert.Equal(t, 0, actualLogs.LogRecordCount())
 		})
 	}
+}
+
+func TestScrapeTopQueriesHonorsExcludeDatabasePatterns(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.Databases = []string{}
+	cfg.ExcludeDatabases = []string{"rdsadmin", "azure_*"}
+	cfg.LogsBuilderConfig.Events.DbServerTopQuery.Enabled = true
+
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	factory := &recordingClientFactory{mockSimpleClientFactory: mockSimpleClientFactory{db: db}}
+	scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, factory, newCache(30), newTTLCache[string](1, time.Second))
+	require.NoError(t, err)
+
+	// The server filters this row out; return it anyway to exercise the EXPLAIN guard.
+	mock.ExpectQuery(`AND datname NOT IN \('rdsadmin'\)\s+AND NOT \(datname LIKE E'azure\\\\_%' ESCAPE E'\\\\'\)`).
+		WillReturnRows(newSQLMockRows(topQueryColumns, map[string]any{
+			callsColumnName:             "123",
+			"datname":                   "azure_maintenance",
+			sharedBlksDirtiedColumnName: "1111",
+			sharedBlksHitColumnName:     "1112",
+			sharedBlksReadColumnName:    "1113",
+			sharedBlksWrittenColumnName: "1114",
+			tempBlksReadColumnName:      "1115",
+			tempBlksWrittenColumnName:   "1116",
+			"query":                     "select 1",
+			queryidColumnName:           "114514",
+			"rolname":                   "azure_superuser",
+			rowsColumnName:              "30",
+			totalExecTimeColumnName:     "11000",
+			totalPlanTimeColumnName:     "12000",
+		}))
+
+	actualLogs, err := scraper.scrapeTopQuery(t.Context(), 31, 32, 33, time.Minute)
+	require.NoError(t, err)
+
+	require.NoError(t, mock.ExpectationsWereMet())
+	// No EXPLAIN connection to the excluded database.
+	require.Equal(t, []string{defaultPostgreSQLDatabase}, factory.requestedDatabases)
+	assert.Equal(t, 0, actualLogs.LogRecordCount())
+}
+
+func TestScrapeQuerySamplesHonorsExcludeDatabasePatterns(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.Databases = []string{}
+	cfg.ExcludeDatabases = []string{"cloudsql*", "alloydb?????"}
+	cfg.LogsBuilderConfig.Events.DbServerQuerySample.Enabled = true
+
+	db, mock, err := sqlmock.New()
+	require.NoError(t, err)
+	defer db.Close()
+
+	scraper, err := newPostgreSQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, mockSimpleClientFactory{db: db}, newCache(30), newTTLCache[string](1, time.Second))
+	require.NoError(t, err)
+
+	// No literal excludes, so no NOT IN; COALESCE keeps NULL datname rows.
+	mock.ExpectQuery(`AND NOT \(COALESCE\(sa\.datname, ''\) LIKE 'cloudsql%' ESCAPE E'\\\\' OR COALESCE\(sa\.datname, ''\) LIKE 'alloydb_____' ESCAPE E'\\\\'\)`).
+		WillReturnRows(sqlmock.NewRows(querySampleColumns))
+
+	_, err = scraper.scrapeQuerySamples(t.Context(), 30)
+	require.NoError(t, err)
+
+	require.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestScrapeQuerySamplesHonorsConnectDatabase(t *testing.T) {
@@ -2516,7 +2757,20 @@ func (m *mockClientFactory) initMocks(databases []string) {
 // defaultPostgreSQLDatabase constant, so tests can verify the receiver
 // connects to a configured connect_database rather than a hardcoded value.
 func (m *mockClientFactory) initMocksWithConnectDatabase(databases []string, connectDatabase string) {
+	m.initMocksWithListClient(new(mockClient), databases, connectDatabase)
+}
+
+// initMocksWithListedDatabases behaves like initMocks, but listDatabases
+// returns listed while the remaining mocks cover only databases, the ones the
+// scraper is expected to collect after filtering.
+func (m *mockClientFactory) initMocksWithListedDatabases(listed, databases []string) {
 	listClient := new(mockClient)
+	// Registered first so it wins over the listDatabases mock in initMocks.
+	listClient.On("listDatabases").Return(listed, nil)
+	m.initMocksWithListClient(listClient, databases, defaultPostgreSQLDatabase)
+}
+
+func (m *mockClientFactory) initMocksWithListClient(listClient *mockClient, databases []string, connectDatabase string) {
 	listClient.initMocks(defaultPostgreSQLDatabase, "public", databases, 0)
 	m.On("getClient", mock.Anything, connectDatabase).Return(listClient, nil)
 

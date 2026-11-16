@@ -99,6 +99,16 @@ The following settings are optional:
 
 - `exclude_databases` (default = `[]`): List of databases excluded from statistics, query samples, and top queries. Excluded databases are filtered out of every collection query and the receiver opens no per-database connection to them. Exception: the receiver always connects to the configured `connect_database` (default `postgres`) for discovery and server-level queries, even if it is listed here.
 
+  Entries in `databases` and `exclude_databases` may contain wildcards: `*` matches any run of characters (including none) and `?` matches exactly one character. Every other character, including `_`, `%` and `\`, matches literally, and matching is case-sensitive, like PostgreSQL database names. Entries without wildcards match exactly. A database that matches `exclude_databases` is excluded even if it also matches `databases`. When `databases` contains a pattern, the receiver lists the non-template databases on each scrape and keeps those matching a pattern, plus any names listed without wildcards:
+  ```yaml
+  databases:
+    - "sales_*"        # sales_eu, sales_us, ...
+    - "inventory"      # exact name
+  exclude_databases:
+    - "*_staging"      # sales_staging, inventory_staging, ...
+    - "tmp??"          # tmp01, tmpab, ... but not tmp1 or tmp001
+  ```
+
 - `connect_database` (default = `postgres`): The database the receiver connects to for discovery and server-level queries, including `pg_stat_statements`. Independent of `databases` — `pg_stat_statements` is tracked cluster-wide, so any database with the extension installed works as the connection target, regardless of which databases are being monitored. Use this if `pg_stat_statements` lives outside `postgres`, or if you connect through a dedicated monitoring-only database:
   ```yaml
   connect_database: "monitoring"   # extension lives here

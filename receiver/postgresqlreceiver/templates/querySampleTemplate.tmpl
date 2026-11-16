@@ -61,6 +61,9 @@ WHERE
     {{/* COALESCE: datname is NULL for background workers, and a bare NOT IN would drop them */}}
     AND COALESCE(sa.datname, '') NOT IN ({{ .excludedDatabases }})
     {{- end }}
+    {{- if .excludedDatabasePatterns }}
+    AND NOT ({{ range $i, $p := .excludedDatabasePatterns }}{{ if $i }} OR {{ end }}COALESCE(sa.datname, '') LIKE {{ $p }} ESCAPE E'\\'{{ end }})
+    {{- end }}
     AND NOT (
     {{/* we only want query that is either still running that was started before our newestQueryTimestamp or idle but start after the newestQueryTimestamp */}}
       sa.query_start < TO_TIMESTAMP({{ .newestQueryTimestamp }})

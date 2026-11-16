@@ -58,8 +58,12 @@ type Config struct {
 	ControllerConfig scraperhelper.ControllerConfig `mapstructure:",squash"`
 	Username         string                         `mapstructure:"username"`
 	Password         configopaque.String            `mapstructure:"password"`
-	Databases        []string                       `mapstructure:"databases"`
-	ExcludeDatabases []string                       `mapstructure:"exclude_databases"`
+	// Databases scopes metric collection; empty means all non-template databases.
+	// Entries may use the wildcards `*` (any run of characters) and `?` (one character).
+	Databases []string `mapstructure:"databases"`
+	// ExcludeDatabases lists databases left out of metrics, query samples and top queries.
+	// Entries may use the wildcards `*` (any run of characters) and `?` (one character).
+	ExcludeDatabases []string `mapstructure:"exclude_databases"`
 	// ConnectDatabase is the connection target for cluster-wide queries.
 	// Defaults to "postgres" (see createDefaultConfig). Independent of
 	// Databases (the reporting scope).
