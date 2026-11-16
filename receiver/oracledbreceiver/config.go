@@ -157,10 +157,13 @@ type Config struct {
 	ProcedureMetrics   ProcedureMetrics   `mapstructure:"top_procedure_collection"`
 
 	// PDBs limits the per-PDB metrics and the events to the listed containers:
-	// pluggable databases, or CDB$ROOT. Empty reports on every container.
+	// pluggable databases, or CDB$ROOT. A name may contain the wildcards *, any
+	// run of characters, and ?, exactly one character. Empty reports on every
+	// container.
 	PDBs []string `mapstructure:"pdbs"`
 	// ExcludePDBs lists containers left out of the per-PDB metrics and the
-	// events. A container in both lists is excluded.
+	// events, with the same wildcards as PDBs. A container both lists match is
+	// excluded.
 	ExcludePDBs []string `mapstructure:"exclude_pdbs"`
 }
 

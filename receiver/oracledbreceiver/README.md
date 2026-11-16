@@ -108,15 +108,20 @@ receivers:
 - `initial_delay` (default = `1s`): The initial time period this receiver waits before starting.
 - `timeout` (default = `0`): Timeout for each Oracle DB request. Disabled by default.
 - `pdbs` (default = `[]`): Report only on these containers: pluggable databases, or `CDB$ROOT`. Empty reports on every container.
-- `exclude_pdbs` (default = `[]`): Do not report on these containers. A container in both lists is excluded.
+- `exclude_pdbs` (default = `[]`): Do not report on these containers. A container both lists match is excluded.
 
 ```yaml
 oracledb:
-  pdbs: [SALES, HR]
-  exclude_pdbs: [PDB$SEED]
+  pdbs: [SALES*, HR]
+  exclude_pdbs: [PDB$SEED, '*_TEST']
 ```
 
-Container names match case-insensitively. The filter applies to:
+Container names match case-insensitively. In a name, `*` matches any run of characters, including none, and `?`
+matches exactly one character; every other character, such as `_`, `%` or `$`, matches only itself. For example,
+`SALES*` matches `SALES` and `SALES_EU`, `*_TEST` matches `SALES_TEST`, and `PDB?` matches `PDB1` but not `PDB12`.
+A name without wildcards matches only that container. Quote a name that starts with `*` in YAML.
+
+The filter applies to:
 - the `db.server.top_query`, `db.server.query_plan`, `db.server.query_sample`, `db.server.session.wait_sample`
   and `db.server.top_procedure` events, by the container in `db.namespace`. It is applied in the query, so
   `max_query_sample_count`, `max_rows_per_query` and `max_procedure_sample_count` count only rows of the allowed

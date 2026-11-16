@@ -87,7 +87,7 @@ properties:
   endpoint:
     type: string
   exclude_pdbs:
-    description: ExcludePDBs lists containers left out of the per-PDB metrics and the events. A container in both lists is excluded.
+    description: ExcludePDBs lists containers left out of the per-PDB metrics and the events, with the same wildcards as PDBs. A container both lists match is excluded.
     type: array
     items:
       type: string
@@ -97,7 +97,7 @@ properties:
   password:
     $ref: go.opentelemetry.io/collector/config/configopaque.string
   pdbs:
-    description: 'PDBs limits the per-PDB metrics and the events to the listed containers: pluggable databases, or CDB$ROOT. Empty reports on every container.'
+    description: 'PDBs limits the per-PDB metrics and the events to the listed containers: pluggable databases, or CDB$ROOT. A name may contain the wildcards *, any run of characters, and ?, exactly one character. Empty reports on every container.'
     type: array
     items:
       type: string
