@@ -4,7 +4,7 @@
 package oracledbreceiver // import "github.com/open-telemetry/opentelemetry-collector-contrib/receiver/oracledbreceiver"
 
 import (
-	"slices"
+	"regexp"
 	"strings"
 )
 
@@ -16,32 +16,74 @@ const pdbFilterPlaceholder = "{pdb_filter}"
 // exclude_pdbs settings. Names match case-insensitively; Oracle stores the
 // names of containers created without quotes in upper case.
 type pdbFilter struct {
-	include []string
-	exclude []string
+	include []pdbPattern
+	exclude []pdbPattern
 }
 
 func newPDBFilter(cfg *Config) pdbFilter {
 	return pdbFilter{
-		include: upperAll(cfg.PDBs),
-		exclude: upperAll(cfg.ExcludePDBs),
+		include: newPDBPatterns(cfg.PDBs),
+		exclude: newPDBPatterns(cfg.ExcludePDBs),
 	}
 }
 
-func upperAll(names []string) []string {
-	uppered := make([]string, len(names))
+// pdbPattern is a container name in which * matches any run of characters
+// and ? matches exactly one character. Every other character is literal.
+type pdbPattern struct {
+	// like is the upper-case pattern for a LIKE condition with ESCAPE '\'.
+	like string
+	// re matches the upper-case names the pattern matches.
+	re *regexp.Regexp
+}
+
+func newPDBPatterns(names []string) []pdbPattern {
+	patterns := make([]pdbPattern, len(names))
 	for i, name := range names {
-		uppered[i] = strings.ToUpper(name)
+		patterns[i] = newPDBPattern(name)
 	}
-	return uppered
+	return patterns
+}
+
+func newPDBPattern(name string) pdbPattern {
+	var like, re strings.Builder
+	re.WriteString(`(?s)^`)
+	for _, r := range strings.ToUpper(name) {
+		switch r {
+		case '*':
+			like.WriteRune('%')
+			re.WriteString(".*")
+		case '?':
+			like.WriteRune('_')
+			re.WriteRune('.')
+		case '\\', '%', '_':
+			like.WriteRune('\\')
+			like.WriteRune(r)
+			re.WriteString(regexp.QuoteMeta(string(r)))
+		default:
+			like.WriteRune(r)
+			re.WriteString(regexp.QuoteMeta(string(r)))
+		}
+	}
+	re.WriteRune('$')
+	return pdbPattern{like: like.String(), re: regexp.MustCompile(re.String())}
+}
+
+func matchesAny(patterns []pdbPattern, container string) bool {
+	for _, p := range patterns {
+		if p.re.MatchString(container) {
+			return true
+		}
+	}
+	return false
 }
 
 // allows reports whether rows of the named container are reported on.
 func (f pdbFilter) allows(container string) bool {
 	container = strings.ToUpper(container)
-	if slices.Contains(f.exclude, container) {
+	if matchesAny(f.exclude, container) {
 		return false
 	}
-	return len(f.include) == 0 || slices.Contains(f.include, container)
+	return len(f.include) == 0 || matchesAny(f.include, container)
 }
 
 // apply resolves the placeholder of query into a condition that keeps only the
@@ -54,23 +96,26 @@ func (f pdbFilter) apply(query string) string {
 func (f pdbFilter) condition() string {
 	var condition string
 	if len(f.include) > 0 {
-		condition += " AND UPPER(C.NAME) IN (" + quoteLiterals(f.include) + ")"
+		condition += " AND " + likeAny(f.include)
 	}
-	// A session outside any container has a NULL name, which NOT IN would drop
-	// as well. Oracle treats '' as NULL, so NVL cannot substitute an empty name.
+	// A session outside any container has a NULL name, which NOT LIKE would
+	// drop as well. Oracle treats '' as NULL, so NVL cannot substitute an empty
+	// name.
 	if len(f.exclude) > 0 {
-		condition += " AND (C.NAME IS NULL OR UPPER(C.NAME) NOT IN (" + quoteLiterals(f.exclude) + "))"
+		condition += " AND (C.NAME IS NULL OR NOT " + likeAny(f.exclude) + ")"
 	}
 	return condition
 }
 
-// quoteLiterals renders names as Oracle string literals for an IN list.
-func quoteLiterals(names []string) string {
-	quoted := make([]string, len(names))
-	for i, name := range names {
-		quoted[i] = "'" + strings.ReplaceAll(name, "'", "''") + "'"
+// likeAny renders a condition that holds when C.NAME matches any of patterns.
+// The patterns are Oracle string literals rather than bind parameters because
+// go-ora binds by position and the event queries already use :1 and :2.
+func likeAny(patterns []pdbPattern) string {
+	likes := make([]string, len(patterns))
+	for i, p := range patterns {
+		likes[i] = "UPPER(C.NAME) LIKE '" + strings.ReplaceAll(p.like, "'", "''") + "' ESCAPE '\\'"
 	}
-	return strings.Join(quoted, ", ")
+	return "(" + strings.Join(likes, " OR ") + ")"
 }
 
 // excludesPDBRow reports whether a row of a per-PDB query belongs to a
