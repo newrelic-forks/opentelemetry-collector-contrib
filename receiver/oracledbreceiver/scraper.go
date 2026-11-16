@@ -475,9 +475,10 @@ type oracleScraper struct {
 	// All fields are best-effort: detection failures are logged and leave the
 	// field at its zero value; they never prevent the receiver from starting.
 	instanceInfo oracleInstanceInfo
+	pdbFilter    pdbFilter
 }
 
-func newScraper(metricsBuilder *metadata.MetricsBuilder, metricsBuilderConfig metadata.MetricsBuilderConfig, scrapeCfg scraperhelper.ControllerConfig, logger *zap.Logger, providerFunc dbProviderFunc, clientProviderFunc clientProviderFunc, instanceName, hostName string, dbCleanup func()) (scraper.Metrics, error) {
+func newScraper(metricsBuilder *metadata.MetricsBuilder, metricsBuilderConfig metadata.MetricsBuilderConfig, scrapeCfg scraperhelper.ControllerConfig, logger *zap.Logger, providerFunc dbProviderFunc, clientProviderFunc clientProviderFunc, instanceName, hostName string, dbCleanup func(), pdbFilter pdbFilter) (scraper.Metrics, error) {
 	serverAddress, serverPort, serviceInstanceID := resolveInstanceIdentity(hostName, instanceName, logger)
 	s := &oracleScraper{
 		mb:                   metricsBuilder,
@@ -492,6 +493,7 @@ func newScraper(metricsBuilder *metadata.MetricsBuilder, metricsBuilderConfig me
 		serviceInstanceID:    serviceInstanceID,
 		serverAddress:        serverAddress,
 		serverPort:           serverPort,
+		pdbFilter:            pdbFilter,
 	}
 	return scraper.NewMetrics(s.scrape, scraper.WithShutdown(s.shutdown), scraper.WithStart(s.start))
 }
@@ -499,7 +501,7 @@ func newScraper(metricsBuilder *metadata.MetricsBuilder, metricsBuilderConfig me
 func newLogsScraper(logsBuilder *metadata.LogsBuilder, logsBuilderConfig metadata.LogsBuilderConfig, scrapeCfg scraperhelper.ControllerConfig,
 	logger *zap.Logger, providerFunc dbProviderFunc, clientProviderFunc clientProviderFunc, instanceName string, metricCache *lru.Cache[string, map[string]int64],
 	topQueryCollectCfg TopQueryCollection, querySampleCfg QuerySample, sessionWaitEventCfg SessionWaitEvent, hostName string, dbCleanup func(),
-	procedureMetricCache *lru.Cache[string, map[string]int64], procedureMetricsCfg ProcedureMetrics,
+	procedureMetricCache *lru.Cache[string, map[string]int64], procedureMetricsCfg ProcedureMetrics, pdbFilter pdbFilter,
 ) (scraper.Logs, error) {
 	serverAddress, serverPort, serviceInstanceID := resolveInstanceIdentity(hostName, instanceName, logger)
 	s := &oracleScraper{
@@ -522,6 +524,7 @@ func newLogsScraper(logsBuilder *metadata.LogsBuilder, logsBuilderConfig metadat
 		serverPort:           serverPort,
 		procedureMetricCache: procedureMetricCache,
 		procedureMetricsCfg:  procedureMetricsCfg,
+		pdbFilter:            pdbFilter,
 	}
 	return scraper.NewLogs(s.scrapeLogs, scraper.WithShutdown(s.shutdown), scraper.WithStart(s.start))
 }
@@ -544,23 +547,23 @@ func (s *oracleScraper) buildTablespaceSQL() string {
 
 func (s *oracleScraper) buildProcedureMetricsSQL() string {
 	if s.useCDBProceduresView {
-		return oracleProcedureMetricsCDBSQL
+		return s.pdbFilter.apply(oracleProcedureMetricsCDBSQL)
 	}
-	return oracleProcedureMetricsSQL
+	return s.pdbFilter.apply(oracleProcedureMetricsSQL)
 }
 
 func (s *oracleScraper) buildTopQuerySQL() string {
 	if s.useCDBProceduresView {
-		return oracleQueryMetricsCDBSQL
+		return s.pdbFilter.apply(oracleQueryMetricsCDBSQL)
 	}
-	return oracleQueryMetricsSQL
+	return s.pdbFilter.apply(oracleQueryMetricsSQL)
 }
 
 func (s *oracleScraper) buildQuerySampleSQL() string {
 	if s.useCDBDictionaryViews {
-		return samplesCDBQuery
+		return s.pdbFilter.apply(samplesCDBQuery)
 	}
-	return samplesQuery
+	return s.pdbFilter.apply(samplesQuery)
 }
 
 func (s *oracleScraper) start(ctx context.Context, _ component.Host) error {
@@ -621,7 +624,7 @@ func (s *oracleScraper) start(ctx context.Context, _ component.Host) error {
 		s.systemResourceLimitsPDBClient = s.clientProviderFunc(s.db, systemResourceLimitsPDBSQL, s.logger)
 	}
 	s.samplesQueryClient = s.clientProviderFunc(s.db, s.buildQuerySampleSQL(), s.logger)
-	s.sessionEventClient = s.clientProviderFunc(s.db, sessionEventQuery, s.logger)
+	s.sessionEventClient = s.clientProviderFunc(s.db, s.pdbFilter.apply(sessionEventQuery), s.logger)
 	s.dataDictHitRatioClient = s.clientProviderFunc(s.db, dataDictHitRatioSQL, s.logger)
 	s.osStatClient = s.clientProviderFunc(s.db, osStatSQL, s.logger)
 	s.recycleBinSizeClient = s.clientProviderFunc(s.db, recycleBinSizeSQL, s.logger)
@@ -725,6 +728,9 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 		}
 
 		for _, row := range rows {
+			if s.excludesPDBRow(row) {
+				continue
+			}
 			pdbName := s.pdbNameForRow(row)
 			switch row[colName] {
 			case enqueueDeadlocks:
@@ -1197,6 +1203,9 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 			scrapeErrors = append(scrapeErrors, fmt.Errorf("error executing %s: %w", sessionQueryName, err))
 		}
 		for _, row := range rows {
+			if s.excludesPDBRow(row) {
+				continue
+			}
 			err := s.mb.RecordOracledbSessionsUsageDataPoint(pcommon.NewTimestampFromTime(time.Now()), row[colValue],
 				row["TYPE"], row["STATUS"], s.pdbNameForRow(row))
 			if err != nil {
@@ -1293,6 +1302,9 @@ func (s *oracleScraper) scrape(ctx context.Context) (pmetric.Metrics, error) {
 		} else {
 			now := pcommon.NewTimestampFromTime(time.Now())
 			for _, row := range rows {
+				if s.excludesPDBRow(row) {
+					continue
+				}
 				tablespaceName := row["TABLESPACE_NAME"]
 				pdbName := s.pdbNameForRow(row)
 				usedSpaceBlockCount, err := strconv.ParseInt(row["USED_SPACE"], 10, 64)
@@ -1663,6 +1675,12 @@ func (s *oracleScraper) collectSysMetrics(ctx context.Context, scrapeErrors *[]e
 		} else {
 			for _, row := range rows {
 				metricName := row["METRIC_NAME"]
+				if s.excludesPDBRow(row) {
+					// Marked seen so that the V$SYSMETRIC pass below does not
+					// report the metric in place of the excluded PDBs.
+					seenInContainerMetrics[metricName] = true
+					continue
+				}
 				rawVal := row["VALUE"]
 				pdbName := s.pdbNameForRow(row)
 				val, parseErr := strconv.ParseFloat(rawVal, 64)

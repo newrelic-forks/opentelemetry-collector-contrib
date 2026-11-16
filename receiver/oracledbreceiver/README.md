@@ -107,6 +107,26 @@ receivers:
 - `collection_interval` (default = `10s`): The interval at which metrics should be emitted by this receiver.
 - `initial_delay` (default = `1s`): The initial time period this receiver waits before starting.
 - `timeout` (default = `0`): Timeout for each Oracle DB request. Disabled by default.
+- `pdbs` (default = `[]`): Report only on these containers: pluggable databases, or `CDB$ROOT`. Empty reports on every container.
+- `exclude_pdbs` (default = `[]`): Do not report on these containers. A container in both lists is excluded.
+
+```yaml
+oracledb:
+  pdbs: [SALES, HR]
+  exclude_pdbs: [PDB$SEED]
+```
+
+Container names match case-insensitively. The filter applies to:
+- the `db.server.top_query`, `db.server.query_plan`, `db.server.query_sample`, `db.server.session.wait_sample`
+  and `db.server.top_procedure` events, by the container in `db.namespace`. It is applied in the query, so
+  `max_query_sample_count`, `max_rows_per_query` and `max_procedure_sample_count` count only rows of the allowed
+  containers. A session outside any container, such as a background process, is kept by `exclude_pdbs` and
+  dropped by `pdbs`.
+- the per-PDB metrics collected from a CDB root (see [Per-PDB metrics](#per-pdb-metrics-cdb-multitenant-deployments)).
+  Their data points for the whole CDB, which carry no `oracle.db.pdb`, are reported regardless of the filter.
+
+Instance-wide metrics are reported regardless of the filter, as are all metrics of a direct-PDB or non-CDB
+connection, which describe the database the receiver is connected to.
 
 ## Resource attributes
 

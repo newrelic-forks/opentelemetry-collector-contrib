@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -72,6 +73,9 @@ var (
 	errMaxProcedureSampleCount = errors.New("`max_procedure_sample_count` must be between 1 and 10000")
 	// Ceiling is higher than top_query_count: a database has far fewer program units than cached statements.
 	errTopProcedureCount = errors.New("`top_procedure_count` must be between 1 and 1000 and less than or equal to `max_procedure_sample_count`")
+
+	errEmptyPDBName        = errors.New("`pdbs` must not contain an empty name")
+	errEmptyExcludePDBName = errors.New("`exclude_pdbs` must not contain an empty name")
 )
 
 type TopQueryCollection struct {
@@ -151,6 +155,13 @@ type Config struct {
 	QuerySample        QuerySample        `mapstructure:"query_sample_collection"`
 	SessionWaitEvent   SessionWaitEvent   `mapstructure:"session_wait_event_collection"`
 	ProcedureMetrics   ProcedureMetrics   `mapstructure:"top_procedure_collection"`
+
+	// PDBs limits the per-PDB metrics and the events to the listed containers:
+	// pluggable databases, or CDB$ROOT. Empty reports on every container.
+	PDBs []string `mapstructure:"pdbs"`
+	// ExcludePDBs lists containers left out of the per-PDB metrics and the
+	// events. A container in both lists is excluded.
+	ExcludePDBs []string `mapstructure:"exclude_pdbs"`
 }
 
 func (c Config) Validate() error {
@@ -250,6 +261,12 @@ func (c Config) Validate() error {
 			c.ProcedureMetrics.TopProcedureCount > c.ProcedureMetrics.MaxProcedureSampleCount {
 			allErrs = multierr.Append(allErrs, errTopProcedureCount)
 		}
+	}
+	if slices.Contains(c.PDBs, "") {
+		allErrs = multierr.Append(allErrs, errEmptyPDBName)
+	}
+	if slices.Contains(c.ExcludePDBs, "") {
+		allErrs = multierr.Append(allErrs, errEmptyExcludePDBName)
 	}
 	return allErrs
 }
