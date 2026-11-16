@@ -32,14 +32,16 @@ func newClientFactory(cfg *Config, receiverID component.ID) (mySQLClientFactory,
 		return nil, err
 	}
 	return &defaultClientFactory{
-		baseConfig: base,
-		stmtEvents: cfg.StatementEvents,
+		baseConfig:     base,
+		stmtEvents:     cfg.StatementEvents,
+		databaseFilter: newDatabaseFilter(cfg),
 	}, nil
 }
 
 type defaultClientFactory struct {
-	baseConfig mySQLConfig
-	stmtEvents StatementEventsConfig
+	baseConfig     mySQLConfig
+	stmtEvents     StatementEventsConfig
+	databaseFilter databaseFilter
 }
 
 func (d *defaultClientFactory) setCredentialProvider(provider dbauth.Provider) {
@@ -51,7 +53,7 @@ func (d *defaultClientFactory) connect(ctx context.Context) (client, error) {
 	if err != nil {
 		return nil, err
 	}
-	c := newMySQLClientFromDB(db, d.stmtEvents)
+	c := newMySQLClientFromDB(db, d.stmtEvents, d.databaseFilter)
 	c.populateDBVersion()
 	return c, nil
 }

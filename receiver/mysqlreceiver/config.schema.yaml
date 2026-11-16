@@ -41,8 +41,18 @@ properties:
     type: boolean
   database:
     type: string
+  databases:
+    description: Databases limits the per-database metrics and the events to the databases (schemas) matching one of these patterns. Empty reports on every database.
+    type: array
+    items:
+      type: string
   db_auth:
     $ref: /config/configdbauth.id
+  exclude_databases:
+    description: ExcludeDatabases lists patterns of databases (schemas) left out of the per-database metrics and the events. A database matching both lists is excluded.
+    type: array
+    items:
+      type: string
   password:
     $ref: go.opentelemetry.io/collector/config/configopaque.string
   query_sample_collection:

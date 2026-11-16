@@ -5,7 +5,9 @@ package mysqlreceiver // import "github.com/open-telemetry/opentelemetry-collect
 
 import (
 	"errors"
+	"slices"
 	"time"
+	"unicode/utf8"
 
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config/confignet"
@@ -38,6 +40,10 @@ const (
 	// db.server.query_plan reports the plans collected for the statements the other two events report,
 	// so on its own it reports nothing.
 	ErrQueryPlanWithoutSource = "invalid config: 'db.server.query_plan' requires 'db.server.top_query' or 'db.server.query_sample' to be enabled"
+	ErrEmptyDatabase          = "invalid config: 'databases' must not contain an empty name"
+	ErrEmptyExcludeDatabase   = "invalid config: 'exclude_databases' must not contain an empty name"
+	ErrInvalidDatabase        = "invalid config: 'databases' must contain only valid UTF-8 names"
+	ErrInvalidExcludeDatabase = "invalid config: 'exclude_databases' must contain only valid UTF-8 names"
 )
 
 type Config struct {
@@ -54,6 +60,12 @@ type Config struct {
 	TopQueryCollection    TopQueryCollection             `mapstructure:"top_query_collection"`
 	QuerySampleCollection QuerySampleCollection          `mapstructure:"query_sample_collection"`
 	DBAuth                configdbauth.ID                `mapstructure:"db_auth,omitempty"`
+	// Databases limits the per-database metrics and the events to the databases
+	// (schemas) matching one of these patterns. Empty reports on every database.
+	Databases []string `mapstructure:"databases,omitempty"`
+	// ExcludeDatabases lists patterns of databases (schemas) left out of the
+	// per-database metrics and the events. A database matching both lists is excluded.
+	ExcludeDatabases []string `mapstructure:"exclude_databases,omitempty"`
 }
 
 type TopQueryCollection struct {
@@ -120,6 +132,21 @@ func (cfg *Config) Validate() error {
 	events := cfg.LogsBuilderConfig.Events
 	if events.DbServerQueryPlan.Enabled && !events.DbServerTopQuery.Enabled && !events.DbServerQuerySample.Enabled {
 		err = multierr.Append(err, errors.New(ErrQueryPlanWithoutSource))
+	}
+
+	if slices.Contains(cfg.Databases, "") {
+		err = multierr.Append(err, errors.New(ErrEmptyDatabase))
+	}
+	if slices.Contains(cfg.ExcludeDatabases, "") {
+		err = multierr.Append(err, errors.New(ErrEmptyExcludeDatabase))
+	}
+	// Database names become wildcard patterns, which must be valid UTF-8.
+	notUTF8 := func(name string) bool { return !utf8.ValidString(name) }
+	if slices.ContainsFunc(cfg.Databases, notUTF8) {
+		err = multierr.Append(err, errors.New(ErrInvalidDatabase))
+	}
+	if slices.ContainsFunc(cfg.ExcludeDatabases, notUTF8) {
+		err = multierr.Append(err, errors.New(ErrInvalidExcludeDatabase))
 	}
 
 	return err

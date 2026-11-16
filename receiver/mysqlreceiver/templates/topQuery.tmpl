@@ -11,5 +11,8 @@ FROM performance_schema.events_statements_summary_by_digest
 WHERE `last_seen` >= NOW() - INTERVAL {{ .lookbackTime }} second
     AND ((`digest_text` NOT LIKE 'EXPLAIN %' AND `digest_text` NOT LIKE '/* otel-collector-ignore */%')
         OR `digest_text` IS NULL)
+{{- with databaseFilter "`schema_name`" }}
+    AND {{ . }}
+{{- end }}
 ORDER BY `count_star` DESC
 LIMIT {{ .topNValue }}

@@ -11,7 +11,9 @@ import (
 	"fmt"
 	"net"
 	"path/filepath"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -24,6 +26,7 @@ import (
 	"go.opentelemetry.io/collector/config/configopaque"
 	"go.opentelemetry.io/collector/config/configtls"
 	"go.opentelemetry.io/collector/pdata/pcommon"
+	"go.opentelemetry.io/collector/pdata/plog"
 	"go.opentelemetry.io/collector/receiver/receivertest"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -1002,6 +1005,201 @@ func TestIntegrationQuerySampleAttributes(t *testing.T) {
 				assertIntAttrNonNegative(t, attrs, "network.peer.port", idx)
 			}
 			assert.True(t, found, "expected to find a GET_LOCK query sample record for the blocked call")
+		})
+	}
+}
+
+// logNamespaces returns the sorted, distinct db.namespace values of the records
+// in logs whose db.query.text contains queryText.
+func logNamespaces(logs plog.Logs, queryText string) []string {
+	var namespaces []string
+	for i := range logs.ResourceLogs().Len() {
+		rl := logs.ResourceLogs().At(i)
+		for j := range rl.ScopeLogs().Len() {
+			lrs := rl.ScopeLogs().At(j).LogRecords()
+			for k := range lrs.Len() {
+				attrs := lrs.At(k).Attributes()
+				if text, ok := attrs.Get("db.query.text"); !ok || !strings.Contains(text.Str(), queryText) {
+					continue
+				}
+				namespace, _ := attrs.Get("db.namespace")
+				if !slices.Contains(namespaces, namespace.Str()) {
+					namespaces = append(namespaces, namespace.Str())
+				}
+			}
+		}
+	}
+	slices.Sort(namespaces)
+	return namespaces
+}
+
+// TestIntegrationDatabaseFilter checks that databases and exclude_databases limit
+// the table and statement event metrics, the top queries and the query samples
+// to the allowed schemas. The server runs with the NO_BACKSLASH_ESCAPES SQL mode,
+// under which a literal ESCAPE '\\' is rejected.
+func TestIntegrationDatabaseFilter(t *testing.T) {
+	testCases := []struct {
+		name  string
+		image string
+	}{
+		{name: "MySQL-8.0.33", image: "mysql:8.0.33"},
+		{name: "MariaDB-10.11", image: "mariadb:10.11"},
+	}
+
+	// salesxeu would match Sales_* if _ were a wildcard, and sales_test is
+	// excluded by *_test.
+	schemas := []string{"hr", "sales_eu", "sales_test", "salesxeu"}
+	allowed := []string{"sales_eu"}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := t.Context()
+
+			ctr, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
+				ContainerRequest: testcontainers.ContainerRequest{
+					Image:        tc.image,
+					ExposedPorts: []string{mysqlPort},
+					Cmd:          []string{"--performance_schema=ON"},
+					WaitingFor: wait.ForAll(
+						wait.ForListeningPort(mysqlPort).WithStartupTimeout(2*time.Minute),
+						wait.ForLog("ready for connections").WithStartupTimeout(2*time.Minute),
+					),
+					Env: map[string]string{
+						"MYSQL_ROOT_PASSWORD":   "otel",
+						"MARIADB_ROOT_PASSWORD": "otel",
+					},
+				},
+				Started: true,
+			})
+			testcontainers.CleanupContainer(t, ctr)
+			if err != nil && strings.Contains(err.Error(), "No such image") {
+				t.Skipf("image %s not available locally: %v", tc.image, err)
+			}
+			require.NoError(t, err)
+
+			host, err := ctr.Host(ctx)
+			require.NoError(t, err)
+			mappedPort, err := ctr.MappedPort(ctx, mysqlPort)
+			require.NoError(t, err)
+
+			unfilteredCfg := containerConfig(host, mappedPort.Port())
+			runPerfSchemaSetup(t, unfilteredCfg)
+			{
+				c, cErr := newMySQLClient(unfilteredCfg)
+				require.NoError(t, cErr)
+				require.NoError(t, c.Connect())
+				db := c.(*mySQLClient).client
+				for _, schema := range schemas {
+					for _, stmt := range []string{
+						"CREATE DATABASE " + schema,
+						"CREATE TABLE " + schema + ".t (id INT AUTO_INCREMENT PRIMARY KEY, v INT)",
+						"INSERT INTO " + schema + ".t (v) VALUES (1), (2)",
+					} {
+						_, execErr := db.Exec(stmt)
+						require.NoError(t, execErr)
+					}
+				}
+				// Only connections opened from here on use the mode.
+				_, err = db.Exec("SET GLOBAL sql_mode = CONCAT(@@GLOBAL.sql_mode, ',NO_BACKSLASH_ESCAPES')")
+				require.NoError(t, err)
+				require.NoError(t, c.Close())
+			}
+
+			// runInSchemas runs query on a connection to each schema.
+			runInSchemas := func(query string) {
+				var wg sync.WaitGroup
+				for _, schema := range schemas {
+					wg.Go(func() {
+						schemaCfg := *unfilteredCfg
+						schemaCfg.Database = schema
+						c, cErr := newMySQLClient(&schemaCfg)
+						if !assert.NoError(t, cErr) || !assert.NoError(t, c.Connect()) {
+							return
+						}
+						defer c.Close()
+						_, execErr := c.(*mySQLClient).client.Exec(query)
+						assert.NoError(t, execErr)
+					})
+				}
+				wg.Wait()
+			}
+
+			cfg := *unfilteredCfg
+			cfg.Databases = []string{"Sales_*"}
+			cfg.ExcludeDatabases = []string{"*_test"}
+			cfg.MetricsBuilderConfig.Metrics.MysqlTableRows.Enabled = true
+			cfg.MetricsBuilderConfig.Metrics.MysqlTableAutoIncrementUsage.Enabled = true
+			cfg.MetricsBuilderConfig.Metrics.MysqlStatementEventCount.Enabled = true
+			cfg.MetricsBuilderConfig.Metrics.MysqlStatementEventWaitTime.Enabled = true
+			require.NoError(t, cfg.Validate())
+
+			scraper, err := newMySQLScraper(
+				receivertest.NewNopSettings(metadata.Type),
+				&cfg,
+				nil,
+				newCache[int64](int(cfg.TopQueryCollection.MaxQuerySampleCount*2*2)),
+				newTTLCache[string](cfg.TopQueryCollection.QueryPlanCacheSize, 0),
+			)
+			require.NoError(t, err)
+			require.NoError(t, scraper.start(ctx, nil))
+			defer func() { assert.NoError(t, scraper.shutdown(ctx)) }()
+
+			var sqlMode string
+			require.NoError(t, scraper.sqlclient.(*mySQLClient).client.QueryRow("SELECT @@SESSION.sql_mode").Scan(&sqlMode))
+			require.Contains(t, sqlMode, "NO_BACKSLASH_ESCAPES")
+
+			const workload = "SELECT v FROM t WHERE id = 1"
+			runInSchemas(workload)
+			_, err = scraper.scrapeTopQueryFunc(ctx)
+			require.NoError(t, err)
+			runInSchemas(workload)
+			topQueries, err := scraper.scrapeTopQueryFunc(ctx)
+			require.NoError(t, err)
+			assert.Equal(t, allowed, logNamespaces(topQueries, ""), "top queries")
+
+			md, err := scraper.scrape(ctx)
+			require.NoError(t, err)
+			reported, _ := schemaMetrics(md)
+			for metric, metricSchemas := range reported {
+				assert.Subset(t, allowed, metricSchemas, "metric %s", metric)
+			}
+			for _, metric := range []string{"mysql.table.rows", "mysql.table.auto_increment.usage", "mysql.statement_event.count"} {
+				assert.Equal(t, allowed, reported[metric], "metric %s", metric)
+			}
+
+			// Keep a statement running in each schema while the query samples are
+			// collected.
+			const sleep = "SELECT SLEEP(4)"
+			sleeping := make(chan struct{})
+			go func() {
+				defer close(sleeping)
+				runInSchemas(sleep)
+			}()
+			unfiltered, err := newMySQLClient(unfilteredCfg)
+			require.NoError(t, err)
+			require.NoError(t, unfiltered.Connect())
+			defer unfiltered.Close()
+			require.Eventually(t, func() bool {
+				samples, sampleErr := unfiltered.getQuerySamples(100, false, false)
+				if sampleErr != nil {
+					return false
+				}
+				var sleepingSchemas []string
+				for _, s := range samples {
+					if strings.Contains(s.sqlText, sleep) {
+						sleepingSchemas = append(sleepingSchemas, s.processlistDB)
+					}
+				}
+				slices.Sort(sleepingSchemas)
+				return slices.Equal(schemas, sleepingSchemas)
+			}, 3*time.Second, 50*time.Millisecond, "every schema should have a sleeping query sample without the filter")
+
+			querySamples, err := scraper.scrapeQuerySampleFunc(ctx)
+			require.NoError(t, err)
+			// db.query.text is obfuscated to SELECT SLEEP ( ? ).
+			assert.Equal(t, allowed, logNamespaces(querySamples, "SLEEP"), "query samples")
+			assert.Subset(t, allowed, logNamespaces(querySamples, ""), "query samples")
+			<-sleeping
 		})
 	}
 }
