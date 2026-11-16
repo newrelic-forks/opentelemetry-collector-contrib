@@ -12,3 +12,9 @@ mysql/default_tls:
   collection_interval: 10s
   tls: # specified, but use default values
     server_name_override: localhost
+mysql/database_filter:
+  endpoint: localhost:3306
+  username: otel
+  password: ${env:MYSQL_PASSWORD}
+  databases: [sales*, hr]
+  exclude_databases: ["*_test"]

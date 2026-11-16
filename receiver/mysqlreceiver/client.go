@@ -211,6 +211,9 @@ type mySQLClient struct {
 	statementEventsLimit           int
 	statementEventsTimeLimit       time.Duration
 	dbVersion                      dbVersion
+	// databaseFilter limits the statement events, top queries and query samples
+	// to the allowed databases in the query, before it limits the rows.
+	databaseFilter databaseFilter
 }
 
 type ioWaitsStats struct {
@@ -435,12 +438,13 @@ type topQuery struct {
 
 var _ client = (*mySQLClient)(nil)
 
-func newMySQLClientFromDB(db *sql.DB, stmtEvents StatementEventsConfig) *mySQLClient {
+func newMySQLClientFromDB(db *sql.DB, stmtEvents StatementEventsConfig, filter databaseFilter) *mySQLClient {
 	return &mySQLClient{
 		client:                         db,
 		statementEventsDigestTextLimit: stmtEvents.DigestTextLimit,
 		statementEventsLimit:           stmtEvents.Limit,
 		statementEventsTimeLimit:       stmtEvents.TimeLimit,
+		databaseFilter:                 filter,
 	}
 }
 
@@ -791,21 +795,7 @@ func (c *mySQLClient) getIndexIoWaitsStats() ([]indexIoWaitsStats, error) {
 }
 
 func (c *mySQLClient) getStatementEventsStats() ([]statementEventStats, error) {
-	query := fmt.Sprintf("SELECT ifnull(SCHEMA_NAME, 'NONE') as SCHEMA_NAME, DIGEST,"+
-		"LEFT(DIGEST_TEXT, %d) as DIGEST_TEXT, FLOOR(SUM_TIMER_WAIT/1000), SUM_ERRORS,"+
-		"SUM_WARNINGS, SUM_ROWS_AFFECTED, SUM_ROWS_SENT, SUM_ROWS_EXAMINED,"+
-		"SUM_CREATED_TMP_DISK_TABLES, SUM_CREATED_TMP_TABLES, SUM_SORT_MERGE_PASSES,"+
-		"SUM_SORT_ROWS, SUM_NO_INDEX_USED "+
-		"FROM performance_schema.events_statements_summary_by_digest "+
-		"WHERE SCHEMA_NAME NOT IN ('mysql', 'performance_schema', 'information_schema') "+
-		"AND last_seen > DATE_SUB(NOW(), INTERVAL %d SECOND) "+
-		"ORDER BY SUM_TIMER_WAIT DESC "+
-		"LIMIT %d",
-		c.statementEventsDigestTextLimit,
-		int64(c.statementEventsTimeLimit.Seconds()),
-		c.statementEventsLimit)
-
-	rows, err := c.client.Query(query)
+	rows, err := c.client.Query(c.statementEventsQuery(), c.databaseFilter.args()...)
 	if err != nil {
 		return nil, err
 	}
@@ -829,6 +819,30 @@ func (c *mySQLClient) getStatementEventsStats() ([]statementEventStats, error) {
 	}
 
 	return stats, nil
+}
+
+// statementEventsQuery filters the databases in the query, so that the LIMIT
+// only counts the digests of allowed databases.
+func (c *mySQLClient) statementEventsQuery() string {
+	databaseFilter := ""
+	if condition := c.databaseFilter.condition("SCHEMA_NAME"); condition != "" {
+		databaseFilter = "AND " + condition + " "
+	}
+	return fmt.Sprintf("SELECT ifnull(SCHEMA_NAME, 'NONE') as SCHEMA_NAME, DIGEST,"+
+		"LEFT(DIGEST_TEXT, %d) as DIGEST_TEXT, FLOOR(SUM_TIMER_WAIT/1000), SUM_ERRORS,"+
+		"SUM_WARNINGS, SUM_ROWS_AFFECTED, SUM_ROWS_SENT, SUM_ROWS_EXAMINED,"+
+		"SUM_CREATED_TMP_DISK_TABLES, SUM_CREATED_TMP_TABLES, SUM_SORT_MERGE_PASSES,"+
+		"SUM_SORT_ROWS, SUM_NO_INDEX_USED "+
+		"FROM performance_schema.events_statements_summary_by_digest "+
+		"WHERE SCHEMA_NAME NOT IN ('mysql', 'performance_schema', 'information_schema') "+
+		"AND last_seen > DATE_SUB(NOW(), INTERVAL %d SECOND) "+
+		"%s"+
+		"ORDER BY SUM_TIMER_WAIT DESC "+
+		"LIMIT %d",
+		c.statementEventsDigestTextLimit,
+		int64(c.statementEventsTimeLimit.Seconds()),
+		databaseFilter,
+		c.statementEventsLimit)
 }
 
 func (c *mySQLClient) getTableLockWaitEventStats() ([]tableLockWaitEventStats, error) {
@@ -1122,6 +1136,12 @@ func (c *mySQLClient) getReplicaStatusStats(supportsReplicaStatus bool) ([]repli
 	return stats, nil
 }
 
+// templateFuncs lets a query template write the database filter condition with
+// {{ databaseFilter "<database expression>" }}, once, before its LIMIT.
+func (c *mySQLClient) templateFuncs() template.FuncMap {
+	return template.FuncMap{"databaseFilter": c.databaseFilter.condition}
+}
+
 //go:embed templates/topQuery.tmpl
 var topQueryTemplate string
 
@@ -1138,7 +1158,7 @@ func (c *mySQLClient) getTopQueries(topNValue, lookbackTime uint64, supportsSamp
 		tmplSrc = topQueryNoSampleTextTemplate
 	}
 
-	tmpl, tmplErr := template.New("topQuery").Option("missingkey=error").Parse(tmplSrc)
+	tmpl, tmplErr := template.New("topQuery").Option("missingkey=error").Funcs(c.templateFuncs()).Parse(tmplSrc)
 	if tmplErr != nil {
 		return nil, fmt.Errorf("failed to parse top query template: %w", tmplErr)
 	}
@@ -1151,7 +1171,7 @@ func (c *mySQLClient) getTopQueries(topNValue, lookbackTime uint64, supportsSamp
 		return nil, fmt.Errorf("failed to execute template: %w", tmplErr)
 	}
 
-	rows, err := c.client.Query(buf.String())
+	rows, err := c.client.Query(buf.String(), c.databaseFilter.args()...)
 	if err != nil {
 		return nil, err
 	}
@@ -1205,7 +1225,7 @@ func (c *mySQLClient) getTopQueries(topNValue, lookbackTime uint64, supportsSamp
 var querySampleTemplate string
 
 func (c *mySQLClient) getQuerySamples(limit uint64, supportsProcesslist, supportsDataLockWaits bool) ([]querySample, error) {
-	tmpl := template.Must(template.New("querySample").Option("missingkey=error").Parse(querySampleTemplate))
+	tmpl := template.Must(template.New("querySample").Option("missingkey=error").Funcs(c.templateFuncs()).Parse(querySampleTemplate))
 	buf := bytes.Buffer{}
 
 	if err := tmpl.Execute(&buf, map[string]any{
@@ -1216,7 +1236,7 @@ func (c *mySQLClient) getQuerySamples(limit uint64, supportsProcesslist, support
 		return nil, fmt.Errorf("failed to execute template: %w", err)
 	}
 
-	rows, err := c.client.Query(buf.String())
+	rows, err := c.client.Query(buf.String(), c.databaseFilter.args()...)
 	if err != nil {
 		return nil, err
 	}

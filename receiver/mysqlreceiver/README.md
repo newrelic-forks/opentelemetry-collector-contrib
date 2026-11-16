@@ -115,6 +115,42 @@ service:
   - `query_plan_cache_size`: (optional, default = `1000`). The query plan cache size. Once we got query plan results from explain queries, we will store them in the cache.
     This defines the cache's size for query plan.
   - `query_plan_cache_ttl`: (optional, example = `1m`, default = `1h`). How long until a query plan expires in the cache. The receiver will run an explain query to MySQL to get the query plan after it expires.
+- `databases` (default = `[]`): Report only on the databases (schemas) matching one of these patterns. Empty reports on every database.
+- `exclude_databases` (default = `[]`): Do not report on the databases matching one of these patterns. A database matching both lists is excluded.
+
+### Filtering databases
+
+```yaml
+receivers:
+  mysql:
+    databases: [sales*, hr]
+    exclude_databases: ["*_test"]
+```
+
+Names match case-insensitively. In a pattern, `*` matches any run of characters, including none, and
+`?` matches exactly one character; every other character, including `%`, `_` and `\`, matches only
+itself, so a name without `*` or `?` matches that one database. The `database` setting only picks the
+connection's default database and does not filter.
+
+The filter applies to:
+- the `db.server.top_query` and `db.server.query_sample` events, and the `db.server.query_plan` events
+  collected for them. It is applied in the query, so `max_query_sample_count` and `max_rows_per_query`
+  count only rows of the allowed databases. `db.server.top_query` is matched on the schema the digest
+  was summarized under and `db.server.query_sample` on the session's current database, the database
+  each reports as `db.namespace`. A statement run without a current database has an empty database
+  name, which `exclude_databases` keeps and `databases` drops unless one of its patterns is `*`.
+- the `mysql.statement_event.count` and `mysql.statement_event.wait.time` metrics. These are also
+  filtered in the query, so `statement_events.limit` counts only digests of the allowed databases.
+- the table and index metrics: `mysql.table.rows`, `mysql.table.average_row_length`, `mysql.table.size`,
+  `mysql.table.auto_increment.limit`, `mysql.table.auto_increment.usage`,
+  `mysql.table.auto_increment.utilization`, `mysql.table.io.wait.count`, `mysql.table.io.wait.time`,
+  `mysql.index.io.wait.count`, `mysql.index.io.wait.time`, `mysql.table.lock_wait.read.count`,
+  `mysql.table.lock_wait.read.time`, `mysql.table.lock_wait.write.count` and
+  `mysql.table.lock_wait.write.time`.
+
+Metrics of the whole server, such as the buffer pool, InnoDB, connection, command, replica,
+`mysql.query.execution.time` and `mysql.session.active.count` metrics, are reported regardless of the
+filter.
 
 ### Example Configuration
 

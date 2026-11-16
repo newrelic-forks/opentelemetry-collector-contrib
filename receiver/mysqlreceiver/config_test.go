@@ -140,3 +140,66 @@ func TestConfigValidate_QueryPlanEventWithSource(t *testing.T) {
 		})
 	}
 }
+
+func TestLoadConfigDatabaseFilter(t *testing.T) {
+	cm, err := confmaptest.LoadConf(filepath.Join("testdata", "config.yaml"))
+	require.NoError(t, err)
+
+	factory := NewFactory()
+	cfg := factory.CreateDefaultConfig()
+
+	sub, err := cm.Sub(component.NewIDWithName(metadata.Type, "database_filter").String())
+	require.NoError(t, err)
+	require.NoError(t, sub.Unmarshal(cfg))
+
+	expected := factory.CreateDefaultConfig().(*Config)
+	expected.AddrConfig.Endpoint = "localhost:3306"
+	expected.Username = "otel"
+	expected.Password = "${env:MYSQL_PASSWORD}"
+	expected.TLS.Insecure = true
+	expected.Databases = []string{"sales*", "hr"}
+	expected.ExcludeDatabases = []string{"*_test"}
+
+	require.Equal(t, expected, cfg)
+	require.NoError(t, cfg.(*Config).Validate())
+}
+
+func TestConfigValidate_DatabaseFilter(t *testing.T) {
+	for _, tc := range []struct {
+		name             string
+		databases        []string
+		excludeDatabases []string
+		expectedErr      string
+	}{
+		{
+			name:             "patterns in both lists",
+			databases:        []string{"sales*", "hr"},
+			excludeDatabases: []string{"hr", "sales_??"},
+		},
+		{
+			name:        "empty name in databases",
+			databases:   []string{"sales", ""},
+			expectedErr: ErrEmptyDatabase,
+		},
+		{
+			name:             "empty name in exclude_databases",
+			excludeDatabases: []string{""},
+			expectedErr:      ErrEmptyExcludeDatabase,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := createDefaultConfig().(*Config)
+			cfg.Username = "otel"
+			cfg.Databases = tc.databases
+			cfg.ExcludeDatabases = tc.excludeDatabases
+
+			err := cfg.Validate()
+			if tc.expectedErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tc.expectedErr)
+		})
+	}
+}

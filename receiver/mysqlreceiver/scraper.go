@@ -70,6 +70,10 @@ type mySQLScraper struct {
 	lastExecutionTimestamp time.Time
 	serviceInstanceID      string
 	serverEndpoint         resolvedEndpoint
+	// databaseFilter limits the table and index metrics to the allowed databases.
+	// The statement events, top queries and query samples are filtered by the
+	// client, in their queries.
+	databaseFilter databaseFilter
 
 	// detectedVersion is the database product and version detected at Connect time.
 	// It is set once during start() and used to stamp the db.system.name and
@@ -108,6 +112,7 @@ func newMySQLScraper(
 		lastExecutionTimestamp: time.Unix(0, 0),
 		serviceInstanceID:      serviceInstanceID,
 		serverEndpoint:         serverEndpoint,
+		databaseFilter:         newDatabaseFilter(config),
 	}, nil
 }
 
@@ -789,6 +794,9 @@ func (m *mySQLScraper) scrapeTableStats(now pcommon.Timestamp, errs *scrapererro
 
 	for i := range tableStats {
 		s := tableStats[i]
+		if !m.databaseFilter.allows(s.schema) {
+			continue
+		}
 		// counts
 		m.mb.RecordMysqlTableRowsDataPoint(now, s.rows, s.name, s.schema)
 		m.mb.RecordMysqlTableAverageRowLengthDataPoint(now, s.averageRowLength, s.name, s.schema)
@@ -811,6 +819,9 @@ func (m *mySQLScraper) scrapeAutoIncrementStats(now pcommon.Timestamp, errs *scr
 
 	for i := range autoIncrementStats {
 		s := autoIncrementStats[i]
+		if !m.databaseFilter.allows(s.schema) {
+			continue
+		}
 		m.mb.RecordMysqlTableAutoIncrementLimitDataPoint(now, s.maxValue, s.table, s.schema, s.column)
 		m.mb.RecordMysqlTableAutoIncrementUsageDataPoint(now, s.currentValue, s.table, s.schema, s.column)
 		m.mb.RecordMysqlTableAutoIncrementUtilizationDataPoint(now, s.utilizationRatio, s.table, s.schema, s.column)
@@ -941,6 +952,9 @@ func (m *mySQLScraper) scrapeTableIoWaitsStats(now pcommon.Timestamp, errs *scra
 
 	for i := range tableIoWaitsStats {
 		s := tableIoWaitsStats[i]
+		if !m.databaseFilter.allows(s.schema) {
+			continue
+		}
 		// counts
 		m.mb.RecordMysqlTableIoWaitCountDataPoint(now, s.countDelete, metadata.AttributeIoWaitsOperationsDelete, s.name, s.schema)
 		m.mb.RecordMysqlTableIoWaitCountDataPoint(now, s.countFetch, metadata.AttributeIoWaitsOperationsFetch, s.name, s.schema)
@@ -977,6 +991,9 @@ func (m *mySQLScraper) scrapeIndexIoWaitsStats(now pcommon.Timestamp, errs *scra
 
 	for i := range indexIoWaitsStats {
 		s := indexIoWaitsStats[i]
+		if !m.databaseFilter.allows(s.schema) {
+			continue
+		}
 		// counts
 		m.mb.RecordMysqlIndexIoWaitCountDataPoint(now, s.countDelete, metadata.AttributeIoWaitsOperationsDelete, s.name, s.schema, s.index)
 		m.mb.RecordMysqlIndexIoWaitCountDataPoint(now, s.countFetch, metadata.AttributeIoWaitsOperationsFetch, s.name, s.schema, s.index)
@@ -1070,6 +1087,9 @@ func (m *mySQLScraper) scrapeTableLockWaitEventStats(now pcommon.Timestamp, errs
 
 	for i := range tableLockWaitEventStats {
 		s := tableLockWaitEventStats[i]
+		if !m.databaseFilter.allows(s.schema) {
+			continue
+		}
 		// read data points
 		m.mb.RecordMysqlTableLockWaitReadCountDataPoint(now, s.countReadNormal, s.schema, s.name, metadata.AttributeReadLockTypeNormal)
 		m.mb.RecordMysqlTableLockWaitReadCountDataPoint(now, s.countReadWithSharedLocks, s.schema, s.name, metadata.AttributeReadLockTypeWithSharedLocks)

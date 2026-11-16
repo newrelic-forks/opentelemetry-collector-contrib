@@ -183,4 +183,7 @@ WHERE
     ) OR wait.event_id is NULL)
     AND COALESCE(statement.sql_text, thread.PROCESSLIST_info) != ''
     AND COALESCE(statement.sql_text, thread.PROCESSLIST_info) NOT LIKE '/* otel-collector-ignore */%'
+    {{- with databaseFilter "thread.processlist_db" }}
+    AND {{ . }}
+    {{- end }}
 LIMIT {{ .limit }}
