@@ -251,6 +251,10 @@ attributes:
     description: Number of logical reads (data read from cache/memory).
     type: int
     requirement_level: recommended
+  sqlserver.object.id:
+    description: The SQL Server object_id of the table or view.
+    type: int
+    requirement_level: recommended
   sqlserver.object.name:
     description: The name of the database object.
     type: string
@@ -376,6 +380,35 @@ attributes:
     description: Status of the session (e.g., running, sleeping).
     type: string
     requirement_level: recommended
+  # Table and view metadata
+  sqlserver.table.columns:
+    description: The columns defined on the table, each with name, data_type, max_length, precision, scale, nullable, and default.
+    type: slice
+    requirement_level: recommended
+  sqlserver.table.foreign_keys:
+    description: The foreign keys defined on the table, each with name, referencing_column, referenced_schema, referenced_table, referenced_column, delete_action, and update_action.
+    type: slice
+    requirement_level: recommended
+  sqlserver.table.indexes:
+    description: The indexes defined on the table, each with name, type, is_unique, is_primary_key, key_columns, and included_columns.
+    type: slice
+    requirement_level: recommended
+  sqlserver.table.partition_count:
+    description: Number of partitions the table is divided into. 1 for a non-partitioned table.
+    type: int
+    requirement_level: recommended
+  sqlserver.table.size.data_kb:
+    description: Size in KB of the data pages allocated to the table, excluding indexes.
+    type: double
+    requirement_level: recommended
+  sqlserver.table.size.total_kb:
+    description: Total size in KB allocated to the table, including indexes and unused space.
+    type: double
+    requirement_level: recommended
+  sqlserver.table.size.used_kb:
+    description: Size in KB actually used by the table's data and indexes.
+    type: double
+    requirement_level: recommended
   sqlserver.tempdb.allocation.page_type:
     description: The type of tempdb page latch wait. `other` covers page latch waits on ordinary (non-allocation-map) pages.
     type: string
@@ -426,6 +459,10 @@ attributes:
   sqlserver.transaction_isolation_level:
     description: Transaction isolation level used in the session. Represented as numeric constant.
     type: int
+    requirement_level: recommended
+  sqlserver.view.definition:
+    description: The SQL source text of the view, as stored in sys.sql_modules.
+    type: string
     requirement_level: recommended
   sqlserver.wait.resource.id:
     description: SQL Server identifier for the locked or waited-on resource, if available.
@@ -578,6 +615,24 @@ events:
       - sqlserver.procedure_id
       - sqlserver.procedure_name
 
+  db.server.table_metadata:
+    enabled: false
+    description: Structural inventory and size of a table, including its columns, indexes, foreign keys, and partition count. Collected on its own, slower interval since structure changes rarely.
+    attributes:
+      - db.namespace
+      - db.system.name
+      - sqlserver.object.id
+      - sqlserver.object.name
+      - sqlserver.schema.name
+      - sqlserver.table.columns
+      - sqlserver.table.foreign_keys
+      - sqlserver.table.indexes
+      - sqlserver.table.partition_count
+      - sqlserver.row_count
+      - sqlserver.table.size.total_kb
+      - sqlserver.table.size.used_kb
+      - sqlserver.table.size.data_kb
+
   db.server.top_procedure:
     enabled: false
     description: Aggregated performance metrics for the top stored procedures by elapsed time, computed as deltas over the collection interval. Correlates with db.server.top_query and db.server.query_sample via sqlserver.procedure_id.
@@ -621,6 +676,18 @@ events:
       - sqlserver.procedure_name
       - sqlserver.query.last_started
       - sqlserver.query.plan.creation_time
+
+  db.server.view_metadata:
+    enabled: false
+    description: Structural inventory of a view, including its columns and SQL definition. Off by default; the monitoring user's grants are unaffected either way. Collected on its own, slower interval since structure changes rarely.
+    attributes:
+      - db.namespace
+      - db.system.name
+      - sqlserver.object.id
+      - sqlserver.object.name
+      - sqlserver.schema.name
+      - sqlserver.table.columns
+      - sqlserver.view.definition
 
 metrics:
   sqlserver.access.scan.rate:

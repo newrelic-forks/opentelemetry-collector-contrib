@@ -3599,8 +3599,10 @@ type EventsConfig struct {
 	DbServerProcedureDefinition EventConfig `mapstructure:"db.server.procedure_definition"`
 	DbServerQueryPlan           EventConfig `mapstructure:"db.server.query_plan"`
 	DbServerQuerySample         EventConfig `mapstructure:"db.server.query_sample"`
+	DbServerTableMetadata       EventConfig `mapstructure:"db.server.table_metadata"`
 	DbServerTopProcedure        EventConfig `mapstructure:"db.server.top_procedure"`
 	DbServerTopQuery            EventConfig `mapstructure:"db.server.top_query"`
+	DbServerViewMetadata        EventConfig `mapstructure:"db.server.view_metadata"`
 }
 
 func DefaultEventsConfig() EventsConfig {
@@ -3614,10 +3616,16 @@ func DefaultEventsConfig() EventsConfig {
 		DbServerQuerySample: EventConfig{
 			Enabled: false,
 		},
+		DbServerTableMetadata: EventConfig{
+			Enabled: false,
+		},
 		DbServerTopProcedure: EventConfig{
 			Enabled: false,
 		},
 		DbServerTopQuery: EventConfig{
+			Enabled: false,
+		},
+		DbServerViewMetadata: EventConfig{
 			Enabled: false,
 		},
 	}

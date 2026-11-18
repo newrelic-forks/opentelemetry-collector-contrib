@@ -138,6 +138,14 @@ func TestFactory(t *testing.T) {
 						TopProcedureCount:       250,
 						CollectionInterval:      time.Minute,
 					},
+					TableMetadataCollection: TableMetadataCollection{
+						CollectionInterval: 600 * time.Second,
+						MaxTables:          300,
+					},
+					ViewMetadataCollection: ViewMetadataCollection{
+						CollectionInterval: 600 * time.Second,
+						MaxViews:           1000,
+					},
 					MetricsBuilderConfig: metadata.NewDefaultMetricsBuilderConfig(),
 					LogsBuilderConfig:    metadata.DefaultLogsBuilderConfig(),
 				}

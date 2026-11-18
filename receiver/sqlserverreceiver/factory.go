@@ -74,6 +74,14 @@ func createDefaultConfig() component.Config {
 			TopProcedureCount:       250,
 			CollectionInterval:      time.Minute,
 		},
+		TableMetadataCollection: TableMetadataCollection{
+			CollectionInterval: 600 * time.Second,
+			MaxTables:          300,
+		},
+		ViewMetadataCollection: ViewMetadataCollection{
+			CollectionInterval: 600 * time.Second,
+			MaxViews:           1000,
+		},
 	}
 }
 
@@ -146,6 +154,14 @@ func setupLogQueries(cfg *Config) []string {
 
 	if cfg.LogsBuilderConfig.Events.DbServerTopProcedure.Enabled {
 		queries = append(queries, getSQLServerTopProcedureQuery())
+	}
+
+	if cfg.LogsBuilderConfig.Events.DbServerTableMetadata.Enabled {
+		queries = append(queries, getSQLServerTableMetadataQuery())
+	}
+
+	if cfg.LogsBuilderConfig.Events.DbServerViewMetadata.Enabled {
+		queries = append(queries, getSQLServerViewMetadataQuery())
 	}
 
 	return queries
@@ -292,7 +308,8 @@ func (p *dbProvider) getDB() (*sql.DB, error) {
 				endpoint = fmt.Sprintf("%s:%d", endpoint, dsnConfig.Port)
 			}
 			username := dsnConfig.User
-			connector, err := mssql.NewSecurityTokenConnector(dsnConfig,
+			connector, err := mssql.NewSecurityTokenConnector(
+				dsnConfig,
 				func(ctx context.Context) (string, error) {
 					credential, credentialErr := credentialProvider.GetCredential(ctx, dbauth.Request{
 						Endpoint: endpoint,
@@ -526,6 +543,9 @@ func setupSQLServerLogsScrapers(params receiver.Settings, cfg *Config) ([]*sqlSe
 			// dropping out of one scrape's sample still has its previous values on the next.
 			cache = newCache(int(cfg.TopProcedureCollection.MaxProcedureSampleCount * 7 * 2))
 		}
+
+		// Table/view metadata is a full structural snapshot on every poll, not a delta, so
+		// it needs no cross-scrape cache.
 
 		sqlServerScraper := newSQLServerScraper(id, query,
 			sqlquery.TelemetryConfig{},

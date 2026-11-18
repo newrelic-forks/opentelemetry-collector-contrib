@@ -1,0 +1,132 @@
+SET DEADLOCK_PRIORITY -10;
+IF SERVERPROPERTY('EngineEdition') NOT IN (2,3,4,5,8) BEGIN
+	DECLARE @ErrorMessage AS nvarchar(500) = 'Connection string Server:'+ @@ServerName + ',Database:' + DB_NAME() +' is not a SQL Server Standard, Enterprise, Express, Azure SQL Database or Azure SQL Managed Instance. This query is only supported on these editions.';
+	RAISERROR (@ErrorMessage,11,1)
+	RETURN
+END;
+
+-- This query runs once per target database (the caller issues "USE [db];" ahead of
+-- it, or on Azure SQL Database the connection is already scoped to one database), so
+-- every catalog view below is implicitly scoped to "the current database" — there is
+-- no cross-database join, dynamic SQL, or per-database cursor here.
+WITH schemas AS (
+	SELECT s.name AS schema_name, s.schema_id
+	FROM sys.schemas AS s
+	WHERE s.name NOT IN ('sys', 'information_schema')
+),
+tables AS (
+	SELECT object_id AS table_id, name AS table_name, schema_id
+	FROM sys.tables
+	WHERE is_ms_shipped = 0
+),
+schema_tables AS (
+	SELECT TOP (@maxTables) t.table_id, t.table_name, s.schema_name, s.schema_id
+	FROM tables t
+	JOIN schemas s ON t.schema_id = s.schema_id
+	ORDER BY s.schema_name, t.table_name
+),
+columns_json AS (
+	SELECT
+		schema_tables.table_id,
+		(
+			SELECT c.name, t.name AS data_type,
+				   c.max_length, c.precision, c.scale,
+				   dc.definition AS [default],
+				   c.is_nullable AS nullable
+			FROM sys.columns c
+			JOIN sys.types t ON c.user_type_id = t.user_type_id
+			LEFT JOIN sys.default_constraints dc ON c.default_object_id = dc.object_id
+			WHERE c.object_id = schema_tables.table_id
+			ORDER BY c.column_id
+			FOR JSON PATH
+		) AS columns
+	FROM schema_tables
+),
+indexes_json AS (
+	SELECT
+		schema_tables.table_id,
+		(
+			SELECT
+				i.name, i.type, i.is_unique, i.is_primary_key, i.is_unique_constraint,
+				i.is_disabled, MAX(i.filter_definition) AS filter_definition,
+				STRING_AGG(
+					CASE WHEN ic.is_included_column = 0 AND ic.key_ordinal > 0 THEN
+						CASE WHEN ic.is_descending_key = 1 THEN c.name + ' DESC' ELSE c.name END
+					END, ','
+				) WITHIN GROUP (ORDER BY sk.sort_key) AS key_columns,
+				STRING_AGG(
+					CASE WHEN ic.is_included_column = 1 THEN c.name END, ','
+				) WITHIN GROUP (ORDER BY sk.sort_key) AS included_columns
+			FROM sys.indexes i
+			JOIN sys.index_columns ic ON i.object_id = ic.object_id AND i.index_id = ic.index_id
+			JOIN sys.columns c ON ic.object_id = c.object_id AND ic.column_id = c.column_id
+			CROSS APPLY (
+				SELECT CASE WHEN ic.is_included_column = 0 AND ic.key_ordinal > 0
+							THEN ic.key_ordinal ELSE ic.index_column_id END AS sort_key
+			) sk
+			WHERE i.object_id = schema_tables.table_id AND i.type <> 0
+			GROUP BY i.object_id, i.index_id, i.name, i.type, i.is_unique, i.is_primary_key,
+					 i.is_unique_constraint, i.is_disabled
+			FOR JSON PATH
+		) AS indexes
+	FROM schema_tables
+),
+foreign_keys_json AS (
+	SELECT
+		schema_tables.table_id,
+		(
+			SELECT
+				FK.name AS foreign_key_name,
+				OBJECT_NAME(FK.parent_object_id) AS referencing_table,
+				STRING_AGG(COL_NAME(FKC.parent_object_id, FKC.parent_column_id), ',')
+					WITHIN GROUP (ORDER BY FKC.constraint_column_id) AS referencing_column,
+				OBJECT_SCHEMA_NAME(FK.referenced_object_id) AS referenced_schema,
+				OBJECT_NAME(FK.referenced_object_id) AS referenced_table,
+				STRING_AGG(COL_NAME(FKC.referenced_object_id, FKC.referenced_column_id), ',')
+					WITHIN GROUP (ORDER BY FKC.constraint_column_id) AS referenced_column,
+				FK.delete_referential_action_desc AS delete_action,
+				FK.update_referential_action_desc AS update_action
+			FROM sys.foreign_keys FK
+			JOIN sys.foreign_key_columns FKC ON FK.object_id = FKC.constraint_object_id
+			WHERE FK.parent_object_id = schema_tables.table_id
+			GROUP BY FK.name, FK.parent_object_id, FK.referenced_object_id,
+					 FK.delete_referential_action_desc, FK.update_referential_action_desc
+			FOR JSON PATH
+		) AS foreign_keys
+	FROM schema_tables
+),
+partitions_json AS (
+	SELECT object_id AS table_id, COUNT(*) AS partition_count
+	FROM sys.partitions
+	WHERE index_id IN (0, 1)
+	GROUP BY object_id
+),
+size_stats AS (
+	SELECT
+		t.object_id AS table_id,
+		SUM(CASE WHEN p.index_id IN (0, 1) THEN p.row_count ELSE 0 END) AS row_count,
+		CAST(SUM(a.total_pages) * 8.0 AS DECIMAL(18,2)) AS total_size_kb,
+		CAST(SUM(a.used_pages) * 8.0 AS DECIMAL(18,2)) AS used_size_kb,
+		CAST(SUM(a.data_pages) * 8.0 AS DECIMAL(18,2)) AS data_size_kb
+	FROM sys.tables t
+	JOIN sys.indexes i ON t.object_id = i.object_id
+	JOIN sys.dm_db_partition_stats p ON i.object_id = p.object_id AND i.index_id = p.index_id
+	JOIN sys.allocation_units a ON p.partition_id = a.container_id
+	WHERE t.is_ms_shipped = 0
+	GROUP BY t.object_id
+)
+SELECT
+	DB_NAME() AS database_name,
+	st.schema_name, st.table_id, st.table_name,
+	ISNULL(ss.row_count, 0) AS row_count,
+	ISNULL(ss.total_size_kb, 0) AS total_size_kb,
+	ISNULL(ss.used_size_kb, 0) AS used_size_kb,
+	ISNULL(ss.data_size_kb, 0) AS data_size_kb,
+	ISNULL(pj.partition_count, 1) AS partition_count,
+	cj.columns AS columns_json, ij.indexes AS indexes_json, fkj.foreign_keys AS foreign_keys_json
+FROM schema_tables st
+LEFT JOIN columns_json cj ON st.table_id = cj.table_id
+LEFT JOIN indexes_json ij ON st.table_id = ij.table_id
+LEFT JOIN foreign_keys_json fkj ON st.table_id = fkj.table_id
+LEFT JOIN partitions_json pj ON st.table_id = pj.table_id
+LEFT JOIN size_stats ss ON st.table_id = ss.table_id;

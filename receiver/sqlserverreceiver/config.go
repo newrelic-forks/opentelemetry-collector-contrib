@@ -67,6 +67,33 @@ type TopQueryCollection struct {
 	CollectionInterval  time.Duration `mapstructure:"collection_interval"`
 }
 
+// TableMetadataCollection configures the collection of table structure and size
+// inventory (db.server.table_metadata). Structure changes rarely, so this runs on
+// its own, slower interval, decoupled from the main metrics scrape interval.
+type TableMetadataCollection struct {
+	// CollectionInterval throttles how often the table inventory is refreshed.
+	CollectionInterval time.Duration `mapstructure:"collection_interval"`
+	// MaxTables caps the number of tables reported per database per poll, to bound
+	// worst-case payload size on very large schemas. 0 means use the default.
+	MaxTables uint `mapstructure:"max_tables"`
+
+	// prevent unkeyed literal initialization
+	_ struct{}
+}
+
+// ViewMetadataCollection configures the collection of view structure inventory
+// (db.server.view_metadata). Off by default.
+type ViewMetadataCollection struct {
+	// CollectionInterval throttles how often the view inventory is refreshed.
+	CollectionInterval time.Duration `mapstructure:"collection_interval"`
+	// MaxViews caps the number of views reported per database per poll. 0 means use
+	// the default.
+	MaxViews uint `mapstructure:"max_views"`
+
+	// prevent unkeyed literal initialization
+	_ struct{}
+}
+
 // Config defines configuration for a sqlserver receiver.
 type Config struct {
 	ControllerConfig     scraperhelper.ControllerConfig `mapstructure:",squash"`
@@ -82,6 +109,12 @@ type Config struct {
 	QuerySample QuerySample `mapstructure:"query_sample_collection"`
 
 	TopProcedureCollection TopProcedureCollection `mapstructure:"top_procedure_collection"`
+
+	// TableMetadataCollection configures the table structure/size inventory event.
+	TableMetadataCollection TableMetadataCollection `mapstructure:"table_metadata_collection"`
+
+	// ViewMetadataCollection configures the view structure inventory event.
+	ViewMetadataCollection ViewMetadataCollection `mapstructure:"view_metadata_collection"`
 
 	// ConnectionPool tunes the shared database connection pool used by all
 	// scrapers of this receiver.
@@ -157,6 +190,22 @@ func (cfg *Config) Validate() error {
 		if cfg.TopProcedureCollection.TopProcedureCount < 1 {
 			return errors.New("`top_procedure_count` must be greater than 0")
 		}
+	}
+
+	if cfg.TableMetadataCollection.CollectionInterval < 0 {
+		return errors.New("`table_metadata_collection.collection_interval` must not be less than 0")
+	}
+
+	if cfg.LogsBuilderConfig.Events.DbServerTableMetadata.Enabled && cfg.TableMetadataCollection.MaxTables < 1 {
+		return errors.New("`table_metadata_collection.max_tables` must be greater than 0")
+	}
+
+	if cfg.ViewMetadataCollection.CollectionInterval < 0 {
+		return errors.New("`view_metadata_collection.collection_interval` must not be less than 0")
+	}
+
+	if cfg.LogsBuilderConfig.Events.DbServerViewMetadata.Enabled && cfg.ViewMetadataCollection.MaxViews < 1 {
+		return errors.New("`view_metadata_collection.max_views` must be greater than 0")
 	}
 
 	if poolErr := cfg.validateConnectionPool(); poolErr != nil {

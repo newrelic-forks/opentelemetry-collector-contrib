@@ -8,6 +8,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -302,6 +303,18 @@ func (s *sqlServerScraperHelper) ScrapeLogs(ctx context.Context) (plog.Logs, err
 			return plog.NewLogs(), nil
 		}
 		resources, err = s.recordDatabaseTopProcedure(ctx)
+	case getSQLServerTableMetadataQuery():
+		if int(math.Ceil(time.Since(s.lastExecutionTimestamp).Seconds())) < int(s.config.TableMetadataCollection.CollectionInterval.Seconds()) {
+			s.logger.Debug("Skipping the collection of table metadata because the current time has not yet exceeded the last execution time plus the specified collection interval")
+			return plog.NewLogs(), nil
+		}
+		resources, err = s.recordTableMetadata(ctx)
+	case getSQLServerViewMetadataQuery():
+		if int(math.Ceil(time.Since(s.lastExecutionTimestamp).Seconds())) < int(s.config.ViewMetadataCollection.CollectionInterval.Seconds()) {
+			s.logger.Debug("Skipping the collection of view metadata because the current time has not yet exceeded the last execution time plus the specified collection interval")
+			return plog.NewLogs(), nil
+		}
+		resources, err = s.recordViewMetadata(ctx)
 	default:
 		return plog.Logs{}, fmt.Errorf("Attempted to get logs from unsupported query: %s", s.sqlQuery)
 	}
@@ -1963,7 +1976,8 @@ func (s *sqlServerScraperHelper) recordDatabaseStatusMetrics(ctx context.Context
 	for _, row := range rows {
 		rb := s.setupResourceBuilder(s.mb.NewResourceBuilder(), row)
 
-		errs = append(errs,
+		errs = append(
+			errs,
 			s.mb.RecordSqlserverDatabaseCountDataPoint(now, row[dbOnline], metadata.AttributeDatabaseStatusOnline),
 			s.mb.RecordSqlserverDatabaseCountDataPoint(now, row[dbRestoring], metadata.AttributeDatabaseStatusRestoring),
 			s.mb.RecordSqlserverDatabaseCountDataPoint(now, row[dbRecovering], metadata.AttributeDatabaseStatusRecovering),
@@ -2065,7 +2079,8 @@ func (s *sqlServerScraperHelper) recordIndexPhysicalMetrics(ctx context.Context)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("row %d: failed to parse %s: %w", i, pageCountKey, err))
 		} else {
-			errs = append(errs,
+			errs = append(
+				errs,
 				s.mb.RecordSqlserverIndexPageCountDataPoint(now, row[pageCountKey], row[databaseNameKey], indexID.(int64), row[objectNameKey], row[schemaNameKey]),
 				s.mb.RecordSqlserverIndexSizeDataPoint(now, strconv.FormatInt(pageCount.(int64)*sqlServerPageSizeBy, 10), row[databaseNameKey], indexID.(int64), row[objectNameKey], row[schemaNameKey]),
 			)
@@ -2078,7 +2093,8 @@ func (s *sqlServerScraperHelper) recordIndexPhysicalMetrics(ctx context.Context)
 			s.mb.RecordSqlserverIndexPageUtilizationDataPoint(now, val.(float64), row[databaseNameKey], indexID.(int64), row[objectNameKey], row[schemaNameKey])
 		}
 
-		errs = append(errs,
+		errs = append(
+			errs,
 			s.mb.RecordSqlserverIndexRecordCountDataPoint(now, row[recordCountKey], row[databaseNameKey], indexID.(int64), row[objectNameKey], row[schemaNameKey]),
 		)
 
@@ -3151,6 +3167,354 @@ func (s *sqlServerScraperHelper) recordDatabaseTopProcedure(ctx context.Context)
 				row[colDefinition],
 			)
 		}
+	}
+
+	if !resourcesAdded {
+		resources = pcommon.NewResource()
+	}
+	return resources, errors.Join(errs...)
+}
+
+// tableMetadataColumn mirrors one element of the columns_json array produced by the
+// table/view metadata queries' FOR JSON PATH sub-selects.
+type tableMetadataColumn struct {
+	Name      string `json:"name"`
+	DataType  string `json:"data_type"`
+	MaxLength int32  `json:"max_length"`
+	Precision int32  `json:"precision"`
+	Scale     int32  `json:"scale"`
+	Default   string `json:"default"`
+	Nullable  bool   `json:"nullable"`
+	// OrdinalPosition is only populated for view columns; omitted (empty) for table columns.
+	OrdinalPosition string `json:"ordinal_position,omitempty"`
+}
+
+type tableMetadataIndex struct {
+	Name               string `json:"name"`
+	Type               int32  `json:"type"`
+	IsUnique           bool   `json:"is_unique"`
+	IsPrimaryKey       bool   `json:"is_primary_key"`
+	IsUniqueConstraint bool   `json:"is_unique_constraint"`
+	IsDisabled         bool   `json:"is_disabled"`
+	FilterDefinition   string `json:"filter_definition"`
+	KeyColumns         string `json:"key_columns"`
+	IncludedColumns    string `json:"included_columns"`
+}
+
+type tableMetadataForeignKey struct {
+	ForeignKeyName    string `json:"foreign_key_name"`
+	ReferencingTable  string `json:"referencing_table"`
+	ReferencingColumn string `json:"referencing_column"`
+	ReferencedSchema  string `json:"referenced_schema"`
+	ReferencedTable   string `json:"referenced_table"`
+	ReferencedColumn  string `json:"referenced_column"`
+	DeleteAction      string `json:"delete_action"`
+	UpdateAction      string `json:"update_action"`
+}
+
+// parseTableMetadataColumns decodes a columns_json value from the table/view metadata
+// queries. The source column is SQL NULL (and so absent from the row map) when FOR JSON
+// PATH's sub-select returns no rows, which happens only for an object with zero columns —
+// not expected in practice, but handled the same way as a genuinely empty array.
+func parseTableMetadataColumns(raw string) ([]any, error) {
+	if raw == "" {
+		return []any{}, nil
+	}
+	var columns []tableMetadataColumn
+	if err := json.Unmarshal([]byte(raw), &columns); err != nil {
+		return nil, err
+	}
+	result := make([]any, 0, len(columns))
+	for _, c := range columns {
+		entry := map[string]any{
+			"name":       c.Name,
+			"data_type":  c.DataType,
+			"max_length": c.MaxLength,
+			"precision":  c.Precision,
+			"scale":      c.Scale,
+			"nullable":   c.Nullable,
+		}
+		if c.Default != "" {
+			entry["default"] = c.Default
+		}
+		if c.OrdinalPosition != "" {
+			entry["ordinal_position"] = c.OrdinalPosition
+		}
+		result = append(result, entry)
+	}
+	return result, nil
+}
+
+// parseTableMetadataIndexes decodes an indexes_json value. SQL NULL (table with no indexes,
+// e.g. a heap with no constraints) is treated as an empty array, same as parseTableMetadataColumns.
+func parseTableMetadataIndexes(raw string) ([]any, error) {
+	if raw == "" {
+		return []any{}, nil
+	}
+	var indexes []tableMetadataIndex
+	if err := json.Unmarshal([]byte(raw), &indexes); err != nil {
+		return nil, err
+	}
+	result := make([]any, 0, len(indexes))
+	for _, idx := range indexes {
+		result = append(result, map[string]any{
+			"name":                 idx.Name,
+			"type":                 idx.Type,
+			"is_unique":            idx.IsUnique,
+			"is_primary_key":       idx.IsPrimaryKey,
+			"is_unique_constraint": idx.IsUniqueConstraint,
+			"is_disabled":          idx.IsDisabled,
+			"filter_definition":    idx.FilterDefinition,
+			"key_columns":          idx.KeyColumns,
+			"included_columns":     idx.IncludedColumns,
+		})
+	}
+	return result, nil
+}
+
+// parseTableMetadataForeignKeys decodes a foreign_keys_json value. SQL NULL (a table with
+// no foreign keys, the common case) is treated as an empty array.
+func parseTableMetadataForeignKeys(raw string) ([]any, error) {
+	if raw == "" {
+		return []any{}, nil
+	}
+	var foreignKeys []tableMetadataForeignKey
+	if err := json.Unmarshal([]byte(raw), &foreignKeys); err != nil {
+		return nil, err
+	}
+	result := make([]any, 0, len(foreignKeys))
+	for i := range foreignKeys {
+		fk := &foreignKeys[i]
+		result = append(result, map[string]any{
+			"foreign_key_name":   fk.ForeignKeyName,
+			"referencing_table":  fk.ReferencingTable,
+			"referencing_column": fk.ReferencingColumn,
+			"referenced_schema":  fk.ReferencedSchema,
+			"referenced_table":   fk.ReferencedTable,
+			"referenced_column":  fk.ReferencedColumn,
+			"delete_action":      fk.DeleteAction,
+			"update_action":      fk.UpdateAction,
+		})
+	}
+	return result, nil
+}
+
+// listTargetDatabases returns the databases table/view metadata should be collected
+// from: every accessible user database on-prem/MI, or the single connected database on
+// Azure SQL Database (where "USE [db]" isn't valid, since each database is its own
+// connection scope), honoring the databases/exclude_databases filter either way.
+func (s *sqlServerScraperHelper) listTargetDatabases(ctx context.Context) ([]string, error) {
+	const listDatabasesQuery = `
+SELECT CASE WHEN CAST(SERVERPROPERTY('EngineEdition') AS INT) = 5 THEN DB_NAME() ELSE [name] END AS database_name
+FROM sys.databases WITH (NOLOCK)
+WHERE (CAST(SERVERPROPERTY('EngineEdition') AS INT) = 5 OR ([state] = 0 AND [database_id] > 4)){database_filter AND [name]};`
+
+	client := s.clientProviderFunc(sqlquery.DbWrapper{Db: s.db}, s.databaseFilter.apply(listDatabasesQuery), s.logger, s.telemetry)
+	rows, err := client.QueryRows(ctx, s.databaseFilter.args()...)
+	if err != nil {
+		return nil, fmt.Errorf("sqlServerScraperHelper failed listing target databases: %w", err)
+	}
+	databases := make([]string, 0, len(rows))
+	for _, row := range rows {
+		databases = append(databases, row["database_name"])
+	}
+	return databases, nil
+}
+
+// runPerDatabaseQuery runs queryText once against each of databases, prefixed with
+// "USE [db];" so every catalog view the query references resolves against that
+// database — avoiding the cross-database dynamic-SQL/cursor shape that silently
+// truncated at 4000 characters and serialized against the whole server. On Azure SQL
+// Database the connection is already scoped to its one database and "USE" is not a
+// valid statement there at all, so the prefix is skipped in that case. A query that
+// fails against one database (e.g. the login lacks permission there) is logged and
+// skipped rather than aborting the remaining databases.
+func (s *sqlServerScraperHelper) runPerDatabaseQuery(ctx context.Context, databases []string, queryText string, args ...any) []sqlquery.StringMap {
+	var allRows []sqlquery.StringMap
+	for _, dbname := range databases {
+		sqlText := queryText
+		if s.dbEdition != "azure_sql_database" {
+			sqlText = "USE [" + strings.ReplaceAll(dbname, "]", "]]") + "]; " + queryText
+		}
+		client := s.clientProviderFunc(sqlquery.DbWrapper{Db: s.db}, sqlText, s.logger, s.telemetry)
+		rows, err := client.QueryRows(ctx, args...)
+		if err != nil && !errors.Is(err, sqlquery.ErrNullValueWarning) {
+			s.logger.Warn("skipping database for metadata collection", zap.String("database", dbname), zap.Error(err))
+			continue
+		}
+		allRows = append(allRows, rows...)
+	}
+	return allRows
+}
+
+// recordTableMetadata collects db.server.table_metadata: a full structural and size
+// inventory of every table (columns, indexes, foreign keys, partition count, size),
+// refreshed on its own slower interval since structure changes rarely.
+func (s *sqlServerScraperHelper) recordTableMetadata(ctx context.Context) (pcommon.Resource, error) {
+	const (
+		colDatabaseName    = "database_name"
+		colSchemaName      = "schema_name"
+		colTableID         = "table_id"
+		colTableName       = "table_name"
+		colRowCount        = "row_count"
+		colTotalSizeKB     = "total_size_kb"
+		colUsedSizeKB      = "used_size_kb"
+		colDataSizeKB      = "data_size_kb"
+		colPartitionCnt    = "partition_count"
+		colColumnsJSON     = "columns_json"
+		colIndexesJSON     = "indexes_json"
+		colForeignKeysJSON = "foreign_keys_json"
+
+		dbSystemNameVal = "microsoft.sql_server"
+	)
+
+	databases, err := s.listTargetDatabases(ctx)
+	if err != nil {
+		return pcommon.NewResource(), err
+	}
+	rows := s.runPerDatabaseQuery(ctx, databases, s.sqlQuery, sql.Named("maxTables", s.config.TableMetadataCollection.MaxTables))
+
+	var errs []error
+	var resources pcommon.Resource
+	var resourcesAdded bool
+	now := time.Now()
+	timestamp := pcommon.NewTimestampFromTime(now)
+	s.lastExecutionTimestamp = now
+
+	for _, row := range rows {
+		tableID, err := retrieveInt(row, colTableID)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse %s for table %s.%s: %w", colTableID, row[colSchemaName], row[colTableName], err))
+			continue
+		}
+		rowCount, err := retrieveInt(row, colRowCount)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse %s for table %s.%s: %w", colRowCount, row[colSchemaName], row[colTableName], err))
+			continue
+		}
+		partitionCount, err := retrieveInt(row, colPartitionCnt)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse %s for table %s.%s: %w", colPartitionCnt, row[colSchemaName], row[colTableName], err))
+			continue
+		}
+		totalSizeKB, err := retrieveFloat(row, colTotalSizeKB)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse %s for table %s.%s: %w", colTotalSizeKB, row[colSchemaName], row[colTableName], err))
+			continue
+		}
+		usedSizeKB, err := retrieveFloat(row, colUsedSizeKB)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse %s for table %s.%s: %w", colUsedSizeKB, row[colSchemaName], row[colTableName], err))
+			continue
+		}
+		dataSizeKB, err := retrieveFloat(row, colDataSizeKB)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse %s for table %s.%s: %w", colDataSizeKB, row[colSchemaName], row[colTableName], err))
+			continue
+		}
+
+		columns, err := parseTableMetadataColumns(row[colColumnsJSON])
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse %s for table %s.%s: %w", colColumnsJSON, row[colSchemaName], row[colTableName], err))
+			continue
+		}
+		indexes, err := parseTableMetadataIndexes(row[colIndexesJSON])
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse %s for table %s.%s: %w", colIndexesJSON, row[colSchemaName], row[colTableName], err))
+			continue
+		}
+		foreignKeys, err := parseTableMetadataForeignKeys(row[colForeignKeysJSON])
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse %s for table %s.%s: %w", colForeignKeysJSON, row[colSchemaName], row[colTableName], err))
+			continue
+		}
+
+		if !resourcesAdded {
+			resources = s.setupResourceBuilder(s.lb.NewResourceBuilder(), row).Emit()
+			resourcesAdded = true
+		}
+
+		s.lb.RecordDbServerTableMetadataEvent(
+			context.Background(),
+			timestamp,
+			row[colDatabaseName],
+			dbSystemNameVal,
+			tableID.(int64),
+			row[colTableName],
+			row[colSchemaName],
+			columns,
+			foreignKeys,
+			indexes,
+			partitionCount.(int64),
+			rowCount.(int64),
+			totalSizeKB.(float64),
+			usedSizeKB.(float64),
+			dataSizeKB.(float64),
+		)
+	}
+
+	if !resourcesAdded {
+		resources = pcommon.NewResource()
+	}
+	return resources, errors.Join(errs...)
+}
+
+// recordViewMetadata collects db.server.view_metadata: a structural inventory of every
+// view (columns and SQL definition), off by default and refreshed on its own slower
+// interval since structure changes rarely.
+func (s *sqlServerScraperHelper) recordViewMetadata(ctx context.Context) (pcommon.Resource, error) {
+	const (
+		colDatabaseName = "database_name"
+		colSchemaName   = "schema_name"
+		colViewID       = "view_id"
+		colViewName     = "view_name"
+		colDefinition   = "definition"
+		colColumnsJSON  = "columns_json"
+
+		dbSystemNameVal = "microsoft.sql_server"
+	)
+
+	databases, err := s.listTargetDatabases(ctx)
+	if err != nil {
+		return pcommon.NewResource(), err
+	}
+	rows := s.runPerDatabaseQuery(ctx, databases, s.sqlQuery, sql.Named("maxViews", s.config.ViewMetadataCollection.MaxViews))
+
+	var errs []error
+	var resources pcommon.Resource
+	var resourcesAdded bool
+	now := time.Now()
+	timestamp := pcommon.NewTimestampFromTime(now)
+	s.lastExecutionTimestamp = now
+
+	for _, row := range rows {
+		viewID, err := retrieveInt(row, colViewID)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse %s for view %s.%s: %w", colViewID, row[colSchemaName], row[colViewName], err))
+			continue
+		}
+		columns, err := parseTableMetadataColumns(row[colColumnsJSON])
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse %s for view %s.%s: %w", colColumnsJSON, row[colSchemaName], row[colViewName], err))
+			continue
+		}
+
+		if !resourcesAdded {
+			resources = s.setupResourceBuilder(s.lb.NewResourceBuilder(), row).Emit()
+			resourcesAdded = true
+		}
+
+		s.lb.RecordDbServerViewMetadataEvent(
+			context.Background(),
+			timestamp,
+			row[colDatabaseName],
+			dbSystemNameVal,
+			viewID.(int64),
+			row[colViewName],
+			row[colSchemaName],
+			columns,
+			row[colDefinition],
+		)
 	}
 
 	if !resourcesAdded {

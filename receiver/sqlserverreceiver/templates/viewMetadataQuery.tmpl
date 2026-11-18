@@ -1,0 +1,53 @@
+SET DEADLOCK_PRIORITY -10;
+IF SERVERPROPERTY('EngineEdition') NOT IN (2,3,4,5,8) BEGIN
+	DECLARE @ErrorMessage AS nvarchar(500) = 'Connection string Server:'+ @@ServerName + ',Database:' + DB_NAME() +' is not a SQL Server Standard, Enterprise, Express, Azure SQL Database or Azure SQL Managed Instance. This query is only supported on these editions.';
+	RAISERROR (@ErrorMessage,11,1)
+	RETURN
+END;
+
+-- This query runs once per target database (the caller issues "USE [db];" ahead of
+-- it, or on Azure SQL Database the connection is already scoped to one database), so
+-- every catalog view below is implicitly scoped to "the current database" — there is
+-- no cross-database join, dynamic SQL, or per-database cursor here.
+WITH schemas AS (
+	SELECT s.name AS schema_name, s.schema_id
+	FROM sys.schemas AS s
+	WHERE s.name NOT IN ('sys', 'information_schema')
+),
+views AS (
+	SELECT
+		v.object_id AS view_id, v.name AS view_name, v.schema_id,
+		v.create_date, v.modify_date, m.definition
+	FROM sys.views v
+	LEFT JOIN sys.sql_modules m ON v.object_id = m.object_id
+	WHERE v.is_ms_shipped = 0
+),
+schema_views AS (
+	SELECT TOP (@maxViews) v.view_id, v.view_name, v.create_date, v.modify_date, v.definition,
+		   s.schema_name
+	FROM views v
+	JOIN schemas s ON v.schema_id = s.schema_id
+	ORDER BY s.schema_name, v.view_name
+),
+columns_json AS (
+	SELECT
+		schema_views.view_id,
+		(
+			SELECT c.name, t.name AS data_type,
+				   c.max_length, c.precision, c.scale,
+				   c.is_nullable AS nullable,
+				   CONVERT(varchar(10), c.column_id) AS ordinal_position
+			FROM sys.columns c
+			JOIN sys.types t ON c.user_type_id = t.user_type_id
+			WHERE c.object_id = schema_views.view_id
+			ORDER BY c.column_id
+			FOR JSON PATH
+		) AS columns
+	FROM schema_views
+)
+SELECT
+	DB_NAME() AS database_name,
+	sv.schema_name, sv.view_id, sv.view_name, sv.create_date, sv.modify_date, sv.definition,
+	cj.columns AS columns_json
+FROM schema_views sv
+LEFT JOIN columns_json cj ON sv.view_id = cj.view_id;

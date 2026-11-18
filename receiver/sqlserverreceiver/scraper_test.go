@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -3332,4 +3333,212 @@ func TestProcedureDefinitionEmptyDefinition(t *testing.T) {
 		}
 	}
 	t.Fatal("expected at least one db.server.procedure_definition event")
+}
+
+// perDatabaseMetadataClientProvider stubs the two query shapes recordTableMetadata and
+// recordViewMetadata now issue per scrape: one plain database-listing query (returns
+// databases), then one "USE [db]; <fixedQuery>" per listed database (returns fixture
+// rows). Matching is by suffix on the fixed query text, since the USE prefix embeds a
+// database name that varies per call.
+func perDatabaseMetadataClientProvider(databases []string, fixedQuery, fixtureFile string) sqlquery.ClientProviderFunc {
+	return func(_ sqlquery.Db, query string, _ *zap.Logger, _ sqlquery.TelemetryConfig) sqlquery.DbClient {
+		if strings.HasSuffix(query, fixedQuery) {
+			return queryRowsFuncClient{queryRowsFunc: func(context.Context, ...any) ([]sqlquery.StringMap, error) {
+				return readFile(fixtureFile)
+			}}
+		}
+		return queryRowsFuncClient{queryRowsFunc: func(context.Context, ...any) ([]sqlquery.StringMap, error) {
+			rows := make([]sqlquery.StringMap, 0, len(databases))
+			for _, dbname := range databases {
+				rows = append(rows, sqlquery.StringMap{"database_name": dbname})
+			}
+			return rows, nil
+		}}
+	}
+}
+
+func newTableMetadataScraper(t *testing.T) *sqlServerScraperHelper {
+	t.Helper()
+
+	cfg := createDefaultConfig().(*Config)
+	cfg.Username = "sa"
+	cfg.Password = "password"
+	cfg.Port = 1433
+	cfg.Server = "0.0.0.0"
+	enableSQLServerResourceAttributesForTests(&cfg.LogsBuilderConfig.ResourceAttributes)
+	configureAllScraperMetricsAndEvents(cfg, false)
+	cfg.LogsBuilderConfig.Events.DbServerTableMetadata.Enabled = true
+	require.NoError(t, cfg.Validate())
+
+	scrapers, _ := setupSQLServerLogsScrapers(receivertest.NewNopSettings(metadata.Type), cfg)
+	require.NotEmpty(t, scrapers)
+
+	scraper := scrapers[0]
+	scraper.db = &sql.DB{}
+	scraper.clientProviderFunc = perDatabaseMetadataClientProvider(
+		[]string{"AdventureWorks"}, scraper.sqlQuery, "tableMetadataQueryData.txt",
+	)
+	return scraper
+}
+
+func newViewMetadataScraper(t *testing.T) *sqlServerScraperHelper {
+	t.Helper()
+
+	cfg := createDefaultConfig().(*Config)
+	cfg.Username = "sa"
+	cfg.Password = "password"
+	cfg.Port = 1433
+	cfg.Server = "0.0.0.0"
+	enableSQLServerResourceAttributesForTests(&cfg.LogsBuilderConfig.ResourceAttributes)
+	configureAllScraperMetricsAndEvents(cfg, false)
+	cfg.LogsBuilderConfig.Events.DbServerViewMetadata.Enabled = true
+	require.NoError(t, cfg.Validate())
+
+	scrapers, _ := setupSQLServerLogsScrapers(receivertest.NewNopSettings(metadata.Type), cfg)
+	require.NotEmpty(t, scrapers)
+
+	scraper := scrapers[0]
+	scraper.db = &sql.DB{}
+	scraper.clientProviderFunc = perDatabaseMetadataClientProvider(
+		[]string{"AdventureWorks"}, scraper.sqlQuery, "viewMetadataQueryData.txt",
+	)
+	return scraper
+}
+
+func TestTableMetadataQuery(t *testing.T) {
+	scraper := newTableMetadataScraper(t)
+
+	actualLogs, err := scraper.ScrapeLogs(t.Context())
+	require.NoError(t, err)
+
+	expectedFile := filepath.Join("testdata", "expectedTableMetadataQuery.yaml")
+	// Uncomment line below to re-generate expected logs.
+	// golden.WriteLogs(t, expectedFile, actualLogs)
+	expectedLogs, err := golden.ReadLogs(expectedFile)
+	require.NoError(t, err)
+	require.NoError(t, plogtest.CompareLogs(expectedLogs, actualLogs, plogtest.IgnoreTimestamp()))
+
+	records := actualLogs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords()
+	assert.Equal(t, "db.server.table_metadata", records.At(0).EventName())
+}
+
+// A table with no indexes or foreign keys has those sub-selects come back as SQL NULL
+// (absent from the row map), which must be reported as an empty list, not a parse error.
+func TestTableMetadataHandlesMissingNestedData(t *testing.T) {
+	scraper := newTableMetadataScraper(t)
+
+	actualLogs, err := scraper.ScrapeLogs(t.Context())
+	require.NoError(t, err)
+
+	records := actualLogs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords()
+	for i := range records.Len() {
+		record := records.At(i)
+		name, ok := record.Attributes().Get("sqlserver.object.name")
+		require.True(t, ok)
+		if name.Str() != "Customers" {
+			continue
+		}
+
+		indexes, ok := record.Attributes().Get("sqlserver.table.indexes")
+		require.True(t, ok)
+		assert.Equal(t, 0, indexes.Slice().Len(), "a table with no indexes should report an empty list")
+
+		foreignKeys, ok := record.Attributes().Get("sqlserver.table.foreign_keys")
+		require.True(t, ok)
+		assert.Equal(t, 0, foreignKeys.Slice().Len(), "a table with no foreign keys should report an empty list")
+		return
+	}
+	t.Fatal("expected a Customers row in the fixture")
+}
+
+func TestTableMetadataRespectsCollectionInterval(t *testing.T) {
+	t.Run("skipped within the interval", func(t *testing.T) {
+		scraper := newTableMetadataScraper(t)
+		scraper.config.TableMetadataCollection.CollectionInterval = time.Minute
+		scraper.lastExecutionTimestamp = time.Now()
+
+		actualLogs, err := scraper.ScrapeLogs(t.Context())
+		require.NoError(t, err)
+		assert.Equal(t, 0, actualLogs.ResourceLogs().Len(), "scrape within the collection interval should be skipped")
+	})
+
+	t.Run("runs once the interval has elapsed", func(t *testing.T) {
+		scraper := newTableMetadataScraper(t)
+		scraper.config.TableMetadataCollection.CollectionInterval = time.Minute
+		scraper.lastExecutionTimestamp = time.Now().Add(-2 * time.Minute)
+
+		actualLogs, err := scraper.ScrapeLogs(t.Context())
+		require.NoError(t, err)
+		assert.Positive(t, actualLogs.ResourceLogs().Len(), "scrape after the collection interval should run")
+	})
+}
+
+// A database the login can't access (e.g. permission denied) must not abort collection
+// for the other databases — table_metadata is collected once per database via its own
+// "USE [db];"-prefixed query, so one database's failure is independent of the rest.
+func TestTableMetadataSkipsFailingDatabaseAndContinues(t *testing.T) {
+	scraper := newTableMetadataScraper(t)
+	scraper.db = &sql.DB{}
+	scraper.clientProviderFunc = func(_ sqlquery.Db, query string, _ *zap.Logger, _ sqlquery.TelemetryConfig) sqlquery.DbClient {
+		switch {
+		case strings.HasSuffix(query, scraper.sqlQuery) && strings.HasPrefix(query, "USE [Inaccessible];"):
+			return queryRowsFuncClient{queryRowsFunc: func(context.Context, ...any) ([]sqlquery.StringMap, error) {
+				return nil, errors.New("permission denied")
+			}}
+		case strings.HasSuffix(query, scraper.sqlQuery):
+			return queryRowsFuncClient{queryRowsFunc: func(context.Context, ...any) ([]sqlquery.StringMap, error) {
+				return readFile("tableMetadataQueryData.txt")
+			}}
+		default:
+			return queryRowsFuncClient{queryRowsFunc: func(context.Context, ...any) ([]sqlquery.StringMap, error) {
+				return []sqlquery.StringMap{
+					{"database_name": "Inaccessible"},
+					{"database_name": "AdventureWorks"},
+				}, nil
+			}}
+		}
+	}
+
+	actualLogs, err := scraper.ScrapeLogs(t.Context())
+	require.NoError(t, err, "a single failing database must not fail the whole scrape")
+	assert.Positive(t, actualLogs.ResourceLogs().Len(), "rows from the accessible database should still be collected")
+}
+
+func TestViewMetadataQuery(t *testing.T) {
+	scraper := newViewMetadataScraper(t)
+
+	actualLogs, err := scraper.ScrapeLogs(t.Context())
+	require.NoError(t, err)
+
+	expectedFile := filepath.Join("testdata", "expectedViewMetadataQuery.yaml")
+	// Uncomment line below to re-generate expected logs.
+	// golden.WriteLogs(t, expectedFile, actualLogs)
+	expectedLogs, err := golden.ReadLogs(expectedFile)
+	require.NoError(t, err)
+	require.NoError(t, plogtest.CompareLogs(expectedLogs, actualLogs, plogtest.IgnoreTimestamp()))
+
+	records := actualLogs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords()
+	assert.Equal(t, "db.server.view_metadata", records.At(0).EventName())
+}
+
+func TestViewMetadataRespectsCollectionInterval(t *testing.T) {
+	t.Run("skipped within the interval", func(t *testing.T) {
+		scraper := newViewMetadataScraper(t)
+		scraper.config.ViewMetadataCollection.CollectionInterval = time.Minute
+		scraper.lastExecutionTimestamp = time.Now()
+
+		actualLogs, err := scraper.ScrapeLogs(t.Context())
+		require.NoError(t, err)
+		assert.Equal(t, 0, actualLogs.ResourceLogs().Len(), "scrape within the collection interval should be skipped")
+	})
+
+	t.Run("runs once the interval has elapsed", func(t *testing.T) {
+		scraper := newViewMetadataScraper(t)
+		scraper.config.ViewMetadataCollection.CollectionInterval = time.Minute
+		scraper.lastExecutionTimestamp = time.Now().Add(-2 * time.Minute)
+
+		actualLogs, err := scraper.ScrapeLogs(t.Context())
+		require.NoError(t, err)
+		assert.Positive(t, actualLogs.ResourceLogs().Len(), "scrape after the collection interval should run")
+	})
 }

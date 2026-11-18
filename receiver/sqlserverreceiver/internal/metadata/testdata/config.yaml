@@ -249,9 +249,13 @@ all_set:
       enabled: true
     db.server.query_sample:
       enabled: true
+    db.server.table_metadata:
+      enabled: true
     db.server.top_procedure:
       enabled: true
     db.server.top_query:
+      enabled: true
+    db.server.view_metadata:
       enabled: true
   resource_attributes:
     db.system.version:
@@ -526,9 +530,13 @@ reaggregate_set:
       enabled: true
     db.server.query_sample:
       enabled: true
+    db.server.table_metadata:
+      enabled: true
     db.server.top_procedure:
       enabled: true
     db.server.top_query:
+      enabled: true
+    db.server.view_metadata:
       enabled: true
   resource_attributes:
     db.system.version:
@@ -803,9 +811,13 @@ none_set:
       enabled: false
     db.server.query_sample:
       enabled: false
+    db.server.table_metadata:
+      enabled: false
     db.server.top_procedure:
       enabled: false
     db.server.top_query:
+      enabled: false
+    db.server.view_metadata:
       enabled: false
   resource_attributes:
     db.system.version:

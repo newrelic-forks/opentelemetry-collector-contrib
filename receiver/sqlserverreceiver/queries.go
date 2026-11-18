@@ -477,6 +477,20 @@ func getSQLServerIdleBlockingSessionsQuery() string {
 	return sqlServerIdleBlockingQuerySamples
 }
 
+//go:embed templates/tableMetadataQuery.tmpl
+var sqlServerTableMetadataQueryTemplate string
+
+func getSQLServerTableMetadataQuery() string {
+	return sqlServerTableMetadataQueryTemplate
+}
+
+//go:embed templates/viewMetadataQuery.tmpl
+var sqlServerViewMetadataQueryTemplate string
+
+func getSQLServerViewMetadataQuery() string {
+	return sqlServerViewMetadataQueryTemplate
+}
+
 func formatSQLServerSessionIDsParam(sessionIDs map[int64]struct{}) string {
 	idValues := make([]int64, 0, len(sessionIDs))
 	for sessionID := range sessionIDs {

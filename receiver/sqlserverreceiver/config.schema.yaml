@@ -27,6 +27,18 @@ $defs:
       max_rows_per_query:
         type: integer
         x-customType: uint64
+  table_metadata_collection:
+    description: TableMetadataCollection configures the collection of table structure and size inventory (db.server.table_metadata). Structure changes rarely, so this runs on its own, slower interval, decoupled from the main metrics scrape interval.
+    type: object
+    properties:
+      collection_interval:
+        description: CollectionInterval throttles how often the table inventory is refreshed.
+        type: string
+        format: duration
+      max_tables:
+        description: MaxTables caps the number of tables reported per database per poll, to bound worst-case payload size on very large schemas. 0 means use the default.
+        type: integer
+        x-customType: uint
   top_procedure_collection:
     description: TopProcedureCollection configures the collection of stored procedure statistics. Candidate rows are fetched up to MaxProcedureSampleCount, then the TopProcedureCount procedures with the largest elapsed-time delta over the interval are reported.
     type: object
@@ -55,6 +67,18 @@ $defs:
         type: integer
         x-customType: uint
       top_query_count:
+        type: integer
+        x-customType: uint
+  view_metadata_collection:
+    description: ViewMetadataCollection configures the collection of view structure inventory (db.server.view_metadata). Off by default.
+    type: object
+    properties:
+      collection_interval:
+        description: CollectionInterval throttles how often the view inventory is refreshed.
+        type: string
+        format: duration
+      max_views:
+        description: MaxViews caps the number of views reported per database per poll. 0 means use the default.
         type: integer
         x-customType: uint
 description: Config defines configuration for a sqlserver receiver.
@@ -91,6 +115,9 @@ properties:
     $ref: query_sample
   server:
     type: string
+  table_metadata_collection:
+    description: TableMetadataCollection configures the table structure/size inventory event.
+    $ref: table_metadata_collection
   top_procedure_collection:
     $ref: top_procedure_collection
   top_query_collection:
@@ -98,6 +125,9 @@ properties:
     $ref: top_query_collection
   username:
     type: string
+  view_metadata_collection:
+    description: ViewMetadataCollection configures the view structure inventory event.
+    $ref: view_metadata_collection
 allOf:
   - $ref: go.opentelemetry.io/collector/scraper/scraperhelper.controller_config
   - $ref: ./internal/metadata.metrics_builder_config

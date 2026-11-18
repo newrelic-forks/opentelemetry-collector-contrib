@@ -228,6 +228,80 @@ func TestValidate(t *testing.T) {
 			expectedSuccess: false,
 		},
 		{
+			desc: "config with negative table metadata collection interval",
+			cfg: &Config{
+				MetricsBuilderConfig: metadata.NewDefaultMetricsBuilderConfig(),
+				ControllerConfig:     scraperhelper.NewDefaultControllerConfig(),
+				TableMetadataCollection: TableMetadataCollection{
+					CollectionInterval: -1 * time.Second,
+				},
+			},
+			expectedSuccess: false,
+		},
+		{
+			desc: "config with zero MaxTables while the event is enabled",
+			cfg: &Config{
+				MetricsBuilderConfig: metadata.NewDefaultMetricsBuilderConfig(),
+				ControllerConfig:     scraperhelper.NewDefaultControllerConfig(),
+				LogsBuilderConfig:    tableMetadataEnabledLogsConfig(),
+				TableMetadataCollection: TableMetadataCollection{
+					CollectionInterval: 600 * time.Second,
+					MaxTables:          0,
+				},
+			},
+			expectedSuccess: false,
+		},
+		{
+			desc: "valid table metadata config with the event enabled",
+			cfg: &Config{
+				MetricsBuilderConfig: metadata.NewDefaultMetricsBuilderConfig(),
+				ControllerConfig:     scraperhelper.NewDefaultControllerConfig(),
+				LogsBuilderConfig:    tableMetadataEnabledLogsConfig(),
+				TableMetadataCollection: TableMetadataCollection{
+					CollectionInterval: 600 * time.Second,
+					MaxTables:          300,
+				},
+			},
+			expectedSuccess: true,
+		},
+		{
+			desc: "config with negative view metadata collection interval",
+			cfg: &Config{
+				MetricsBuilderConfig: metadata.NewDefaultMetricsBuilderConfig(),
+				ControllerConfig:     scraperhelper.NewDefaultControllerConfig(),
+				ViewMetadataCollection: ViewMetadataCollection{
+					CollectionInterval: -1 * time.Second,
+				},
+			},
+			expectedSuccess: false,
+		},
+		{
+			desc: "config with zero MaxViews while the event is enabled",
+			cfg: &Config{
+				MetricsBuilderConfig: metadata.NewDefaultMetricsBuilderConfig(),
+				ControllerConfig:     scraperhelper.NewDefaultControllerConfig(),
+				LogsBuilderConfig:    viewMetadataEnabledLogsConfig(),
+				ViewMetadataCollection: ViewMetadataCollection{
+					CollectionInterval: 600 * time.Second,
+					MaxViews:           0,
+				},
+			},
+			expectedSuccess: false,
+		},
+		{
+			desc: "valid view metadata config with the event enabled",
+			cfg: &Config{
+				MetricsBuilderConfig: metadata.NewDefaultMetricsBuilderConfig(),
+				ControllerConfig:     scraperhelper.NewDefaultControllerConfig(),
+				LogsBuilderConfig:    viewMetadataEnabledLogsConfig(),
+				ViewMetadataCollection: ViewMetadataCollection{
+					CollectionInterval: 600 * time.Second,
+					MaxViews:           1000,
+				},
+			},
+			expectedSuccess: true,
+		},
+		{
 			desc: "config with invalid LookbackTime",
 			cfg: &Config{
 				MetricsBuilderConfig: metadata.NewDefaultMetricsBuilderConfig(),
@@ -411,5 +485,17 @@ func TestLoadConfig(t *testing.T) {
 func topProcedureEnabledLogsConfig() metadata.LogsBuilderConfig {
 	cfg := metadata.DefaultLogsBuilderConfig()
 	cfg.Events.DbServerTopProcedure.Enabled = true
+	return cfg
+}
+
+func tableMetadataEnabledLogsConfig() metadata.LogsBuilderConfig {
+	cfg := metadata.DefaultLogsBuilderConfig()
+	cfg.Events.DbServerTableMetadata.Enabled = true
+	return cfg
+}
+
+func viewMetadataEnabledLogsConfig() metadata.LogsBuilderConfig {
+	cfg := metadata.DefaultLogsBuilderConfig()
+	cfg.Events.DbServerViewMetadata.Enabled = true
 	return cfg
 }

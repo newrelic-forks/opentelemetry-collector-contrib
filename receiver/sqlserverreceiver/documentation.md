@@ -1383,6 +1383,28 @@ query sample
 | sqlserver.procedure_id | The SQL Server ID of the stored procedure, if any | Any Str | - |
 | sqlserver.procedure_name | The name of the stored procedure, if any | Any Str | - |
 
+### db.server.table_metadata
+
+Structural inventory and size of a table, including its columns, indexes, foreign keys, and partition count. Collected on its own, slower interval since structure changes rarely.
+
+#### Attributes
+
+| Name | Description | Values | Semantic Convention |
+| ---- | ----------- | ------ | ------------------- |
+| db.namespace | The database name. | Any Str | - |
+| db.system.name | The database management system (DBMS) product as identified by the client instrumentation. | Any Str | - |
+| sqlserver.object.id | The SQL Server object_id of the table or view. | Any Int | - |
+| sqlserver.object.name | The name of the database object. | Any Str | - |
+| sqlserver.schema.name | The name of the database schema. | Any Str | - |
+| sqlserver.table.columns | The columns defined on the table, each with name, data_type, max_length, precision, scale, nullable, and default. | Any Slice | - |
+| sqlserver.table.foreign_keys | The foreign keys defined on the table, each with name, referencing_column, referenced_schema, referenced_table, referenced_column, delete_action, and update_action. | Any Slice | - |
+| sqlserver.table.indexes | The indexes defined on the table, each with name, type, is_unique, is_primary_key, key_columns, and included_columns. | Any Slice | - |
+| sqlserver.table.partition_count | Number of partitions the table is divided into. 1 for a non-partitioned table. | Any Int | - |
+| sqlserver.row_count | Number of rows affected or returned by the query. | Any Int | - |
+| sqlserver.table.size.total_kb | Total size in KB allocated to the table, including indexes and unused space. | Any Double | - |
+| sqlserver.table.size.used_kb | Size in KB actually used by the table's data and indexes. | Any Double | - |
+| sqlserver.table.size.data_kb | Size in KB of the data pages allocated to the table, excluding indexes. | Any Double | - |
+
 ### db.server.top_procedure
 
 Aggregated performance metrics for the top stored procedures by elapsed time, computed as deltas over the collection interval. Correlates with db.server.top_query and db.server.query_sample via sqlserver.procedure_id.
@@ -1434,6 +1456,22 @@ top query
 | sqlserver.procedure_name | The name of the stored procedure, if any | Any Str | - |
 | sqlserver.query.last_started | Timestamp of when the SQL query last started executing (ISO 8601 format). | Any Str | - |
 | sqlserver.query.plan.creation_time | Timestamp of when the SQL query execution plan was compiled (ISO 8601 format). | Any Str | - |
+
+### db.server.view_metadata
+
+Structural inventory of a view, including its columns and SQL definition. Off by default; the monitoring user's grants are unaffected either way. Collected on its own, slower interval since structure changes rarely.
+
+#### Attributes
+
+| Name | Description | Values | Semantic Convention |
+| ---- | ----------- | ------ | ------------------- |
+| db.namespace | The database name. | Any Str | - |
+| db.system.name | The database management system (DBMS) product as identified by the client instrumentation. | Any Str | - |
+| sqlserver.object.id | The SQL Server object_id of the table or view. | Any Int | - |
+| sqlserver.object.name | The name of the database object. | Any Str | - |
+| sqlserver.schema.name | The name of the database schema. | Any Str | - |
+| sqlserver.table.columns | The columns defined on the table, each with name, data_type, max_length, precision, scale, nullable, and default. | Any Slice | - |
+| sqlserver.view.definition | The SQL source text of the view, as stored in sys.sql_modules. | Any Str | - |
 
 ## Resource Attributes
 

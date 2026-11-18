@@ -58,6 +58,30 @@ When configured to directly connect to the SQL Server instance, the user must ha
 > `sys.dm_exec_procedure_stats.total_spills` became available. On older builds the event
 > reports nothing and logs an error; the other events are unaffected.
 
+5. To collect the `db.server.table_metadata` and `db.server.view_metadata` events,
+   `CONNECT ANY DATABASE` and `VIEW ANY DEFINITION` are required (both already listed above,
+   no new grant is introduced). `VIEW ANY DEFINITION` makes `sys.tables`/`sys.views`/
+   `sys.columns`/`sys.indexes`/`sys.foreign_keys` visible across every database; `CONNECT ANY
+   DATABASE` lets the login enter each one. Table size additionally needs permission to view
+   server state (`sys.dm_db_partition_stats` is a DMV, same requirement as #2 above). No stored
+   procedure installation or admin-equivalent role is required for either event — both query
+   plain catalog views.
+
+> [!NOTE]
+> `db.server.table_metadata` requires SQL Server 2017 or later, where `STRING_AGG` became
+> available for assembling index key/included-column lists. On older builds the event reports
+> nothing and logs an error. `db.server.view_metadata` has no such dependency.
+>
+> On Azure SQL Database, server-level permissions (including `VIEW SERVER STATE`/`VIEW SERVER
+> PERFORMANCE STATE`) cannot be granted; use the database-level `VIEW DATABASE STATE`
+> permission instead for table size. `CONNECT ANY DATABASE` is not applicable there either,
+> since an Azure SQL Database connection is already scoped to a single database.
+>
+> Each column's `max_length` is reported in bytes, not characters: for `nvarchar`/`nchar`
+> columns (2 bytes per character), the reported value is double the declared length, and
+> `nvarchar(max)`/`varchar(max)` columns report `-1` as a sentinel rather than a real byte
+> count.
+
 ## Configuration
 
 > **Note:** This receiver was renamed from `sqlserver` to `sql_server` to match the snake_case naming convention.
@@ -85,6 +109,10 @@ sql_server:
       enabled: true
     db.server.query_plan:
       enabled: true
+    db.server.table_metadata:
+      enabled: true
+    db.server.view_metadata:
+      enabled: false
   top_query_collection:                        # this collection exports the most expensive queries as logs
     lookback_time: 60s                         # which time window should we look for the top queries
     max_query_sample_count: 1000               # maximum number query we store in cache for top queries.
@@ -96,6 +124,12 @@ sql_server:
     max_procedure_sample_count: 1000           # maximum number of procedures to consider as candidates in a single run.
     top_procedure_count: 250                   # The maximum number of procedures to report in a single run.
     collection_interval: 60s                   # collection interval for top procedure collection specifically
+  table_metadata_collection:                    # this collection exports table structure and size inventory as logs
+    max_tables: 300                             # maximum number of tables to report per database per poll
+    collection_interval: 600s                   # collection interval for table metadata specifically
+  view_metadata_collection:                     # this collection exports view structure inventory as logs
+    max_views: 1000                             # maximum number of views to report per database per poll
+    collection_interval: 600s                   # collection interval for view metadata specifically
 ```
 
 The following settings are optional:
@@ -124,6 +158,24 @@ The following settings are optional:
     same window (derived automatically from the time since the last successful scrape, with no
     separate setting to tune), so a procedure is only sampled if it executed recently, not merely
     because it has a large lifetime total.
+- `table_metadata_collection` (optional): Tunes the `db.server.table_metadata` event.
+  - `max_tables` (default = `300`): The maximum number of tables to report per database per
+    poll, to bound worst-case payload size on very large schemas. Tables are selected
+    deterministically (ordered by schema name, then table name), so raising or lowering this
+    value changes how many of the same, consistently-ordered tables are included rather than
+    which ones are picked at random.
+  - `collection_interval` (default = `600s`): The interval at which table metadata should be
+    emitted by this receiver, independently of the global `collection_interval`. As with
+    `top_procedure_collection.collection_interval`, a value below the global interval has no
+    effect — the scraper still runs on the global interval and skips collection until this much
+    time has passed since the last run. Table and view structure changes only on DDL, so this
+    defaults to a much longer interval than the query-performance events above.
+- `view_metadata_collection` (optional): Tunes the `db.server.view_metadata` event, which is
+  disabled by default.
+  - `max_views` (default = `1000`): The maximum number of views to report per database per
+    poll, same reasoning as `table_metadata_collection.max_tables`.
+  - `collection_interval` (default = `600s`): Same semantics as
+    `table_metadata_collection.collection_interval`.
 
 Direct connection options (optional, but all must be specified to enable):
 - `username`: The username used to connect to the SQL Server instance.

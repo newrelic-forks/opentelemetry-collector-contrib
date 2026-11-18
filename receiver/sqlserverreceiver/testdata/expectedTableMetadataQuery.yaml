@@ -1,0 +1,260 @@
+resourceLogs:
+  - resource:
+      attributes:
+        - key: sqlserver.computer.name
+          value:
+            stringValue: test-computer
+        - key: sqlserver.instance.name
+          value:
+            stringValue: test-instance
+        - key: host.name
+          value:
+            stringValue: 0.0.0.0
+        - key: service.instance.id
+          value:
+            stringValue: 0.0.0.0:1433
+        - key: service.name
+          value:
+            stringValue: unknown_service:microsoft.sql_server
+        - key: service.namespace
+          value:
+            stringValue: ""
+        - key: server.address
+          value:
+            stringValue: 0.0.0.0
+        - key: server.port
+          value:
+            intValue: "1433"
+    scopeLogs:
+      - logRecords:
+          - attributes:
+              - key: db.namespace
+                value:
+                  stringValue: AdventureWorks
+              - key: db.system.name
+                value:
+                  stringValue: microsoft.sql_server
+              - key: sqlserver.object.id
+                value:
+                  intValue: "1001"
+              - key: sqlserver.object.name
+                value:
+                  stringValue: Orders
+              - key: sqlserver.schema.name
+                value:
+                  stringValue: dbo
+              - key: sqlserver.table.columns
+                value:
+                  arrayValue:
+                    values:
+                      - kvlistValue:
+                          values:
+                            - key: nullable
+                              value:
+                                boolValue: false
+                            - key: name
+                              value:
+                                stringValue: order_id
+                            - key: data_type
+                              value:
+                                stringValue: int
+                            - key: max_length
+                              value:
+                                intValue: "4"
+                            - key: precision
+                              value:
+                                intValue: "10"
+                            - key: scale
+                              value:
+                                intValue: "0"
+                      - kvlistValue:
+                          values:
+                            - key: data_type
+                              value:
+                                stringValue: int
+                            - key: max_length
+                              value:
+                                intValue: "4"
+                            - key: precision
+                              value:
+                                intValue: "10"
+                            - key: scale
+                              value:
+                                intValue: "0"
+                            - key: nullable
+                              value:
+                                boolValue: false
+                            - key: name
+                              value:
+                                stringValue: customer_id
+                      - kvlistValue:
+                          values:
+                            - key: nullable
+                              value:
+                                boolValue: true
+                            - key: default
+                              value:
+                                stringValue: ('pending')
+                            - key: name
+                              value:
+                                stringValue: status
+                            - key: data_type
+                              value:
+                                stringValue: varchar
+                            - key: max_length
+                              value:
+                                intValue: "20"
+                            - key: precision
+                              value:
+                                intValue: "0"
+                            - key: scale
+                              value:
+                                intValue: "0"
+              - key: sqlserver.table.foreign_keys
+                value:
+                  arrayValue:
+                    values:
+                      - kvlistValue:
+                          values:
+                            - key: foreign_key_name
+                              value:
+                                stringValue: fk_order_customer
+                            - key: referencing_table
+                              value:
+                                stringValue: Orders
+                            - key: referencing_column
+                              value:
+                                stringValue: customer_id
+                            - key: referenced_schema
+                              value:
+                                stringValue: dbo
+                            - key: referenced_table
+                              value:
+                                stringValue: Customers
+                            - key: referenced_column
+                              value:
+                                stringValue: customer_id
+                            - key: delete_action
+                              value:
+                                stringValue: NO_ACTION
+                            - key: update_action
+                              value:
+                                stringValue: NO_ACTION
+              - key: sqlserver.table.indexes
+                value:
+                  arrayValue:
+                    values:
+                      - kvlistValue:
+                          values:
+                            - key: type
+                              value:
+                                intValue: "1"
+                            - key: is_unique
+                              value:
+                                boolValue: true
+                            - key: is_unique_constraint
+                              value:
+                                boolValue: false
+                            - key: is_disabled
+                              value:
+                                boolValue: false
+                            - key: is_primary_key
+                              value:
+                                boolValue: true
+                            - key: filter_definition
+                              value:
+                                stringValue: ""
+                            - key: key_columns
+                              value:
+                                stringValue: order_id
+                            - key: included_columns
+                              value:
+                                stringValue: ""
+                            - key: name
+                              value:
+                                stringValue: PK_Orders
+              - key: sqlserver.table.partition_count
+                value:
+                  intValue: "1"
+              - key: sqlserver.row_count
+                value:
+                  intValue: "417628"
+              - key: sqlserver.table.size.total_kb
+                value:
+                  doubleValue: 90208
+              - key: sqlserver.table.size.used_kb
+                value:
+                  doubleValue: 88000
+              - key: sqlserver.table.size.data_kb
+                value:
+                  doubleValue: 60000
+            body: {}
+            eventName: db.server.table_metadata
+            timeUnixNano: "1794560103300762000"
+          - attributes:
+              - key: db.namespace
+                value:
+                  stringValue: AdventureWorks
+              - key: db.system.name
+                value:
+                  stringValue: microsoft.sql_server
+              - key: sqlserver.object.id
+                value:
+                  intValue: "1002"
+              - key: sqlserver.object.name
+                value:
+                  stringValue: Customers
+              - key: sqlserver.schema.name
+                value:
+                  stringValue: dbo
+              - key: sqlserver.table.columns
+                value:
+                  arrayValue:
+                    values:
+                      - kvlistValue:
+                          values:
+                            - key: name
+                              value:
+                                stringValue: customer_id
+                            - key: data_type
+                              value:
+                                stringValue: int
+                            - key: max_length
+                              value:
+                                intValue: "4"
+                            - key: precision
+                              value:
+                                intValue: "10"
+                            - key: scale
+                              value:
+                                intValue: "0"
+                            - key: nullable
+                              value:
+                                boolValue: false
+              - key: sqlserver.table.foreign_keys
+                value:
+                  arrayValue: {}
+              - key: sqlserver.table.indexes
+                value:
+                  arrayValue: {}
+              - key: sqlserver.table.partition_count
+                value:
+                  intValue: "1"
+              - key: sqlserver.row_count
+                value:
+                  intValue: "5000"
+              - key: sqlserver.table.size.total_kb
+                value:
+                  doubleValue: 1024
+              - key: sqlserver.table.size.used_kb
+                value:
+                  doubleValue: 900
+              - key: sqlserver.table.size.data_kb
+                value:
+                  doubleValue: 700
+            body: {}
+            eventName: db.server.table_metadata
+            timeUnixNano: "1794560103300762000"
+        scope:
+          name: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/sqlserverreceiver
+          version: latest
