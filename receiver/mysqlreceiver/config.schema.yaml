@@ -15,6 +15,17 @@ $defs:
       time_limit:
         type: string
         format: duration
+  table_metadata_collection:
+    description: TableMetadataCollection configures the collection of table structure and size inventory (db.server.table_metadata). Structure changes rarely, so this runs on its own, slower interval, decoupled from the main metrics scrape interval.
+    type: object
+    properties:
+      collection_interval:
+        type: string
+        format: duration
+      max_tables:
+        description: MaxTables caps the number of tables reported per poll, to bound worst-case payload size on very large schemas. 0 means use the default.
+        type: integer
+        x-customType: uint64
   top_query_collection:
     type: object
     properties:
@@ -35,6 +46,17 @@ $defs:
       top_query_count:
         type: integer
         x-customType: uint64
+  view_metadata_collection:
+    description: ViewMetadataCollection configures the collection of view structure inventory (db.server.view_metadata). Off by default.
+    type: object
+    properties:
+      collection_interval:
+        type: string
+        format: duration
+      max_views:
+        description: MaxViews caps the number of views reported per poll. 0 means use the default.
+        type: integer
+        x-customType: uint64
 type: object
 properties:
   allow_native_passwords:
@@ -49,12 +71,18 @@ properties:
     $ref: query_sample_collection
   statement_events:
     $ref: statement_events_config
+  table_metadata_collection:
+    description: TableMetadataCollection configures the table structure/size inventory event.
+    $ref: table_metadata_collection
   tls:
     $ref: go.opentelemetry.io/collector/config/configtls.client_config
   top_query_collection:
     $ref: top_query_collection
   username:
     type: string
+  view_metadata_collection:
+    description: ViewMetadataCollection configures the view structure inventory event.
+    $ref: view_metadata_collection
 allOf:
   - $ref: go.opentelemetry.io/collector/scraper/scraperhelper.controller_config
   - $ref: go.opentelemetry.io/collector/config/confignet.addr_config

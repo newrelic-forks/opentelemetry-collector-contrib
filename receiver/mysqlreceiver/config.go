@@ -53,7 +53,11 @@ type Config struct {
 	StatementEvents       StatementEventsConfig          `mapstructure:"statement_events"`
 	TopQueryCollection    TopQueryCollection             `mapstructure:"top_query_collection"`
 	QuerySampleCollection QuerySampleCollection          `mapstructure:"query_sample_collection"`
-	DBAuth                configdbauth.ID                `mapstructure:"db_auth,omitempty"`
+	// TableMetadataCollection configures the table structure/size inventory event.
+	TableMetadataCollection TableMetadataCollection `mapstructure:"table_metadata_collection"`
+	// ViewMetadataCollection configures the view structure inventory event.
+	ViewMetadataCollection ViewMetadataCollection `mapstructure:"view_metadata_collection"`
+	DBAuth                 configdbauth.ID        `mapstructure:"db_auth,omitempty"`
 }
 
 type TopQueryCollection struct {
@@ -68,6 +72,28 @@ type TopQueryCollection struct {
 }
 type QuerySampleCollection struct {
 	MaxRowsPerQuery uint64 `mapstructure:"max_rows_per_query"`
+
+	_ struct{}
+}
+
+// TableMetadataCollection configures the collection of table structure and size
+// inventory (db.server.table_metadata). Structure changes rarely, so this runs on its
+// own, slower interval, decoupled from the main metrics scrape interval.
+type TableMetadataCollection struct {
+	CollectionInterval time.Duration `mapstructure:"collection_interval"`
+	// MaxTables caps the number of tables reported per poll, to bound worst-case
+	// payload size on very large schemas. 0 means use the default.
+	MaxTables uint64 `mapstructure:"max_tables"`
+
+	_ struct{}
+}
+
+// ViewMetadataCollection configures the collection of view structure inventory
+// (db.server.view_metadata). Off by default.
+type ViewMetadataCollection struct {
+	CollectionInterval time.Duration `mapstructure:"collection_interval"`
+	// MaxViews caps the number of views reported per poll. 0 means use the default.
+	MaxViews uint64 `mapstructure:"max_views"`
 
 	_ struct{}
 }
@@ -120,6 +146,20 @@ func (cfg *Config) Validate() error {
 	events := cfg.LogsBuilderConfig.Events
 	if events.DbServerQueryPlan.Enabled && !events.DbServerTopQuery.Enabled && !events.DbServerQuerySample.Enabled {
 		err = multierr.Append(err, errors.New(ErrQueryPlanWithoutSource))
+	}
+
+	if cfg.TableMetadataCollection.CollectionInterval < 0 {
+		err = multierr.Append(err, errors.New("`table_metadata_collection.collection_interval` must not be less than 0"))
+	}
+	if events.DbServerTableMetadata.Enabled && cfg.TableMetadataCollection.MaxTables < 1 {
+		err = multierr.Append(err, errors.New("`table_metadata_collection.max_tables` must be greater than 0"))
+	}
+
+	if cfg.ViewMetadataCollection.CollectionInterval < 0 {
+		err = multierr.Append(err, errors.New("`view_metadata_collection.collection_interval` must not be less than 0"))
+	}
+	if events.DbServerViewMetadata.Enabled && cfg.ViewMetadataCollection.MaxViews < 1 {
+		err = multierr.Append(err, errors.New("`view_metadata_collection.max_views` must be greater than 0"))
 	}
 
 	return err

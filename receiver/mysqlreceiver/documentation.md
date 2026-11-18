@@ -1005,6 +1005,28 @@ This provides real-time visibility into active queries, helping users monitor da
 | mysql.blocking.blocker.count | The number of concurrent InnoDB row-lock blockers currently holding a lock this session is waiting on. 0 indicates the session is not currently blocked, but also covers engines where blocking isn't measured (MariaDB, MySQL <8.0.11) -- an int can't carry that case separately. Check mysql.blocking.blocker.details to tell the two apart. | Any Int | - |
 | mysql.blocking.blocker.details | A JSON array of {thread_id, session_id} tuples, one per concurrent InnoDB row-lock blocker for this session. Unordered. session_id is null when that blocker could not be resolved (e.g. it disconnected between reads). "[]" when measured and not blocked, empty string when blocking isn't measurable on this engine/version (MariaDB, MySQL <8.0.11). | Any Str | - |
 
+### db.server.table_metadata
+
+Structural inventory and size of a table, including its columns, indexes, foreign keys, engine, and row count. Collected on its own, slower interval since structure changes rarely.
+
+#### Attributes
+
+| Name | Description | Values | Semantic Convention |
+| ---- | ----------- | ------ | ------------------- |
+| db.system.name | The name of the database system. | Str: ``mysql`` | - |
+| db.namespace | The name of the database the statement was executed against, or empty if not available. | Any Str | - |
+| table | Table name for event or process. | Any Str | - |
+| mysql.table.engine | The storage engine for the table (e.g. InnoDB, MyISAM). | Any Str | - |
+| mysql.table.row_format | The physical storage format of table rows (e.g. Dynamic, Compact). | Any Str | - |
+| mysql.table.create_time | ISO 8601 timestamp of when the table was created. | Any Str | - |
+| mysql.table.columns | The columns defined on the table, each with name, column_type, default, nullable, ordinal_position, key, and extra. | Any Slice | - |
+| mysql.table.indexes | The indexes defined on the table, each with name, non_unique, index_type, column_names, and cardinality. | Any Slice | - |
+| mysql.table.foreign_keys | The foreign keys defined on the table, each with name, column_names, referenced_schema, referenced_table_name, referenced_column_names, update_rule, and delete_rule. | Any Slice | - |
+| mysql.table.row_count | Row count, an estimate derived from InnoDB's internal statistics rather than a live count, except for MyISAM tables where it is exact. | Any Int | - |
+| mysql.table.size.total_bytes | Total size in bytes of the table, data plus indexes. | Any Int | - |
+| mysql.table.size.data_bytes | Size in bytes of the table's own data, excluding indexes. | Any Int | - |
+| mysql.table.size.index_bytes | Size in bytes of the table's indexes. | Any Int | - |
+
 ### db.server.top_query
 
 Top query collection enables monitoring of the queries that consumed the most CPU in the database.
@@ -1024,6 +1046,21 @@ This provides insights into query performance and resource usage, helping users 
 | mysql.events_statements_summary_by_digest.sum_timer_wait | The total time spent executing the statement, report in delta seconds. | Any Double | - |
 | mysql.events_statements_summary_by_digest.examined_rows | The number of rows examined by the statement, reported as a delta value. | Any Int | - |
 | mysql.events_statements_summary_by_digest.returned_rows | The number of rows returned by the statement, reported as a delta value. | Any Int | - |
+
+### db.server.view_metadata
+
+Structural inventory of a view, including its columns, SQL definition, and updatability. Off by default. Collected on its own, slower interval since structure changes rarely.
+
+#### Attributes
+
+| Name | Description | Values | Semantic Convention |
+| ---- | ----------- | ------ | ------------------- |
+| db.system.name | The name of the database system. | Str: ``mysql`` | - |
+| db.namespace | The name of the database the statement was executed against, or empty if not available. | Any Str | - |
+| table | Table name for event or process. | Any Str | - |
+| mysql.view.definition | The view's defining SELECT statement. | Any Str | - |
+| mysql.view.is_updatable | Whether the view supports UPDATE/DELETE/INSERT directly against it. | Any Bool | - |
+| mysql.table.columns | The columns defined on the table, each with name, column_type, default, nullable, ordinal_position, key, and extra. | Any Slice | - |
 
 ## Resource Attributes
 

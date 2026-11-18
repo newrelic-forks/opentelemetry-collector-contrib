@@ -113,6 +113,54 @@ func newEventDbServerQuerySample(cfg EventConfig) eventDbServerQuerySample {
 	return e
 }
 
+type eventDbServerTableMetadata struct {
+	data   plog.LogRecordSlice // data buffer for generated log records.
+	config EventConfig         // event config provided by user.
+}
+
+func (e *eventDbServerTableMetadata) recordEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue string, dbNamespaceAttributeValue string, tableNameAttributeValue string, mysqlTableEngineAttributeValue string, mysqlTableRowFormatAttributeValue string, mysqlTableCreateTimeAttributeValue string, mysqlTableColumnsAttributeValue []any, mysqlTableIndexesAttributeValue []any, mysqlTableForeignKeysAttributeValue []any, mysqlTableRowCountAttributeValue int64, mysqlTableSizeTotalBytesAttributeValue int64, mysqlTableSizeDataBytesAttributeValue int64, mysqlTableSizeIndexBytesAttributeValue int64) {
+	if !e.config.Enabled {
+		return
+	}
+	dp := e.data.AppendEmpty()
+	dp.SetEventName("db.server.table_metadata")
+	dp.SetTimestamp(timestamp)
+
+	if span := trace.SpanContextFromContext(ctx); span.IsValid() {
+		dp.SetTraceID(pcommon.TraceID(span.TraceID()))
+		dp.SetSpanID(pcommon.SpanID(span.SpanID()))
+	}
+	dp.Attributes().PutStr("db.system.name", dbSystemNameAttributeValue)
+	dp.Attributes().PutStr("db.namespace", dbNamespaceAttributeValue)
+	dp.Attributes().PutStr("table", tableNameAttributeValue)
+	dp.Attributes().PutStr("mysql.table.engine", mysqlTableEngineAttributeValue)
+	dp.Attributes().PutStr("mysql.table.row_format", mysqlTableRowFormatAttributeValue)
+	dp.Attributes().PutStr("mysql.table.create_time", mysqlTableCreateTimeAttributeValue)
+	dp.Attributes().PutEmptySlice("mysql.table.columns").FromRaw(mysqlTableColumnsAttributeValue)
+	dp.Attributes().PutEmptySlice("mysql.table.indexes").FromRaw(mysqlTableIndexesAttributeValue)
+	dp.Attributes().PutEmptySlice("mysql.table.foreign_keys").FromRaw(mysqlTableForeignKeysAttributeValue)
+	dp.Attributes().PutInt("mysql.table.row_count", mysqlTableRowCountAttributeValue)
+	dp.Attributes().PutInt("mysql.table.size.total_bytes", mysqlTableSizeTotalBytesAttributeValue)
+	dp.Attributes().PutInt("mysql.table.size.data_bytes", mysqlTableSizeDataBytesAttributeValue)
+	dp.Attributes().PutInt("mysql.table.size.index_bytes", mysqlTableSizeIndexBytesAttributeValue)
+
+}
+
+// emit appends recorded event data to a events slice and prepares it for recording another set of log records.
+func (e *eventDbServerTableMetadata) emit(lrs plog.LogRecordSlice) {
+	if e.config.Enabled && e.data.Len() > 0 {
+		e.data.MoveAndAppendTo(lrs)
+	}
+}
+
+func newEventDbServerTableMetadata(cfg EventConfig) eventDbServerTableMetadata {
+	e := eventDbServerTableMetadata{config: cfg}
+	if cfg.Enabled {
+		e.data = plog.NewLogRecordSlice()
+	}
+	return e
+}
+
 type eventDbServerTopQuery struct {
 	data   plog.LogRecordSlice // data buffer for generated log records.
 	config EventConfig         // event config provided by user.
@@ -158,6 +206,47 @@ func newEventDbServerTopQuery(cfg EventConfig) eventDbServerTopQuery {
 	return e
 }
 
+type eventDbServerViewMetadata struct {
+	data   plog.LogRecordSlice // data buffer for generated log records.
+	config EventConfig         // event config provided by user.
+}
+
+func (e *eventDbServerViewMetadata) recordEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue string, dbNamespaceAttributeValue string, tableNameAttributeValue string, mysqlViewDefinitionAttributeValue string, mysqlViewIsUpdatableAttributeValue bool, mysqlTableColumnsAttributeValue []any) {
+	if !e.config.Enabled {
+		return
+	}
+	dp := e.data.AppendEmpty()
+	dp.SetEventName("db.server.view_metadata")
+	dp.SetTimestamp(timestamp)
+
+	if span := trace.SpanContextFromContext(ctx); span.IsValid() {
+		dp.SetTraceID(pcommon.TraceID(span.TraceID()))
+		dp.SetSpanID(pcommon.SpanID(span.SpanID()))
+	}
+	dp.Attributes().PutStr("db.system.name", dbSystemNameAttributeValue)
+	dp.Attributes().PutStr("db.namespace", dbNamespaceAttributeValue)
+	dp.Attributes().PutStr("table", tableNameAttributeValue)
+	dp.Attributes().PutStr("mysql.view.definition", mysqlViewDefinitionAttributeValue)
+	dp.Attributes().PutBool("mysql.view.is_updatable", mysqlViewIsUpdatableAttributeValue)
+	dp.Attributes().PutEmptySlice("mysql.table.columns").FromRaw(mysqlTableColumnsAttributeValue)
+
+}
+
+// emit appends recorded event data to a events slice and prepares it for recording another set of log records.
+func (e *eventDbServerViewMetadata) emit(lrs plog.LogRecordSlice) {
+	if e.config.Enabled && e.data.Len() > 0 {
+		e.data.MoveAndAppendTo(lrs)
+	}
+}
+
+func newEventDbServerViewMetadata(cfg EventConfig) eventDbServerViewMetadata {
+	e := eventDbServerViewMetadata{config: cfg}
+	if cfg.Enabled {
+		e.data = plog.NewLogRecordSlice()
+	}
+	return e
+}
+
 // LogsBuilder provides an interface for scrapers to report logs while taking care of all the transformations
 // required to produce log representation defined in metadata and user config.
 type LogsBuilder struct {
@@ -169,7 +258,9 @@ type LogsBuilder struct {
 	resourceAttributeExcludeFilter map[string]filter.Filter
 	eventDbServerQueryPlan         eventDbServerQueryPlan
 	eventDbServerQuerySample       eventDbServerQuerySample
+	eventDbServerTableMetadata     eventDbServerTableMetadata
 	eventDbServerTopQuery          eventDbServerTopQuery
+	eventDbServerViewMetadata      eventDbServerViewMetadata
 }
 
 // LogBuilderOption applies changes to default logs builder.
@@ -185,7 +276,9 @@ func NewLogsBuilder(lbc LogsBuilderConfig, settings receiver.Settings) *LogsBuil
 		buildInfo:                      settings.BuildInfo,
 		eventDbServerQueryPlan:         newEventDbServerQueryPlan(lbc.Events.DbServerQueryPlan),
 		eventDbServerQuerySample:       newEventDbServerQuerySample(lbc.Events.DbServerQuerySample),
+		eventDbServerTableMetadata:     newEventDbServerTableMetadata(lbc.Events.DbServerTableMetadata),
 		eventDbServerTopQuery:          newEventDbServerTopQuery(lbc.Events.DbServerTopQuery),
+		eventDbServerViewMetadata:      newEventDbServerViewMetadata(lbc.Events.DbServerViewMetadata),
 		resourceAttributeIncludeFilter: make(map[string]filter.Filter),
 		resourceAttributeExcludeFilter: make(map[string]filter.Filter),
 	}
@@ -282,7 +375,9 @@ func (lb *LogsBuilder) EmitForResource(options ...ResourceLogsOption) {
 	ils.Scope().SetVersion(lb.buildInfo.Version)
 	lb.eventDbServerQueryPlan.emit(ils.LogRecords())
 	lb.eventDbServerQuerySample.emit(ils.LogRecords())
+	lb.eventDbServerTableMetadata.emit(ils.LogRecords())
 	lb.eventDbServerTopQuery.emit(ils.LogRecords())
+	lb.eventDbServerViewMetadata.emit(ils.LogRecords())
 
 	for _, op := range options {
 		op.apply(rl)
@@ -329,7 +424,17 @@ func (lb *LogsBuilder) RecordDbServerQuerySampleEvent(ctx context.Context, times
 	lb.eventDbServerQuerySample.recordEvent(ctx, timestamp, dbSystemNameAttributeValue.String(), mysqlThreadsThreadIDAttributeValue, userNameAttributeValue, dbNamespaceAttributeValue, mysqlThreadsProcesslistCommandAttributeValue, mysqlThreadsProcesslistStateAttributeValue, dbQueryTextAttributeValue, mysqlEventsStatementsCurrentDigestAttributeValue, mysqlQueryPlanAttributeValue, mysqlQueryPlanHashAttributeValue, mysqlEventIDAttributeValue, mysqlWaitEventTypeAttributeValue, mysqlWaitEventNameAttributeValue, mysqlWaitTypeAttributeValue, mysqlSessionStatusAttributeValue, mysqlSessionIDAttributeValue, mysqlEventsStatementsCurrentTimerWaitAttributeValue, mysqlEventsWaitsCurrentTimerWaitAttributeValue, clientAddressAttributeValue, clientPortAttributeValue, networkPeerAddressAttributeValue, networkPeerPortAttributeValue, mysqlClientNameAttributeValue, mysqlBlockingBlockerCountAttributeValue, mysqlBlockingBlockerDetailsAttributeValue)
 }
 
+// RecordDbServerTableMetadataEvent adds a log record of db.server.table_metadata event.
+func (lb *LogsBuilder) RecordDbServerTableMetadataEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue AttributeDbSystemName, dbNamespaceAttributeValue string, tableNameAttributeValue string, mysqlTableEngineAttributeValue string, mysqlTableRowFormatAttributeValue string, mysqlTableCreateTimeAttributeValue string, mysqlTableColumnsAttributeValue []any, mysqlTableIndexesAttributeValue []any, mysqlTableForeignKeysAttributeValue []any, mysqlTableRowCountAttributeValue int64, mysqlTableSizeTotalBytesAttributeValue int64, mysqlTableSizeDataBytesAttributeValue int64, mysqlTableSizeIndexBytesAttributeValue int64) {
+	lb.eventDbServerTableMetadata.recordEvent(ctx, timestamp, dbSystemNameAttributeValue.String(), dbNamespaceAttributeValue, tableNameAttributeValue, mysqlTableEngineAttributeValue, mysqlTableRowFormatAttributeValue, mysqlTableCreateTimeAttributeValue, mysqlTableColumnsAttributeValue, mysqlTableIndexesAttributeValue, mysqlTableForeignKeysAttributeValue, mysqlTableRowCountAttributeValue, mysqlTableSizeTotalBytesAttributeValue, mysqlTableSizeDataBytesAttributeValue, mysqlTableSizeIndexBytesAttributeValue)
+}
+
 // RecordDbServerTopQueryEvent adds a log record of db.server.top_query event.
 func (lb *LogsBuilder) RecordDbServerTopQueryEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue AttributeDbSystemName, dbNamespaceAttributeValue string, dbQueryTextAttributeValue string, mysqlQueryPlanAttributeValue string, mysqlQueryPlanHashAttributeValue string, mysqlEventsStatementsSummaryByDigestDigestAttributeValue string, mysqlEventsStatementsSummaryByDigestCountStarAttributeValue int64, mysqlEventsStatementsSummaryByDigestSumTimerWaitAttributeValue float64, mysqlEventsStatementsSummaryByDigestExaminedRowsAttributeValue int64, mysqlEventsStatementsSummaryByDigestReturnedRowsAttributeValue int64) {
 	lb.eventDbServerTopQuery.recordEvent(ctx, timestamp, dbSystemNameAttributeValue.String(), dbNamespaceAttributeValue, dbQueryTextAttributeValue, mysqlQueryPlanAttributeValue, mysqlQueryPlanHashAttributeValue, mysqlEventsStatementsSummaryByDigestDigestAttributeValue, mysqlEventsStatementsSummaryByDigestCountStarAttributeValue, mysqlEventsStatementsSummaryByDigestSumTimerWaitAttributeValue, mysqlEventsStatementsSummaryByDigestExaminedRowsAttributeValue, mysqlEventsStatementsSummaryByDigestReturnedRowsAttributeValue)
+}
+
+// RecordDbServerViewMetadataEvent adds a log record of db.server.view_metadata event.
+func (lb *LogsBuilder) RecordDbServerViewMetadataEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue AttributeDbSystemName, dbNamespaceAttributeValue string, tableNameAttributeValue string, mysqlViewDefinitionAttributeValue string, mysqlViewIsUpdatableAttributeValue bool, mysqlTableColumnsAttributeValue []any) {
+	lb.eventDbServerViewMetadata.recordEvent(ctx, timestamp, dbSystemNameAttributeValue.String(), dbNamespaceAttributeValue, tableNameAttributeValue, mysqlViewDefinitionAttributeValue, mysqlViewIsUpdatableAttributeValue, mysqlTableColumnsAttributeValue)
 }

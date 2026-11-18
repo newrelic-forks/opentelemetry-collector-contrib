@@ -57,6 +57,14 @@ func createDefaultConfig() component.Config {
 		QuerySampleCollection: QuerySampleCollection{
 			MaxRowsPerQuery: 100,
 		},
+		TableMetadataCollection: TableMetadataCollection{
+			CollectionInterval: 600 * time.Second,
+			MaxTables:          300,
+		},
+		ViewMetadataCollection: ViewMetadataCollection{
+			CollectionInterval: 600 * time.Second,
+			MaxViews:           1000,
+		},
 	}
 }
 
@@ -145,6 +153,50 @@ func createLogsReceiver(
 		}
 		s, err := scraper.NewLogs(
 			ns.scrapeQuerySampleFunc,
+			scraper.WithStart(ns.start),
+			scraper.WithShutdown(ns.shutdown),
+		)
+		if err != nil {
+			return nil, err
+		}
+		opt := scraperhelper.AddFactoryWithConfig(
+			scraper.NewFactory(metadata.Type, nil,
+				scraper.WithLogs(func(context.Context, scraper.Settings, component.Config) (scraper.Logs, error) {
+					return s, nil
+				}, component.StabilityLevelDevelopment)), nil,
+		)
+		opts = append(opts, opt)
+	}
+
+	if cfg.LogsBuilderConfig.Events.DbServerTableMetadata.Enabled {
+		ns, err := newMySQLScraper(params, cfg, clientFactory, newCache[int64](1), nil)
+		if err != nil {
+			return nil, err
+		}
+		s, err := scraper.NewLogs(
+			ns.scrapeTableMetadataFunc,
+			scraper.WithStart(ns.start),
+			scraper.WithShutdown(ns.shutdown),
+		)
+		if err != nil {
+			return nil, err
+		}
+		opt := scraperhelper.AddFactoryWithConfig(
+			scraper.NewFactory(metadata.Type, nil,
+				scraper.WithLogs(func(context.Context, scraper.Settings, component.Config) (scraper.Logs, error) {
+					return s, nil
+				}, component.StabilityLevelDevelopment)), nil,
+		)
+		opts = append(opts, opt)
+	}
+
+	if cfg.LogsBuilderConfig.Events.DbServerViewMetadata.Enabled {
+		ns, err := newMySQLScraper(params, cfg, clientFactory, newCache[int64](1), nil)
+		if err != nil {
+			return nil, err
+		}
+		s, err := scraper.NewLogs(
+			ns.scrapeViewMetadataFunc,
 			scraper.WithStart(ns.start),
 			scraper.WithShutdown(ns.shutdown),
 		)

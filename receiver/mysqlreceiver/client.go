@@ -185,6 +185,8 @@ type client interface {
 	getActiveSessionCount() (int64, error)
 	getInnodbRedoLogStatsFromLogStatus() (innodbRedoLogStats, error)
 	getTableStats() ([]tableStats, error)
+	getTableMetadata(limit uint64) ([]tableMetadataRow, error)
+	getViewMetadata(limit uint64) ([]viewMetadataRow, error)
 	getAutoIncrementStats() ([]autoIncrementStats, error)
 	getTableIoWaitsStats() ([]tableIoWaitsStats, error)
 	getIndexIoWaitsStats() ([]indexIoWaitsStats, error)
@@ -654,6 +656,146 @@ func (c *mySQLClient) getTableStats() ([]tableStats, error) {
 	}
 
 	return stats, nil
+}
+
+// systemSchemaExclusion is the WHERE clause fragment excluding MySQL's own system
+// schemas from table/view/database enumeration, matching the full exclusion list
+// (not just 'sys'/'information_schema' as in getTableStats above, which predates this).
+const systemSchemaExclusion = "NOT IN ('sys', 'mysql', 'performance_schema', 'information_schema')"
+
+type tableMetadataRow struct {
+	schemaName  string
+	tableName   string
+	engine      string
+	rowFormat   string
+	createTime  string
+	rowCount    int64
+	dataBytes   int64
+	indexBytes  int64
+	columns     string
+	indexes     string
+	foreignKeys string
+}
+
+// getTableMetadata returns a structural and size inventory of every base table, one row
+// per table: engine, row format, create time, row count, size, and nested columns,
+// indexes, and foreign keys as JSON arrays (JSON_ARRAYAGG/JSON_OBJECT, MySQL 8.0+).
+// limit caps the number of tables returned, ordered by schema then table name for
+// deterministic truncation on very large schemas.
+func (c *mySQLClient) getTableMetadata(limit uint64) ([]tableMetadataRow, error) {
+	query := `
+SELECT
+    t.TABLE_SCHEMA, t.TABLE_NAME, t.ENGINE, t.ROW_FORMAT, COALESCE(t.CREATE_TIME, ''),
+    COALESCE(t.TABLE_ROWS, 0), COALESCE(t.DATA_LENGTH, 0), COALESCE(t.INDEX_LENGTH, 0),
+    COALESCE(c.columns, '[]'), COALESCE(i.indexes, '[]'), COALESCE(fk.foreign_keys, '[]')
+FROM information_schema.TABLES t
+LEFT JOIN (
+    SELECT TABLE_SCHEMA, TABLE_NAME,
+        JSON_ARRAYAGG(JSON_OBJECT(
+            'name', COLUMN_NAME, 'column_type', COLUMN_TYPE, 'default', COLUMN_DEFAULT,
+            'nullable', IS_NULLABLE, 'ordinal_position', ORDINAL_POSITION,
+            'key', COLUMN_KEY, 'extra', EXTRA
+        )) AS columns
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA ` + systemSchemaExclusion + `
+    GROUP BY TABLE_SCHEMA, TABLE_NAME
+) c ON c.TABLE_SCHEMA = t.TABLE_SCHEMA AND c.TABLE_NAME = t.TABLE_NAME
+LEFT JOIN (
+    SELECT TABLE_SCHEMA, TABLE_NAME,
+        JSON_ARRAYAGG(JSON_OBJECT(
+            'name', INDEX_NAME, 'non_unique', NON_UNIQUE, 'index_type', INDEX_TYPE,
+            'column_name', COLUMN_NAME, 'seq_in_index', SEQ_IN_INDEX, 'cardinality', CARDINALITY
+        )) AS indexes
+    FROM information_schema.STATISTICS
+    WHERE TABLE_SCHEMA ` + systemSchemaExclusion + `
+    GROUP BY TABLE_SCHEMA, TABLE_NAME
+) i ON i.TABLE_SCHEMA = t.TABLE_SCHEMA AND i.TABLE_NAME = t.TABLE_NAME
+LEFT JOIN (
+    SELECT kcu.TABLE_SCHEMA, kcu.TABLE_NAME,
+        JSON_ARRAYAGG(JSON_OBJECT(
+            'name', kcu.CONSTRAINT_NAME, 'column_name', kcu.COLUMN_NAME,
+            'referenced_table_schema', kcu.REFERENCED_TABLE_SCHEMA,
+            'referenced_table_name', kcu.REFERENCED_TABLE_NAME,
+            'referenced_column_name', kcu.REFERENCED_COLUMN_NAME,
+            'ordinal_position', kcu.ORDINAL_POSITION,
+            'update_rule', rc.UPDATE_RULE, 'delete_rule', rc.DELETE_RULE
+        )) AS foreign_keys
+    FROM information_schema.KEY_COLUMN_USAGE kcu
+    LEFT JOIN information_schema.REFERENTIAL_CONSTRAINTS rc
+        ON kcu.CONSTRAINT_SCHEMA = rc.CONSTRAINT_SCHEMA AND kcu.CONSTRAINT_NAME = rc.CONSTRAINT_NAME
+    WHERE kcu.REFERENCED_TABLE_NAME IS NOT NULL
+      AND kcu.TABLE_SCHEMA ` + systemSchemaExclusion + `
+    GROUP BY kcu.TABLE_SCHEMA, kcu.TABLE_NAME
+) fk ON fk.TABLE_SCHEMA = t.TABLE_SCHEMA AND fk.TABLE_NAME = t.TABLE_NAME
+WHERE t.TABLE_SCHEMA ` + systemSchemaExclusion + `
+  AND t.TABLE_TYPE = 'BASE TABLE'
+ORDER BY t.TABLE_SCHEMA, t.TABLE_NAME
+LIMIT ?;`
+
+	rows, err := c.client.Query(query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []tableMetadataRow
+	for rows.Next() {
+		var r tableMetadataRow
+		if err := rows.Scan(&r.schemaName, &r.tableName, &r.engine, &r.rowFormat, &r.createTime,
+			&r.rowCount, &r.dataBytes, &r.indexBytes, &r.columns, &r.indexes, &r.foreignKeys); err != nil {
+			return nil, err
+		}
+		results = append(results, r)
+	}
+	return results, rows.Err()
+}
+
+type viewMetadataRow struct {
+	schemaName  string
+	viewName    string
+	definition  string
+	isUpdatable bool
+	columns     string
+}
+
+// getViewMetadata returns a structural inventory of every view, one row per view: its
+// columns, SQL definition, and updatability. limit caps the number of views returned,
+// ordered by schema then view name for deterministic truncation.
+func (c *mySQLClient) getViewMetadata(limit uint64) ([]viewMetadataRow, error) {
+	query := `
+SELECT
+    v.TABLE_SCHEMA, v.TABLE_NAME, v.VIEW_DEFINITION, (v.IS_UPDATABLE = 'YES'),
+    COALESCE(c.columns, '[]')
+FROM information_schema.VIEWS v
+LEFT JOIN (
+    SELECT TABLE_SCHEMA, TABLE_NAME,
+        JSON_ARRAYAGG(JSON_OBJECT(
+            'name', COLUMN_NAME, 'column_type', COLUMN_TYPE, 'nullable', IS_NULLABLE,
+            'ordinal_position', ORDINAL_POSITION
+        )) AS columns
+    FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA ` + systemSchemaExclusion + `
+    GROUP BY TABLE_SCHEMA, TABLE_NAME
+) c ON c.TABLE_SCHEMA = v.TABLE_SCHEMA AND c.TABLE_NAME = v.TABLE_NAME
+WHERE v.TABLE_SCHEMA ` + systemSchemaExclusion + `
+ORDER BY v.TABLE_SCHEMA, v.TABLE_NAME
+LIMIT ?;`
+
+	rows, err := c.client.Query(query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []viewMetadataRow
+	for rows.Next() {
+		var r viewMetadataRow
+		if err := rows.Scan(&r.schemaName, &r.viewName, &r.definition, &r.isUpdatable, &r.columns); err != nil {
+			return nil, err
+		}
+		results = append(results, r)
+	}
+	return results, rows.Err()
 }
 
 // autoIncrementColumnMaxValueCase picks the max value an auto_increment

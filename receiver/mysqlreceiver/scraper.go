@@ -140,14 +140,16 @@ func (m *mySQLScraper) start(ctx context.Context, host component.Host) error {
 // capability flags and an end-of-life warning for MySQL <8.
 func (m *mySQLScraper) logDetectedVersion(dbVer dbVersion) {
 	if dbVer.version == nil {
-		m.logger.Warn("database version could not be detected at startup; receiver will use MySQL <8/MariaDB fallback behavior for its entire lifetime",
+		m.logger.Warn(
+			"database version could not be detected at startup; receiver will use MySQL <8/MariaDB fallback behavior for its entire lifetime",
 			zap.Bool("supports_query_sample_text", false),
 			zap.Bool("supports_innodb_redo_log_stats", false),
 			zap.Bool("requires_backup_admin_for_innodb_redo_log_stats", false),
 		)
 		return
 	}
-	m.logger.Info("detected database version",
+	m.logger.Info(
+		"detected database version",
 		zap.String("product", dbVer.productString()),
 		zap.String("version", dbVer.version.String()),
 		zap.Bool("supports_query_sample_text", dbVer.supportsQuerySampleText()),
@@ -155,7 +157,8 @@ func (m *mySQLScraper) logDetectedVersion(dbVer dbVersion) {
 		zap.Bool("requires_backup_admin_for_innodb_redo_log_stats", dbVer.requiresBackupAdminForInnodbRedoLogStats()),
 	)
 	if dbVer.product == dbProductMySQL && dbVer.version.Segments()[0] < 8 {
-		m.logger.Warn("detected MySQL version is past end-of-life and may not be supported by this receiver in a future release",
+		m.logger.Warn(
+			"detected MySQL version is past end-of-life and may not be supported by this receiver in a future release",
 			zap.String("version", dbVer.version.String()),
 		)
 	}
@@ -299,6 +302,317 @@ func (m *mySQLScraper) scrapeQuerySampleFunc(ctx context.Context) (plog.Logs, er
 		removeInlineQueryPlan(logs, "db.server.query_sample")
 	}
 	return logs, err
+}
+
+// mysqlMetadataColumn mirrors one element of the JSON_ARRAYAGG columns array produced by
+// getTableMetadata/getViewMetadata.
+type mysqlMetadataColumn struct {
+	Name            string `json:"name"`
+	ColumnType      string `json:"column_type"`
+	Default         string `json:"default"`
+	Nullable        string `json:"nullable"`
+	OrdinalPosition int64  `json:"ordinal_position"`
+	Key             string `json:"key"`
+	Extra           string `json:"extra"`
+}
+
+// parseMySQLMetadataColumns decodes a JSON_ARRAYAGG columns value. A table whose
+// JOIN produced no aggregated row (never expected for a real table, which always has
+// at least one column) is defended against via the query's own COALESCE(..., '[]').
+func parseMySQLMetadataColumns(raw string) ([]any, error) {
+	if raw == "" || raw == "[]" {
+		return []any{}, nil
+	}
+	var columns []mysqlMetadataColumn
+	if err := json.Unmarshal([]byte(raw), &columns); err != nil {
+		return nil, err
+	}
+	result := make([]any, 0, len(columns))
+	for i := range columns {
+		col := &columns[i]
+		entry := map[string]any{
+			"name":             col.Name,
+			"column_type":      col.ColumnType,
+			"nullable":         col.Nullable == "YES",
+			"ordinal_position": col.OrdinalPosition,
+		}
+		if col.Default != "" {
+			entry["default"] = col.Default
+		}
+		if col.Key != "" {
+			entry["key"] = col.Key
+		}
+		if col.Extra != "" {
+			entry["extra"] = col.Extra
+		}
+		result = append(result, entry)
+	}
+	return result, nil
+}
+
+// mysqlMetadataIndexKeyPart mirrors one row of information_schema.STATISTICS — one row
+// per column within an index, grouped client-side by index name below, since MySQL has
+// no single-row-per-index representation to aggregate server-side the way columns/FKs do.
+type mysqlMetadataIndexKeyPart struct {
+	Name        string `json:"name"`
+	NonUnique   int64  `json:"non_unique"`
+	IndexType   string `json:"index_type"`
+	ColumnName  string `json:"column_name"`
+	SeqInIndex  int64  `json:"seq_in_index"`
+	Cardinality *int64 `json:"cardinality"`
+}
+
+// parseMySQLMetadataIndexes decodes a JSON_ARRAYAGG indexes value (one entry per
+// key part) and groups it client-side into one entry per index, columns ordered by
+// seq_in_index — mirroring group_indexes() in Datadog-style MySQL collectors, since
+// information_schema.STATISTICS has no per-index row to aggregate against directly.
+func parseMySQLMetadataIndexes(raw string) ([]any, error) {
+	if raw == "" || raw == "[]" {
+		return []any{}, nil
+	}
+	var keyParts []mysqlMetadataIndexKeyPart
+	if err := json.Unmarshal([]byte(raw), &keyParts); err != nil {
+		return nil, err
+	}
+
+	sort.SliceStable(keyParts, func(i, j int) bool {
+		if keyParts[i].Name != keyParts[j].Name {
+			return keyParts[i].Name < keyParts[j].Name
+		}
+		return keyParts[i].SeqInIndex < keyParts[j].SeqInIndex
+	})
+
+	type indexAccum struct {
+		nonUnique   bool
+		indexType   string
+		columnNames []string
+		cardinality int64
+	}
+	order := make([]string, 0)
+	byName := make(map[string]*indexAccum)
+	for i := range keyParts {
+		kp := &keyParts[i]
+		acc, ok := byName[kp.Name]
+		if !ok {
+			acc = &indexAccum{nonUnique: kp.NonUnique != 0, indexType: kp.IndexType}
+			byName[kp.Name] = acc
+			order = append(order, kp.Name)
+		}
+		acc.columnNames = append(acc.columnNames, kp.ColumnName)
+		if kp.Cardinality != nil {
+			acc.cardinality = *kp.Cardinality
+		}
+	}
+
+	result := make([]any, 0, len(order))
+	for _, name := range order {
+		acc := byName[name]
+		result = append(result, map[string]any{
+			"name":         name,
+			"non_unique":   acc.nonUnique,
+			"index_type":   acc.indexType,
+			"column_names": strings.Join(acc.columnNames, ","),
+			"cardinality":  acc.cardinality,
+		})
+	}
+	return result, nil
+}
+
+// mysqlMetadataForeignKey mirrors one element of the JSON_ARRAYAGG foreign_keys array
+// produced by getTableMetadata.
+type mysqlMetadataForeignKey struct {
+	Name                  string `json:"name"`
+	ColumnName            string `json:"column_name"`
+	ReferencedTableSchema string `json:"referenced_table_schema"`
+	ReferencedTableName   string `json:"referenced_table_name"`
+	ReferencedColumnName  string `json:"referenced_column_name"`
+	OrdinalPosition       int64  `json:"ordinal_position"`
+	UpdateRule            string `json:"update_rule"`
+	DeleteRule            string `json:"delete_rule"`
+}
+
+// parseMySQLMetadataForeignKeys decodes a JSON_ARRAYAGG foreign_keys value (one entry
+// per column, for composite foreign keys) and groups it client-side into one entry per
+// constraint, columns ordered by ordinal_position so a composite key's referencing and
+// referenced columns stay correctly paired.
+func parseMySQLMetadataForeignKeys(raw string) ([]any, error) {
+	if raw == "" || raw == "[]" {
+		return []any{}, nil
+	}
+	var rows []mysqlMetadataForeignKey
+	if err := json.Unmarshal([]byte(raw), &rows); err != nil {
+		return nil, err
+	}
+
+	sort.SliceStable(rows, func(i, j int) bool {
+		if rows[i].Name != rows[j].Name {
+			return rows[i].Name < rows[j].Name
+		}
+		return rows[i].OrdinalPosition < rows[j].OrdinalPosition
+	})
+
+	type fkAccum struct {
+		columnNames           []string
+		referencedTableSchema string
+		referencedTableName   string
+		referencedColumnNames []string
+		updateRule            string
+		deleteRule            string
+	}
+	order := make([]string, 0)
+	byName := make(map[string]*fkAccum)
+	for i := range rows {
+		r := &rows[i]
+		acc, ok := byName[r.Name]
+		if !ok {
+			acc = &fkAccum{
+				referencedTableSchema: r.ReferencedTableSchema,
+				referencedTableName:   r.ReferencedTableName,
+				updateRule:            r.UpdateRule,
+				deleteRule:            r.DeleteRule,
+			}
+			byName[r.Name] = acc
+			order = append(order, r.Name)
+		}
+		acc.columnNames = append(acc.columnNames, r.ColumnName)
+		acc.referencedColumnNames = append(acc.referencedColumnNames, r.ReferencedColumnName)
+	}
+
+	result := make([]any, 0, len(order))
+	for _, name := range order {
+		acc := byName[name]
+		result = append(result, map[string]any{
+			"name":                    name,
+			"column_names":            strings.Join(acc.columnNames, ","),
+			"referenced_table_schema": acc.referencedTableSchema,
+			"referenced_table_name":   acc.referencedTableName,
+			"referenced_column_names": strings.Join(acc.referencedColumnNames, ","),
+			"update_rule":             acc.updateRule,
+			"delete_rule":             acc.deleteRule,
+		})
+	}
+	return result, nil
+}
+
+// scrapeTableMetadataFunc collects db.server.table_metadata: a full structural and
+// size inventory of every base table, refreshed on its own slower interval since
+// structure changes rarely.
+func (m *mySQLScraper) scrapeTableMetadataFunc(context.Context) (plog.Logs, error) {
+	if m.sqlclient == nil {
+		return plog.NewLogs(), errors.New("failed to connect to MySQL client")
+	}
+
+	errs := &scrapererror.ScrapeErrors{}
+	now := pcommon.NewTimestampFromTime(time.Now())
+
+	if int(math.Ceil(time.Since(m.lastExecutionTimestamp).Seconds())) < int(m.config.TableMetadataCollection.CollectionInterval.Seconds()) {
+		m.logger.Debug("Skipping table metadata scrape, not enough time has passed since last execution")
+	} else {
+		m.scrapeTableMetadata(now, errs)
+		m.lastExecutionTimestamp = now.AsTime()
+	}
+
+	return m.emitLogs(errs)
+}
+
+func (m *mySQLScraper) scrapeTableMetadata(now pcommon.Timestamp, errs *scrapererror.ScrapeErrors) {
+	rows, err := m.sqlclient.getTableMetadata(m.config.TableMetadataCollection.MaxTables)
+	if err != nil {
+		m.logger.Error("Failed to fetch table metadata", zap.Error(err))
+		errs.AddPartial(1, err)
+		return
+	}
+
+	for i := range rows {
+		r := &rows[i]
+		columns, err := parseMySQLMetadataColumns(r.columns)
+		if err != nil {
+			m.logger.Error("Failed to parse columns for table", zap.String("schema", r.schemaName), zap.String("table", r.tableName), zap.Error(err))
+			errs.AddPartial(1, err)
+			continue
+		}
+		indexes, err := parseMySQLMetadataIndexes(r.indexes)
+		if err != nil {
+			m.logger.Error("Failed to parse indexes for table", zap.String("schema", r.schemaName), zap.String("table", r.tableName), zap.Error(err))
+			errs.AddPartial(1, err)
+			continue
+		}
+		foreignKeys, err := parseMySQLMetadataForeignKeys(r.foreignKeys)
+		if err != nil {
+			m.logger.Error("Failed to parse foreign keys for table", zap.String("schema", r.schemaName), zap.String("table", r.tableName), zap.Error(err))
+			errs.AddPartial(1, err)
+			continue
+		}
+
+		m.lb.RecordDbServerTableMetadataEvent(
+			context.Background(),
+			now,
+			metadata.AttributeDbSystemNameMysql,
+			r.schemaName,
+			r.tableName,
+			r.engine,
+			r.rowFormat,
+			r.createTime,
+			columns,
+			indexes,
+			foreignKeys,
+			r.rowCount,
+			r.dataBytes+r.indexBytes,
+			r.dataBytes,
+			r.indexBytes,
+		)
+	}
+}
+
+// scrapeViewMetadataFunc collects db.server.view_metadata: a structural inventory of
+// every view, off by default. Refreshed on its own slower interval since structure
+// changes rarely.
+func (m *mySQLScraper) scrapeViewMetadataFunc(context.Context) (plog.Logs, error) {
+	if m.sqlclient == nil {
+		return plog.NewLogs(), errors.New("failed to connect to MySQL client")
+	}
+
+	errs := &scrapererror.ScrapeErrors{}
+	now := pcommon.NewTimestampFromTime(time.Now())
+
+	if int(math.Ceil(time.Since(m.lastExecutionTimestamp).Seconds())) < int(m.config.ViewMetadataCollection.CollectionInterval.Seconds()) {
+		m.logger.Debug("Skipping view metadata scrape, not enough time has passed since last execution")
+	} else {
+		m.scrapeViewMetadata(now, errs)
+		m.lastExecutionTimestamp = now.AsTime()
+	}
+
+	return m.emitLogs(errs)
+}
+
+func (m *mySQLScraper) scrapeViewMetadata(now pcommon.Timestamp, errs *scrapererror.ScrapeErrors) {
+	rows, err := m.sqlclient.getViewMetadata(m.config.ViewMetadataCollection.MaxViews)
+	if err != nil {
+		m.logger.Error("Failed to fetch view metadata", zap.Error(err))
+		errs.AddPartial(1, err)
+		return
+	}
+
+	for i := range rows {
+		r := &rows[i]
+		columns, err := parseMySQLMetadataColumns(r.columns)
+		if err != nil {
+			m.logger.Error("Failed to parse columns for view", zap.String("schema", r.schemaName), zap.String("view", r.viewName), zap.Error(err))
+			errs.AddPartial(1, err)
+			continue
+		}
+
+		m.lb.RecordDbServerViewMetadataEvent(
+			context.Background(),
+			now,
+			metadata.AttributeDbSystemNameMysql,
+			r.schemaName,
+			r.viewName,
+			r.definition,
+			r.isUpdatable,
+			columns,
+		)
+	}
 }
 
 func (m *mySQLScraper) scrapeHealth(now pcommon.Timestamp) {

@@ -244,6 +244,37 @@ attributes:
   mysql.session.status:
     description: Simplified session status, either 'waiting', 'running' or 'other'.
     type: string
+  # Table and view metadata
+  mysql.table.columns:
+    description: The columns defined on the table, each with name, column_type, default, nullable, ordinal_position, key, and extra.
+    type: slice
+  mysql.table.create_time:
+    description: ISO 8601 timestamp of when the table was created.
+    type: string
+  mysql.table.engine:
+    description: The storage engine for the table (e.g. InnoDB, MyISAM).
+    type: string
+  mysql.table.foreign_keys:
+    description: The foreign keys defined on the table, each with name, column_names, referenced_schema, referenced_table_name, referenced_column_names, update_rule, and delete_rule.
+    type: slice
+  mysql.table.indexes:
+    description: The indexes defined on the table, each with name, non_unique, index_type, column_names, and cardinality.
+    type: slice
+  mysql.table.row_count:
+    description: Row count, an estimate derived from InnoDB's internal statistics rather than a live count, except for MyISAM tables where it is exact.
+    type: int
+  mysql.table.row_format:
+    description: The physical storage format of table rows (e.g. Dynamic, Compact).
+    type: string
+  mysql.table.size.data_bytes:
+    description: Size in bytes of the table's own data, excluding indexes.
+    type: int
+  mysql.table.size.index_bytes:
+    description: Size in bytes of the table's indexes.
+    type: int
+  mysql.table.size.total_bytes:
+    description: Total size in bytes of the table, data plus indexes.
+    type: int
   mysql.threads.processlist_command:
     description: The type of command the thread is executing on behalf of the client for foreground threads, or `Sleep` if the session is idle.
     type: string
@@ -253,6 +284,12 @@ attributes:
   mysql.threads.thread_id:
     description: The unique identifier for the thread executing the statement.
     type: int
+  mysql.view.definition:
+    description: The view's defining SELECT statement.
+    type: string
+  mysql.view.is_updatable:
+    description: Whether the view supports UPDATE/DELETE/INSERT directly against it.
+    type: bool
   mysql.wait_event.name:
     description: Detailed wait breakdown -- the wait event name with its category segment stripped (e.g. 'table/sql/handler', 'mutex/innodb/checkpoint_state'), or 'CPU'/'User sleep'/'other' when not actually waiting. Paired with mysql.wait_event.type. Distinct from mysql.wait_type, which reports the raw, unprocessed event name and is unchanged.
     type: string
@@ -401,6 +438,24 @@ events:
       - mysql.blocking.blocker.count
       - mysql.blocking.blocker.details
 
+  db.server.table_metadata:
+    enabled: false
+    description: Structural inventory and size of a table, including its columns, indexes, foreign keys, engine, and row count. Collected on its own, slower interval since structure changes rarely.
+    attributes:
+      - db.system.name
+      - db.namespace
+      - table_name
+      - mysql.table.engine
+      - mysql.table.row_format
+      - mysql.table.create_time
+      - mysql.table.columns
+      - mysql.table.indexes
+      - mysql.table.foreign_keys
+      - mysql.table.row_count
+      - mysql.table.size.total_bytes
+      - mysql.table.size.data_bytes
+      - mysql.table.size.index_bytes
+
   db.server.top_query:
     enabled: false
     description: |
@@ -417,6 +472,17 @@ events:
       - mysql.events_statements_summary_by_digest.sum_timer_wait
       - mysql.events_statements_summary_by_digest.examined_rows
       - mysql.events_statements_summary_by_digest.returned_rows
+
+  db.server.view_metadata:
+    enabled: false
+    description: Structural inventory of a view, including its columns, SQL definition, and updatability. Off by default. Collected on its own, slower interval since structure changes rarely.
+    attributes:
+      - db.system.name
+      - db.namespace
+      - table_name
+      - mysql.view.definition
+      - mysql.view.is_updatable
+      - mysql.table.columns
 
 metrics:
   mysql.buffer_pool.data_pages:

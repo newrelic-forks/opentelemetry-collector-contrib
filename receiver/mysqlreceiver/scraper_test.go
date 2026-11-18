@@ -1459,6 +1459,32 @@ type mockClient struct {
 	innodbStatsCallCount        int
 	tableIoWaitsCallCount       int
 	indexIoWaitsCallCount       int
+
+	// tableMetadataRows/viewMetadataRows/tableMetadataErr/viewMetadataErr let tests
+	// supply canned rows directly, rather than through a fixture file, since the
+	// returned rows carry pre-serialized JSON sub-arrays rather than flat columns.
+	tableMetadataRows      []tableMetadataRow
+	viewMetadataRows       []viewMetadataRow
+	tableMetadataErr       error
+	viewMetadataErr        error
+	tableMetadataCallCount int
+	viewMetadataCallCount  int
+}
+
+func (c *mockClient) getTableMetadata(uint64) ([]tableMetadataRow, error) {
+	c.tableMetadataCallCount++
+	if c.tableMetadataErr != nil {
+		return nil, c.tableMetadataErr
+	}
+	return c.tableMetadataRows, nil
+}
+
+func (c *mockClient) getViewMetadata(uint64) ([]viewMetadataRow, error) {
+	c.viewMetadataCallCount++
+	if c.viewMetadataErr != nil {
+		return nil, c.viewMetadataErr
+	}
+	return c.viewMetadataRows, nil
 }
 
 type queryPlanSpyClient struct {
@@ -2436,6 +2462,164 @@ func newTopQueryScraper(t *testing.T, mc *mockClient) *mySQLScraper {
 	s.sqlclient = mc
 	s.detectedVersion = mc.getDBVersion()
 	return s
+}
+
+// newTableMetadataScraper creates a mySQLScraper configured for table/view metadata
+// tests, with both events enabled.
+func newTableMetadataScraper(t *testing.T, mc *mockClient) *mySQLScraper {
+	t.Helper()
+	cfg := createDefaultConfig().(*Config)
+	cfg.Username = "otel"
+	cfg.Password = "otel"
+	cfg.AddrConfig = confignet.AddrConfig{Endpoint: "localhost:3306"}
+	cfg.LogsBuilderConfig.Events.DbServerTableMetadata.Enabled = true
+	cfg.LogsBuilderConfig.Events.DbServerViewMetadata.Enabled = true
+	cfg.LogsBuilderConfig.ResourceAttributes.DbSystemName.Enabled = true
+	s, err := newMySQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, nil, newCache[int64](1), nil)
+	require.NoError(t, err)
+	s.sqlclient = mc
+	return s
+}
+
+func TestScrapeTableMetadata(t *testing.T) {
+	mc := &mockClient{
+		tableMetadataRows: []tableMetadataRow{
+			{
+				schemaName: "testdb", tableName: "orders", engine: "InnoDB", rowFormat: "Dynamic",
+				createTime: "2026-01-01T00:00:00Z", rowCount: 58309, dataBytes: 6000000, indexBytes: 864896,
+				columns: `[{"name":"id","column_type":"int","nullable":"NO","ordinal_position":1,"key":"PRI","extra":"auto_increment"}]`,
+				indexes: `[{"name":"PRIMARY","non_unique":0,"index_type":"BTREE","column_name":"id","seq_in_index":1,"cardinality":58309}]`,
+				foreignKeys: `[{"name":"fk_orders_user_id","column_name":"user_id","referenced_table_schema":"testdb",` +
+					`"referenced_table_name":"users","referenced_column_name":"id","ordinal_position":1,"update_rule":"RESTRICT","delete_rule":"CASCADE"}]`,
+			},
+		},
+	}
+	s := newTableMetadataScraper(t, mc)
+
+	logs, err := s.scrapeTableMetadataFunc(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 1, mc.tableMetadataCallCount)
+
+	records := logs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords()
+	require.Equal(t, 1, records.Len())
+	record := records.At(0)
+	assert.Equal(t, "db.server.table_metadata", record.EventName())
+	assertStrAttr(t, record, "table", "orders")
+	assertStrAttr(t, record, "mysql.table.engine", "InnoDB")
+
+	columns, ok := record.Attributes().Get("mysql.table.columns")
+	require.True(t, ok)
+	assert.Equal(t, 1, columns.Slice().Len())
+
+	indexes, ok := record.Attributes().Get("mysql.table.indexes")
+	require.True(t, ok)
+	require.Equal(t, 1, indexes.Slice().Len())
+	indexMap := indexes.Slice().At(0).Map()
+	nameVal, ok := indexMap.Get("name")
+	require.True(t, ok)
+	assert.Equal(t, "PRIMARY", nameVal.Str())
+
+	foreignKeys, ok := record.Attributes().Get("mysql.table.foreign_keys")
+	require.True(t, ok)
+	require.Equal(t, 1, foreignKeys.Slice().Len())
+	fkMap := foreignKeys.Slice().At(0).Map()
+	fkColumns, ok := fkMap.Get("column_names")
+	require.True(t, ok)
+	assert.Equal(t, "user_id", fkColumns.Str())
+}
+
+// A composite index (multiple key parts, same index name) must be grouped into one
+// entry with its columns ordered by seq_in_index, not reported as separate entries.
+func TestScrapeTableMetadataGroupsCompositeIndex(t *testing.T) {
+	mc := &mockClient{
+		tableMetadataRows: []tableMetadataRow{
+			{
+				schemaName: "testdb", tableName: "orders", engine: "InnoDB",
+				columns: `[{"name":"id","column_type":"int","nullable":"NO","ordinal_position":1}]`,
+				indexes: `[{"name":"idx_status_created","non_unique":1,"index_type":"BTREE","column_name":"created_at","seq_in_index":2},` +
+					`{"name":"idx_status_created","non_unique":1,"index_type":"BTREE","column_name":"status","seq_in_index":1}]`,
+				foreignKeys: "[]",
+			},
+		},
+	}
+	s := newTableMetadataScraper(t, mc)
+
+	logs, err := s.scrapeTableMetadataFunc(t.Context())
+	require.NoError(t, err)
+
+	record := logs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0)
+	indexes, ok := record.Attributes().Get("mysql.table.indexes")
+	require.True(t, ok)
+	require.Equal(t, 1, indexes.Slice().Len(), "both key parts must group into a single index entry")
+
+	columnNames, ok := indexes.Slice().At(0).Map().Get("column_names")
+	require.True(t, ok)
+	assert.Equal(t, "status,created_at", columnNames.Str(), "columns must be ordered by seq_in_index, not JSON array order")
+}
+
+// A table with no foreign keys/indexes gets COALESCE'd to the literal text "[]" by the
+// query, which must be reported as an empty list, not a parse error.
+func TestScrapeTableMetadataHandlesEmptyNestedData(t *testing.T) {
+	mc := &mockClient{
+		tableMetadataRows: []tableMetadataRow{
+			{schemaName: "testdb", tableName: "lookup", columns: "[]", indexes: "[]", foreignKeys: "[]"},
+		},
+	}
+	s := newTableMetadataScraper(t, mc)
+
+	logs, err := s.scrapeTableMetadataFunc(t.Context())
+	require.NoError(t, err)
+
+	record := logs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0)
+	for _, key := range []string{"mysql.table.columns", "mysql.table.indexes", "mysql.table.foreign_keys"} {
+		val, ok := record.Attributes().Get(key)
+		require.True(t, ok)
+		assert.Equal(t, 0, val.Slice().Len(), key)
+	}
+}
+
+func TestScrapeTableMetadataRespectsCollectionInterval(t *testing.T) {
+	mc := &mockClient{tableMetadataRows: []tableMetadataRow{{schemaName: "testdb", tableName: "orders"}}}
+	s := newTableMetadataScraper(t, mc)
+	s.config.TableMetadataCollection.CollectionInterval = time.Minute
+	s.lastExecutionTimestamp = time.Now()
+
+	logs, err := s.scrapeTableMetadataFunc(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, 0, logs.ResourceLogs().Len(), "scrape within the collection interval should be skipped")
+	assert.Equal(t, 0, mc.tableMetadataCallCount, "no query should run when the collection is skipped")
+}
+
+func TestScrapeViewMetadata(t *testing.T) {
+	mc := &mockClient{
+		viewMetadataRows: []viewMetadataRow{
+			{
+				schemaName: "testdb", viewName: "customer_order_summary",
+				definition:  "select `customer_id`,count(`order_id`) AS `order_count` from `orders` group by `customer_id`",
+				isUpdatable: false,
+				columns:     `[{"name":"customer_id","column_type":"int","nullable":"NO","ordinal_position":1}]`,
+			},
+		},
+	}
+	s := newTableMetadataScraper(t, mc)
+
+	logs, err := s.scrapeViewMetadataFunc(t.Context())
+	require.NoError(t, err)
+	require.Equal(t, 1, mc.viewMetadataCallCount)
+
+	records := logs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords()
+	require.Equal(t, 1, records.Len())
+	record := records.At(0)
+	assert.Equal(t, "db.server.view_metadata", record.EventName())
+	assertStrAttr(t, record, "table", "customer_order_summary")
+
+	updatable, ok := record.Attributes().Get("mysql.view.is_updatable")
+	require.True(t, ok)
+	assert.False(t, updatable.Bool())
+
+	columns, ok := record.Attributes().Get("mysql.table.columns")
+	require.True(t, ok)
+	assert.Equal(t, 1, columns.Slice().Len())
 }
 
 // TestScrapeTopQueriesNoSampleText verifies that when the mock reports MySQL 5.7

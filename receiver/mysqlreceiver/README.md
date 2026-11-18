@@ -57,6 +57,33 @@ GRANT BACKUP_ADMIN ON *.* TO '<your-user>'@'%';
 
 MySQL 8.0.30 and later versions do not require `BACKUP_ADMIN` for these metrics.
 
+### Table and view metadata events
+
+`db.server.table_metadata` and `db.server.view_metadata` give a structural and size
+inventory of tables and views — columns, indexes, foreign keys, engine, and size for
+tables; columns, SQL definition, and updatability for views. Both run on their own,
+slower collection interval (default 600s) since structure changes only on DDL,
+decoupled from the main metrics `collection_interval`. `db.server.view_metadata` is off
+by default.
+
+MySQL hides a table from `information_schema` entirely — not partially, just absent —
+unless the connecting user holds some privilege on it. `GRANT REFERENCES` is the
+narrowest privilege that satisfies this, confirmed to deny `SELECT * FROM <table>`
+while fully exposing its structure:
+
+```sql
+GRANT REFERENCES ON *.* TO '<your-user>'@'%';
+```
+
+View collection (`db.server.view_metadata`) needs a stronger grant: MySQL requires
+both `SHOW VIEW` and `SELECT` on a view to populate its definition — `SHOW VIEW` alone
+leaves it empty. This means view collection cannot be offered under the same
+metadata-only, zero-data-access promise `REFERENCES` gives for tables:
+
+```sql
+GRANT SHOW VIEW, SELECT ON *.* TO '<your-user>'@'%';
+```
+
 ## Configuration
 
 
@@ -115,6 +142,12 @@ service:
   - `query_plan_cache_size`: (optional, default = `1000`). The query plan cache size. Once we got query plan results from explain queries, we will store them in the cache.
     This defines the cache's size for query plan.
   - `query_plan_cache_ttl`: (optional, example = `1m`, default = `1h`). How long until a query plan expires in the cache. The receiver will run an explain query to MySQL to get the query plan after it expires.
+- `table_metadata_collection`: Additional configuration for table metadata collection (`db.server.table_metadata` event):
+  - `max_tables`: (optional, default = `300`): The maximum number of tables to report per poll, to bound worst-case payload size on very large schemas.
+  - `collection_interval`: (optional, default = `600s`): The interval at which table metadata should be emitted by this receiver, independently of the global `collection_interval`. Same semantics as `top_query_collection.collection_interval`: a value below the global interval has no effect.
+- `view_metadata_collection`: Additional configuration for view metadata collection (`db.server.view_metadata` event, disabled by default):
+  - `max_views`: (optional, default = `1000`): The maximum number of views to report per poll.
+  - `collection_interval`: (optional, default = `600s`): Same semantics as `table_metadata_collection.collection_interval`.
 
 ### Example Configuration
 
