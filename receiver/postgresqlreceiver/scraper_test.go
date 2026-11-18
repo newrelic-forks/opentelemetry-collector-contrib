@@ -1391,10 +1391,11 @@ func TestScrapeTableMetadata(t *testing.T) {
 		AddRow(int64(1001), "public", "orders",
 			`[{"name":"id","data_type":"integer","nullable":false,"default":""}]`,
 			`[{"definition":"CREATE UNIQUE INDEX orders_pkey ON public.orders USING btree (id)","is_unique":true,"is_exclusion":false,"is_immediate":true,"is_clustered":false,"is_valid":true,"is_checkxmin":false,"is_ready":true,"is_live":true,"is_replident":false,"is_partial":false},`+
-				`{"definition":"CREATE INDEX idx_orders_pending ON public.orders USING btree (status) WHERE status = 'pending'","is_unique":false,"is_exclusion":false,"is_immediate":true,"is_clustered":false,"is_valid":true,"is_checkxmin":false,"is_ready":true,"is_live":true,"is_replident":false,"is_partial":true}]`,
+				`{"definition":"CREATE INDEX idx_orders_pending ON public.orders USING btree (status) WHERE status = 'pending'","is_unique":false,"is_exclusion":false,"is_immediate":true,"is_clustered":false,"is_valid":true,"is_checkxmin":false,"is_ready":true,"is_live":true,"is_replident":false,"is_partial":true},`+
+				`{"definition":"CREATE INDEX idx_orders_user_id ON public.orders USING btree (user_id)","is_unique":false,"is_exclusion":false,"is_immediate":true,"is_clustered":false,"is_valid":true,"is_checkxmin":false,"is_ready":true,"is_live":true,"is_replident":false,"is_partial":false}]`,
 			`["FOREIGN KEY (user_id) REFERENCES users(id)"]`,
 			int64(600000), int64(90208000), int64(60000000), int64(30000000), int64(208000),
-			"app_user", "app_user", "pg_toast.pg_toast_16563"))
+			"app_user", "app_user", "pg_toast_16563"))
 
 	logs, err := scraper.scrapeTableMetadata(t.Context(), 300, time.Minute)
 	require.NoError(t, err)
@@ -1423,11 +1424,11 @@ func TestScrapeTableMetadata(t *testing.T) {
 
 	toastTable, ok := record.Attributes().Get("postgresql.table.toast_table")
 	require.True(t, ok)
-	assert.Equal(t, "pg_toast.pg_toast_16563", toastTable.Str())
+	assert.Equal(t, "pg_toast_16563", toastTable.Str())
 
 	indexes, ok := record.Attributes().Get("postgresql.table.indexes")
 	require.True(t, ok)
-	require.Equal(t, 2, indexes.Slice().Len())
+	require.Equal(t, 3, indexes.Slice().Len())
 
 	uniqueIndex := indexes.Slice().At(0).Map()
 	definition, ok := uniqueIndex.Get("definition")
@@ -1447,6 +1448,29 @@ func TestScrapeTableMetadata(t *testing.T) {
 	partialIsUnique, ok := partialIndex.Get("is_unique")
 	require.True(t, ok)
 	assert.False(t, partialIsUnique.Bool())
+
+	// A plain, non-unique, non-partial btree index: every boolean must round-trip
+	// correctly, not just the two (is_unique/is_partial) the other fixtures exercise.
+	plainIndex := indexes.Slice().At(2).Map()
+	plainDefinition, ok := plainIndex.Get("definition")
+	require.True(t, ok)
+	assert.Equal(t, "CREATE INDEX idx_orders_user_id ON public.orders USING btree (user_id)", plainDefinition.Str())
+	for key, want := range map[string]bool{
+		"is_unique":    false,
+		"is_exclusion": false,
+		"is_immediate": true,
+		"is_clustered": false,
+		"is_valid":     true,
+		"is_checkxmin": false,
+		"is_ready":     true,
+		"is_live":      true,
+		"is_replident": false,
+		"is_partial":   false,
+	} {
+		value, ok := plainIndex.Get(key)
+		require.True(t, ok, "missing key %s", key)
+		assert.Equal(t, want, value.Bool(), "unexpected value for %s", key)
+	}
 }
 
 // A table with no indexes or foreign keys has json_agg come back as SQL NULL (the

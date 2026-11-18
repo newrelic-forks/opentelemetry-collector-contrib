@@ -728,7 +728,7 @@ Structural inventory and size of a table, including its columns, indexes, foreig
 | db.collection.name | The name of the table within the database. | Any Str | - |
 | postgresql.table.id | The PostgreSQL oid of the table or view. | Any Int | - |
 | postgresql.table.columns | The columns defined on the table, each with name, data_type, nullable, and default. | Any Slice | - |
-| postgresql.table.indexes | The indexes defined on the table, each as a ready-to-read CREATE INDEX ... definition. | Any Slice | - |
+| postgresql.table.indexes | The indexes defined on the table, each with a ready-to-read CREATE INDEX ... definition plus is_unique, is_exclusion, is_immediate, is_clustered, is_valid, is_checkxmin, is_ready, is_live, is_replident, and is_partial flags. | Any Slice | - |
 | postgresql.table.foreign_keys | The foreign keys defined on the table, each as a ready-to-read FOREIGN KEY (...) REFERENCES ... definition. | Any Slice | - |
 | postgresql.table.row_estimate | Estimated row count, refreshed by VACUUM/ANALYZE rather than a live count. | Any Int | - |
 | postgresql.table.size | Table size broken out by kind (data, index, toast, total), each with a kind and bytes value. | Any Slice | - |

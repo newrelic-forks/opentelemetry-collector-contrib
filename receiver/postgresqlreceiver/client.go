@@ -1017,13 +1017,15 @@ type tableMetadataRow struct {
 	toastTable  string
 }
 
-// getTableMetadata returns a structural and size inventory of every ordinary and
-// partitioned table in db, one row per table. Partitioned tables are rolled up to their
-// parent: pg_partition_tree (PostgreSQL 12+) sums every leaf partition's size and row
-// estimate into the parent's single row, rather than reporting the parent (which holds
-// no data itself) and each child partition as separate, seemingly-unrelated tables.
-// Extension-owned objects (e.g. views created by pg_stat_statements) are excluded via
-// pg_depend, since they are not customer tables/views.
+// getTableMetadata returns a structural and size inventory of every ordinary,
+// partitioned, and foreign table in db, one row per table. Declarative partitions
+// (relispartition) are rolled up to their parent: pg_partition_tree (PostgreSQL 12+)
+// sums every leaf partition's size and row estimate into the parent's single row,
+// rather than reporting the parent (which holds no data itself) and each child
+// partition as separate, seemingly-unrelated tables. Legacy INHERITS children (not
+// relispartition) are reported as their own independent rows, since nothing rolls
+// them up. Extension-owned objects (e.g. views created by pg_stat_statements) are
+// excluded via pg_depend, since they are not customer tables/views.
 func (c *postgreSQLClient) getTableMetadata(ctx context.Context, maxTables int64) ([]tableMetadataRow, error) {
 	query := `
 WITH roots AS (
@@ -1035,7 +1037,7 @@ WITH roots AS (
       AND n.nspname NOT IN ('pg_catalog', 'information_schema')
       AND n.nspname NOT LIKE 'pg_temp_%'
       AND d.objid IS NULL
-      AND NOT EXISTS (SELECT 1 FROM pg_inherits i WHERE i.inhrelid = c.oid)
+      AND NOT c.relispartition
     ORDER BY n.nspname, c.relname
     LIMIT $1
 ),

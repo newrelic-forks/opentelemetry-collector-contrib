@@ -261,7 +261,7 @@ attributes:
     description: The PostgreSQL oid of the table or view.
     type: int
   postgresql.table.indexes:
-    description: The indexes defined on the table, each as a ready-to-read CREATE INDEX ... definition.
+    description: The indexes defined on the table, each with a ready-to-read CREATE INDEX ... definition plus is_unique, is_exclusion, is_immediate, is_clustered, is_valid, is_checkxmin, is_ready, is_live, is_replident, and is_partial flags.
     type: slice
   postgresql.table.owner:
     description: The name of the role that owns the table.
