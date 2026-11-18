@@ -6,6 +6,7 @@ package nrpostgresqlreceiver // import "github.com/newrelic-forks/opentelemetry-
 import (
 	"container/heap"
 	"context"
+	"crypto/fips140"
 	"errors"
 	"fmt"
 	"math"
@@ -53,6 +54,18 @@ var otelNamespaceUUID = uuid.MustParse("4d63009a-8d0f-11ee-aad7-4c796ed8e320")
 type explainSetupState struct {
 	available bool
 	err       error
+}
+
+// newServiceInstanceID derives the UUID v5 service.instance.id from the seed.
+func newServiceInstanceID(seed string) string {
+	// UUID v5 is defined over SHA-1, which FIPS 140-3 does not approve for new uses.
+	// The hash only derives a stable identifier and is not a security function, so it
+	// runs outside strict enforcement (GODEBUG=fips140=only) instead of panicking there.
+	var id uuid.UUID
+	fips140.WithoutEnforcement(func() {
+		id = uuid.NewSHA1(otelNamespaceUUID, []byte(seed))
+	})
+	return id.String()
 }
 
 type postgreSQLScraper struct {
@@ -131,7 +144,7 @@ func newPostgreSQLScraper(
 	}
 	var serviceInstanceID string
 	if useOTelSemconv {
-		serviceInstanceID = uuid.NewSHA1(otelNamespaceUUID, []byte(resolveServiceInstanceSeed(config, settings.Logger))).String()
+		serviceInstanceID = newServiceInstanceID(resolveServiceInstanceSeed(config, settings.Logger))
 	} else {
 		serviceInstanceID = getInstanceID(config.AddrConfig.Endpoint, settings.Logger)
 	}
@@ -427,6 +440,7 @@ func (p *postgreSQLScraper) collectQuerySamples(ctx context.Context, dbClient cl
 			attrString(atts, dbAttributePrefix+querySampleColumnBackendStart),
 			attrInt64(atts, dbAttributePrefix+querySampleColumnSessionDuration),
 			attrString(atts, dbAttributePrefix+querySampleColumnApplicationName),
+			attrString(atts, dbAttributePrefix+querySampleColumnBackendType),
 			attrString(atts, string(conventions.NetworkPeerAddressKey)),
 			attrInt64(atts, string(conventions.NetworkPeerPortKey)),
 			attrString(atts, dbAttributePrefix+querySampleColumnClientHostname),

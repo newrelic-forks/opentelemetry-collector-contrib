@@ -1540,7 +1540,7 @@ This metric is only available when the receiver is configured to directly connec
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
 | file_type | The type of file being monitored. | Any Str | Recommended | - |
-| tempdb.file.id | Numeric file_id within tempdb (sys.master_files.file_id). | Any Int | Recommended | - |
+| sqlserver.tempdb.file.id | Numeric identifier of the tempdb file. | Any Int | Recommended | - |
 
 ### sqlserver.tempdb.space.usage
 
@@ -1557,6 +1557,22 @@ This metric is only available when the receiver is configured to directly connec
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
 | tempdb.space_kind | TempDB space usage category. | Str: ``user_objects``, ``internal_objects``, ``version_store``, ``free`` | Recommended | - |
+
+### sqlserver.thread_pool.task.count
+
+Number of SQL Server tasks tracked by schedulers.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {task} | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| sqlserver.thread_pool.task.state | State of a SQL Server task tracked for thread-pool diagnostics. | Str: ``current``, ``waiting_for_threadpool`` | Required | - |
 
 ### sqlserver.thread_pool.tasks.count
 
@@ -1789,6 +1805,7 @@ query sample
 | sqlserver.transaction_id | Unique ID of the active transaction. | Any Int | - |
 | sqlserver.transaction_isolation_level | Transaction isolation level used in the session. Represented as numeric constant. | Any Int | - |
 | sqlserver.wait_resource | The resource for which the session is waiting. | Any Str | - |
+| sqlserver.wait.start_time | Timestamp of when the current wait started (ISO 8601 format). Empty if not waiting. | Any Str | - |
 | sqlserver.wait_time | Duration in seconds the request has been waiting. | Any Double | - |
 | sqlserver.wait_type | Type of wait encountered by the request. Empty if none. | Any Str | - |
 | sqlserver.writes | Number of writes performed by the query. | Any Int | - |

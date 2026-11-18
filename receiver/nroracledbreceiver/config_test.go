@@ -11,6 +11,7 @@ import (
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nroracledbreceiver/internal/metadata"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/collector/config/configopaque"
 	"go.opentelemetry.io/collector/confmap/confmaptest"
 	"go.opentelemetry.io/collector/scraper/scraperhelper"
 )
@@ -216,9 +217,9 @@ func TestParseConfig(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NoError(t, sub.Unmarshal(cfg))
-	assert.Equal(t, "oracle://otel:password@localhost:51521/XE", cfg.DataSource)
+	assert.Equal(t, configopaque.String("oracle://otel:password@localhost:51521/XE"), cfg.DataSource)
 	assert.Equal(t, "otel", cfg.Username)
-	assert.Equal(t, "password", cfg.Password)
+	assert.Equal(t, configopaque.String("password"), cfg.Password)
 	assert.Equal(t, "localhost:51521", cfg.Endpoint)
 	assert.Equal(t, "XE", cfg.Service)
 	settings := cfg.Metrics

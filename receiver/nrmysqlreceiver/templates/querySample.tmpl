@@ -135,18 +135,33 @@
     -- whether a row is actually needed. That made the entire query_sample
     -- query fail outright for a monitoring user without PROCESS as soon as a
     -- real block existed, so this keeps the lower-privilege, always-available
-    -- unordered data_lock_waits result instead.
+    -- unordered data_lock_waits result instead. DISTINCT collapses duplicate rows
+    -- data_lock_waits can produce when the same blocker holds multiple conflicting
+    -- lock structures against this thread's single wait, so blocker.count reflects
+    -- distinct blocking sessions, not lock rows.
+    {{- if .supportsDataLockWaits}}
     COALESCE(
         (
             SELECT JSON_ARRAYAGG(JSON_OBJECT('thread_id', ordered.thread_id, 'session_id', ordered.session_id))
             FROM (
-                SELECT lw.BLOCKING_THREAD_ID AS thread_id, bt.PROCESSLIST_ID AS session_id
+                SELECT DISTINCT lw.BLOCKING_THREAD_ID AS thread_id, bt.PROCESSLIST_ID AS session_id
                 FROM performance_schema.data_lock_waits AS lw
                 LEFT JOIN performance_schema.threads AS bt ON bt.THREAD_ID = lw.BLOCKING_THREAD_ID
                 WHERE lw.REQUESTING_THREAD_ID = thread.thread_id
             ) AS ordered
         ), '[]'
-    ) AS blockers,
+    )
+    {{- else}}
+    -- blockers is unavailable on MySQL <8.0.11 and MariaDB: the only way to
+    -- identify a blocking session's thread/session ID on these versions is
+    -- information_schema.INNODB_TRX/INNODB_LOCK_WAITS, both of which require the
+    -- global PROCESS privilege -- the same dependency avoided above. Reporting an
+    -- empty string (not "[]") keeps "not measured" distinguishable from
+    -- "measured and not blocked", while still keeping the rest of this event
+    -- intact for monitoring users without that privilege, rather than failing
+    -- the whole query.
+    ''
+    {{- end}} AS blockers,
     -- Extension: client_program_name is the client driver's self-reported
     -- identity (e.g. "MySQL Connector/J", "libmysql"), joined on
     -- PROCESSLIST_ID (not thread_id — a different ID space) and filtered to

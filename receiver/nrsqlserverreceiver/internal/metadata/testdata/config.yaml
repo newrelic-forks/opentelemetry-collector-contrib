@@ -269,10 +269,12 @@ all_set:
       enabled: true
     sqlserver.tempdb.file.size:
       enabled: true
-      attributes: ["file_type","tempdb.file.id"]
+      attributes: ["file_type","sqlserver.tempdb.file.id"]
     sqlserver.tempdb.space.usage:
       enabled: true
       attributes: ["tempdb.space_kind"]
+    sqlserver.thread_pool.task.count:
+      enabled: true
     sqlserver.thread_pool.tasks.count:
       enabled: true
       attributes: ["task.state"]
@@ -629,6 +631,8 @@ reaggregate_set:
     sqlserver.tempdb.space.usage:
       enabled: true
       attributes: []
+    sqlserver.thread_pool.task.count:
+      enabled: true
     sqlserver.thread_pool.tasks.count:
       enabled: true
       attributes: []
@@ -981,10 +985,12 @@ none_set:
       enabled: false
     sqlserver.tempdb.file.size:
       enabled: false
-      attributes: ["file_type","tempdb.file.id"]
+      attributes: ["file_type","sqlserver.tempdb.file.id"]
     sqlserver.tempdb.space.usage:
       enabled: false
       attributes: ["tempdb.space_kind"]
+    sqlserver.thread_pool.task.count:
+      enabled: false
     sqlserver.thread_pool.tasks.count:
       enabled: false
       attributes: ["task.state"]

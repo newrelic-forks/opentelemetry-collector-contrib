@@ -26,9 +26,9 @@ import (
 	"github.com/lib/pq/pqerror"
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon/testutil"
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrpostgresqlreceiver/internal/metadata"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/tj/assert"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/config/confignet"
@@ -950,6 +950,7 @@ var querySampleColumns = []string{
 	querySampleColumnQueryID,
 	querySampleColumnPID,
 	querySampleColumnApplicationName,
+	querySampleColumnBackendType,
 	querySampleColumnQueryStartTimestamp,
 	querySampleColumnState,
 	querySampleColumnQuery,
@@ -1012,6 +1013,7 @@ func TestScrapeQuerySample(t *testing.T) {
 		querySampleColumnQueryID:              "123131231231",
 		querySampleColumnPID:                  "1450",
 		querySampleColumnApplicationName:      "receiver",
+		querySampleColumnBackendType:          "client backend",
 		querySampleColumnQueryStartTimestamp:  "123445.123",
 		querySampleColumnState:                "idle",
 		querySampleColumnQuery:                "select * from pg_stat_activity where id = 32",
@@ -1058,6 +1060,7 @@ func TestScrapeQuerySampleSemconv(t *testing.T) {
 		querySampleColumnQueryID:              "123131231231",
 		querySampleColumnPID:                  "1450",
 		querySampleColumnApplicationName:      "receiver",
+		querySampleColumnBackendType:          "client backend",
 		querySampleColumnQueryStartTimestamp:  "123445.123",
 		querySampleColumnState:                "idle",
 		querySampleColumnQuery:                "select * from pg_stat_activity where id = 32",
@@ -3462,7 +3465,7 @@ func TestStart_VersionDetectionConnectFailure(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, scraper.start(t.Context(), componenttest.NewNopHost()))
-	assert.Equal(t, "", scraper.dbVersion)
+	assert.Empty(t, scraper.dbVersion)
 	assert.Equal(t, 1, logs.FilterMessage("failed to connect for version detection. db.system.version will not be set").Len())
 }
 
@@ -3482,7 +3485,7 @@ func TestStart_VersionDetectionQueryFailure(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, scraper.start(t.Context(), componenttest.NewNopHost()))
-	assert.Equal(t, "", scraper.dbVersion)
+	assert.Empty(t, scraper.dbVersion)
 	assert.Equal(t, 1, logs.FilterMessage("failed to detect PostgreSQL version. db.system.version will not be set").Len())
 	factory.AssertExpectations(t)
 	versionClient.AssertExpectations(t)
@@ -4079,7 +4082,7 @@ func TestNewPostgreSQLScraperSemconvServiceInstanceID(t *testing.T) {
 	require.NoError(t, err)
 
 	seed := net.JoinHostPort(hostname, "5432")
-	expected := uuid.NewSHA1(otelNamespaceUUID, []byte(seed)).String()
+	expected := newServiceInstanceID(seed)
 	assert.Equal(t, expected, scraper.serviceInstanceID)
 }
 
@@ -4102,7 +4105,7 @@ func TestNewPostgreSQLScraperSemconvUnixServiceInstanceID(t *testing.T) {
 	require.NoError(t, err)
 
 	seed := strings.Join([]string{"unix", hostname, "/var/run/postgresql/.s.PGSQL.5432"}, "\x00")
-	expected := uuid.NewSHA1(otelNamespaceUUID, []byte(seed)).String()
+	expected := newServiceInstanceID(seed)
 	assert.Equal(t, expected, scraper.serviceInstanceID)
 }
 
@@ -4112,7 +4115,7 @@ func TestSetupSemconvResourceBuilder(t *testing.T) {
 
 	cfg := createDefaultConfig().(*Config)
 	cfg.AddrConfig.Endpoint = "127.0.0.1:5432"
-	serviceInstanceID := uuid.NewSHA1(otelNamespaceUUID, []byte("collector-host:5432")).String()
+	serviceInstanceID := newServiceInstanceID("collector-host:5432")
 	scraper := &postgreSQLScraper{
 		logger:            zap.NewNop(),
 		config:            cfg,

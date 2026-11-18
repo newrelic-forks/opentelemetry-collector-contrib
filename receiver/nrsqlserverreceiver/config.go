@@ -5,11 +5,14 @@ package nrsqlserverreceiver // import "github.com/newrelic-forks/opentelemetry-c
 
 import (
 	"errors"
+	"slices"
 	"time"
 
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver/internal/metadata"
 	"go.opentelemetry.io/collector/config/configopaque"
 	"go.opentelemetry.io/collector/scraper/scraperhelper"
+
+	"github.com/open-telemetry/opentelemetry-collector-contrib/config/configdbauth"
 )
 
 type QuerySample struct {
@@ -98,10 +101,22 @@ type Config struct {
 	// scrapers of this receiver.
 	ConnectionPool ConnectionPool `mapstructure:"connection_pool,omitempty"`
 
+	// Databases limits the per-database metrics and the events to the listed
+	// databases. Empty reports on every database.
+	Databases []string `mapstructure:"databases,omitempty"`
+	// ExcludeDatabases lists databases left out of the per-database metrics and
+	// the events. A database in both lists is excluded.
+	ExcludeDatabases []string `mapstructure:"exclude_databases,omitempty"`
+
 	InstanceName string `mapstructure:"instance_name"`
 	ComputerName string `mapstructure:"computer_name"`
 
 	DataSource string `mapstructure:"datasource"`
+
+	// DBAuth optionally references a database credential provider extension.
+	// When set, the provider supplies the secret at connection time. Username
+	// remains available as provider input; a static password cannot be set.
+	DBAuth configdbauth.ID `mapstructure:"db_auth,omitempty"`
 
 	Password configopaque.String `mapstructure:"password"`
 	Port     uint                `mapstructure:"port"`
@@ -170,6 +185,14 @@ func (cfg *Config) Validate() error {
 		return poolErr
 	}
 
+	if slices.Contains(cfg.Databases, "") {
+		return errors.New("`databases` must not contain an empty name")
+	}
+
+	if slices.Contains(cfg.ExcludeDatabases, "") {
+		return errors.New("`exclude_databases` must not contain an empty name")
+	}
+
 	cfg.isDirectDBConnectionEnabled, err = directDBConnectionEnabled(cfg)
 
 	return err
@@ -201,18 +224,32 @@ func (cfg *Config) EffectiveMaxConcurrentQueries() int {
 }
 
 func directDBConnectionEnabled(config *Config) (bool, error) {
+	hasDataSource := config.DataSource != ""
+	hasDBAuth := !config.DBAuth.IsEmpty()
 	noneOfServerUserPasswordPortSet := config.Server == "" && config.Username == "" && string(config.Password) == "" && config.Port == 0
-	if config.DataSource == "" && noneOfServerUserPasswordPortSet {
+
+	if !hasDataSource && noneOfServerUserPasswordPortSet && !hasDBAuth {
 		// If no connection information is provided, we can't connect directly and this is a valid config.
 		return false, nil
 	}
 
 	anyOfServerUserPasswordPortSet := config.Server != "" || config.Username != "" || string(config.Password) != "" || config.Port != 0
-	if config.DataSource != "" && anyOfServerUserPasswordPortSet {
+	if hasDataSource && anyOfServerUserPasswordPortSet {
 		return false, errors.New("wrong config: when specifying 'datasource' no other connection parameters ('server', 'username', 'password', or 'port') should be set")
 	}
 
-	if config.DataSource == "" && (config.Server == "" || config.Username == "" || string(config.Password) == "" || config.Port == 0) {
+	if hasDBAuth {
+		if string(config.Password) != "" {
+			return false, errors.New("wrong config: set either 'password' or 'db_auth', not both")
+		}
+		// Without a datasource we need at least server and port to build a DSN.
+		if !hasDataSource && (config.Server == "" || config.Port == 0) {
+			return false, errors.New("wrong config: when using 'db_auth' without 'datasource', both 'server' and 'port' must be specified")
+		}
+		return true, nil
+	}
+
+	if !hasDataSource && (config.Server == "" || config.Username == "" || string(config.Password) == "" || config.Port == 0) {
 		return false, errors.New("wrong config: when specifying either 'server', 'username', 'password', or 'port' all of them need to be specified")
 	}
 

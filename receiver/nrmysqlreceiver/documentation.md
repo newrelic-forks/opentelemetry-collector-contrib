@@ -748,6 +748,54 @@ The total wait time of the summarized timed events.
 | digest | Digest. | Any Str | Recommended | - |
 | digest_text | Text before digestion. | Any Str | Recommended | - |
 
+### mysql.table.auto_increment.limit
+
+The maximum value the auto_increment column can hold for a given table, based on its declared integer type and signedness. Reported as a double; values above 2^53 (the largest BIGINT UNSIGNED values) may be off by a small amount due to floating-point precision.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| 1 | Gauge | Double | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| table | Table name for event or process. | Any Str | Recommended | - |
+| schema | The schema of the object. | Any Str | Recommended | - |
+| mysql.column.name | The name of the table column. | Any Str | Recommended | - |
+
+### mysql.table.auto_increment.usage
+
+The current auto_increment value for a given table. Reported as a double; values above 2^53 (the largest BIGINT UNSIGNED values) may be off by a small amount due to floating-point precision.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| 1 | Gauge | Double | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| table | Table name for event or process. | Any Str | Recommended | - |
+| schema | The schema of the object. | Any Str | Recommended | - |
+| mysql.column.name | The name of the table column. | Any Str | Recommended | - |
+
+### mysql.table.auto_increment.utilization
+
+The fraction of the auto_increment column's integer range currently in use for a given table, between 0 and 1.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| 1 | Gauge | Double | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| table | Table name for event or process. | Any Str | Recommended | - |
+| schema | The schema of the object. | Any Str | Recommended | - |
+| mysql.column.name | The name of the table column. | Any Str | Recommended | - |
+
 ### mysql.table.average_row_length
 
 The average row length in bytes for a given table.
@@ -958,8 +1006,8 @@ This provides real-time visibility into active queries, helping users monitor da
 | db.query.text.normalized.hash | MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Used for correlation with APM slow query traces. | Any Str | - |
 | mysql.events_statements_current.timer_start | Internal, monotonically increasing picosecond counter (not wall-clock time) marking when the current statement started executing. Changes only when a new statement begins on this thread, making it a stable per-execution key for deduplicating a statement's wait-event rows across scrape cycles (MySQL's analogue of query_start on SQL Server). | Any Int | - |
 | mysql.client.name | The client driver's self-reported identity at connection time (performance_schema.session_connect_attrs, ATTR_NAME='_client_name'), e.g. "MySQL Connector/J" or "libmysql". Empty if the client reported no connect attributes or the connect-attrs feature is disabled server-side. | Any Str | - |
-| mysql.blocking.blockers | A JSON array of {thread_id, session_id} tuples, one per concurrent InnoDB row-lock blocker for this session. Unordered. session_id is null when that blocker's PROCESSLIST_ID could not be resolved (e.g. it disconnected between reads). "[]" when not blocked. This is the only source for individual blocker identity (thread_id/session_id) — the receiver does not also expose those as separate scalar attributes, since doing so would only serve per-row display, which a dashboard/frontend can already get by parsing this JSON directly; use mysql.blocking.blocker.count (not a value from this array) for any NRQL-side filter, facet, or alert threshold. | Any Str | - |
-| mysql.blocking.blocker.count | The number of concurrent InnoDB row-lock blockers currently holding a lock this session is waiting on. 0 indicates the session is not currently blocked — use "mysql.blocking.blocker.count > 0" as the "is this session blocked" filter/gate (replaces the retired mysql.blocking.blocker.thread_id > 0 pattern). Derived from mysql.blocking.blockers (its array length) and kept as a separate scalar attribute because NRQL has no native JSON array-length function — this is the only way to facet, filter, or alert on blocker count directly. | Any Int | - |
+| mysql.blocking.blockers | A JSON array of {thread_id, session_id} tuples, one per concurrent InnoDB row-lock blocker for this session. Unordered. session_id is null when that blocker's PROCESSLIST_ID could not be resolved (e.g. it disconnected between reads). "[]" when measured and not blocked, empty string when blocking isn't measurable on this engine/version (MariaDB, MySQL <8.0.11). This is the only source for individual blocker identity (thread_id/session_id) — the receiver does not also expose those as separate scalar attributes, since doing so would only serve per-row display, which a dashboard/frontend can already get by parsing this JSON directly; use mysql.blocking.blocker.count (not a value from this array) for any NRQL-side filter, facet, or alert threshold. | Any Str | - |
+| mysql.blocking.blocker.count | The number of concurrent InnoDB row-lock blockers currently holding a lock this session is waiting on. 0 indicates the session is not currently blocked, but also covers engines where blocking isn't measured (MariaDB, MySQL <8.0.11) — an int can't carry that case separately; check mysql.blocking.blockers to tell the two apart. Use "mysql.blocking.blocker.count > 0" as the "is this session blocked" filter/gate (replaces the retired mysql.blocking.blocker.thread_id > 0 pattern). Derived from mysql.blocking.blockers (its array length) and kept as a separate scalar attribute because NRQL has no native JSON array-length function — this is the only way to facet, filter, or alert on blocker count directly. | Any Int | - |
 
 ### db.server.top_query
 

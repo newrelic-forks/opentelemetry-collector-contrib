@@ -701,6 +701,7 @@ query sample
 | postgresql.backend.connection.start | UTC timestamp (RFC3339) when this backend (connection) was started, from pg_stat_activity.backend_start. Stable for the lifetime of the connection, unlike postgresql.query_start which changes on every query. | Any Str | - |
 | postgresql.session.duration | Whole seconds since this backend (connection) was started, computed as now() minus pg_stat_activity.backend_start. 0 if backend_start is unavailable. | Any Int | - |
 | postgresql.application_name | Name of the application that is connected to this backend. | Any Str | - |
+| postgresql.backend.type | Type of the backend. Possible values include client backend, autovacuum worker, parallel worker and walsender. | Any Str | - |
 | network.peer.address | IP address of the client connected to this backend. | Any Str | - |
 | network.peer.port | TCP port number that the client is using for communication with this backend. | Any Int | - |
 | postgresql.client_hostname | Host name of the connected client, as reported by a reverse DNS lookup of client_addr. | Any Str | - |

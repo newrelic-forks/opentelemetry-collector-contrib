@@ -135,13 +135,13 @@ type KerberosConfig struct {
 }
 
 type Config struct {
-	DataSource                     string          `mapstructure:"datasource"`
-	Endpoint                       string          `mapstructure:"endpoint"`
-	Password                       string          `mapstructure:"password"`
-	Service                        string          `mapstructure:"service"`
-	Username                       string          `mapstructure:"username"`
-	AuthType                       AuthType        `mapstructure:"auth_type"`
-	Kerberos                       *KerberosConfig `mapstructure:"kerberos"`
+	DataSource                     configopaque.String `mapstructure:"datasource"`
+	Endpoint                       string              `mapstructure:"endpoint"`
+	Password                       configopaque.String `mapstructure:"password"`
+	Service                        string              `mapstructure:"service"`
+	Username                       string              `mapstructure:"username"`
+	AuthType                       AuthType            `mapstructure:"auth_type"`
+	Kerberos                       *KerberosConfig     `mapstructure:"kerberos"`
 	scraperhelper.ControllerConfig `mapstructure:",squash"`
 	metadata.MetricsBuilderConfig  `mapstructure:",squash"`
 	metadata.LogsBuilderConfig     `mapstructure:",squash"`
@@ -210,7 +210,7 @@ func (c Config) Validate() error {
 			allErrs = multierr.Append(allErrs, errEmptyService)
 		}
 	} else {
-		u, err := url.Parse(c.DataSource)
+		u, err := url.Parse(string(c.DataSource))
 		if err != nil {
 			allErrs = multierr.Append(allErrs, fmt.Errorf("%w: %s", errBadDataSource, err.Error()))
 		} else if kerberos {
