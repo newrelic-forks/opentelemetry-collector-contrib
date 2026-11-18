@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/confmap"
@@ -25,11 +26,7 @@ import (
 	"github.com/open-telemetry/opentelemetry-collector-contrib/processor/transformprocessor/internal/metadata"
 )
 
-var (
-	errFlatLogsGateDisabled     = errors.New("'flatten.log' requires the 'transform.flatten.logs' feature gate to be enabled")
-	errFlattenDataGateDisabled  = errors.New("'flatten_data' requires the 'transform.flatten.logs' feature gate to be enabled")
-	errFlattenDataAndFlattenLog = errors.New("'flatten_data' and 'flatten.log' cannot both be set, use only 'flatten.log'")
-)
+var errFlatLogsGateDisabled = errors.New("'flatten.log' requires the 'transform.flatten.logs' feature gate to be enabled")
 
 // Config defines the configuration for the processor.
 type Config struct {
@@ -40,18 +37,14 @@ type Config struct {
 	// The default value is `ignore`.
 	ErrorMode ottl.ErrorMode `mapstructure:"error_mode"`
 
-	TraceStatements  []common.ContextStatements `mapstructure:"trace_statements"`
-	MetricStatements []common.ContextStatements `mapstructure:"metric_statements"`
-	LogStatements    []common.ContextStatements `mapstructure:"log_statements"`
+	TraceStatements  []ContextStatements `mapstructure:"trace_statements"`
+	MetricStatements []ContextStatements `mapstructure:"metric_statements"`
+	LogStatements    []ContextStatements `mapstructure:"log_statements"`
 	// ProfileStatements configures the OTTL statements executed against profile data.
-	//
-	// Experimental: *NOTE* this API is subject to change or removal in the future.
-	ProfileStatements []common.ContextStatements `mapstructure:"profile_statements"`
+	ProfileStatements []ContextStatements `mapstructure:"profile_statements"`
 
 	Flatten FlattenConfig `mapstructure:"flatten"`
-	// Deprecated: [v0.164.0] use flatten.log instead.
-	FlattenData bool `mapstructure:"flatten_data"`
-	logger      *zap.Logger
+	logger  *zap.Logger
 
 	dataPointFunctions map[string]ottl.Factory[*ottldatapoint.TransformContext]
 	exemplarFunctions  map[string]ottl.Factory[*ottlexemplar.TransformContext]
@@ -69,10 +62,75 @@ type FlattenConfig struct {
 	Log bool `mapstructure:"log"`
 }
 
+var _ ottl.StatementsGetter = (*ContextStatements)(nil)
+
+// ContextID is the name of the OTTL context a group of statements runs against.
+type ContextID string
+
+const (
+	Resource  ContextID = "resource"
+	Scope     ContextID = "scope"
+	Span      ContextID = "span"
+	SpanEvent ContextID = "spanevent"
+	Metric    ContextID = "metric"
+	DataPoint ContextID = "datapoint"
+	Exemplar  ContextID = "exemplar"
+	Log       ContextID = "log"
+	Profile   ContextID = "profile"
+)
+
+// UnmarshalText sets the ContextID from its case-insensitive name and rejects unknown contexts.
+func (c *ContextID) UnmarshalText(text []byte) error {
+	str := ContextID(strings.ToLower(string(text)))
+	switch str {
+	case Resource, Scope, Span, SpanEvent, Metric, DataPoint, Exemplar, Log, Profile:
+		*c = str
+		return nil
+	default:
+		return fmt.Errorf("unknown context %v", str)
+	}
+}
+
+// ContextStatements is a group of OTTL statements and conditions executed together.
+type ContextStatements struct {
+	Context    ContextID `mapstructure:"context"`
+	Conditions []string  `mapstructure:"conditions"`
+	Statements []string  `mapstructure:"statements"`
+	// ErrorMode determines how the processor reacts to errors that occur while processing
+	// this group of statements. When provided, it overrides the default Config ErrorMode.
+	ErrorMode ottl.ErrorMode `mapstructure:"error_mode"`
+	// SharedCache enables sharing per-context caches between all statement groups
+	// with this option enabled in the same processor instance.
+	SharedCache bool `mapstructure:"shared_cache"`
+}
+
+// GetStatements returns the group's OTTL statements.
+func (c ContextStatements) GetStatements() []string {
+	return c.Statements
+}
+
+func (c ContextStatements) toCommon() common.ContextStatements {
+	return common.ContextStatements{
+		Context:     common.ContextID(c.Context),
+		Conditions:  c.Conditions,
+		Statements:  c.Statements,
+		ErrorMode:   c.ErrorMode,
+		SharedCache: c.SharedCache,
+	}
+}
+
+func toCommonContextStatements(contextStatements []ContextStatements) []common.ContextStatements {
+	result := make([]common.ContextStatements, len(contextStatements))
+	for i, cs := range contextStatements {
+		result[i] = cs.toCommon()
+	}
+	return result
+}
+
 // Unmarshal is used internally by mapstructure to parse the transformprocessor configuration (Config),
 // adding support to structured and flat configuration styles.
-// When the flat configuration style is used, all statements are grouped into a common.ContextStatements
-// object, with empty [common.ContextStatements.Context] value.
+// When the flat configuration style is used, all statements are grouped into a ContextStatements
+// object, with empty [ContextStatements.Context] value.
 // On the other hand, structured configurations are parsed following the mapstructure Config format.
 //
 // Example of flat configuration:
@@ -93,7 +151,7 @@ func (c *Config) Unmarshal(conf *confmap.Conf) error {
 		return nil
 	}
 
-	contextStatementsFields := map[string]*[]common.ContextStatements{
+	contextStatementsFields := map[string]*[]ContextStatements{
 		"trace_statements":   &c.TraceStatements,
 		"metric_statements":  &c.MetricStatements,
 		"log_statements":     &c.LogStatements,
@@ -164,7 +222,7 @@ func (c *Config) Validate() error {
 			return err
 		}
 		for _, cs := range c.TraceStatements {
-			_, err = pc.ParseContextStatements(cs)
+			_, err = pc.ParseContextStatements(cs.toCommon())
 			if err != nil {
 				errors = multierr.Append(errors, err)
 			}
@@ -177,7 +235,7 @@ func (c *Config) Validate() error {
 			return err
 		}
 		for _, cs := range c.MetricStatements {
-			_, err := pc.ParseContextStatements(cs)
+			_, err := pc.ParseContextStatements(cs.toCommon())
 			if err != nil {
 				errors = multierr.Append(errors, err)
 			}
@@ -190,7 +248,7 @@ func (c *Config) Validate() error {
 			return err
 		}
 		for _, cs := range c.LogStatements {
-			_, err = pc.ParseContextStatements(cs)
+			_, err = pc.ParseContextStatements(cs.toCommon())
 			if err != nil {
 				errors = multierr.Append(errors, err)
 			}
@@ -203,7 +261,7 @@ func (c *Config) Validate() error {
 			return err
 		}
 		for _, cs := range c.ProfileStatements {
-			_, err = pc.ParseContextStatements(cs)
+			_, err = pc.ParseContextStatements(cs.toCommon())
 			if err != nil {
 				errors = multierr.Append(errors, err)
 			}
@@ -212,14 +270,6 @@ func (c *Config) Validate() error {
 
 	if c.Flatten.Log && !metadata.TransformFlattenLogsFeatureGate.IsEnabled() {
 		errors = multierr.Append(errors, errFlatLogsGateDisabled)
-	}
-
-	if c.FlattenData && !metadata.TransformFlattenLogsFeatureGate.IsEnabled() {
-		errors = multierr.Append(errors, errFlattenDataGateDisabled)
-	}
-
-	if c.FlattenData && c.Flatten.Log {
-		errors = multierr.Append(errors, errFlattenDataAndFlattenLog)
 	}
 
 	return errors
