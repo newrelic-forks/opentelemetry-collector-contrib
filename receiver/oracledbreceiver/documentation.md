@@ -1788,6 +1788,24 @@ Per-session wait event statistics from v$session_event.
 | oracledb.wait.duration | Total time waited in seconds for the wait event. | Any Double | - |
 | db.namespace | The database name. | Any Str | - |
 
+### db.server.table_metadata
+
+Structural inventory and size of a table, including its columns, indexes, foreign keys, and row count. Collected on its own, slower interval since structure changes rarely.
+
+#### Attributes
+
+| Name | Description | Values | Semantic Convention |
+| ---- | ----------- | ------ | ------------------- |
+| db.system.name | The database management system (DBMS) product as identified by the client instrumentation. | Any Str | - |
+| db.namespace | The database name. | Any Str | - |
+| oracledb.table.schema.name | The schema (owner) of the table or view. | Any Str | - |
+| oracledb.table.name | The name of the table or view. | Any Str | - |
+| oracledb.table.columns | The columns defined on the table, each with name, data_type, data_length, nullable, and default. | Any Slice | - |
+| oracledb.table.indexes | The indexes defined on the table, each with name, index_type, uniqueness, and column_names. | Any Slice | - |
+| oracledb.table.foreign_keys | The foreign keys defined on the table, each with name, column_names, referenced_schema, referenced_table_name, referenced_column_names, and delete_rule. | Any Slice | - |
+| oracledb.table.row_count | Estimated row count, refreshed by optimizer statistics collection rather than a live count. | Any Int | - |
+| oracledb.table.size | Table size broken out by kind (table, index, lob, total), each with a kind and bytes value. | Any Slice | - |
+
 ### db.server.top_procedure
 
 Aggregated performance metrics for the top stored procedures by elapsed time, derived from V$SQL grouped by PROGRAM_ID and joined to DBA_PROCEDURES, with delta computation on cumulative counters. Correlates with db.server.top_query and db.server.query_sample via oracledb.procedure_id.
@@ -1858,6 +1876,21 @@ Collection of event metrics for top N queries, filtered based on the highest CPU
 | oracledb.plan_hash_value | Numeric representation of the execution plan. | Any Str | - |
 | oracledb.plan.first_load | Time at which the plan was first loaded into the library cache, in ISO 8601 format (UTC). | Any Str | - |
 | oracledb.plan.last_load | Plan load time, in ISO 8601 format (UTC). | Any Str | - |
+
+### db.server.view_metadata
+
+Structural inventory of a view, including its columns and SQL definition. Off by default. Collected on its own, slower interval since structure changes rarely.
+
+#### Attributes
+
+| Name | Description | Values | Semantic Convention |
+| ---- | ----------- | ------ | ------------------- |
+| db.system.name | The database management system (DBMS) product as identified by the client instrumentation. | Any Str | - |
+| db.namespace | The database name. | Any Str | - |
+| oracledb.table.schema.name | The schema (owner) of the table or view. | Any Str | - |
+| oracledb.table.name | The name of the table or view. | Any Str | - |
+| oracledb.table.columns | The columns defined on the table, each with name, data_type, data_length, nullable, and default. | Any Slice | - |
+| oracledb.view.definition | The view's defining SELECT statement. | Any Str | - |
 
 ## Resource Attributes
 

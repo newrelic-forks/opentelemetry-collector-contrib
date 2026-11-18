@@ -324,6 +324,37 @@ pool, so the row is discarded rather than emitted as a bogus value.
 See "CDB-root connections and container-scoped dictionary views" below for how this event
 behaves on a CDB-root connection.
 
+### `db.server.table_metadata` and `db.server.view_metadata`
+
+Give a structural and size inventory of tables and views — columns, indexes, foreign keys, and
+size for tables; columns, SQL definition, and updatability for views. Both run on their own,
+slower collection interval (default 600s) since structure changes only on DDL. No Datadog
+precedent exists for this collection; it is built from standard Oracle data dictionary views and
+validated independently. `db.server.view_metadata` is off by default.
+
+```sql
+GRANT SELECT ON DBA_TABLES TO <username>;
+GRANT SELECT ON DBA_TAB_COLUMNS TO <username>;
+GRANT SELECT ON DBA_INDEXES TO <username>;
+GRANT SELECT ON DBA_IND_COLUMNS TO <username>;
+GRANT SELECT ON DBA_CONSTRAINTS TO <username>;
+GRANT SELECT ON DBA_CONS_COLUMNS TO <username>;
+GRANT SELECT ON DBA_SEGMENTS TO <username>;
+GRANT SELECT ON DBA_LOBS TO <username>;
+GRANT SELECT ON DBA_VIEWS TO <username>;         -- only if db.server.view_metadata is enabled
+GRANT SELECT ON DBA_USERS TO <username>;         -- excludes Oracle-maintained schemas from the inventory
+```
+
+> [!NOTE]
+> Unlike the grant model above, which follows this receiver's established per-view
+> `GRANT SELECT` convention, `ALL_*` views (the more obvious choice) silently return zero rows
+> for objects the monitoring user doesn't own, not an error — confirmed directly. Use the
+> `DBA_*` views above, not `ALL_*`, or the inventory will appear empty for any schema the
+> monitoring user doesn't own.
+
+See "CDB-root connections and container-scoped dictionary views" below for the `CDB_*`
+equivalents needed on a multi-PDB CDB root.
+
 ### CDB-root connections and container-scoped dictionary views
 
 `DBA_*` dictionary views only expose the container you are connected to, while the `V$` views
@@ -339,6 +370,7 @@ on `CON_ID` as well as the object id:
 | `db.server.top_query` | `CDB_PROCEDURES`, plus `CON_ID` in the `PROCEDURE_EXECUTIONS` grouping | wrong or empty `procedure_name`; execution counts merged across PDBs |
 | `db.server.top_procedure` | `CDB_PROCEDURES` | wrong or empty `procedure_name`; procedures merged across PDBs |
 | `db.server.query_sample` | `CDB_PROCEDURES`, `CDB_OBJECTS` | wrong or empty `procedure_name` and blocked-object owner/name |
+| `db.server.table_metadata`, `db.server.view_metadata` | `CDB_TABLES`, `CDB_TAB_COLUMNS`, `CDB_INDEXES`, `CDB_IND_COLUMNS`, `CDB_CONSTRAINTS`, `CDB_CONS_COLUMNS`, `CDB_SEGMENTS`, `CDB_LOBS`, `CDB_VIEWS` | tables/views from every PDB attributed to the root container, or cross-PDB name/id collisions |
 
 `top_query` and `top_procedure` only need `CDB_PROCEDURES`; `query_sample` additionally needs
 `CDB_OBJECTS`. The two grants are probed independently at startup, so a CDB root with only
@@ -350,8 +382,25 @@ GRANT SELECT ON CDB_PROCEDURES TO <username> CONTAINER=ALL;
 GRANT SELECT ON CDB_OBJECTS TO <username> CONTAINER=ALL;
 ```
 
-Users holding `SELECT_CATALOG_ROLE` inherit both and need no explicit grant. Non-CDB and
-direct-PDB connections continue to use the `DBA_*` views and need nothing extra.
+`table_metadata` and `view_metadata` need their own, separately-probed `CDB_*` grant set —
+granted independently of the procedure/query-sample grants above, since it covers a different
+feature:
+
+```sql
+GRANT SELECT ON CDB_TABLES TO <username> CONTAINER=ALL;
+GRANT SELECT ON CDB_TAB_COLUMNS TO <username> CONTAINER=ALL;
+GRANT SELECT ON CDB_INDEXES TO <username> CONTAINER=ALL;
+GRANT SELECT ON CDB_IND_COLUMNS TO <username> CONTAINER=ALL;
+GRANT SELECT ON CDB_CONSTRAINTS TO <username> CONTAINER=ALL;
+GRANT SELECT ON CDB_CONS_COLUMNS TO <username> CONTAINER=ALL;
+GRANT SELECT ON CDB_SEGMENTS TO <username> CONTAINER=ALL;
+GRANT SELECT ON CDB_LOBS TO <username> CONTAINER=ALL;
+GRANT SELECT ON CDB_VIEWS TO <username> CONTAINER=ALL;   -- only if db.server.view_metadata is enabled
+GRANT SELECT ON CDB_USERS TO <username> CONTAINER=ALL;
+```
+
+Users holding `SELECT_CATALOG_ROLE` inherit all of the above and need no explicit grant. Non-CDB
+and direct-PDB connections continue to use the `DBA_*` views and need nothing extra.
 
 > [!NOTE]
 > Each grant is probed once at startup. If a grant is missing, the receiver logs a warning and
@@ -373,9 +422,29 @@ GRANT SELECT ON V_$LOCK TO <username>;
 GRANT SELECT ON V_$CONTAINERS TO <username>;
 GRANT SELECT ON DBA_OBJECTS TO <username>;
 GRANT SELECT ON DBA_PROCEDURES TO <username>;
+GRANT SELECT ON DBA_TABLES TO <username>;
+GRANT SELECT ON DBA_TAB_COLUMNS TO <username>;
+GRANT SELECT ON DBA_INDEXES TO <username>;
+GRANT SELECT ON DBA_IND_COLUMNS TO <username>;
+GRANT SELECT ON DBA_CONSTRAINTS TO <username>;
+GRANT SELECT ON DBA_CONS_COLUMNS TO <username>;
+GRANT SELECT ON DBA_SEGMENTS TO <username>;
+GRANT SELECT ON DBA_LOBS TO <username>;
+GRANT SELECT ON DBA_VIEWS TO <username>;
+GRANT SELECT ON DBA_USERS TO <username>;
 -- Optional, CDB-root connections only (see "CDB-root connections" above):
 GRANT SELECT ON CDB_PROCEDURES TO <username> CONTAINER=ALL;
 GRANT SELECT ON CDB_OBJECTS TO <username> CONTAINER=ALL;
+GRANT SELECT ON CDB_TABLES TO <username> CONTAINER=ALL;
+GRANT SELECT ON CDB_TAB_COLUMNS TO <username> CONTAINER=ALL;
+GRANT SELECT ON CDB_INDEXES TO <username> CONTAINER=ALL;
+GRANT SELECT ON CDB_IND_COLUMNS TO <username> CONTAINER=ALL;
+GRANT SELECT ON CDB_CONSTRAINTS TO <username> CONTAINER=ALL;
+GRANT SELECT ON CDB_CONS_COLUMNS TO <username> CONTAINER=ALL;
+GRANT SELECT ON CDB_SEGMENTS TO <username> CONTAINER=ALL;
+GRANT SELECT ON CDB_LOBS TO <username> CONTAINER=ALL;
+GRANT SELECT ON CDB_VIEWS TO <username> CONTAINER=ALL;
+GRANT SELECT ON CDB_USERS TO <username> CONTAINER=ALL;
 ```
 
 ### AWS RDS Oracle grants
@@ -416,6 +485,19 @@ EXEC rdsadmin.rdsadmin_util.grant_sys_object('DBA_OBJECTS',                  '<u
 EXEC rdsadmin.rdsadmin_util.grant_sys_object('CDB_TABLESPACE_USAGE_METRICS', '<username>', 'SELECT', false);
 EXEC rdsadmin.rdsadmin_util.grant_sys_object('CDB_TABLESPACES',              '<username>', 'SELECT', false);
 EXEC rdsadmin.rdsadmin_util.grant_sys_object('CDB_SERVICES',                 '<username>', 'SELECT', false);
+-- For db.server.table_metadata / db.server.view_metadata (not independently confirmed
+-- against a real RDS Oracle instance; follows the same grant_sys_object pattern as the
+-- other DBA_*/CDB_* grants above):
+EXEC rdsadmin.rdsadmin_util.grant_sys_object('DBA_TABLES',       '<username>', 'SELECT', false);
+EXEC rdsadmin.rdsadmin_util.grant_sys_object('DBA_TAB_COLUMNS',  '<username>', 'SELECT', false);
+EXEC rdsadmin.rdsadmin_util.grant_sys_object('DBA_INDEXES',      '<username>', 'SELECT', false);
+EXEC rdsadmin.rdsadmin_util.grant_sys_object('DBA_IND_COLUMNS',  '<username>', 'SELECT', false);
+EXEC rdsadmin.rdsadmin_util.grant_sys_object('DBA_CONSTRAINTS',  '<username>', 'SELECT', false);
+EXEC rdsadmin.rdsadmin_util.grant_sys_object('DBA_CONS_COLUMNS', '<username>', 'SELECT', false);
+EXEC rdsadmin.rdsadmin_util.grant_sys_object('DBA_SEGMENTS',     '<username>', 'SELECT', false);
+EXEC rdsadmin.rdsadmin_util.grant_sys_object('DBA_LOBS',         '<username>', 'SELECT', false);
+EXEC rdsadmin.rdsadmin_util.grant_sys_object('DBA_VIEWS',        '<username>', 'SELECT', false);
+EXEC rdsadmin.rdsadmin_util.grant_sys_object('DBA_USERS',        '<username>', 'SELECT', false);
 GRANT CREATE SESSION TO <username>;
 ```
 
@@ -469,6 +551,10 @@ receivers:
         enabled: true
       db.server.query_plan:                      # reports the execution plan on its own event, off db.server.top_query
         enabled: true
+      db.server.table_metadata:
+        enabled: true
+      db.server.view_metadata:
+        enabled: false
     top_query_collection:                        # this collection exports the most expensive queries as logs
       max_query_sample_count: 1000               # maximum number of samples collected from db to filter the top N
       top_query_count: 200                       # The maximum number of queries (N) for which the metrics would be reported
@@ -483,6 +569,12 @@ receivers:
       max_procedure_sample_count: 1000           # maximum number of rows fetched from db to rank the top N by delta
       top_procedure_count: 250                   # The maximum number of procedures (N) for which the metrics would be reported
       collection_interval: 60s                   # collection interval for procedure metrics collection specifically
+    table_metadata_collection:                   # this collection exports table structure and size inventory as logs
+      max_tables: 300                            # maximum number of tables to report per poll
+      collection_interval: 600s                  # collection interval for table metadata specifically
+    view_metadata_collection:                    # this collection exports view structure inventory as logs
+      max_views: 1000                            # maximum number of views to report per poll
+      collection_interval: 600s                  # collection interval for view metadata specifically
 ```
 
 ## SQL Comment Extraction

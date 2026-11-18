@@ -57,6 +57,14 @@ func createDefaultConfig() component.Config {
 			TopProcedureCount:       250,
 			CollectionInterval:      time.Minute,
 		},
+		TableMetadataCollection: TableMetadataCollection{
+			CollectionInterval: 600 * time.Second,
+			MaxTables:          300,
+		},
+		ViewMetadataCollection: ViewMetadataCollection{
+			CollectionInterval: 600 * time.Second,
+			MaxViews:           1000,
+		},
 	}
 }
 
@@ -191,7 +199,7 @@ func createLogsReceiverFunc(sqlOpenerFunc sqlOpenerFunc, clientProviderFunc clie
 			if dbCleanup != nil {
 				dbCleanup()
 			}
-		}, procedureMetricCache, sqlCfg.ProcedureMetrics)
+		}, procedureMetricCache, sqlCfg.ProcedureMetrics, sqlCfg.TableMetadataCollection, sqlCfg.ViewMetadataCollection)
 		if err != nil {
 			return nil, err
 		}

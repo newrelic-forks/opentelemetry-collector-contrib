@@ -135,6 +135,30 @@ type ProcedureMetrics struct {
 	_ struct{}
 }
 
+// TableMetadataCollection configures the collection of table structure and size
+// inventory (db.server.table_metadata). Structure changes rarely, so this runs on its
+// own, slower interval, decoupled from the main metrics scrape interval.
+type TableMetadataCollection struct {
+	CollectionInterval time.Duration `mapstructure:"collection_interval"`
+	// MaxTables caps the number of tables reported per poll, to bound worst-case
+	// payload size on very large schemas. 0 means use the default.
+	MaxTables uint `mapstructure:"max_tables"`
+
+	// prevent unkeyed literal initialization
+	_ struct{}
+}
+
+// ViewMetadataCollection configures the collection of view structure inventory
+// (db.server.view_metadata). Off by default.
+type ViewMetadataCollection struct {
+	CollectionInterval time.Duration `mapstructure:"collection_interval"`
+	// MaxViews caps the number of views reported per poll. 0 means use the default.
+	MaxViews uint `mapstructure:"max_views"`
+
+	// prevent unkeyed literal initialization
+	_ struct{}
+}
+
 type Config struct {
 	DataSource           string                         `mapstructure:"datasource"`
 	Endpoint             string                         `mapstructure:"endpoint"`
@@ -151,6 +175,10 @@ type Config struct {
 	QuerySample        QuerySample        `mapstructure:"query_sample_collection"`
 	SessionWaitEvent   SessionWaitEvent   `mapstructure:"session_wait_event_collection"`
 	ProcedureMetrics   ProcedureMetrics   `mapstructure:"top_procedure_collection"`
+	// TableMetadataCollection configures the table structure/size inventory event.
+	TableMetadataCollection TableMetadataCollection `mapstructure:"table_metadata_collection"`
+	// ViewMetadataCollection configures the view structure inventory event.
+	ViewMetadataCollection ViewMetadataCollection `mapstructure:"view_metadata_collection"`
 }
 
 func (c Config) Validate() error {
@@ -251,6 +279,21 @@ func (c Config) Validate() error {
 			allErrs = multierr.Append(allErrs, errTopProcedureCount)
 		}
 	}
+
+	if c.TableMetadataCollection.CollectionInterval < 0 {
+		allErrs = multierr.Append(allErrs, errors.New("`table_metadata_collection.collection_interval` must not be less than 0"))
+	}
+	if c.LogsBuilderConfig.Events.DbServerTableMetadata.Enabled && c.TableMetadataCollection.MaxTables < 1 {
+		allErrs = multierr.Append(allErrs, errors.New("`table_metadata_collection.max_tables` must be greater than 0"))
+	}
+
+	if c.ViewMetadataCollection.CollectionInterval < 0 {
+		allErrs = multierr.Append(allErrs, errors.New("`view_metadata_collection.collection_interval` must not be less than 0"))
+	}
+	if c.LogsBuilderConfig.Events.DbServerViewMetadata.Enabled && c.ViewMetadataCollection.MaxViews < 1 {
+		allErrs = multierr.Append(allErrs, errors.New("`view_metadata_collection.max_views` must be greater than 0"))
+	}
+
 	return allErrs
 }
 

@@ -177,6 +177,50 @@ func newEventDbServerSessionWaitSample(cfg EventConfig) eventDbServerSessionWait
 	return e
 }
 
+type eventDbServerTableMetadata struct {
+	data   plog.LogRecordSlice // data buffer for generated log records.
+	config EventConfig         // event config provided by user.
+}
+
+func (e *eventDbServerTableMetadata) recordEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue string, dbNamespaceAttributeValue string, oracledbTableSchemaNameAttributeValue string, oracledbTableNameAttributeValue string, oracledbTableColumnsAttributeValue []any, oracledbTableIndexesAttributeValue []any, oracledbTableForeignKeysAttributeValue []any, oracledbTableRowCountAttributeValue int64, oracledbTableSizeAttributeValue []any) {
+	if !e.config.Enabled {
+		return
+	}
+	dp := e.data.AppendEmpty()
+	dp.SetEventName("db.server.table_metadata")
+	dp.SetTimestamp(timestamp)
+
+	if span := trace.SpanContextFromContext(ctx); span.IsValid() {
+		dp.SetTraceID(pcommon.TraceID(span.TraceID()))
+		dp.SetSpanID(pcommon.SpanID(span.SpanID()))
+	}
+	dp.Attributes().PutStr("db.system.name", dbSystemNameAttributeValue)
+	dp.Attributes().PutStr("db.namespace", dbNamespaceAttributeValue)
+	dp.Attributes().PutStr("oracledb.table.schema.name", oracledbTableSchemaNameAttributeValue)
+	dp.Attributes().PutStr("oracledb.table.name", oracledbTableNameAttributeValue)
+	dp.Attributes().PutEmptySlice("oracledb.table.columns").FromRaw(oracledbTableColumnsAttributeValue)
+	dp.Attributes().PutEmptySlice("oracledb.table.indexes").FromRaw(oracledbTableIndexesAttributeValue)
+	dp.Attributes().PutEmptySlice("oracledb.table.foreign_keys").FromRaw(oracledbTableForeignKeysAttributeValue)
+	dp.Attributes().PutInt("oracledb.table.row_count", oracledbTableRowCountAttributeValue)
+	dp.Attributes().PutEmptySlice("oracledb.table.size").FromRaw(oracledbTableSizeAttributeValue)
+
+}
+
+// emit appends recorded event data to a events slice and prepares it for recording another set of log records.
+func (e *eventDbServerTableMetadata) emit(lrs plog.LogRecordSlice) {
+	if e.config.Enabled && e.data.Len() > 0 {
+		e.data.MoveAndAppendTo(lrs)
+	}
+}
+
+func newEventDbServerTableMetadata(cfg EventConfig) eventDbServerTableMetadata {
+	e := eventDbServerTableMetadata{config: cfg}
+	if cfg.Enabled {
+		e.data = plog.NewLogRecordSlice()
+	}
+	return e
+}
+
 type eventDbServerTopProcedure struct {
 	data   plog.LogRecordSlice // data buffer for generated log records.
 	config EventConfig         // event config provided by user.
@@ -300,6 +344,47 @@ func newEventDbServerTopQuery(cfg EventConfig) eventDbServerTopQuery {
 	return e
 }
 
+type eventDbServerViewMetadata struct {
+	data   plog.LogRecordSlice // data buffer for generated log records.
+	config EventConfig         // event config provided by user.
+}
+
+func (e *eventDbServerViewMetadata) recordEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue string, dbNamespaceAttributeValue string, oracledbTableSchemaNameAttributeValue string, oracledbTableNameAttributeValue string, oracledbTableColumnsAttributeValue []any, oracledbViewDefinitionAttributeValue string) {
+	if !e.config.Enabled {
+		return
+	}
+	dp := e.data.AppendEmpty()
+	dp.SetEventName("db.server.view_metadata")
+	dp.SetTimestamp(timestamp)
+
+	if span := trace.SpanContextFromContext(ctx); span.IsValid() {
+		dp.SetTraceID(pcommon.TraceID(span.TraceID()))
+		dp.SetSpanID(pcommon.SpanID(span.SpanID()))
+	}
+	dp.Attributes().PutStr("db.system.name", dbSystemNameAttributeValue)
+	dp.Attributes().PutStr("db.namespace", dbNamespaceAttributeValue)
+	dp.Attributes().PutStr("oracledb.table.schema.name", oracledbTableSchemaNameAttributeValue)
+	dp.Attributes().PutStr("oracledb.table.name", oracledbTableNameAttributeValue)
+	dp.Attributes().PutEmptySlice("oracledb.table.columns").FromRaw(oracledbTableColumnsAttributeValue)
+	dp.Attributes().PutStr("oracledb.view.definition", oracledbViewDefinitionAttributeValue)
+
+}
+
+// emit appends recorded event data to a events slice and prepares it for recording another set of log records.
+func (e *eventDbServerViewMetadata) emit(lrs plog.LogRecordSlice) {
+	if e.config.Enabled && e.data.Len() > 0 {
+		e.data.MoveAndAppendTo(lrs)
+	}
+}
+
+func newEventDbServerViewMetadata(cfg EventConfig) eventDbServerViewMetadata {
+	e := eventDbServerViewMetadata{config: cfg}
+	if cfg.Enabled {
+		e.data = plog.NewLogRecordSlice()
+	}
+	return e
+}
+
 // LogsBuilder provides an interface for scrapers to report logs while taking care of all the transformations
 // required to produce log representation defined in metadata and user config.
 type LogsBuilder struct {
@@ -312,8 +397,10 @@ type LogsBuilder struct {
 	eventDbServerQueryPlan         eventDbServerQueryPlan
 	eventDbServerQuerySample       eventDbServerQuerySample
 	eventDbServerSessionWaitSample eventDbServerSessionWaitSample
+	eventDbServerTableMetadata     eventDbServerTableMetadata
 	eventDbServerTopProcedure      eventDbServerTopProcedure
 	eventDbServerTopQuery          eventDbServerTopQuery
+	eventDbServerViewMetadata      eventDbServerViewMetadata
 }
 
 // LogBuilderOption applies changes to default logs builder.
@@ -330,8 +417,10 @@ func NewLogsBuilder(lbc LogsBuilderConfig, settings receiver.Settings) *LogsBuil
 		eventDbServerQueryPlan:         newEventDbServerQueryPlan(lbc.Events.DbServerQueryPlan),
 		eventDbServerQuerySample:       newEventDbServerQuerySample(lbc.Events.DbServerQuerySample),
 		eventDbServerSessionWaitSample: newEventDbServerSessionWaitSample(lbc.Events.DbServerSessionWaitSample),
+		eventDbServerTableMetadata:     newEventDbServerTableMetadata(lbc.Events.DbServerTableMetadata),
 		eventDbServerTopProcedure:      newEventDbServerTopProcedure(lbc.Events.DbServerTopProcedure),
 		eventDbServerTopQuery:          newEventDbServerTopQuery(lbc.Events.DbServerTopQuery),
+		eventDbServerViewMetadata:      newEventDbServerViewMetadata(lbc.Events.DbServerViewMetadata),
 		resourceAttributeIncludeFilter: make(map[string]filter.Filter),
 		resourceAttributeExcludeFilter: make(map[string]filter.Filter),
 	}
@@ -453,8 +542,10 @@ func (lb *LogsBuilder) EmitForResource(options ...ResourceLogsOption) {
 	lb.eventDbServerQueryPlan.emit(ils.LogRecords())
 	lb.eventDbServerQuerySample.emit(ils.LogRecords())
 	lb.eventDbServerSessionWaitSample.emit(ils.LogRecords())
+	lb.eventDbServerTableMetadata.emit(ils.LogRecords())
 	lb.eventDbServerTopProcedure.emit(ils.LogRecords())
 	lb.eventDbServerTopQuery.emit(ils.LogRecords())
+	lb.eventDbServerViewMetadata.emit(ils.LogRecords())
 
 	for _, op := range options {
 		op.apply(rl)
@@ -506,6 +597,11 @@ func (lb *LogsBuilder) RecordDbServerSessionWaitSampleEvent(ctx context.Context,
 	lb.eventDbServerSessionWaitSample.recordEvent(ctx, timestamp, dbSystemNameAttributeValue, oracledbSidAttributeValue, oracledbSerialAttributeValue, oracledbEventAttributeValue, oracledbWaitClassAttributeValue, oracledbWaitCountAttributeValue, oracledbWaitTimeoutsAttributeValue, oracledbWaitDurationAttributeValue, dbNamespaceAttributeValue)
 }
 
+// RecordDbServerTableMetadataEvent adds a log record of db.server.table_metadata event.
+func (lb *LogsBuilder) RecordDbServerTableMetadataEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue string, dbNamespaceAttributeValue string, oracledbTableSchemaNameAttributeValue string, oracledbTableNameAttributeValue string, oracledbTableColumnsAttributeValue []any, oracledbTableIndexesAttributeValue []any, oracledbTableForeignKeysAttributeValue []any, oracledbTableRowCountAttributeValue int64, oracledbTableSizeAttributeValue []any) {
+	lb.eventDbServerTableMetadata.recordEvent(ctx, timestamp, dbSystemNameAttributeValue, dbNamespaceAttributeValue, oracledbTableSchemaNameAttributeValue, oracledbTableNameAttributeValue, oracledbTableColumnsAttributeValue, oracledbTableIndexesAttributeValue, oracledbTableForeignKeysAttributeValue, oracledbTableRowCountAttributeValue, oracledbTableSizeAttributeValue)
+}
+
 // RecordDbServerTopProcedureEvent adds a log record of db.server.top_procedure event.
 func (lb *LogsBuilder) RecordDbServerTopProcedureEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue string, dbNamespaceAttributeValue string, dbServerNameAttributeValue string, oracleDbServiceAttributeValue string, oracledbProcedureIDAttributeValue int64, oracledbProcedureNameAttributeValue string, oracledbProcedureTypeAttributeValue string, oracledbProcedureSchemaNameAttributeValue string, oracledbProcedureExecutionCountAttributeValue int64, oracledbCPUTimeAttributeValue float64, oracledbElapsedTimeAttributeValue float64, oracledbBufferGetsAttributeValue int64, oracledbDiskReadsAttributeValue int64, oracledbDirectWritesAttributeValue int64, oracledbRowsProcessedAttributeValue int64, oracledbPhysicalReadBytesAttributeValue int64, oracledbPhysicalWriteBytesAttributeValue int64, oracledbProcedureFirstLoadTimeAttributeValue string, oracledbProcedureLastActiveTimeAttributeValue string) {
 	lb.eventDbServerTopProcedure.recordEvent(ctx, timestamp, dbSystemNameAttributeValue, dbNamespaceAttributeValue, dbServerNameAttributeValue, oracleDbServiceAttributeValue, oracledbProcedureIDAttributeValue, oracledbProcedureNameAttributeValue, oracledbProcedureTypeAttributeValue, oracledbProcedureSchemaNameAttributeValue, oracledbProcedureExecutionCountAttributeValue, oracledbCPUTimeAttributeValue, oracledbElapsedTimeAttributeValue, oracledbBufferGetsAttributeValue, oracledbDiskReadsAttributeValue, oracledbDirectWritesAttributeValue, oracledbRowsProcessedAttributeValue, oracledbPhysicalReadBytesAttributeValue, oracledbPhysicalWriteBytesAttributeValue, oracledbProcedureFirstLoadTimeAttributeValue, oracledbProcedureLastActiveTimeAttributeValue)
@@ -514,4 +610,9 @@ func (lb *LogsBuilder) RecordDbServerTopProcedureEvent(ctx context.Context, time
 // RecordDbServerTopQueryEvent adds a log record of db.server.top_query event.
 func (lb *LogsBuilder) RecordDbServerTopQueryEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue string, dbServerNameAttributeValue string, dbNamespaceAttributeValue string, oracleDbServiceAttributeValue string, dbQueryTextAttributeValue string, oracledbQueryPlanAttributeValue string, oracledbSQLIDAttributeValue string, oracledbChildNumberAttributeValue string, oracledbChildAddressAttributeValue string, oracledbApplicationWaitTimeAttributeValue float64, oracledbBufferGetsAttributeValue int64, oracledbClusterWaitTimeAttributeValue float64, oracledbCommandTypeAttributeValue int64, oracledbConcurrencyWaitTimeAttributeValue float64, oracledbCPUTimeAttributeValue float64, oracledbDirectReadsAttributeValue int64, oracledbDirectWritesAttributeValue int64, oracledbDiskReadsAttributeValue int64, oracledbElapsedTimeAttributeValue float64, oracledbExecutionsAttributeValue int64, oracledbPhysicalReadBytesAttributeValue int64, oracledbPhysicalReadRequestsAttributeValue int64, oracledbPhysicalWriteBytesAttributeValue int64, oracledbPhysicalWriteRequestsAttributeValue int64, oracledbRowsProcessedAttributeValue int64, oracledbUserIoWaitTimeAttributeValue float64, oracledbProcedureExecutionCountAttributeValue int64, oracledbProcedureIDAttributeValue int64, oracledbProcedureNameAttributeValue string, oracledbProcedureTypeAttributeValue string, dbQueryCommentTagsAttributeValue string, oracledbPlanHashValueAttributeValue string, oracledbPlanFirstLoadAttributeValue string, oracledbPlanLastLoadAttributeValue string) {
 	lb.eventDbServerTopQuery.recordEvent(ctx, timestamp, dbSystemNameAttributeValue, dbServerNameAttributeValue, dbNamespaceAttributeValue, oracleDbServiceAttributeValue, dbQueryTextAttributeValue, oracledbQueryPlanAttributeValue, oracledbSQLIDAttributeValue, oracledbChildNumberAttributeValue, oracledbChildAddressAttributeValue, oracledbApplicationWaitTimeAttributeValue, oracledbBufferGetsAttributeValue, oracledbClusterWaitTimeAttributeValue, oracledbCommandTypeAttributeValue, oracledbConcurrencyWaitTimeAttributeValue, oracledbCPUTimeAttributeValue, oracledbDirectReadsAttributeValue, oracledbDirectWritesAttributeValue, oracledbDiskReadsAttributeValue, oracledbElapsedTimeAttributeValue, oracledbExecutionsAttributeValue, oracledbPhysicalReadBytesAttributeValue, oracledbPhysicalReadRequestsAttributeValue, oracledbPhysicalWriteBytesAttributeValue, oracledbPhysicalWriteRequestsAttributeValue, oracledbRowsProcessedAttributeValue, oracledbUserIoWaitTimeAttributeValue, oracledbProcedureExecutionCountAttributeValue, oracledbProcedureIDAttributeValue, oracledbProcedureNameAttributeValue, oracledbProcedureTypeAttributeValue, dbQueryCommentTagsAttributeValue, oracledbPlanHashValueAttributeValue, oracledbPlanFirstLoadAttributeValue, oracledbPlanLastLoadAttributeValue)
+}
+
+// RecordDbServerViewMetadataEvent adds a log record of db.server.view_metadata event.
+func (lb *LogsBuilder) RecordDbServerViewMetadataEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue string, dbNamespaceAttributeValue string, oracledbTableSchemaNameAttributeValue string, oracledbTableNameAttributeValue string, oracledbTableColumnsAttributeValue []any, oracledbViewDefinitionAttributeValue string) {
+	lb.eventDbServerViewMetadata.recordEvent(ctx, timestamp, dbSystemNameAttributeValue, dbNamespaceAttributeValue, oracledbTableSchemaNameAttributeValue, oracledbTableNameAttributeValue, oracledbTableColumnsAttributeValue, oracledbViewDefinitionAttributeValue)
 }

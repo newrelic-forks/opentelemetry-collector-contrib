@@ -361,6 +361,28 @@ attributes:
   oracledb.status:
     description: Execution state or result of a database query or session.
     type: string
+  # Table and view metadata
+  oracledb.table.columns:
+    description: The columns defined on the table, each with name, data_type, data_length, nullable, and default.
+    type: slice
+  oracledb.table.foreign_keys:
+    description: The foreign keys defined on the table, each with name, column_names, referenced_schema, referenced_table_name, referenced_column_names, and delete_rule.
+    type: slice
+  oracledb.table.indexes:
+    description: The indexes defined on the table, each with name, index_type, uniqueness, and column_names.
+    type: slice
+  oracledb.table.name:
+    description: The name of the table or view.
+    type: string
+  oracledb.table.row_count:
+    description: Estimated row count, refreshed by optimizer statistics collection rather than a live count.
+    type: int
+  oracledb.table.schema.name:
+    description: The schema (owner) of the table or view.
+    type: string
+  oracledb.table.size:
+    description: Table size broken out by kind (table, index, lob, total), each with a kind and bytes value.
+    type: slice
   oracledb.tablespace.state:
     description: Tablespace state as reported by Oracle (e.g. online, offline, read only)
     type: string
@@ -373,6 +395,9 @@ attributes:
   oracledb.user_io_wait_time:
     description: The total time (in seconds) a query spent waiting for user I/O operations—such as reading or writing data to disk or network file systems (reporting delta).
     type: double
+  oracledb.view.definition:
+    description: The view's defining SELECT statement.
+    type: string
   oracledb.wait.count:
     description: Number of times the session has waited on the wait event.
     type: int
@@ -479,6 +504,21 @@ events:
       - oracledb.wait.timeouts
       - oracledb.wait.duration
       - db.namespace
+
+  db.server.table_metadata:
+    enabled: false
+    description: Structural inventory and size of a table, including its columns, indexes, foreign keys, and row count. Collected on its own, slower interval since structure changes rarely.
+    attributes:
+      - db.system.name
+      - db.namespace
+      - oracledb.table.schema.name
+      - oracledb.table.name
+      - oracledb.table.columns
+      - oracledb.table.indexes
+      - oracledb.table.foreign_keys
+      - oracledb.table.row_count
+      - oracledb.table.size
+
   db.server.top_procedure:
     enabled: false
     description: Aggregated performance metrics for the top stored procedures by elapsed time, derived from V$SQL grouped by PROGRAM_ID and joined to DBA_PROCEDURES, with delta computation on cumulative counters. Correlates with db.server.top_query and db.server.query_sample via oracledb.procedure_id.
@@ -540,6 +580,17 @@ events:
       - oracledb.plan_hash_value
       - oracledb.plan.first_load
       - oracledb.plan.last_load
+
+  db.server.view_metadata:
+    enabled: false
+    description: Structural inventory of a view, including its columns and SQL definition. Off by default. Collected on its own, slower interval since structure changes rarely.
+    attributes:
+      - db.system.name
+      - db.namespace
+      - oracledb.table.schema.name
+      - oracledb.table.name
+      - oracledb.table.columns
+      - oracledb.view.definition
 metrics:
   oracledb.asm.disk.errors:
     attributes: [oracledb.asm.disk_group.name, oracledb.asm.disk.name, disk.io.direction]

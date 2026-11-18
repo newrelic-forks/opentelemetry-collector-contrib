@@ -52,6 +52,19 @@ const (
 	// query_sample, which additionally needs CDB_OBJECTS.
 	cdbProceduresGrantProbeSQL  = "SELECT 1 FROM CDB_PROCEDURES WHERE ROWNUM = 1"
 	cdbDictionaryGrantsProbeSQL = "SELECT COUNT(*) FROM (SELECT 1 FROM CDB_PROCEDURES WHERE ROWNUM = 1 UNION ALL SELECT 1 FROM CDB_OBJECTS WHERE ROWNUM = 1)"
+	// cdbTableMetadataGrantsProbeSQL checks the full CDB_* grant set table/view metadata needs —
+	// a strict superset of cdbDictionaryGrantsProbeSQL, granted separately since it covers a
+	// different feature (table/view structure, not procedure/query attribution).
+	cdbTableMetadataGrantsProbeSQL = "SELECT COUNT(*) FROM (" +
+		"SELECT 1 FROM CDB_TABLES WHERE ROWNUM = 1 UNION ALL " +
+		"SELECT 1 FROM CDB_TAB_COLUMNS WHERE ROWNUM = 1 UNION ALL " +
+		"SELECT 1 FROM CDB_INDEXES WHERE ROWNUM = 1 UNION ALL " +
+		"SELECT 1 FROM CDB_IND_COLUMNS WHERE ROWNUM = 1 UNION ALL " +
+		"SELECT 1 FROM CDB_CONSTRAINTS WHERE ROWNUM = 1 UNION ALL " +
+		"SELECT 1 FROM CDB_CONS_COLUMNS WHERE ROWNUM = 1 UNION ALL " +
+		"SELECT 1 FROM CDB_SEGMENTS WHERE ROWNUM = 1 UNION ALL " +
+		"SELECT 1 FROM CDB_LOBS WHERE ROWNUM = 1 UNION ALL " +
+		"SELECT 1 FROM CDB_VIEWS WHERE ROWNUM = 1)"
 	containerGrantsProbeTimeout = 5 * time.Second
 
 	// V$SYSMETRIC metric_name values (group_id=2, 60-second interval)
@@ -389,6 +402,14 @@ var (
 	oracleProcedureMetricsSQL string
 	//go:embed templates/oracleProcedureMetricsCDBSql.tmpl
 	oracleProcedureMetricsCDBSQL string
+	//go:embed templates/oracleTableMetadataSql.tmpl
+	oracleTableMetadataSQL string
+	//go:embed templates/oracleTableMetadataCDBSql.tmpl
+	oracleTableMetadataCDBSQL string
+	//go:embed templates/oracleViewMetadataSql.tmpl
+	oracleViewMetadataSQL string
+	//go:embed templates/oracleViewMetadataCDBSql.tmpl
+	oracleViewMetadataCDBSQL string
 )
 
 // sgaComponentNames maps V$SGAINFO.NAME values to the snake_case enum keys
@@ -426,7 +447,10 @@ type oracleScraper struct {
 	useCDBProceduresView bool
 	// useCDBDictionaryViews additionally enables the CDB_OBJECTS-qualified join needed by query_sample. It
 	// requires CDB_PROCEDURES and CDB_OBJECTS, a strict superset of useCDBProceduresView's grant.
-	useCDBDictionaryViews    bool
+	useCDBDictionaryViews bool
+	// useCDBTableMetadataViews enables CDB_TABLES/CDB_TAB_COLUMNS/etc. for table_metadata and
+	// view_metadata, granted separately from the procedure/query-sample grants above.
+	useCDBTableMetadataViews bool
 	oracleQueryMetricsClient dbClient
 	oraclePlanDataClient     dbClient
 	samplesQueryClient       dbClient
@@ -471,6 +495,11 @@ type oracleScraper struct {
 	procedureMetricCache          *lru.Cache[string, map[string]int64]
 	procedureMetricsCfg           ProcedureMetrics
 	lastProcedureMetricsTimestamp time.Time
+
+	tableMetadataCfg           TableMetadataCollection
+	viewMetadataCfg            ViewMetadataCollection
+	lastTableMetadataTimestamp time.Time
+	lastViewMetadataTimestamp  time.Time
 	// instanceInfo holds Oracle deployment metadata detected once at start().
 	// All fields are best-effort: detection failures are logged and leave the
 	// field at its zero value; they never prevent the receiver from starting.
@@ -500,6 +529,7 @@ func newLogsScraper(logsBuilder *metadata.LogsBuilder, logsBuilderConfig metadat
 	logger *zap.Logger, providerFunc dbProviderFunc, clientProviderFunc clientProviderFunc, instanceName string, metricCache *lru.Cache[string, map[string]int64],
 	topQueryCollectCfg TopQueryCollection, querySampleCfg QuerySample, sessionWaitEventCfg SessionWaitEvent, hostName string, dbCleanup func(),
 	procedureMetricCache *lru.Cache[string, map[string]int64], procedureMetricsCfg ProcedureMetrics,
+	tableMetadataCfg TableMetadataCollection, viewMetadataCfg ViewMetadataCollection,
 ) (scraper.Logs, error) {
 	serverAddress, serverPort, serviceInstanceID := resolveInstanceIdentity(hostName, instanceName, logger)
 	s := &oracleScraper{
@@ -522,6 +552,8 @@ func newLogsScraper(logsBuilder *metadata.LogsBuilder, logsBuilderConfig metadat
 		serverPort:           serverPort,
 		procedureMetricCache: procedureMetricCache,
 		procedureMetricsCfg:  procedureMetricsCfg,
+		tableMetadataCfg:     tableMetadataCfg,
+		viewMetadataCfg:      viewMetadataCfg,
 	}
 	return scraper.NewLogs(s.scrapeLogs, scraper.WithShutdown(s.shutdown), scraper.WithStart(s.start))
 }
@@ -561,6 +593,20 @@ func (s *oracleScraper) buildQuerySampleSQL() string {
 		return samplesCDBQuery
 	}
 	return samplesQuery
+}
+
+func (s *oracleScraper) buildTableMetadataSQL() string {
+	if s.useCDBTableMetadataViews {
+		return oracleTableMetadataCDBSQL
+	}
+	return oracleTableMetadataSQL
+}
+
+func (s *oracleScraper) buildViewMetadataSQL() string {
+	if s.useCDBTableMetadataViews {
+		return oracleViewMetadataCDBSQL
+	}
+	return oracleViewMetadataSQL
 }
 
 func (s *oracleScraper) start(ctx context.Context, _ component.Host) error {
@@ -614,6 +660,14 @@ func (s *oracleScraper) start(ctx context.Context, _ component.Host) error {
 			"oracledbreceiver: CDB_PROCEDURES/CDB_OBJECTS not readable; falling back to DBA_* dictionary views, which cannot attribute PDB-owned objects from a CDB root. See the receiver README 'CDB-root connections' section.")
 	if s.useCDBDictionaryViews {
 		s.logger.Debug("oracledbreceiver: using container-qualified dictionary joins for query-sample collection")
+	}
+	// table_metadata/view_metadata need their own CDB_* grant set, separate from the
+	// procedure/query-sample grants above.
+	s.useCDBTableMetadataViews = s.instanceInfo.isCDB && !s.instanceInfo.connectedToPDB &&
+		s.hasCDBDictionaryGrants(ctx, s.clientProviderFunc(s.db, cdbTableMetadataGrantsProbeSQL, s.logger),
+			"oracledbreceiver: CDB_TABLES/CDB_TAB_COLUMNS/etc. not readable; falling back to DBA_* dictionary views, which cannot attribute PDB-owned tables from a CDB root. See the receiver README 'CDB-root connections' section.")
+	if s.useCDBTableMetadataViews {
+		s.logger.Debug("oracledbreceiver: using container-qualified dictionary joins for table/view metadata collection")
 	}
 	s.tablespaceUsageClient = s.clientProviderFunc(s.db, s.buildTablespaceSQL(), s.logger)
 	s.systemResourceLimitsClient = s.clientProviderFunc(s.db, systemResourceLimitsSQL, s.logger)
@@ -2009,6 +2063,30 @@ func (s *oracleScraper) scrapeLogs(ctx context.Context) (plog.Logs, error) {
 		}
 	}
 
+	if s.logsBuilderConfig.Events.DbServerTableMetadata.Enabled {
+		if !collectionIntervalElapsed(s.lastTableMetadataTimestamp, s.tableMetadataCfg.CollectionInterval) {
+			s.logger.Debug("Skipping the collection of table metadata because collection interval has not yet elapsed.")
+		} else {
+			currentCollectionTime := time.Now()
+			if tableMetadataErr := s.collectTableMetadata(ctx, logs, currentCollectionTime); tableMetadataErr != nil {
+				scrapeErrors = append(scrapeErrors, tableMetadataErr)
+			}
+			s.lastTableMetadataTimestamp = currentCollectionTime
+		}
+	}
+
+	if s.logsBuilderConfig.Events.DbServerViewMetadata.Enabled {
+		if !collectionIntervalElapsed(s.lastViewMetadataTimestamp, s.viewMetadataCfg.CollectionInterval) {
+			s.logger.Debug("Skipping the collection of view metadata because collection interval has not yet elapsed.")
+		} else {
+			currentCollectionTime := time.Now()
+			if viewMetadataErr := s.collectViewMetadata(ctx, logs, currentCollectionTime); viewMetadataErr != nil {
+				scrapeErrors = append(scrapeErrors, viewMetadataErr)
+			}
+			s.lastViewMetadataTimestamp = currentCollectionTime
+		}
+	}
+
 	if s.logsBuilderConfig.Events.DbServerQueryPlan.Enabled {
 		removeQueryPlanFromTopQuery(logs)
 	}
@@ -2371,6 +2449,234 @@ func (s *oracleScraper) collectProcedureMetrics(ctx context.Context, logs plog.L
 			hit.metrics[physicalWriteBytesMetric],
 			hit.firstLoadTime,
 			hit.lastActiveTime)
+	}
+
+	s.lb.Emit(metadata.WithLogsResource(rb.Emit())).ResourceLogs().MoveAndAppendTo(logs.ResourceLogs())
+
+	return errors.Join(errs...)
+}
+
+// oracleMetadataColumn mirrors one element of the JSON_ARRAYAGG columns array produced by
+// the table/view metadata queries.
+type oracleMetadataColumn struct {
+	Name       string `json:"name"`
+	DataType   string `json:"data_type"`
+	DataLength int64  `json:"data_length"`
+	Nullable   string `json:"nullable"`
+	Default    string `json:"default"`
+}
+
+// parseOracleMetadataColumns decodes a JSON_ARRAYAGG columns value. The query's own
+// COALESCE(..., '[]') guards against SQL NULL (a table with zero columns, not expected
+// in practice) the same way the other three receivers' metadata events do.
+func parseOracleMetadataColumns(raw string) ([]any, error) {
+	if raw == "" || raw == "[]" {
+		return []any{}, nil
+	}
+	var columns []oracleMetadataColumn
+	if err := json.Unmarshal([]byte(raw), &columns); err != nil {
+		return nil, err
+	}
+	result := make([]any, 0, len(columns))
+	for i := range columns {
+		col := &columns[i]
+		entry := map[string]any{
+			"name":        col.Name,
+			"data_type":   col.DataType,
+			"data_length": col.DataLength,
+			"nullable":    col.Nullable == "Y",
+		}
+		if col.Default != "" {
+			entry["default"] = col.Default
+		}
+		result = append(result, entry)
+	}
+	return result, nil
+}
+
+// oracleMetadataIndex mirrors one element of the JSON_ARRAYAGG indexes array.
+type oracleMetadataIndex struct {
+	Name        string `json:"name"`
+	IndexType   string `json:"index_type"`
+	Uniqueness  string `json:"uniqueness"`
+	ColumnNames string `json:"column_names"`
+}
+
+func parseOracleMetadataIndexes(raw string) ([]any, error) {
+	if raw == "" || raw == "[]" {
+		return []any{}, nil
+	}
+	var indexes []oracleMetadataIndex
+	if err := json.Unmarshal([]byte(raw), &indexes); err != nil {
+		return nil, err
+	}
+	result := make([]any, 0, len(indexes))
+	for i := range indexes {
+		idx := &indexes[i]
+		result = append(result, map[string]any{
+			"name":         idx.Name,
+			"index_type":   idx.IndexType,
+			"uniqueness":   idx.Uniqueness,
+			"column_names": idx.ColumnNames,
+		})
+	}
+	return result, nil
+}
+
+// oracleMetadataForeignKey mirrors one element of the JSON_ARRAYAGG foreign_keys array.
+type oracleMetadataForeignKey struct {
+	Name                  string `json:"name"`
+	ColumnNames           string `json:"column_names"`
+	ReferencedSchema      string `json:"referenced_schema"`
+	ReferencedTableName   string `json:"referenced_table_name"`
+	ReferencedColumnNames string `json:"referenced_column_names"`
+	DeleteRule            string `json:"delete_rule"`
+}
+
+func parseOracleMetadataForeignKeys(raw string) ([]any, error) {
+	if raw == "" || raw == "[]" {
+		return []any{}, nil
+	}
+	var foreignKeys []oracleMetadataForeignKey
+	if err := json.Unmarshal([]byte(raw), &foreignKeys); err != nil {
+		return nil, err
+	}
+	result := make([]any, 0, len(foreignKeys))
+	for i := range foreignKeys {
+		fk := &foreignKeys[i]
+		result = append(result, map[string]any{
+			"name":                    fk.Name,
+			"column_names":            fk.ColumnNames,
+			"referenced_schema":       fk.ReferencedSchema,
+			"referenced_table_name":   fk.ReferencedTableName,
+			"referenced_column_names": fk.ReferencedColumnNames,
+			"delete_rule":             fk.DeleteRule,
+		})
+	}
+	return result, nil
+}
+
+// collectTableMetadata collects db.server.table_metadata: a full structural and size
+// inventory of every table, refreshed on its own slower interval since structure
+// changes rarely.
+func (s *oracleScraper) collectTableMetadata(ctx context.Context, logs plog.Logs, collectionTime time.Time) error {
+	const (
+		schemaNameCol  = "SCHEMA_NAME"
+		tableNameCol   = "TABLE_NAME"
+		dbNamespaceCol = "DB_NAMESPACE"
+		rowCountCol    = "ROW_COUNT"
+		columnsCol     = "COLUMNS_JSON"
+		indexesCol     = "INDEXES_JSON"
+		foreignKeysCol = "FOREIGN_KEYS_JSON"
+		tableBytesCol  = "TABLE_BYTES"
+		indexBytesCol  = "INDEX_BYTES"
+		lobBytesCol    = "LOB_BYTES"
+		totalBytesCol  = "TOTAL_BYTES"
+	)
+
+	client := s.clientProviderFunc(s.db, s.buildTableMetadataSQL(), s.logger)
+	rows, err := client.metricRows(ctx, s.tableMetadataCfg.MaxTables)
+	if err != nil {
+		return fmt.Errorf("error executing oracleTableMetadataSQL: %w", err)
+	}
+
+	var errs []error
+	timestamp := pcommon.NewTimestampFromTime(collectionTime)
+	rb := s.setupResourceBuilder(s.lb.NewResourceBuilder())
+
+	for _, row := range rows {
+		rowCount, err := strconv.ParseInt(row[rowCountCol], 10, 64)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse %s for table %s.%s: %w", rowCountCol, row[schemaNameCol], row[tableNameCol], err))
+			continue
+		}
+		tableBytes, _ := strconv.ParseInt(row[tableBytesCol], 10, 64)
+		indexBytes, _ := strconv.ParseInt(row[indexBytesCol], 10, 64)
+		lobBytes, _ := strconv.ParseInt(row[lobBytesCol], 10, 64)
+		totalBytes, _ := strconv.ParseInt(row[totalBytesCol], 10, 64)
+
+		columns, err := parseOracleMetadataColumns(row[columnsCol])
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse %s for table %s.%s: %w", columnsCol, row[schemaNameCol], row[tableNameCol], err))
+			continue
+		}
+		indexes, err := parseOracleMetadataIndexes(row[indexesCol])
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse %s for table %s.%s: %w", indexesCol, row[schemaNameCol], row[tableNameCol], err))
+			continue
+		}
+		foreignKeys, err := parseOracleMetadataForeignKeys(row[foreignKeysCol])
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse %s for table %s.%s: %w", foreignKeysCol, row[schemaNameCol], row[tableNameCol], err))
+			continue
+		}
+
+		size := []any{
+			map[string]any{"kind": "table", "bytes": tableBytes},
+			map[string]any{"kind": "index", "bytes": indexBytes},
+			map[string]any{"kind": "lob", "bytes": lobBytes},
+			map[string]any{"kind": "total", "bytes": totalBytes},
+		}
+
+		s.lb.RecordDbServerTableMetadataEvent(
+			ctx,
+			timestamp,
+			dbSystemNameVal,
+			row[dbNamespaceCol],
+			row[schemaNameCol],
+			row[tableNameCol],
+			columns,
+			indexes,
+			foreignKeys,
+			rowCount,
+			size,
+		)
+	}
+
+	s.lb.Emit(metadata.WithLogsResource(rb.Emit())).ResourceLogs().MoveAndAppendTo(logs.ResourceLogs())
+
+	return errors.Join(errs...)
+}
+
+// collectViewMetadata collects db.server.view_metadata: a structural inventory of
+// every view, off by default. Refreshed on its own slower interval since structure
+// changes rarely.
+func (s *oracleScraper) collectViewMetadata(ctx context.Context, logs plog.Logs, collectionTime time.Time) error {
+	const (
+		schemaNameCol  = "SCHEMA_NAME"
+		viewNameCol    = "VIEW_NAME"
+		dbNamespaceCol = "DB_NAMESPACE"
+		columnsCol     = "COLUMNS_JSON"
+		definitionCol  = "DEFINITION"
+	)
+
+	client := s.clientProviderFunc(s.db, s.buildViewMetadataSQL(), s.logger)
+	rows, err := client.metricRows(ctx, s.viewMetadataCfg.MaxViews)
+	if err != nil {
+		return fmt.Errorf("error executing oracleViewMetadataSQL: %w", err)
+	}
+
+	var errs []error
+	timestamp := pcommon.NewTimestampFromTime(collectionTime)
+	rb := s.setupResourceBuilder(s.lb.NewResourceBuilder())
+
+	for _, row := range rows {
+		columns, err := parseOracleMetadataColumns(row[columnsCol])
+		if err != nil {
+			errs = append(errs, fmt.Errorf("failed to parse %s for view %s.%s: %w", columnsCol, row[schemaNameCol], row[viewNameCol], err))
+			continue
+		}
+
+		s.lb.RecordDbServerViewMetadataEvent(
+			ctx,
+			timestamp,
+			dbSystemNameVal,
+			row[dbNamespaceCol],
+			row[schemaNameCol],
+			row[viewNameCol],
+			columns,
+			row[definitionCol],
+		)
 	}
 
 	s.lb.Emit(metadata.WithLogsResource(rb.Emit())).ResourceLogs().MoveAndAppendTo(logs.ResourceLogs())

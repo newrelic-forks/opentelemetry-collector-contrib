@@ -149,10 +149,16 @@ func TestLogsBuilder(t *testing.T) {
 			lb.RecordDbServerSessionWaitSampleEvent(ctx, timestamp, "db.system.name-val", "oracledb.sid-val", "oracledb.serial-val", "oracledb.event-val", "oracledb.wait_class-val", 19, 22, 22.100000, "db.namespace-val")
 
 			allEventsCount++
+			lb.RecordDbServerTableMetadataEvent(ctx, timestamp, "db.system.name-val", "db.namespace-val", "oracledb.table.schema.name-val", "oracledb.table.name-val", []any{"oracledb.table.columns-item1", "oracledb.table.columns-item2"}, []any{"oracledb.table.indexes-item1", "oracledb.table.indexes-item2"}, []any{"oracledb.table.foreign_keys-item1", "oracledb.table.foreign_keys-item2"}, 24, []any{"oracledb.table.size-item1", "oracledb.table.size-item2"})
+
+			allEventsCount++
 			lb.RecordDbServerTopProcedureEvent(ctx, timestamp, "db.system.name-val", "db.namespace-val", "db.server.name-val", "oracle.db.service-val", 21, "oracledb.procedure_name-val", "oracledb.procedure_type-val", "oracledb.procedure.schema.name-val", 34, 17.100000, 21.100000, 20, 19, 22, 23, 28, 29, "oracledb.procedure.first_load_time-val", "oracledb.procedure.last_active_time-val")
 
 			allEventsCount++
 			lb.RecordDbServerTopQueryEvent(ctx, timestamp, "db.system.name-val", "db.server.name-val", "db.namespace-val", "oracle.db.service-val", "db.query.text-val", "oracledb.query_plan-val", "oracledb.sql_id-val", "oracledb.child_number-val", "oracledb.child_address-val", 30.100000, 20, 26.100000, 21, 30.100000, 17.100000, 21, 22, 19, 21.100000, 19, 28, 31, 29, 32, 23, 26.100000, 34, 21, "oracledb.procedure_name-val", "oracledb.procedure_type-val", "db.query.comment_tags-val", "oracledb.plan_hash_value-val", "oracledb.plan.first_load-val", "oracledb.plan.last_load-val")
+
+			allEventsCount++
+			lb.RecordDbServerViewMetadataEvent(ctx, timestamp, "db.system.name-val", "db.namespace-val", "oracledb.table.schema.name-val", "oracledb.table.name-val", []any{"oracledb.table.columns-item1", "oracledb.table.columns-item2"}, "oracledb.view.definition-val")
 
 			rb := lb.NewResourceBuilder()
 			rb.SetHostName("host.name-val")
@@ -387,6 +393,40 @@ func TestLogsBuilder(t *testing.T) {
 					attrVal, ok = lr.Attributes().Get("db.namespace")
 					assert.True(t, ok)
 					assert.Equal(t, "db.namespace-val", attrVal.Str())
+				case "db.server.table_metadata":
+					assert.False(t, validatedEvents["db.server.table_metadata"], "Found a duplicate in the events slice: db.server.table_metadata")
+					validatedEvents["db.server.table_metadata"] = true
+					lr := lrs.At(i)
+					assert.Equal(t, timestamp, lr.Timestamp())
+					assert.Equal(t, pcommon.TraceID(traceID), lr.TraceID())
+					assert.Equal(t, pcommon.SpanID(spanID), lr.SpanID())
+					attrVal, ok := lr.Attributes().Get("db.system.name")
+					assert.True(t, ok)
+					assert.Equal(t, "db.system.name-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("db.namespace")
+					assert.True(t, ok)
+					assert.Equal(t, "db.namespace-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.table.schema.name")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.table.schema.name-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.table.name")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.table.name-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.table.columns")
+					assert.True(t, ok)
+					assert.Equal(t, []any{"oracledb.table.columns-item1", "oracledb.table.columns-item2"}, attrVal.Slice().AsRaw())
+					attrVal, ok = lr.Attributes().Get("oracledb.table.indexes")
+					assert.True(t, ok)
+					assert.Equal(t, []any{"oracledb.table.indexes-item1", "oracledb.table.indexes-item2"}, attrVal.Slice().AsRaw())
+					attrVal, ok = lr.Attributes().Get("oracledb.table.foreign_keys")
+					assert.True(t, ok)
+					assert.Equal(t, []any{"oracledb.table.foreign_keys-item1", "oracledb.table.foreign_keys-item2"}, attrVal.Slice().AsRaw())
+					attrVal, ok = lr.Attributes().Get("oracledb.table.row_count")
+					assert.True(t, ok)
+					assert.EqualValues(t, 24, attrVal.Int())
+					attrVal, ok = lr.Attributes().Get("oracledb.table.size")
+					assert.True(t, ok)
+					assert.Equal(t, []any{"oracledb.table.size-item1", "oracledb.table.size-item2"}, attrVal.Slice().AsRaw())
 				case "db.server.top_procedure":
 					assert.False(t, validatedEvents["db.server.top_procedure"], "Found a duplicate in the events slice: db.server.top_procedure")
 					validatedEvents["db.server.top_procedure"] = true
@@ -560,6 +600,31 @@ func TestLogsBuilder(t *testing.T) {
 					attrVal, ok = lr.Attributes().Get("oracledb.plan.last_load")
 					assert.True(t, ok)
 					assert.Equal(t, "oracledb.plan.last_load-val", attrVal.Str())
+				case "db.server.view_metadata":
+					assert.False(t, validatedEvents["db.server.view_metadata"], "Found a duplicate in the events slice: db.server.view_metadata")
+					validatedEvents["db.server.view_metadata"] = true
+					lr := lrs.At(i)
+					assert.Equal(t, timestamp, lr.Timestamp())
+					assert.Equal(t, pcommon.TraceID(traceID), lr.TraceID())
+					assert.Equal(t, pcommon.SpanID(spanID), lr.SpanID())
+					attrVal, ok := lr.Attributes().Get("db.system.name")
+					assert.True(t, ok)
+					assert.Equal(t, "db.system.name-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("db.namespace")
+					assert.True(t, ok)
+					assert.Equal(t, "db.namespace-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.table.schema.name")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.table.schema.name-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.table.name")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.table.name-val", attrVal.Str())
+					attrVal, ok = lr.Attributes().Get("oracledb.table.columns")
+					assert.True(t, ok)
+					assert.Equal(t, []any{"oracledb.table.columns-item1", "oracledb.table.columns-item2"}, attrVal.Slice().AsRaw())
+					attrVal, ok = lr.Attributes().Get("oracledb.view.definition")
+					assert.True(t, ok)
+					assert.Equal(t, "oracledb.view.definition-val", attrVal.Str())
 				}
 			}
 		})
