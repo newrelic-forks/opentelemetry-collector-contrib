@@ -1363,6 +1363,190 @@ func TestScrapeTopQueryHonorsConnectDatabase(t *testing.T) {
 	require.Equal(t, []string{"mydb"}, cfg.Databases)
 }
 
+var tableMetadataColumns = []string{
+	"table_id", "schema_name", "table_name", "columns", "indexes", "foreign_keys",
+	"row_estimate", "total_bytes", "data_bytes", "index_bytes", "toast_bytes",
+	"table_owner", "schema_owner", "toast_table",
+}
+
+func TestScrapeTableMetadata(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.Databases = []string{"mydb"}
+	cfg.LogsBuilderConfig.Events.DbServerTableMetadata.Enabled = true
+
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+	require.NoError(t, err)
+	defer db.Close()
+
+	settings := receivertest.NewNopSettings(metadata.Type)
+	logger, err := zap.NewProduction()
+	require.NoError(t, err)
+	settings.TelemetrySettings = component.TelemetrySettings{Logger: logger}
+
+	factory := mockSimpleClientFactory{db: db}
+	scraper, err := newPostgreSQLScraper(settings, cfg, factory, newCache(1), newTTLCache[string](1, time.Second))
+	require.NoError(t, err)
+
+	mock.ExpectQuery(".*").WillReturnRows(sqlmock.NewRows(tableMetadataColumns).
+		AddRow(int64(1001), "public", "orders",
+			`[{"name":"id","data_type":"integer","nullable":false,"default":""}]`,
+			`[{"definition":"CREATE UNIQUE INDEX orders_pkey ON public.orders USING btree (id)","is_unique":true,"is_exclusion":false,"is_immediate":true,"is_clustered":false,"is_valid":true,"is_checkxmin":false,"is_ready":true,"is_live":true,"is_replident":false,"is_partial":false},`+
+				`{"definition":"CREATE INDEX idx_orders_pending ON public.orders USING btree (status) WHERE status = 'pending'","is_unique":false,"is_exclusion":false,"is_immediate":true,"is_clustered":false,"is_valid":true,"is_checkxmin":false,"is_ready":true,"is_live":true,"is_replident":false,"is_partial":true}]`,
+			`["FOREIGN KEY (user_id) REFERENCES users(id)"]`,
+			int64(600000), int64(90208000), int64(60000000), int64(30000000), int64(208000),
+			"app_user", "app_user", "pg_toast.pg_toast_16563"))
+
+	logs, err := scraper.scrapeTableMetadata(t.Context(), 300, time.Minute)
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+
+	records := logs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords()
+	require.Equal(t, 1, records.Len())
+	record := records.At(0)
+	assert.Equal(t, "db.server.table_metadata", record.EventName())
+
+	collectionName, ok := record.Attributes().Get("db.collection.name")
+	require.True(t, ok)
+	assert.Equal(t, "orders", collectionName.Str())
+
+	columns, ok := record.Attributes().Get("postgresql.table.columns")
+	require.True(t, ok)
+	assert.Equal(t, 1, columns.Slice().Len())
+
+	tableOwner, ok := record.Attributes().Get("postgresql.table.owner")
+	require.True(t, ok)
+	assert.Equal(t, "app_user", tableOwner.Str())
+
+	schemaOwner, ok := record.Attributes().Get("postgresql.schema.owner")
+	require.True(t, ok)
+	assert.Equal(t, "app_user", schemaOwner.Str())
+
+	toastTable, ok := record.Attributes().Get("postgresql.table.toast_table")
+	require.True(t, ok)
+	assert.Equal(t, "pg_toast.pg_toast_16563", toastTable.Str())
+
+	indexes, ok := record.Attributes().Get("postgresql.table.indexes")
+	require.True(t, ok)
+	require.Equal(t, 2, indexes.Slice().Len())
+
+	uniqueIndex := indexes.Slice().At(0).Map()
+	definition, ok := uniqueIndex.Get("definition")
+	require.True(t, ok)
+	assert.Equal(t, "CREATE UNIQUE INDEX orders_pkey ON public.orders USING btree (id)", definition.Str())
+	isUnique, ok := uniqueIndex.Get("is_unique")
+	require.True(t, ok)
+	assert.True(t, isUnique.Bool())
+	isPartial, ok := uniqueIndex.Get("is_partial")
+	require.True(t, ok)
+	assert.False(t, isPartial.Bool())
+
+	partialIndex := indexes.Slice().At(1).Map()
+	partialIsPartial, ok := partialIndex.Get("is_partial")
+	require.True(t, ok)
+	assert.True(t, partialIsPartial.Bool())
+	partialIsUnique, ok := partialIndex.Get("is_unique")
+	require.True(t, ok)
+	assert.False(t, partialIsUnique.Bool())
+}
+
+// A table with no indexes or foreign keys has json_agg come back as SQL NULL (the
+// query's own COALESCE turns it into the literal text "[]"), which must be reported as
+// an empty list, not a parse error.
+func TestScrapeTableMetadataHandlesEmptyNestedData(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.Databases = []string{"mydb"}
+	cfg.LogsBuilderConfig.Events.DbServerTableMetadata.Enabled = true
+
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+	require.NoError(t, err)
+	defer db.Close()
+
+	settings := receivertest.NewNopSettings(metadata.Type)
+	factory := mockSimpleClientFactory{db: db}
+	scraper, err := newPostgreSQLScraper(settings, cfg, factory, newCache(1), newTTLCache[string](1, time.Second))
+	require.NoError(t, err)
+
+	mock.ExpectQuery(".*").WillReturnRows(sqlmock.NewRows(tableMetadataColumns).
+		AddRow(int64(1002), "public", "customers",
+			`[{"name":"id","data_type":"integer","nullable":false,"default":""}]`,
+			"[]", "[]",
+			int64(5000), int64(1024000), int64(700000), int64(0), int64(0),
+			"app_user", "app_user", ""))
+
+	logs, err := scraper.scrapeTableMetadata(t.Context(), 300, time.Minute)
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+
+	record := logs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0)
+
+	toastTable, ok := record.Attributes().Get("postgresql.table.toast_table")
+	require.True(t, ok)
+	assert.Empty(t, toastTable.Str(), "a table with no TOAST table must report an empty toast_table, not error")
+	indexes, ok := record.Attributes().Get("postgresql.table.indexes")
+	require.True(t, ok)
+	assert.Equal(t, 0, indexes.Slice().Len())
+
+	foreignKeys, ok := record.Attributes().Get("postgresql.table.foreign_keys")
+	require.True(t, ok)
+	assert.Equal(t, 0, foreignKeys.Slice().Len())
+}
+
+func TestScrapeTableMetadataRespectsCollectionInterval(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.Databases = []string{"mydb"}
+	cfg.LogsBuilderConfig.Events.DbServerTableMetadata.Enabled = true
+
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+	require.NoError(t, err)
+	defer db.Close()
+
+	settings := receivertest.NewNopSettings(metadata.Type)
+	factory := mockSimpleClientFactory{db: db}
+	scraper, err := newPostgreSQLScraper(settings, cfg, factory, newCache(1), newTTLCache[string](1, time.Second))
+	require.NoError(t, err)
+	scraper.lastExecutionTimestamp = time.Now()
+
+	logs, err := scraper.scrapeTableMetadata(t.Context(), 300, time.Minute)
+	require.NoError(t, err)
+	assert.Equal(t, 0, logs.ResourceLogs().Len(), "scrape within the collection interval should be skipped")
+	assert.NoError(t, mock.ExpectationsWereMet(), "no query should run when the collection is skipped")
+}
+
+var viewMetadataColumns = []string{"view_id", "schema_name", "view_name", "columns", "definition"}
+
+func TestScrapeViewMetadata(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.Databases = []string{"mydb"}
+	cfg.LogsBuilderConfig.Events.DbServerViewMetadata.Enabled = true
+
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+	require.NoError(t, err)
+	defer db.Close()
+
+	settings := receivertest.NewNopSettings(metadata.Type)
+	factory := mockSimpleClientFactory{db: db}
+	scraper, err := newPostgreSQLScraper(settings, cfg, factory, newCache(1), newTTLCache[string](1, time.Second))
+	require.NoError(t, err)
+
+	mock.ExpectQuery(".*").WillReturnRows(sqlmock.NewRows(viewMetadataColumns).
+		AddRow(int64(2001), "public", "customer_order_summary",
+			`[{"name":"customer_id","data_type":"integer","nullable":false,"default":""}]`,
+			"SELECT customer_id FROM customers;"))
+
+	logs, err := scraper.scrapeViewMetadata(t.Context(), 1000, time.Minute)
+	require.NoError(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+
+	records := logs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords()
+	require.Equal(t, 1, records.Len())
+	record := records.At(0)
+	assert.Equal(t, "db.server.view_metadata", record.EventName())
+
+	definition, ok := record.Attributes().Get("postgresql.view.definition")
+	require.True(t, ok)
+	assert.Equal(t, "SELECT customer_id FROM customers;", definition.Str())
+}
+
 func TestScrapeHonorsConnectDatabase(t *testing.T) {
 	factory := new(mockClientFactory)
 	factory.initMocksWithConnectDatabase([]string{"mydb"}, "monitoring")
@@ -2438,6 +2622,16 @@ func (m *mockClient) getDatabaseTableMetrics(ctx context.Context, database strin
 func (m *mockClient) getBlocksReadByTable(ctx context.Context, database string) (map[tableIdentifier]tableIOStats, error) {
 	args := m.Called(ctx, database)
 	return args.Get(0).(map[tableIdentifier]tableIOStats), args.Error(1)
+}
+
+func (m *mockClient) getTableMetadata(ctx context.Context, maxTables int64) ([]tableMetadataRow, error) {
+	args := m.Called(ctx, maxTables)
+	return args.Get(0).([]tableMetadataRow), args.Error(1)
+}
+
+func (m *mockClient) getViewMetadata(ctx context.Context, maxViews int64) ([]tableMetadataRow, error) {
+	args := m.Called(ctx, maxViews)
+	return args.Get(0).([]tableMetadataRow), args.Error(1)
 }
 
 func (m *mockClient) getTableCount(ctx context.Context) (int64, error) {

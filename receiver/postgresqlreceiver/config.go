@@ -54,6 +54,29 @@ type QuerySampleCollection struct {
 	_ struct{}
 }
 
+// TableMetadataCollection configures the collection of table structure and size
+// inventory (db.server.table_metadata). Structure changes rarely, so this runs on its
+// own, slower interval, decoupled from the main metrics scrape interval.
+type TableMetadataCollection struct {
+	CollectionInterval time.Duration `mapstructure:"collection_interval"`
+	// MaxTables caps the number of tables reported per database per poll, to bound
+	// worst-case payload size on very large schemas. 0 means use the default.
+	MaxTables uint `mapstructure:"max_tables"`
+	// prevent unkeyed literal initialization
+	_ struct{}
+}
+
+// ViewMetadataCollection configures the collection of view structure inventory
+// (db.server.view_metadata). Off by default.
+type ViewMetadataCollection struct {
+	CollectionInterval time.Duration `mapstructure:"collection_interval"`
+	// MaxViews caps the number of views reported per database per poll. 0 means use
+	// the default.
+	MaxViews uint `mapstructure:"max_views"`
+	// prevent unkeyed literal initialization
+	_ struct{}
+}
+
 type Config struct {
 	ControllerConfig scraperhelper.ControllerConfig `mapstructure:",squash"`
 	Username         string                         `mapstructure:"username"`
@@ -71,6 +94,10 @@ type Config struct {
 	LogsBuilderConfig     metadata.LogsBuilderConfig    `mapstructure:",squash"`
 	QuerySampleCollection QuerySampleCollection         `mapstructure:"query_sample_collection,omitempty"`
 	TopQueryCollection    TopQueryCollection            `mapstructure:"top_query_collection,omitempty"`
+	// TableMetadataCollection configures the table structure/size inventory event.
+	TableMetadataCollection TableMetadataCollection `mapstructure:"table_metadata_collection,omitempty"`
+	// ViewMetadataCollection configures the view structure inventory event.
+	ViewMetadataCollection ViewMetadataCollection `mapstructure:"view_metadata_collection,omitempty"`
 	// DBAuth optionally sources the connection credential from a db_auth provider
 	// extension (e.g. AWS IAM) instead of a static password. When set, the provider
 	// supplies the password at connection-open time. Mutually exclusive with the
@@ -135,6 +162,20 @@ func (cfg *Config) Validate() error {
 
 	if cfg.LogsBuilderConfig.Events.DbServerQueryPlan.Enabled && !cfg.LogsBuilderConfig.Events.DbServerTopQuery.Enabled {
 		err = multierr.Append(err, errQueryPlanWithoutTopQuery)
+	}
+
+	if cfg.TableMetadataCollection.CollectionInterval < 0 {
+		err = multierr.Append(err, errors.New("`table_metadata_collection.collection_interval` must not be less than 0"))
+	}
+	if cfg.LogsBuilderConfig.Events.DbServerTableMetadata.Enabled && cfg.TableMetadataCollection.MaxTables < 1 {
+		err = multierr.Append(err, errors.New("`table_metadata_collection.max_tables` must be greater than 0"))
+	}
+
+	if cfg.ViewMetadataCollection.CollectionInterval < 0 {
+		err = multierr.Append(err, errors.New("`view_metadata_collection.collection_interval` must not be less than 0"))
+	}
+	if cfg.LogsBuilderConfig.Events.DbServerViewMetadata.Enabled && cfg.ViewMetadataCollection.MaxViews < 1 {
+		err = multierr.Append(err, errors.New("`view_metadata_collection.max_views` must be greater than 0"))
 	}
 
 	return err

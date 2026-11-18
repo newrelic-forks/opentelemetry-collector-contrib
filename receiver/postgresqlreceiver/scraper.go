@@ -372,6 +372,178 @@ func (p *postgreSQLScraper) isCollectionDue(collectionTime time.Time, interval t
 	return false
 }
 
+// scrapeTableMetadata collects db.server.table_metadata: a full structural and size
+// inventory of every table across every configured database, refreshed on its own
+// slower interval since structure changes rarely.
+func (p *postgreSQLScraper) scrapeTableMetadata(ctx context.Context, maxTables uint, collectionInterval time.Duration) (plog.Logs, error) {
+	currentCollectionTime := time.Now()
+	var errs errsMux
+
+	if p.isCollectionDue(currentCollectionTime, collectionInterval) {
+		p.collectTableMetadata(ctx, int64(maxTables), &errs)
+		p.lastExecutionTimestamp = currentCollectionTime
+	}
+
+	rb := p.setupLogsResourceBuilder(p.lb.NewResourceBuilder())
+	return p.lb.Emit(metadata.WithLogsResource(rb.Emit())), errs.combine()
+}
+
+func (p *postgreSQLScraper) collectTableMetadata(ctx context.Context, maxTables int64, errs *errsMux) {
+	timestamp := pcommon.NewTimestampFromTime(time.Now())
+	databases := p.databasesToScrape(ctx, errs)
+
+	for _, database := range databases {
+		dbClient, dbErr := p.clientFactory.getClient(ctx, database)
+		if dbErr != nil {
+			errs.add(dbErr)
+			p.logger.Error("Failed to initialize connection to postgres", zap.String("database", database), zap.Error(dbErr))
+			continue
+		}
+
+		rows, err := dbClient.getTableMetadata(ctx, maxTables)
+		dbClient.Close()
+		if err != nil {
+			errs.addPartial(err)
+			p.logger.Error("Failed to get table metadata", zap.String("database", database), zap.Error(err))
+			continue
+		}
+
+		for i := range rows {
+			row := &rows[i]
+			columns, err := parseTableMetadataColumns(row.columns)
+			if err != nil {
+				errs.addPartial(fmt.Errorf("failed to parse columns for table %s.%s: %w", row.schemaName, row.tableName, err))
+				continue
+			}
+			indexes, err := parseTableMetadataIndexes(row.indexes)
+			if err != nil {
+				errs.addPartial(fmt.Errorf("failed to parse indexes for table %s.%s: %w", row.schemaName, row.tableName, err))
+				continue
+			}
+			foreignKeys, err := parseTableMetadataTextList(row.foreignKeys)
+			if err != nil {
+				errs.addPartial(fmt.Errorf("failed to parse foreign keys for table %s.%s: %w", row.schemaName, row.tableName, err))
+				continue
+			}
+
+			size := []any{
+				map[string]any{"kind": "data", "bytes": row.dataBytes},
+				map[string]any{"kind": "index", "bytes": row.indexBytes},
+				map[string]any{"kind": "toast", "bytes": row.toastBytes},
+				map[string]any{"kind": "total", "bytes": row.totalBytes},
+			}
+
+			p.lb.RecordDbServerTableMetadataEvent(
+				ctx,
+				timestamp,
+				metadata.AttributeDbSystemNamePostgresql,
+				formatNamespace(database, row.schemaName),
+				row.tableName,
+				row.tableID,
+				columns,
+				indexes,
+				foreignKeys,
+				row.rowEstimate,
+				size,
+				row.tableOwner,
+				row.schemaOwner,
+				row.toastTable,
+			)
+		}
+	}
+}
+
+// scrapeViewMetadata collects db.server.view_metadata: a structural inventory of every
+// view across every configured database, off by default. Refreshed on its own slower
+// interval since structure changes rarely.
+func (p *postgreSQLScraper) scrapeViewMetadata(ctx context.Context, maxViews uint, collectionInterval time.Duration) (plog.Logs, error) {
+	currentCollectionTime := time.Now()
+	var errs errsMux
+
+	if p.isCollectionDue(currentCollectionTime, collectionInterval) {
+		p.collectViewMetadata(ctx, int64(maxViews), &errs)
+		p.lastExecutionTimestamp = currentCollectionTime
+	}
+
+	rb := p.setupLogsResourceBuilder(p.lb.NewResourceBuilder())
+	return p.lb.Emit(metadata.WithLogsResource(rb.Emit())), errs.combine()
+}
+
+func (p *postgreSQLScraper) collectViewMetadata(ctx context.Context, maxViews int64, errs *errsMux) {
+	timestamp := pcommon.NewTimestampFromTime(time.Now())
+	databases := p.databasesToScrape(ctx, errs)
+
+	for _, database := range databases {
+		dbClient, dbErr := p.clientFactory.getClient(ctx, database)
+		if dbErr != nil {
+			errs.add(dbErr)
+			p.logger.Error("Failed to initialize connection to postgres", zap.String("database", database), zap.Error(dbErr))
+			continue
+		}
+
+		rows, err := dbClient.getViewMetadata(ctx, maxViews)
+		dbClient.Close()
+		if err != nil {
+			errs.addPartial(err)
+			p.logger.Error("Failed to get view metadata", zap.String("database", database), zap.Error(err))
+			continue
+		}
+
+		for i := range rows {
+			row := &rows[i]
+			columns, err := parseTableMetadataColumns(row.columns)
+			if err != nil {
+				errs.addPartial(fmt.Errorf("failed to parse columns for view %s.%s: %w", row.schemaName, row.tableName, err))
+				continue
+			}
+
+			p.lb.RecordDbServerViewMetadataEvent(
+				ctx,
+				timestamp,
+				metadata.AttributeDbSystemNamePostgresql,
+				formatNamespace(database, row.schemaName),
+				row.tableName,
+				row.tableID,
+				columns,
+				row.definition,
+			)
+		}
+	}
+}
+
+// databasesToScrape resolves the list of databases to report on: the configured
+// allowlist, or every database on the server when none is set, minus excludes. Mirrors
+// the database-resolution logic in scrape(), duplicated rather than shared because that
+// version is tied to the metrics-only dbRetrieval/errsMux call shape.
+func (p *postgreSQLScraper) databasesToScrape(ctx context.Context, errs *errsMux) []string {
+	databases := p.config.Databases
+	if len(databases) == 0 {
+		listClient, err := p.clientFactory.getClient(ctx, p.config.ConnectDatabase)
+		if err != nil {
+			errs.add(err)
+			p.logger.Error("Failed to initialize connection to configured connect_database", zap.String("connect_database", p.config.ConnectDatabase), zap.Error(err))
+			return nil
+		}
+		defer listClient.Close()
+
+		dbList, dbErr := listClient.listDatabases(ctx)
+		if dbErr != nil {
+			errs.add(dbErr)
+			p.logger.Error("Failed to request list of databases from configured connect_database", zap.String("connect_database", p.config.ConnectDatabase), zap.Error(dbErr))
+			return nil
+		}
+		databases = dbList
+	}
+
+	var filtered []string
+	for _, db := range databases {
+		if !p.isExcluded(db) {
+			filtered = append(filtered, db)
+		}
+	}
+	return filtered
+}
+
 func attrString(atts map[string]any, key string) string {
 	if v, ok := atts[key]; ok {
 		if s, ok := v.(string); ok {

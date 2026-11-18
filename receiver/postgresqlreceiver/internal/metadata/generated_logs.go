@@ -113,6 +113,53 @@ func newEventDbServerQuerySample(cfg EventConfig) eventDbServerQuerySample {
 	return e
 }
 
+type eventDbServerTableMetadata struct {
+	data   plog.LogRecordSlice // data buffer for generated log records.
+	config EventConfig         // event config provided by user.
+}
+
+func (e *eventDbServerTableMetadata) recordEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue string, dbNamespaceAttributeValue string, dbCollectionNameAttributeValue string, postgresqlTableIDAttributeValue int64, postgresqlTableColumnsAttributeValue []any, postgresqlTableIndexesAttributeValue []any, postgresqlTableForeignKeysAttributeValue []any, postgresqlTableRowEstimateAttributeValue int64, postgresqlTableSizeAttributeValue []any, postgresqlTableOwnerAttributeValue string, postgresqlSchemaOwnerAttributeValue string, postgresqlTableToastTableAttributeValue string) {
+	if !e.config.Enabled {
+		return
+	}
+	dp := e.data.AppendEmpty()
+	dp.SetEventName("db.server.table_metadata")
+	dp.SetTimestamp(timestamp)
+
+	if span := trace.SpanContextFromContext(ctx); span.IsValid() {
+		dp.SetTraceID(pcommon.TraceID(span.TraceID()))
+		dp.SetSpanID(pcommon.SpanID(span.SpanID()))
+	}
+	dp.Attributes().PutStr("db.system.name", dbSystemNameAttributeValue)
+	dp.Attributes().PutStr("db.namespace", dbNamespaceAttributeValue)
+	dp.Attributes().PutStr("db.collection.name", dbCollectionNameAttributeValue)
+	dp.Attributes().PutInt("postgresql.table.id", postgresqlTableIDAttributeValue)
+	dp.Attributes().PutEmptySlice("postgresql.table.columns").FromRaw(postgresqlTableColumnsAttributeValue)
+	dp.Attributes().PutEmptySlice("postgresql.table.indexes").FromRaw(postgresqlTableIndexesAttributeValue)
+	dp.Attributes().PutEmptySlice("postgresql.table.foreign_keys").FromRaw(postgresqlTableForeignKeysAttributeValue)
+	dp.Attributes().PutInt("postgresql.table.row_estimate", postgresqlTableRowEstimateAttributeValue)
+	dp.Attributes().PutEmptySlice("postgresql.table.size").FromRaw(postgresqlTableSizeAttributeValue)
+	dp.Attributes().PutStr("postgresql.table.owner", postgresqlTableOwnerAttributeValue)
+	dp.Attributes().PutStr("postgresql.schema.owner", postgresqlSchemaOwnerAttributeValue)
+	dp.Attributes().PutStr("postgresql.table.toast_table", postgresqlTableToastTableAttributeValue)
+
+}
+
+// emit appends recorded event data to a events slice and prepares it for recording another set of log records.
+func (e *eventDbServerTableMetadata) emit(lrs plog.LogRecordSlice) {
+	if e.config.Enabled && e.data.Len() > 0 {
+		e.data.MoveAndAppendTo(lrs)
+	}
+}
+
+func newEventDbServerTableMetadata(cfg EventConfig) eventDbServerTableMetadata {
+	e := eventDbServerTableMetadata{config: cfg}
+	if cfg.Enabled {
+		e.data = plog.NewLogRecordSlice()
+	}
+	return e
+}
+
 type eventDbServerTopQuery struct {
 	data   plog.LogRecordSlice // data buffer for generated log records.
 	config EventConfig         // event config provided by user.
@@ -165,6 +212,47 @@ func newEventDbServerTopQuery(cfg EventConfig) eventDbServerTopQuery {
 	return e
 }
 
+type eventDbServerViewMetadata struct {
+	data   plog.LogRecordSlice // data buffer for generated log records.
+	config EventConfig         // event config provided by user.
+}
+
+func (e *eventDbServerViewMetadata) recordEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue string, dbNamespaceAttributeValue string, dbCollectionNameAttributeValue string, postgresqlTableIDAttributeValue int64, postgresqlTableColumnsAttributeValue []any, postgresqlViewDefinitionAttributeValue string) {
+	if !e.config.Enabled {
+		return
+	}
+	dp := e.data.AppendEmpty()
+	dp.SetEventName("db.server.view_metadata")
+	dp.SetTimestamp(timestamp)
+
+	if span := trace.SpanContextFromContext(ctx); span.IsValid() {
+		dp.SetTraceID(pcommon.TraceID(span.TraceID()))
+		dp.SetSpanID(pcommon.SpanID(span.SpanID()))
+	}
+	dp.Attributes().PutStr("db.system.name", dbSystemNameAttributeValue)
+	dp.Attributes().PutStr("db.namespace", dbNamespaceAttributeValue)
+	dp.Attributes().PutStr("db.collection.name", dbCollectionNameAttributeValue)
+	dp.Attributes().PutInt("postgresql.table.id", postgresqlTableIDAttributeValue)
+	dp.Attributes().PutEmptySlice("postgresql.table.columns").FromRaw(postgresqlTableColumnsAttributeValue)
+	dp.Attributes().PutStr("postgresql.view.definition", postgresqlViewDefinitionAttributeValue)
+
+}
+
+// emit appends recorded event data to a events slice and prepares it for recording another set of log records.
+func (e *eventDbServerViewMetadata) emit(lrs plog.LogRecordSlice) {
+	if e.config.Enabled && e.data.Len() > 0 {
+		e.data.MoveAndAppendTo(lrs)
+	}
+}
+
+func newEventDbServerViewMetadata(cfg EventConfig) eventDbServerViewMetadata {
+	e := eventDbServerViewMetadata{config: cfg}
+	if cfg.Enabled {
+		e.data = plog.NewLogRecordSlice()
+	}
+	return e
+}
+
 // LogsBuilder provides an interface for scrapers to report logs while taking care of all the transformations
 // required to produce log representation defined in metadata and user config.
 type LogsBuilder struct {
@@ -176,7 +264,9 @@ type LogsBuilder struct {
 	resourceAttributeExcludeFilter map[string]filter.Filter
 	eventDbServerQueryPlan         eventDbServerQueryPlan
 	eventDbServerQuerySample       eventDbServerQuerySample
+	eventDbServerTableMetadata     eventDbServerTableMetadata
 	eventDbServerTopQuery          eventDbServerTopQuery
+	eventDbServerViewMetadata      eventDbServerViewMetadata
 }
 
 // LogBuilderOption applies changes to default logs builder.
@@ -192,7 +282,9 @@ func NewLogsBuilder(lbc LogsBuilderConfig, settings receiver.Settings) *LogsBuil
 		buildInfo:                      settings.BuildInfo,
 		eventDbServerQueryPlan:         newEventDbServerQueryPlan(lbc.Events.DbServerQueryPlan),
 		eventDbServerQuerySample:       newEventDbServerQuerySample(lbc.Events.DbServerQuerySample),
+		eventDbServerTableMetadata:     newEventDbServerTableMetadata(lbc.Events.DbServerTableMetadata),
 		eventDbServerTopQuery:          newEventDbServerTopQuery(lbc.Events.DbServerTopQuery),
+		eventDbServerViewMetadata:      newEventDbServerViewMetadata(lbc.Events.DbServerViewMetadata),
 		resourceAttributeIncludeFilter: make(map[string]filter.Filter),
 		resourceAttributeExcludeFilter: make(map[string]filter.Filter),
 	}
@@ -301,7 +393,9 @@ func (lb *LogsBuilder) EmitForResource(options ...ResourceLogsOption) {
 	ils.Scope().SetVersion(lb.buildInfo.Version)
 	lb.eventDbServerQueryPlan.emit(ils.LogRecords())
 	lb.eventDbServerQuerySample.emit(ils.LogRecords())
+	lb.eventDbServerTableMetadata.emit(ils.LogRecords())
 	lb.eventDbServerTopQuery.emit(ils.LogRecords())
+	lb.eventDbServerViewMetadata.emit(ils.LogRecords())
 
 	for _, op := range options {
 		op.apply(rl)
@@ -348,7 +442,17 @@ func (lb *LogsBuilder) RecordDbServerQuerySampleEvent(ctx context.Context, times
 	lb.eventDbServerQuerySample.recordEvent(ctx, timestamp, dbSystemNameAttributeValue.String(), dbNamespaceAttributeValue, dbQueryTextAttributeValue, userNameAttributeValue, postgresqlStateAttributeValue, postgresqlPidAttributeValue, postgresqlBackendConnectionStartAttributeValue, postgresqlApplicationNameAttributeValue, postgresqlBackendTypeAttributeValue, networkPeerAddressAttributeValue, networkPeerPortAttributeValue, postgresqlClientHostnameAttributeValue, postgresqlQueryStartAttributeValue, postgresqlWaitEventAttributeValue, postgresqlWaitEventTypeAttributeValue, postgresqlQueryIDAttributeValue, postgresqlTotalExecTimeAttributeValue, postgresqlBlockingPidsAttributeValue, postgresqlBlockingStartTimeAttributeValue, postgresqlBlockingWaitDurationAttributeValue, postgresqlBlockingLockModeAttributeValue, postgresqlBlockingLockTypeAttributeValue, postgresqlBlockingLockRelationAttributeValue, postgresqlBlockingTransactionStartTimeAttributeValue)
 }
 
+// RecordDbServerTableMetadataEvent adds a log record of db.server.table_metadata event.
+func (lb *LogsBuilder) RecordDbServerTableMetadataEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue AttributeDbSystemName, dbNamespaceAttributeValue string, dbCollectionNameAttributeValue string, postgresqlTableIDAttributeValue int64, postgresqlTableColumnsAttributeValue []any, postgresqlTableIndexesAttributeValue []any, postgresqlTableForeignKeysAttributeValue []any, postgresqlTableRowEstimateAttributeValue int64, postgresqlTableSizeAttributeValue []any, postgresqlTableOwnerAttributeValue string, postgresqlSchemaOwnerAttributeValue string, postgresqlTableToastTableAttributeValue string) {
+	lb.eventDbServerTableMetadata.recordEvent(ctx, timestamp, dbSystemNameAttributeValue.String(), dbNamespaceAttributeValue, dbCollectionNameAttributeValue, postgresqlTableIDAttributeValue, postgresqlTableColumnsAttributeValue, postgresqlTableIndexesAttributeValue, postgresqlTableForeignKeysAttributeValue, postgresqlTableRowEstimateAttributeValue, postgresqlTableSizeAttributeValue, postgresqlTableOwnerAttributeValue, postgresqlSchemaOwnerAttributeValue, postgresqlTableToastTableAttributeValue)
+}
+
 // RecordDbServerTopQueryEvent adds a log record of db.server.top_query event.
 func (lb *LogsBuilder) RecordDbServerTopQueryEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue AttributeDbSystemName, dbNamespaceAttributeValue string, dbQueryTextAttributeValue string, postgresqlCallsAttributeValue int64, postgresqlRowsAttributeValue int64, postgresqlSharedBlksDirtiedAttributeValue int64, postgresqlSharedBlksHitAttributeValue int64, postgresqlSharedBlksReadAttributeValue int64, postgresqlSharedBlksWrittenAttributeValue int64, postgresqlTempBlksReadAttributeValue int64, postgresqlTempBlksWrittenAttributeValue int64, postgresqlQueryidAttributeValue string, postgresqlUseridAttributeValue string, postgresqlRolnameAttributeValue string, postgresqlTotalExecTimeAttributeValue float64, postgresqlTotalPlanTimeAttributeValue float64, postgresqlQueryPlanAttributeValue string) {
 	lb.eventDbServerTopQuery.recordEvent(ctx, timestamp, dbSystemNameAttributeValue.String(), dbNamespaceAttributeValue, dbQueryTextAttributeValue, postgresqlCallsAttributeValue, postgresqlRowsAttributeValue, postgresqlSharedBlksDirtiedAttributeValue, postgresqlSharedBlksHitAttributeValue, postgresqlSharedBlksReadAttributeValue, postgresqlSharedBlksWrittenAttributeValue, postgresqlTempBlksReadAttributeValue, postgresqlTempBlksWrittenAttributeValue, postgresqlQueryidAttributeValue, postgresqlUseridAttributeValue, postgresqlRolnameAttributeValue, postgresqlTotalExecTimeAttributeValue, postgresqlTotalPlanTimeAttributeValue, postgresqlQueryPlanAttributeValue)
+}
+
+// RecordDbServerViewMetadataEvent adds a log record of db.server.view_metadata event.
+func (lb *LogsBuilder) RecordDbServerViewMetadataEvent(ctx context.Context, timestamp pcommon.Timestamp, dbSystemNameAttributeValue AttributeDbSystemName, dbNamespaceAttributeValue string, dbCollectionNameAttributeValue string, postgresqlTableIDAttributeValue int64, postgresqlTableColumnsAttributeValue []any, postgresqlViewDefinitionAttributeValue string) {
+	lb.eventDbServerViewMetadata.recordEvent(ctx, timestamp, dbSystemNameAttributeValue.String(), dbNamespaceAttributeValue, dbCollectionNameAttributeValue, postgresqlTableIDAttributeValue, postgresqlTableColumnsAttributeValue, postgresqlViewDefinitionAttributeValue)
 }

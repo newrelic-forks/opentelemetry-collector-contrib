@@ -240,6 +240,14 @@ func TestLoadConfig(t *testing.T) {
 			MaxIdle:     new(5),
 			MaxOpen:     new(10),
 		}
+		expected.TableMetadataCollection = TableMetadataCollection{
+			MaxTables:          500,
+			CollectionInterval: 900 * time.Second,
+		}
+		expected.ViewMetadataCollection = ViewMetadataCollection{
+			MaxViews:           2000,
+			CollectionInterval: 900 * time.Second,
+		}
 
 		require.Equal(t, expected, cfg)
 	})

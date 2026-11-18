@@ -2235,9 +2235,11 @@ func (ec *EventConfig) Unmarshal(parser *confmap.Conf) error {
 
 // EventsConfig provides config for postgresql events.
 type EventsConfig struct {
-	DbServerQueryPlan   EventConfig `mapstructure:"db.server.query_plan"`
-	DbServerQuerySample EventConfig `mapstructure:"db.server.query_sample"`
-	DbServerTopQuery    EventConfig `mapstructure:"db.server.top_query"`
+	DbServerQueryPlan     EventConfig `mapstructure:"db.server.query_plan"`
+	DbServerQuerySample   EventConfig `mapstructure:"db.server.query_sample"`
+	DbServerTableMetadata EventConfig `mapstructure:"db.server.table_metadata"`
+	DbServerTopQuery      EventConfig `mapstructure:"db.server.top_query"`
+	DbServerViewMetadata  EventConfig `mapstructure:"db.server.view_metadata"`
 }
 
 func DefaultEventsConfig() EventsConfig {
@@ -2248,7 +2250,13 @@ func DefaultEventsConfig() EventsConfig {
 		DbServerQuerySample: EventConfig{
 			Enabled: false,
 		},
+		DbServerTableMetadata: EventConfig{
+			Enabled: false,
+		},
 		DbServerTopQuery: EventConfig{
+			Enabled: false,
+		},
+		DbServerViewMetadata: EventConfig{
 			Enabled: false,
 		},
 	}

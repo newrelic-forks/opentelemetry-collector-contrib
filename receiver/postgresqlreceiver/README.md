@@ -333,15 +333,36 @@ receivers:
         enabled: true
       db.server.top_query:
         enabled: true
+      db.server.table_metadata:
+        enabled: true
+      db.server.view_metadata:
+        enabled: false
     query_sample_collection:
       max_rows_per_query: 100
     top_query_collection:
       max_rows_per_query: 100
       top_n_query: 100
       collection_interval: 60s
+    table_metadata_collection:
+      max_tables: 300
+      collection_interval: 600s
+    view_metadata_collection:
+      max_views: 1000
+      collection_interval: 600s
 ```
 
 The full list of settings exposed for this receiver are documented in [config.go](./config.go) with detailed sample configurations in [testdata/config.yaml](./testdata/config.yaml). TLS config is documented further under the [opentelemetry collector's configtls package](https://github.com/open-telemetry/opentelemetry-collector/blob/main/config/configtls/README.md).
+
+### Table and view metadata events
+
+`db.server.table_metadata` and `db.server.view_metadata` give a structural and size
+inventory of tables and views — columns, indexes, foreign keys, and size for tables;
+columns and the SQL definition for views. Both run on their own, slower collection
+interval (default 600s) since structure changes only on DDL, decoupled from the main
+metrics `collection_interval`. `db.server.view_metadata` is off by default.
+
+No additional permission is required beyond ordinary `CONNECT` on the target database —
+the underlying catalog data is readable by any connected role by default.
 
 ## Connection pool feature
 

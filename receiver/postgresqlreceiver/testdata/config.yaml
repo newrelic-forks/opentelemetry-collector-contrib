@@ -35,3 +35,9 @@ postgresql/all:
     max_lifetime: 1m
     max_idle: 5
     max_open: 10
+  table_metadata_collection:
+    max_tables: 500
+    collection_interval: 900s
+  view_metadata_collection:
+    max_views: 2000
+    collection_interval: 900s

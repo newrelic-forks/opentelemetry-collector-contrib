@@ -715,6 +715,27 @@ query sample
 | postgresql.blocking.lock.relation | The name of the relation (table) being waited on. Empty string when not blocked or when lock is not on a relation. | Any Str | - |
 | postgresql.blocking.transaction.start_time | UTC timestamp (RFC3339) when the current transaction started. Empty string when no active transaction. | Any Str | - |
 
+### db.server.table_metadata
+
+Structural inventory and size of a table, including its columns, indexes, foreign keys, and row estimate. Collected on its own, slower interval since structure changes rarely.
+
+#### Attributes
+
+| Name | Description | Values | Semantic Convention |
+| ---- | ----------- | ------ | ------------------- |
+| db.system.name | The database management system (DBMS) product as identified by the client instrumentation. | Str: ``postgresql`` | - |
+| db.namespace | The database namespace, following the `{database}|{schema}` format defined by OpenTelemetry semantic conventions for PostgreSQL. | Any Str | - |
+| db.collection.name | The name of the table within the database. | Any Str | - |
+| postgresql.table.id | The PostgreSQL oid of the table or view. | Any Int | - |
+| postgresql.table.columns | The columns defined on the table, each with name, data_type, nullable, and default. | Any Slice | - |
+| postgresql.table.indexes | The indexes defined on the table, each as a ready-to-read CREATE INDEX ... definition. | Any Slice | - |
+| postgresql.table.foreign_keys | The foreign keys defined on the table, each as a ready-to-read FOREIGN KEY (...) REFERENCES ... definition. | Any Slice | - |
+| postgresql.table.row_estimate | Estimated row count, refreshed by VACUUM/ANALYZE rather than a live count. | Any Int | - |
+| postgresql.table.size | Table size broken out by kind (data, index, toast, total), each with a kind and bytes value. | Any Slice | - |
+| postgresql.table.owner | The name of the role that owns the table. | Any Str | - |
+| postgresql.schema.owner | The name of the role that owns the table's schema. | Any Str | - |
+| postgresql.table.toast_table | The name of the table's TOAST table, if one exists. | Any Str | - |
+
 ### db.server.top_query
 
 top query
@@ -740,6 +761,21 @@ top query
 | postgresql.total_exec_time | Total time spent executing the statement, in delta seconds. | Any Double | - |
 | postgresql.total_plan_time | Total time spent planning the statement, in delta seconds. | Any Double | - |
 | postgresql.query_plan | The execution plan used by PostgreSQL for the query. | Any Str | - |
+
+### db.server.view_metadata
+
+Structural inventory of a view, including its columns and SQL definition. Off by default. Collected on its own, slower interval since structure changes rarely.
+
+#### Attributes
+
+| Name | Description | Values | Semantic Convention |
+| ---- | ----------- | ------ | ------------------- |
+| db.system.name | The database management system (DBMS) product as identified by the client instrumentation. | Str: ``postgresql`` | - |
+| db.namespace | The database namespace, following the `{database}|{schema}` format defined by OpenTelemetry semantic conventions for PostgreSQL. | Any Str | - |
+| db.collection.name | The name of the table within the database. | Any Str | - |
+| postgresql.table.id | The PostgreSQL oid of the table or view. | Any Int | - |
+| postgresql.table.columns | The columns defined on the table, each with name, data_type, nullable, and default. | Any Slice | - |
+| postgresql.view.definition | The view's defining SELECT statement. | Any Str | - |
 
 ## Resource Attributes
 

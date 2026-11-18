@@ -8,6 +8,7 @@ import (
 	"context"
 	"database/sql"
 	_ "embed"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -65,6 +66,8 @@ type client interface {
 	getBackends(ctx context.Context, databases []string) (map[databaseName]int64, error)
 	getDatabaseSize(ctx context.Context, databases []string) (map[databaseName]int64, error)
 	getDatabaseTableMetrics(ctx context.Context, db string) (map[tableIdentifier]tableStats, error)
+	getTableMetadata(ctx context.Context, maxTables int64) ([]tableMetadataRow, error)
+	getViewMetadata(ctx context.Context, maxViews int64) ([]tableMetadataRow, error)
 	getBlocksReadByTable(ctx context.Context, db string) (map[tableIdentifier]tableIOStats, error)
 	getTableCount(ctx context.Context) (int64, error)
 	getReplicationStats(ctx context.Context) ([]replicationStats, error)
@@ -888,6 +891,309 @@ WHERE l.relation IS NULL;`
 		}
 	}
 	return ts, multierr.Append(errors, rows.Err())
+}
+
+// tableMetadataColumn mirrors one element of the columns JSON array produced by
+// getTableMetadata/getViewMetadata's json_agg sub-selects.
+type tableMetadataColumn struct {
+	Name     string `json:"name"`
+	DataType string `json:"data_type"`
+	Nullable bool   `json:"nullable"`
+	Default  string `json:"default"`
+}
+
+// parseTableMetadataColumns decodes a json_agg columns value. json_agg over zero rows
+// produces SQL NULL, which the driver returns as an empty string here since the column
+// is selected through coalesce(..., '[]') in the query below — this still defends
+// against an unexpected NULL/empty value from a future query change.
+func parseTableMetadataColumns(raw string) ([]any, error) {
+	if raw == "" {
+		return []any{}, nil
+	}
+	var columns []tableMetadataColumn
+	if err := json.Unmarshal([]byte(raw), &columns); err != nil {
+		return nil, err
+	}
+	result := make([]any, 0, len(columns))
+	for i := range columns {
+		col := &columns[i]
+		entry := map[string]any{
+			"name":      col.Name,
+			"data_type": col.DataType,
+			"nullable":  col.Nullable,
+		}
+		if col.Default != "" {
+			entry["default"] = col.Default
+		}
+		result = append(result, entry)
+	}
+	return result, nil
+}
+
+// tableMetadataIndex mirrors one element of the indexes JSON array produced by
+// getTableMetadata's indexes_agg json_agg sub-select: the ready-to-read
+// pg_get_indexdef() text plus pg_index's own structured booleans.
+type tableMetadataIndex struct {
+	Definition  string `json:"definition"`
+	IsUnique    bool   `json:"is_unique"`
+	IsExclusion bool   `json:"is_exclusion"`
+	IsImmediate bool   `json:"is_immediate"`
+	IsClustered bool   `json:"is_clustered"`
+	IsValid     bool   `json:"is_valid"`
+	IsCheckxmin bool   `json:"is_checkxmin"`
+	IsReady     bool   `json:"is_ready"`
+	IsLive      bool   `json:"is_live"`
+	IsReplident bool   `json:"is_replident"`
+	IsPartial   bool   `json:"is_partial"`
+}
+
+// parseTableMetadataIndexes decodes a json_agg columns value. json_agg over zero rows
+// produces SQL NULL, which the driver returns as an empty string here since the column
+// is selected through coalesce(..., '[]') in the query below — this still defends
+// against an unexpected NULL/empty value from a future query change.
+func parseTableMetadataIndexes(raw string) ([]any, error) {
+	if raw == "" {
+		return []any{}, nil
+	}
+	var indexes []tableMetadataIndex
+	if err := json.Unmarshal([]byte(raw), &indexes); err != nil {
+		return nil, err
+	}
+	result := make([]any, 0, len(indexes))
+	for i := range indexes {
+		idx := &indexes[i]
+		result = append(result, map[string]any{
+			"definition":   idx.Definition,
+			"is_unique":    idx.IsUnique,
+			"is_exclusion": idx.IsExclusion,
+			"is_immediate": idx.IsImmediate,
+			"is_clustered": idx.IsClustered,
+			"is_valid":     idx.IsValid,
+			"is_checkxmin": idx.IsCheckxmin,
+			"is_ready":     idx.IsReady,
+			"is_live":      idx.IsLive,
+			"is_replident": idx.IsReplident,
+			"is_partial":   idx.IsPartial,
+		})
+	}
+	return result, nil
+}
+
+// parseTableMetadataTextList decodes a json_agg(text) value (used for foreign keys,
+// already formatted as a ready-to-read SQL definition by pg_get_constraintdef) into a
+// []any of plain strings.
+func parseTableMetadataTextList(raw string) ([]any, error) {
+	if raw == "" {
+		return []any{}, nil
+	}
+	var items []string
+	if err := json.Unmarshal([]byte(raw), &items); err != nil {
+		return nil, err
+	}
+	result := make([]any, 0, len(items))
+	for _, item := range items {
+		result = append(result, item)
+	}
+	return result, nil
+}
+
+// tableMetadataRow is the common shape scanned from getTableMetadata/getViewMetadata;
+// fields not produced by a given query are left at their zero value.
+type tableMetadataRow struct {
+	tableID     int64
+	schemaName  string
+	tableName   string
+	columns     string
+	indexes     string
+	foreignKeys string
+	rowEstimate int64
+	totalBytes  int64
+	dataBytes   int64
+	indexBytes  int64
+	toastBytes  int64
+	definition  string
+	tableOwner  string
+	schemaOwner string
+	toastTable  string
+}
+
+// getTableMetadata returns a structural and size inventory of every ordinary and
+// partitioned table in db, one row per table. Partitioned tables are rolled up to their
+// parent: pg_partition_tree (PostgreSQL 12+) sums every leaf partition's size and row
+// estimate into the parent's single row, rather than reporting the parent (which holds
+// no data itself) and each child partition as separate, seemingly-unrelated tables.
+// Extension-owned objects (e.g. views created by pg_stat_statements) are excluded via
+// pg_depend, since they are not customer tables/views.
+func (c *postgreSQLClient) getTableMetadata(ctx context.Context, maxTables int64) ([]tableMetadataRow, error) {
+	query := `
+WITH roots AS (
+    SELECT c.oid, c.relname AS table_name, n.nspname AS schema_name, c.relkind
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    LEFT JOIN pg_depend d ON d.objid = c.oid AND d.deptype = 'e'
+    WHERE c.relkind IN ('r', 'p', 'f')
+      AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+      AND n.nspname NOT LIKE 'pg_temp_%'
+      AND d.objid IS NULL
+      AND NOT EXISTS (SELECT 1 FROM pg_inherits i WHERE i.inhrelid = c.oid)
+    ORDER BY n.nspname, c.relname
+    LIMIT $1
+),
+relations AS (
+    SELECT r.oid AS table_id, r.table_name, r.schema_name, r.oid AS relation_oid
+    FROM roots r WHERE r.relkind IN ('r', 'f')
+    UNION ALL
+    SELECT r.oid AS table_id, r.table_name, r.schema_name, p.relid AS relation_oid
+    FROM roots r
+    CROSS JOIN LATERAL pg_partition_tree(r.oid) p
+    WHERE r.relkind = 'p' AND p.isleaf
+),
+sizes AS (
+    SELECT
+        r.table_id, r.table_name, r.schema_name,
+        SUM(pg_total_relation_size(c.oid)) AS total_bytes,
+        SUM(pg_relation_size(c.oid)) AS data_bytes,
+        SUM(pg_indexes_size(c.oid)) AS index_bytes,
+        SUM(COALESCE(pg_total_relation_size(c.reltoastrelid), 0)) AS toast_bytes,
+        GREATEST(SUM(c.reltuples)::bigint, 0) AS row_estimate
+    FROM relations r
+    JOIN pg_class c ON c.oid = r.relation_oid
+    GROUP BY r.table_id, r.table_name, r.schema_name
+),
+columns_agg AS (
+    SELECT a.attrelid AS table_id,
+        json_agg(json_build_object(
+            'name', a.attname,
+            'data_type', format_type(a.atttypid, a.atttypmod),
+            'nullable', NOT a.attnotnull,
+            'default', pg_get_expr(ad.adbin, ad.adrelid)
+        ) ORDER BY a.attnum) AS columns
+    FROM pg_attribute a
+    JOIN sizes s ON s.table_id = a.attrelid
+    LEFT JOIN pg_attrdef ad ON ad.adrelid = a.attrelid AND ad.adnum = a.attnum
+    WHERE a.attnum > 0 AND NOT a.attisdropped
+    GROUP BY a.attrelid
+),
+indexes_agg AS (
+    SELECT ix.indrelid AS table_id,
+        json_agg(json_build_object(
+            'definition', pg_get_indexdef(c.oid),
+            'is_unique', ix.indisunique,
+            'is_exclusion', ix.indisexclusion,
+            'is_immediate', ix.indimmediate,
+            'is_clustered', ix.indisclustered,
+            'is_valid', ix.indisvalid,
+            'is_checkxmin', ix.indcheckxmin,
+            'is_ready', ix.indisready,
+            'is_live', ix.indislive,
+            'is_replident', ix.indisreplident,
+            'is_partial', ix.indpred IS NOT NULL
+        ) ORDER BY c.relname) AS indexes
+    FROM pg_index ix
+    JOIN pg_class c ON c.oid = ix.indexrelid
+    JOIN sizes s ON s.table_id = ix.indrelid
+    GROUP BY ix.indrelid
+),
+foreign_keys_agg AS (
+    SELECT con.conrelid AS table_id,
+        json_agg(pg_get_constraintdef(con.oid) ORDER BY con.conname) AS foreign_keys
+    FROM pg_constraint con
+    JOIN sizes s ON s.table_id = con.conrelid
+    WHERE con.contype = 'f'
+    GROUP BY con.conrelid
+)
+SELECT
+    s.table_id, s.schema_name, s.table_name,
+    COALESCE(ca.columns::text, '[]'),
+    COALESCE(ia.indexes::text, '[]'),
+    COALESCE(fka.foreign_keys::text, '[]'),
+    s.row_estimate, s.total_bytes, s.data_bytes, s.index_bytes, s.toast_bytes,
+    COALESCE(ro.rolname, ''), COALESCE(sro.rolname, ''), COALESCE(toast.relname, '')
+FROM sizes s
+LEFT JOIN columns_agg ca ON ca.table_id = s.table_id
+LEFT JOIN indexes_agg ia ON ia.table_id = s.table_id
+LEFT JOIN foreign_keys_agg fka ON fka.table_id = s.table_id
+LEFT JOIN pg_class tc ON tc.oid = s.table_id
+LEFT JOIN pg_roles ro ON ro.oid = tc.relowner
+LEFT JOIN pg_namespace sn ON sn.nspname = s.schema_name
+LEFT JOIN pg_roles sro ON sro.oid = sn.nspowner
+LEFT JOIN pg_class toast ON toast.oid = tc.reltoastrelid
+ORDER BY s.schema_name, s.table_name;`
+
+	rows, err := c.client.QueryContext(ctx, query, maxTables)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []tableMetadataRow
+	var errs error
+	for rows.Next() {
+		var r tableMetadataRow
+		if err := rows.Scan(&r.tableID, &r.schemaName, &r.tableName, &r.columns, &r.indexes, &r.foreignKeys,
+			&r.rowEstimate, &r.totalBytes, &r.dataBytes, &r.indexBytes, &r.toastBytes,
+			&r.tableOwner, &r.schemaOwner, &r.toastTable); err != nil {
+			errs = multierr.Append(errs, err)
+			continue
+		}
+		results = append(results, r)
+	}
+	return results, multierr.Append(errs, rows.Err())
+}
+
+// getViewMetadata returns a structural inventory of every view, one row per view: its
+// columns and SQL definition. Extension-owned views (e.g. pg_stat_statements) are
+// excluded via pg_depend, same as getTableMetadata.
+func (c *postgreSQLClient) getViewMetadata(ctx context.Context, maxViews int64) ([]tableMetadataRow, error) {
+	query := `
+WITH views AS (
+    SELECT c.oid, c.relname AS view_name, n.nspname AS schema_name
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    LEFT JOIN pg_depend d ON d.objid = c.oid AND d.deptype = 'e'
+    WHERE c.relkind = 'v'
+      AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+      AND n.nspname NOT LIKE 'pg_temp_%'
+      AND d.objid IS NULL
+    ORDER BY n.nspname, c.relname
+    LIMIT $1
+),
+columns_agg AS (
+    SELECT a.attrelid AS table_id,
+        json_agg(json_build_object(
+            'name', a.attname,
+            'data_type', format_type(a.atttypid, a.atttypmod),
+            'nullable', NOT a.attnotnull,
+            'default', pg_get_expr(ad.adbin, ad.adrelid)
+        ) ORDER BY a.attnum) AS columns
+    FROM pg_attribute a
+    JOIN views v ON v.oid = a.attrelid
+    LEFT JOIN pg_attrdef ad ON ad.adrelid = a.attrelid AND ad.adnum = a.attnum
+    WHERE a.attnum > 0 AND NOT a.attisdropped
+    GROUP BY a.attrelid
+)
+SELECT v.oid, v.schema_name, v.view_name, COALESCE(ca.columns::text, '[]'), pg_get_viewdef(v.oid, true)
+FROM views v
+LEFT JOIN columns_agg ca ON ca.table_id = v.oid
+ORDER BY v.schema_name, v.view_name;`
+
+	rows, err := c.client.QueryContext(ctx, query, maxViews)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []tableMetadataRow
+	var errs error
+	for rows.Next() {
+		var r tableMetadataRow
+		if err := rows.Scan(&r.tableID, &r.schemaName, &r.tableName, &r.columns, &r.definition); err != nil {
+			errs = multierr.Append(errs, err)
+			continue
+		}
+		results = append(results, r)
+	}
+	return results, multierr.Append(errs, rows.Err())
 }
 
 type tableIOStats struct {
