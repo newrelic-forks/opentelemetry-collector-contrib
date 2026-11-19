@@ -60,7 +60,7 @@
              AND COALESCE(statement.sql_text, thread.processlist_info) <> '' THEN 'CPU'
         ELSE 'other'
     END AS wait_event_type,
-    -- Extension: wait_event (-> mysql.wait_event) is everything after the
+    -- Extension: wait_event (-> mysql.wait_event.name) is everything after the
     -- category segment of EVENT_NAME (subsystem/component/instrument), e.g.
     -- 'table/sql/handler', 'mutex/innodb/checkpoint_state' -- MySQL's analogue
     -- of Oracle's EVENT / SQL Server's wait_type, paired with wait_event_type.
@@ -124,7 +124,7 @@
     -- on MySQL 5.7 and MariaDB the value is VARCHAR, so CONVERT is a no-op.
     -- utf8mb4 is used instead of the deprecated utf8 alias.
     COALESCE(CONVERT(uvt.VARIABLE_VALUE USING utf8mb4), '') AS traceparent,
-    -- Extension: blockers is a JSON array of {thread_id, session_id} tuples,
+    -- Extension: blocker_details is a JSON array of {thread_id, session_id} tuples,
     -- one entry per concurrent InnoDB row-lock blocker for this thread.
     -- LEFT JOIN means a blocker that has already disconnected still appears
     -- in the array (thread_id populated, session_id null) instead of
@@ -152,7 +152,7 @@
         ), '[]'
     )
     {{- else}}
-    -- blockers is unavailable on MySQL <8.0.11 and MariaDB: the only way to
+    -- blocker_details is unavailable on MySQL <8.0.11 and MariaDB: the only way to
     -- identify a blocking session's thread/session ID on these versions is
     -- information_schema.INNODB_TRX/INNODB_LOCK_WAITS, both of which require the
     -- global PROCESS privilege -- the same dependency avoided above. Reporting an
@@ -161,7 +161,7 @@
     -- intact for monitoring users without that privilege, rather than failing
     -- the whole query.
     ''
-    {{- end}} AS blockers,
+    {{- end}} AS blocker_details,
     -- Extension: client_program_name is the client driver's self-reported
     -- identity (e.g. "MySQL Connector/J", "libmysql"), joined on
     -- PROCESSLIST_ID (not thread_id — a different ID space) and filtered to

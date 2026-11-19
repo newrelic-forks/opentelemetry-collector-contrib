@@ -5954,7 +5954,7 @@ type metricSqlserverLatchWaitTimeAvg struct {
 // init fills sqlserver.latch.wait_time.avg metric with initial data.
 func (m *metricSqlserverLatchWaitTimeAvg) init() {
 	m.data.SetName("sqlserver.latch.wait_time.avg")
-	m.data.SetDescription("Average time spent waiting for latches (lighter-weight synchronization).")
+	m.data.SetDescription("Average latch wait time.")
 	m.data.SetUnit("s")
 	m.data.SetEmptyGauge()
 }

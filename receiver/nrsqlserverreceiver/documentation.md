@@ -962,9 +962,9 @@ This metric is only available when the receiver is configured to directly connec
 
 ### sqlserver.latch.wait_time.avg
 
-Average time spent waiting for latches (lighter-weight synchronization).
+Average latch wait time.
 
-This metric is only available when the receiver is configured to directly connect to SQL Server. Latches are lightweight synchronization objects used internally by SQL Server to protect in-memory structures. High latch wait times can indicate memory contention, I/O bottlenecks, or internal resource contention. Available on SQL Server 2005+.
+This metric is only available when the receiver is configured to directly connect to SQL Server.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
@@ -1455,7 +1455,7 @@ This metric is only available when the receiver is configured to directly connec
 
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
-| task.state | SQL Server task state for thread-pool diagnostics. | Str: ``current``, ``queued``, ``waiting_for_threadpool``, ``running``, ``limit_reached`` | Recommended | - |
+| task.state | The state of the task. | Str: ``current``, ``queued``, ``waiting_for_threadpool``, ``running``, ``limit_reached`` | Recommended | - |
 
 ### sqlserver.task.rate
 
@@ -1588,7 +1588,7 @@ This metric is only available when the receiver is configured to directly connec
 
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
-| task.state | SQL Server task state for thread-pool diagnostics. | Str: ``current``, ``queued``, ``waiting_for_threadpool``, ``running``, ``limit_reached`` | Recommended | - |
+| task.state | The state of the task. | Str: ``current``, ``queued``, ``waiting_for_threadpool``, ``running``, ``limit_reached`` | Recommended | - |
 
 ### sqlserver.thread_pool.workers.count
 
@@ -1604,7 +1604,7 @@ This metric is only available when the receiver is configured to directly connec
 
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
-| worker.state | SQL Server worker state. | Str: ``running``, ``suspended_or_sleeping``, ``maximum``, ``active``, ``available``, ``waiting_for_cpu`` | Recommended | - |
+| worker.state | The state of the worker thread. | Str: ``running``, ``suspended_or_sleeping``, ``maximum``, ``active``, ``available``, ``waiting_for_cpu`` | Recommended | - |
 
 ### sqlserver.thread_pool.workers.max
 
@@ -1702,7 +1702,7 @@ This metric is only available when the receiver is configured to directly connec
 
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
-| worker.state | SQL Server worker state. | Str: ``running``, ``suspended_or_sleeping``, ``maximum``, ``active``, ``available``, ``waiting_for_cpu`` | Recommended | - |
+| worker.state | The state of the worker thread. | Str: ``running``, ``suspended_or_sleeping``, ``maximum``, ``active``, ``available``, ``waiting_for_cpu`` | Recommended | - |
 
 ### sqlserver.worktable.cache.hit_ratio
 

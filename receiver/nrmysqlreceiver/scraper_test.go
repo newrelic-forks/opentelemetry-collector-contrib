@@ -1463,8 +1463,8 @@ func TestScrapeQuerySamplesBlockers(t *testing.T) {
 		require.NoError(t, err)
 		record := result.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0)
 
-		blockersVal, ok := record.Attributes().Get("mysql.blocking.blockers")
-		require.True(t, ok, "mysql.blocking.blockers must be present")
+		blockersVal, ok := record.Attributes().Get("mysql.blocking.blocker.details")
+		require.True(t, ok, "mysql.blocking.blocker.details must be present")
 		assert.Equal(t, "[]", blockersVal.Str())
 
 		countVal, ok := record.Attributes().Get("mysql.blocking.blocker.count")
@@ -1481,8 +1481,8 @@ func TestScrapeQuerySamplesBlockers(t *testing.T) {
 		require.NoError(t, err)
 		record := result.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0)
 
-		blockersVal, ok := record.Attributes().Get("mysql.blocking.blockers")
-		require.True(t, ok, "mysql.blocking.blockers must be present")
+		blockersVal, ok := record.Attributes().Get("mysql.blocking.blocker.details")
+		require.True(t, ok, "mysql.blocking.blocker.details must be present")
 		assert.Empty(t, blockersVal.Str(), "not-measured must stay empty string, not normalize to \"[]\"")
 
 		countVal, ok := record.Attributes().Get("mysql.blocking.blocker.count")
@@ -1499,8 +1499,8 @@ func TestScrapeQuerySamplesBlockers(t *testing.T) {
 		require.NoError(t, err)
 		record := result.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0)
 
-		blockersVal, ok := record.Attributes().Get("mysql.blocking.blockers")
-		require.True(t, ok, "mysql.blocking.blockers must be present")
+		blockersVal, ok := record.Attributes().Get("mysql.blocking.blocker.details")
+		require.True(t, ok, "mysql.blocking.blocker.details must be present")
 		assert.JSONEq(t, `[{"thread_id":42,"session_id":99}]`, blockersVal.Str())
 
 		countVal, ok := record.Attributes().Get("mysql.blocking.blocker.count")
@@ -1524,8 +1524,8 @@ func TestScrapeQuerySamplesBlockers(t *testing.T) {
 		require.NoError(t, err)
 		record := result.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0)
 
-		blockersVal, ok := record.Attributes().Get("mysql.blocking.blockers")
-		require.True(t, ok, "mysql.blocking.blockers must be present")
+		blockersVal, ok := record.Attributes().Get("mysql.blocking.blocker.details")
+		require.True(t, ok, "mysql.blocking.blocker.details must be present")
 		assert.JSONEq(t, `[{"thread_id":58,"session_id":23},{"thread_id":99,"session_id":77},{"thread_id":42,"session_id":17}]`, blockersVal.Str(),
 			"all three blockers must be preserved, in the order the query returned them")
 
@@ -1543,8 +1543,8 @@ func TestScrapeQuerySamplesBlockers(t *testing.T) {
 		require.NoError(t, err)
 		record := result.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0)
 
-		blockersVal, ok := record.Attributes().Get("mysql.blocking.blockers")
-		require.True(t, ok, "mysql.blocking.blockers must be present")
+		blockersVal, ok := record.Attributes().Get("mysql.blocking.blocker.details")
+		require.True(t, ok, "mysql.blocking.blocker.details must be present")
 		assert.JSONEq(t, `[{"thread_id":42,"session_id":null}]`, blockersVal.Str(), "the unresolved blocker must remain visible, not silently dropped")
 
 		countVal, ok := record.Attributes().Get("mysql.blocking.blocker.count")
@@ -2151,7 +2151,7 @@ func (c *mockClient) getQuerySamples(uint64, bool, bool) ([]querySample, error) 
 			s.traceparent = text[16]
 		}
 		if len(text) > 17 {
-			s.blockers = text[17]
+			s.blockerDetails = text[17]
 		}
 		if len(text) > 18 {
 			s.statementTimerStart, _ = parseInt(text[18])

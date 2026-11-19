@@ -132,14 +132,14 @@ func (v dbVersion) supportsProcesslist() bool {
 
 // supportsDataLockWaits reports whether performance_schema.data_lock_waits is
 // available (MySQL 8.0.11+ only, never on MariaDB). This gates the
-// mysql.blocking.blockers/blocker.count attributes on
+// mysql.blocking.blocker.details/blocker.count attributes on
 // db.server.query_sample: on MySQL <8.0.11 and all MariaDB versions,
 // identifying a blocking session's thread/session ID requires
 // information_schema.INNODB_TRX/INNODB_LOCK_WAITS, both of which require the
 // global PROCESS privilege (confirmed via live testing against MySQL 5.7.44
 // and MariaDB 10.5.29) -- the same class of dependency this receiver already
 // avoids for data_lock_waits itself. Rather than reintroduce that failure
-// mode for unprivileged monitoring users, blockers reports an empty
+// mode for unprivileged monitoring users, blocker.details reports an empty
 // string ("not measured") and blocker.count reports 0 on those versions.
 func (v dbVersion) supportsDataLockWaits() bool {
 	if !v.isValid() {
@@ -195,7 +195,7 @@ type client interface {
 	getTopQueries(topN, lookback uint64, supportsSampleText bool) ([]topQuery, error)
 	// supportsProcesslist controls whether the performance_schema.processlist JOIN
 	// is included to populate client.port and network.peer.port (MySQL 8.0.22+).
-	// supportsDataLockWaits controls whether mysql.blocking.blockers/
+	// supportsDataLockWaits controls whether mysql.blocking.blocker.details/
 	// blocker.count are populated from performance_schema.data_lock_waits
 	// (MySQL 8.0.11+ only).
 	getQuerySamples(limit uint64, supportsProcesslist, supportsDataLockWaits bool) ([]querySample, error)
@@ -426,7 +426,7 @@ type querySample struct {
 	// time) that changes only when a new statement begins on this thread.
 	// Used as a stable per-execution key, MySQL's analog of query_start.
 	statementTimerStart int64
-	// blockers is the raw "[{\"thread_id\":..,\"session_id\":..}, ...]" JSON
+	// blockerDetails is the raw "[{\"thread_id\":..,\"session_id\":..}, ...]" JSON
 	// array produced by querySample.tmpl — one entry per concurrent InnoDB
 	// row-lock blocker for this thread, unordered. "[]" when measured and not
 	// blocked, empty string when blocking isn't measurable on this
@@ -434,7 +434,7 @@ type querySample struct {
 	// NOT emitted verbatim: deriveBlockingCount in scraper.go normalizes it
 	// (malformed JSON -> "not blocked") and reads its length for
 	// mysql.blocking.blocker.count.
-	blockers string
+	blockerDetails string
 	// clientProgramName is the client driver's self-reported identity
 	// (session_connect_attrs, ATTR_NAME='_client_name'), e.g. "MySQL
 	// Connector/J" or "libmysql". Empty if the client reported no connect
@@ -1297,8 +1297,8 @@ func (c *mySQLClient) getQuerySamples(limit uint64, supportsProcesslist, support
 				dest = append(dest, &s.statementTimerWait)
 			case "traceparent":
 				dest = append(dest, &s.traceparent)
-			case "blockers":
-				dest = append(dest, &s.blockers)
+			case "blocker_details":
+				dest = append(dest, &s.blockerDetails)
 			case "statement_timer_start":
 				dest = append(dest, &s.statementTimerStart)
 			case "client_program_name":

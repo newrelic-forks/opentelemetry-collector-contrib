@@ -96,7 +96,7 @@ attributes:
     enum: [accepted, closed, rejected]
     requirement_level: recommended
   db.namespace:
-    description: The default database/schema for the query. On query samples this is the thread's current database (processlist_db); on top queries it is the digest's SCHEMA_NAME. Empty when no default database was selected.
+    description: The name of the database the statement was executed against, or empty if not available.
     type: string
   db.query.comment_tags:
     description: Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys specified in allowed_comment_keys configuration. Used for correlation with APM traces.
@@ -181,13 +181,13 @@ attributes:
     enum: [waits, write_requests, writes, fsyncs]
     requirement_level: recommended
   mysql.blocking.blocker.count:
-    description: The number of concurrent InnoDB row-lock blockers currently holding a lock this session is waiting on. 0 indicates the session is not currently blocked, but also covers engines where blocking isn't measured (MariaDB, MySQL <8.0.11) — an int can't carry that case separately; check mysql.blocking.blockers to tell the two apart. Use "mysql.blocking.blocker.count > 0" as the "is this session blocked" filter/gate (replaces the retired mysql.blocking.blocker.thread_id > 0 pattern). Derived from mysql.blocking.blockers (its array length) and kept as a separate scalar attribute because NRQL has no native JSON array-length function — this is the only way to facet, filter, or alert on blocker count directly.
+    description: The number of concurrent InnoDB row-lock blockers currently holding a lock this session is waiting on. 0 indicates the session is not currently blocked, but also covers engines where blocking isn't measured (MariaDB, MySQL <8.0.11) -- an int can't carry that case separately. Check mysql.blocking.blocker.details to tell the two apart.
     type: int
-  mysql.blocking.blockers:
-    description: A JSON array of {thread_id, session_id} tuples, one per concurrent InnoDB row-lock blocker for this session. Unordered. session_id is null when that blocker's PROCESSLIST_ID could not be resolved (e.g. it disconnected between reads). "[]" when measured and not blocked, empty string when blocking isn't measurable on this engine/version (MariaDB, MySQL <8.0.11). This is the only source for individual blocker identity (thread_id/session_id) — the receiver does not also expose those as separate scalar attributes, since doing so would only serve per-row display, which a dashboard/frontend can already get by parsing this JSON directly; use mysql.blocking.blocker.count (not a value from this array) for any NRQL-side filter, facet, or alert threshold.
+  mysql.blocking.blocker.details:
+    description: A JSON array of {thread_id, session_id} tuples, one per concurrent InnoDB row-lock blocker for this session. Unordered. session_id is null when that blocker could not be resolved (e.g. it disconnected between reads). "[]" when measured and not blocked, empty string when blocking isn't measurable on this engine/version (MariaDB, MySQL <8.0.11).
     type: string
   mysql.client.name:
-    description: The client driver's self-reported identity at connection time (performance_schema.session_connect_attrs, ATTR_NAME='_client_name'), e.g. "MySQL Connector/J" or "libmysql". Empty if the client reported no connect attributes or the connect-attrs feature is disabled server-side.
+    description: The client driver's self-reported identity at connection time, e.g. "MySQL Connector/J" or "libmysql". Empty if the client reported no connect attributes or the connect-attrs feature is disabled server-side.
     type: string
   mysql.column.name:
     description: The name of the table column.
@@ -264,11 +264,11 @@ attributes:
   mysql.threads.thread_id:
     description: The unique identifier for the thread executing the statement.
     type: int
-  mysql.wait_event:
-    description: Detailed wait breakdown -- the performance_schema wait event name with its category segment stripped (e.g. 'table/sql/handler', 'mutex/innodb/checkpoint_state'), or 'CPU'/'User sleep'/'other' when not actually waiting. MySQL's analogue of Oracle's EVENT / SQL Server's wait_type. Paired with mysql.wait_event_type. Distinct from mysql.wait_type, which reports the raw, unprocessed event name and is unchanged from upstream.
+  mysql.wait_event.name:
+    description: Detailed wait breakdown -- the wait event name with its category segment stripped (e.g. 'table/sql/handler', 'mutex/innodb/checkpoint_state'), or 'CPU'/'User sleep'/'other' when not actually waiting. Paired with mysql.wait_event.type. Distinct from mysql.wait_type, which reports the raw, unprocessed event name and is unchanged.
     type: string
-  mysql.wait_event_type:
-    description: Top-level wait classification derived from the second path segment of the performance_schema wait event name ('io', 'lock', 'synch'), or 'CPU'/'User sleep'/'other' when not actually waiting. MySQL's analogue of Oracle's WAIT_CLASS / SQL Server's wait_category. Paired with mysql.wait_event.
+  mysql.wait_event.type:
+    description: Top-level wait classification derived from the second path segment of the wait event name ('io', 'lock', 'synch'), or 'CPU'/'User sleep'/'other' when not actually waiting. Paired with mysql.wait_event.name.
     type: string
   mysql.wait_type:
     description: The name of the instrument that produced the event.
@@ -397,8 +397,8 @@ events:
       - mysql.query_plan
       - mysql.query_plan.hash
       - mysql.event_id
-      - mysql.wait_event_type
-      - mysql.wait_event
+      - mysql.wait_event.type
+      - mysql.wait_event.name
       - mysql.wait_type
       - mysql.session.status
       - mysql.session.id
@@ -413,7 +413,7 @@ events:
       - db.query.text.normalized.hash
       - mysql.events_statements_current.timer_start
       - mysql.client.name
-      - mysql.blocking.blockers
+      - mysql.blocking.blocker.details
       - mysql.blocking.blocker.count
 
   db.server.top_query:

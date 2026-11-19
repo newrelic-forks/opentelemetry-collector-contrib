@@ -966,7 +966,7 @@ The execution plan for a query.
 | ---- | ----------- | ------ | ------------------- |
 | db.system.name | The name of the database system. | Str: ``mysql`` | - |
 | mysql.query_plan.hash | This attribute is set to the same value as mysql.events_statements_summary_by_digest.digest (query digest) by design. | Any Str | - |
-| db.namespace | The default database/schema for the query. On query samples this is the thread's current database (processlist_db); on top queries it is the digest's SCHEMA_NAME. Empty when no default database was selected. | Any Str | - |
+| db.namespace | The name of the database the statement was executed against, or empty if not available. | Any Str | - |
 | mysql.query_plan.source | The event the plan was reported for, so plans can be routed or dropped per source event. | Str: ``db.server.top_query``, ``db.server.query_sample`` | - |
 | mysql.query_plan | The query plan for the statement, if available. | Any Str | - |
 
@@ -982,7 +982,7 @@ This provides real-time visibility into active queries, helping users monitor da
 | db.system.name | The name of the database system. | Str: ``mysql`` | - |
 | mysql.threads.thread_id | The unique identifier for the thread executing the statement. | Any Int | - |
 | user.name | The user associated with a foreground thread, empty for a background thread (originally processlist_user). | Any Str | - |
-| db.namespace | The default database/schema for the query. On query samples this is the thread's current database (processlist_db); on top queries it is the digest's SCHEMA_NAME. Empty when no default database was selected. | Any Str | - |
+| db.namespace | The name of the database the statement was executed against, or empty if not available. | Any Str | - |
 | mysql.threads.processlist_command | The type of command the thread is executing on behalf of the client for foreground threads, or `Sleep` if the session is idle. | Any Str | - |
 | mysql.threads.processlist_state | An action, event, or state that indicates what the thread is doing. | Any Str | - |
 | db.query.text | The SQL statement text for the event. | Any Str | - |
@@ -990,8 +990,8 @@ This provides real-time visibility into active queries, helping users monitor da
 | mysql.query_plan | The query plan for the statement, if available. | Any Str | - |
 | mysql.query_plan.hash | This attribute is set to the same value as mysql.events_statements_summary_by_digest.digest (query digest) by design. | Any Str | - |
 | mysql.event_id | The thread associated with the event and the thread current event number when the event starts. | Any Int | - |
-| mysql.wait_event_type | Top-level wait classification derived from the second path segment of the performance_schema wait event name ('io', 'lock', 'synch'), or 'CPU'/'User sleep'/'other' when not actually waiting. MySQL's analogue of Oracle's WAIT_CLASS / SQL Server's wait_category. Paired with mysql.wait_event. | Any Str | - |
-| mysql.wait_event | Detailed wait breakdown -- the performance_schema wait event name with its category segment stripped (e.g. 'table/sql/handler', 'mutex/innodb/checkpoint_state'), or 'CPU'/'User sleep'/'other' when not actually waiting. MySQL's analogue of Oracle's EVENT / SQL Server's wait_type. Paired with mysql.wait_event_type. Distinct from mysql.wait_type, which reports the raw, unprocessed event name and is unchanged from upstream. | Any Str | - |
+| mysql.wait_event.type | Top-level wait classification derived from the second path segment of the wait event name ('io', 'lock', 'synch'), or 'CPU'/'User sleep'/'other' when not actually waiting. Paired with mysql.wait_event.name. | Any Str | - |
+| mysql.wait_event.name | Detailed wait breakdown -- the wait event name with its category segment stripped (e.g. 'table/sql/handler', 'mutex/innodb/checkpoint_state'), or 'CPU'/'User sleep'/'other' when not actually waiting. Paired with mysql.wait_event.type. Distinct from mysql.wait_type, which reports the raw, unprocessed event name and is unchanged. | Any Str | - |
 | mysql.wait_type | The name of the instrument that produced the event. | Any Str | - |
 | mysql.session.status | Simplified session status, either 'waiting', 'running' or 'other'. | Any Str | - |
 | mysql.session.id | The unique identifier for the session associated with the event. | Any Int | - |
@@ -1005,9 +1005,9 @@ This provides real-time visibility into active queries, helping users monitor da
 | db.query.comment_tags.nr_service_guid | New Relic service GUID extracted from the filtered db.query.comment_tags. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
 | db.query.text.normalized.hash | MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Used for correlation with APM slow query traces. | Any Str | - |
 | mysql.events_statements_current.timer_start | Internal, monotonically increasing picosecond counter (not wall-clock time) marking when the current statement started executing. Changes only when a new statement begins on this thread, making it a stable per-execution key for deduplicating a statement's wait-event rows across scrape cycles (MySQL's analogue of query_start on SQL Server). | Any Int | - |
-| mysql.client.name | The client driver's self-reported identity at connection time (performance_schema.session_connect_attrs, ATTR_NAME='_client_name'), e.g. "MySQL Connector/J" or "libmysql". Empty if the client reported no connect attributes or the connect-attrs feature is disabled server-side. | Any Str | - |
-| mysql.blocking.blockers | A JSON array of {thread_id, session_id} tuples, one per concurrent InnoDB row-lock blocker for this session. Unordered. session_id is null when that blocker's PROCESSLIST_ID could not be resolved (e.g. it disconnected between reads). "[]" when measured and not blocked, empty string when blocking isn't measurable on this engine/version (MariaDB, MySQL <8.0.11). This is the only source for individual blocker identity (thread_id/session_id) — the receiver does not also expose those as separate scalar attributes, since doing so would only serve per-row display, which a dashboard/frontend can already get by parsing this JSON directly; use mysql.blocking.blocker.count (not a value from this array) for any NRQL-side filter, facet, or alert threshold. | Any Str | - |
-| mysql.blocking.blocker.count | The number of concurrent InnoDB row-lock blockers currently holding a lock this session is waiting on. 0 indicates the session is not currently blocked, but also covers engines where blocking isn't measured (MariaDB, MySQL <8.0.11) — an int can't carry that case separately; check mysql.blocking.blockers to tell the two apart. Use "mysql.blocking.blocker.count > 0" as the "is this session blocked" filter/gate (replaces the retired mysql.blocking.blocker.thread_id > 0 pattern). Derived from mysql.blocking.blockers (its array length) and kept as a separate scalar attribute because NRQL has no native JSON array-length function — this is the only way to facet, filter, or alert on blocker count directly. | Any Int | - |
+| mysql.client.name | The client driver's self-reported identity at connection time, e.g. "MySQL Connector/J" or "libmysql". Empty if the client reported no connect attributes or the connect-attrs feature is disabled server-side. | Any Str | - |
+| mysql.blocking.blocker.details | A JSON array of {thread_id, session_id} tuples, one per concurrent InnoDB row-lock blocker for this session. Unordered. session_id is null when that blocker could not be resolved (e.g. it disconnected between reads). "[]" when measured and not blocked, empty string when blocking isn't measurable on this engine/version (MariaDB, MySQL <8.0.11). | Any Str | - |
+| mysql.blocking.blocker.count | The number of concurrent InnoDB row-lock blockers currently holding a lock this session is waiting on. 0 indicates the session is not currently blocked, but also covers engines where blocking isn't measured (MariaDB, MySQL <8.0.11) -- an int can't carry that case separately. Check mysql.blocking.blocker.details to tell the two apart. | Any Int | - |
 
 ### db.server.top_query
 
@@ -1028,7 +1028,7 @@ This provides insights into query performance and resource usage, helping users 
 | db.query.comment_tags | Filtered SQL query comments extracted from leading block comments. Contains comma-separated key=value pairs for keys specified in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
 | db.query.comment_tags.nr_service_guid | New Relic service GUID extracted from the filtered db.query.comment_tags. Empty unless nr_service_guid is included in allowed_comment_keys configuration. Used for correlation with APM traces. | Any Str | - |
 | db.query.text.normalized.hash | MD5 hash of normalized SQL query following New Relic Java agent normalization logic. Used for correlation with APM slow query traces. | Any Str | - |
-| db.namespace | The default database/schema for the query. On query samples this is the thread's current database (processlist_db); on top queries it is the digest's SCHEMA_NAME. Empty when no default database was selected. | Any Str | - |
+| db.namespace | The name of the database the statement was executed against, or empty if not available. | Any Str | - |
 | mysql.events_statements_summary_by_digest.examined_rows | The number of rows examined by the statement, reported as a delta value. | Any Int | - |
 | mysql.events_statements_summary_by_digest.returned_rows | The number of rows returned by the statement, reported as a delta value. | Any Int | - |
 

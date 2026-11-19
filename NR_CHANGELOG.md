@@ -9,14 +9,22 @@ including confirmation of which breaking changes from [CHANGELOG.md](./CHANGELOG
 
 Synced with upstream contrib v0.165.1, which also covers v0.165.0 and the changes merged to `main`
 after the v0.165.1 release. Upstream v0.165.0 and v0.165.1 have no breaking changes for the YAML
-configuration of these receivers; the only breaking changes below are one Go API change and one
-fork-authored attribute rename.
+configuration of these receivers; the breaking changes below are one Go API change and
+attribute renames made to match upstream.
 
 ### 🛑 Breaking changes 🛑
 
 - `receiver/nrsqlserver`: the `sqlserver.tempdb.file.size` attribute `tempdb.file.id` is renamed to
   `sqlserver.tempdb.file.id`, matching upstream. Dashboards, alerts and queries that read
   `tempdb.file.id` must use the new name. This ends the divergence recorded under v0.164.1.
+
+- `receiver/nrmysql` (upstream [#51432](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/51432),
+  [#51307](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/51307)): three
+  `db.server.query_sample` attributes are renamed to match upstream: `mysql.wait_event_type` to
+  `mysql.wait_event.type`, `mysql.wait_event` to `mysql.wait_event.name`, and
+  `mysql.blocking.blockers` to `mysql.blocking.blocker.details`. Dashboards, alerts and queries
+  that read the old names must use the new ones. The `db.namespace`, `mysql.client.name` and
+  `mysql.blocking.blocker.count` descriptions now match upstream.
 
 - `receiver/nroracledb` (upstream [#53261](https://github.com/open-telemetry/opentelemetry-collector-contrib/pull/53261)):
   the `datasource` and `password` options are now `configopaque.String`, so they are redacted when
@@ -75,31 +83,18 @@ fork-authored attribute rename.
 
 - `receiver/nrmysql` (upstream [#51307](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/51307)):
   on MariaDB and MySQL before 8.0.11, which have no `performance_schema.data_lock_waits`, the
-  blockers lookup is skipped, so `db.server.query_sample` no longer fails there. `mysql.blocking.blockers`
+  blockers lookup is skipped, so `db.server.query_sample` no longer fails there. `mysql.blocking.blocker.details`
   is then `''`, which stays distinguishable from `"[]"` (not blocked), and `mysql.blocking.blocker.count`
   is 0. Ported.
 
 Confirmed already matched, no fork change needed:
 
-- `receiver/nrmysql`'s `mysql.blocking.blocker.count` and blocker list on `db.server.query_sample`
-  (upstream [#51307](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/51307)),
-  and the fork's `PROCESS`-free query, which avoids the `INNODB_TRX` join. The fork ships the list as
-  `mysql.blocking.blockers`.
+- `receiver/nrmysql`'s `PROCESS`-free blocker query, which avoids the `INNODB_TRX` join
+  (upstream [#51307](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/51307)).
 
 Deliberate divergence from upstream:
 
-- `receiver/nrmysql` keeps `mysql.wait_event_type` and `mysql.wait_event` on `db.server.query_sample`.
-  Upstream [#51432](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/51432)
-  ships the same data as `mysql.wait_event.type` and `mysql.wait_event.name`, which are not added.
-
-- `receiver/nrmysql` keeps `mysql.blocking.blockers`; upstream names it `mysql.blocking.blocker.details`.
-
-- `receiver/nrsqlserver` keeps its own descriptions for the `task.state` and `worker.state` attributes
-  and for `sqlserver.latch.wait_time.avg`.
-
 - `receiver/nroracledb` keeps `oracledb.pga_memory` as a gauge.
-
-- `receiver/nrpostgresql` keeps the fork's description of `postgresql.backend.connection.start`.
 
 ## v0.164.1
 

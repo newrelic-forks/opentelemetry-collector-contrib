@@ -1307,7 +1307,7 @@ func (m *mySQLScraper) scrapeQuerySamples(_ context.Context, now pcommon.Timesta
 		nrServiceGUID := sqlcomments.ExtractValueForKey(queryCommentTags, "nr_service_guid")
 		_, normalizedQueryHash := sqlnormalizer.NormalizeSQLAndHash(obfuscatedQuery)
 
-		blockersJSON, blockerCount := m.deriveBlockingCount(sample.blockers)
+		blockerDetailsJSON, blockerCount := m.deriveBlockingCount(sample.blockerDetails)
 		waitTime := m.sanitizeWaitTime(sample.waitTime, sample.waitEventType, sample.waitEvent)
 
 		m.lb.RecordDbServerQuerySampleEvent(
@@ -1340,7 +1340,7 @@ func (m *mySQLScraper) scrapeQuerySamples(_ context.Context, now pcommon.Timesta
 			normalizedQueryHash,
 			sample.statementTimerStart,
 			sample.clientProgramName,
-			blockersJSON,
+			blockerDetailsJSON,
 			blockerCount,
 		)
 
@@ -1445,8 +1445,8 @@ func (m *mySQLScraper) sanitizeWaitTime(waitTime float64, waitEventType, waitEve
 	if waitTime > ceiling {
 		m.logger.Warn("Discarding implausible mysql.events_waits_current.timer_wait reading",
 			zap.Float64("timer_wait_seconds", waitTime),
-			zap.String("mysql.wait_event_type", waitEventType),
-			zap.String("mysql.wait_event", waitEvent))
+			zap.String("mysql.wait_event.type", waitEventType),
+			zap.String("mysql.wait_event.name", waitEvent))
 		return 0
 	}
 	return waitTime
@@ -1463,7 +1463,7 @@ type blockerJSONEntry struct {
 
 // deriveBlockingCount parses the raw blockers JSON produced by
 // querySample.tmpl and returns the normalized JSON to emit as
-// mysql.blocking.blockers and the blocker count (mysql.blocking.blocker.count).
+// mysql.blocking.blocker.details and the blocker count (mysql.blocking.blocker.count).
 // An empty input means blocking isn't measurable on this engine/version
 // (MariaDB, MySQL <8.0.11) and is passed through as-is rather than
 // normalized to "[]", so "not measured" stays distinguishable from "measured
@@ -1477,7 +1477,7 @@ type blockerJSONEntry struct {
 // Individual blocker identity (thread_id/session_id) is intentionally not
 // extracted into scalar attributes here — that would only serve per-row
 // display, which a dashboard/frontend can already get by parsing
-// mysql.blocking.blockers directly; count is kept as a scalar because NRQL
+// mysql.blocking.blocker.details directly; count is kept as a scalar because NRQL
 // has no native JSON array-length function. Malformed JSON is treated as
 // "not blocked" rather than propagated, since the value is always either
 // "[]" or receiver-generated JSON from a COALESCE default.
@@ -1487,7 +1487,7 @@ func (m *mySQLScraper) deriveBlockingCount(blockersJSON string) (normalizedBlock
 	}
 	var blockers []blockerJSONEntry
 	if err := json.Unmarshal([]byte(blockersJSON), &blockers); err != nil {
-		m.logger.Warn("Failed to parse mysql.blocking.blockers; treating as not blocked", zap.Error(err))
+		m.logger.Warn("Failed to parse mysql.blocking.blocker.details; treating as not blocked", zap.Error(err))
 		return "[]", 0
 	}
 	if len(blockers) == 0 {
@@ -1496,7 +1496,7 @@ func (m *mySQLScraper) deriveBlockingCount(blockersJSON string) (normalizedBlock
 
 	normalized, err := json.Marshal(blockers)
 	if err != nil {
-		m.logger.Warn("Failed to re-marshal mysql.blocking.blockers; treating as not blocked", zap.Error(err))
+		m.logger.Warn("Failed to re-marshal mysql.blocking.blocker.details; treating as not blocked", zap.Error(err))
 		return "[]", 0
 	}
 	return string(normalized), int64(len(blockers))
