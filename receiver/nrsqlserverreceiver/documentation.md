@@ -962,9 +962,9 @@ This metric is only available when the receiver is configured to directly connec
 
 ### sqlserver.latch.wait_time.avg
 
-Average time spent waiting for latches (lighter-weight synchronization).
+Average latch wait time.
 
-This metric is only available when the receiver is configured to directly connect to SQL Server. Latches are lightweight synchronization objects used internally by SQL Server to protect in-memory structures. High latch wait times can indicate memory contention, I/O bottlenecks, or internal resource contention. Available on SQL Server 2005+.
+This metric is only available when the receiver is configured to directly connect to SQL Server.
 
 | Unit | Metric Type | Value Type | Stability |
 | ---- | ----------- | ---------- | --------- |
@@ -1455,7 +1455,7 @@ This metric is only available when the receiver is configured to directly connec
 
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
-| task.state | SQL Server task state for thread-pool diagnostics. | Str: ``current``, ``queued``, ``waiting_for_threadpool``, ``running``, ``limit_reached`` | Recommended | - |
+| task.state | The state of the task. | Str: ``current``, ``queued``, ``waiting_for_threadpool``, ``running``, ``limit_reached`` | Recommended | - |
 
 ### sqlserver.task.rate
 
@@ -1540,7 +1540,7 @@ This metric is only available when the receiver is configured to directly connec
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
 | file_type | The type of file being monitored. | Any Str | Recommended | - |
-| tempdb.file.id | Numeric file_id within tempdb (sys.master_files.file_id). | Any Int | Recommended | - |
+| sqlserver.tempdb.file.id | Numeric identifier of the tempdb file. | Any Int | Recommended | - |
 
 ### sqlserver.tempdb.space.usage
 
@@ -1558,6 +1558,22 @@ This metric is only available when the receiver is configured to directly connec
 | ---- | ----------- | ------ | ----------------- | ------------------- |
 | tempdb.space_kind | TempDB space usage category. | Str: ``user_objects``, ``internal_objects``, ``version_store``, ``free`` | Recommended | - |
 
+### sqlserver.thread_pool.task.count
+
+Number of SQL Server tasks tracked by schedulers.
+
+This metric is only available when the receiver is configured to directly connect to SQL Server.
+
+| Unit | Metric Type | Value Type | Stability |
+| ---- | ----------- | ---------- | --------- |
+| {task} | Gauge | Int | Development |
+
+#### Attributes
+
+| Name | Description | Values | Requirement Level | Semantic Convention |
+| ---- | ----------- | ------ | ----------------- | ------------------- |
+| sqlserver.thread_pool.task.state | State of a SQL Server task tracked for thread-pool diagnostics. | Str: ``current``, ``waiting_for_threadpool`` | Required | - |
+
 ### sqlserver.thread_pool.tasks.count
 
 Number of SQL Server tasks broken down by state.
@@ -1572,7 +1588,7 @@ This metric is only available when the receiver is configured to directly connec
 
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
-| task.state | SQL Server task state for thread-pool diagnostics. | Str: ``current``, ``queued``, ``waiting_for_threadpool``, ``running``, ``limit_reached`` | Recommended | - |
+| task.state | The state of the task. | Str: ``current``, ``queued``, ``waiting_for_threadpool``, ``running``, ``limit_reached`` | Recommended | - |
 
 ### sqlserver.thread_pool.workers.count
 
@@ -1588,7 +1604,7 @@ This metric is only available when the receiver is configured to directly connec
 
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
-| worker.state | SQL Server worker state. | Str: ``running``, ``suspended_or_sleeping``, ``maximum``, ``active``, ``available``, ``waiting_for_cpu`` | Recommended | - |
+| worker.state | The state of the worker thread. | Str: ``running``, ``suspended_or_sleeping``, ``maximum``, ``active``, ``available``, ``waiting_for_cpu`` | Recommended | - |
 
 ### sqlserver.thread_pool.workers.max
 
@@ -1686,7 +1702,7 @@ This metric is only available when the receiver is configured to directly connec
 
 | Name | Description | Values | Requirement Level | Semantic Convention |
 | ---- | ----------- | ------ | ----------------- | ------------------- |
-| worker.state | SQL Server worker state. | Str: ``running``, ``suspended_or_sleeping``, ``maximum``, ``active``, ``available``, ``waiting_for_cpu`` | Recommended | - |
+| worker.state | The state of the worker thread. | Str: ``running``, ``suspended_or_sleeping``, ``maximum``, ``active``, ``available``, ``waiting_for_cpu`` | Recommended | - |
 
 ### sqlserver.worktable.cache.hit_ratio
 
@@ -1789,6 +1805,7 @@ query sample
 | sqlserver.transaction_id | Unique ID of the active transaction. | Any Int | - |
 | sqlserver.transaction_isolation_level | Transaction isolation level used in the session. Represented as numeric constant. | Any Int | - |
 | sqlserver.wait_resource | The resource for which the session is waiting. | Any Str | - |
+| sqlserver.wait.start_time | Timestamp of when the current wait started (ISO 8601 format). Empty if not waiting. | Any Str | - |
 | sqlserver.wait_time | Duration in seconds the request has been waiting. | Any Double | - |
 | sqlserver.wait_type | Type of wait encountered by the request. Empty if none. | Any Str | - |
 | sqlserver.writes | Number of writes performed by the query. | Any Int | - |

@@ -5,6 +5,97 @@ including confirmation of which breaking changes from [CHANGELOG.md](./CHANGELOG
 
 <!-- next version -->
 
+## v0.165.1
+
+Synced with upstream contrib v0.165.1, which also covers v0.165.0 and the changes merged to `main`
+after the v0.165.1 release. Upstream v0.165.0 and v0.165.1 have no breaking changes for the YAML
+configuration of these receivers; the breaking changes below are one Go API change and
+attribute renames made to match upstream.
+
+### 🛑 Breaking changes 🛑
+
+- `receiver/nrsqlserver`: the `sqlserver.tempdb.file.size` attribute `tempdb.file.id` is renamed to
+  `sqlserver.tempdb.file.id`, matching upstream. Dashboards, alerts and queries that read
+  `tempdb.file.id` must use the new name. This ends the divergence recorded under v0.164.1.
+
+- `receiver/nrmysql` (upstream [#51432](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/51432),
+  [#51307](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/51307)): three
+  `db.server.query_sample` attributes are renamed to match upstream: `mysql.wait_event_type` to
+  `mysql.wait_event.type`, `mysql.wait_event` to `mysql.wait_event.name`, and
+  `mysql.blocking.blockers` to `mysql.blocking.blocker.details`. Dashboards, alerts and queries
+  that read the old names must use the new ones. The `db.namespace`, `mysql.client.name` and
+  `mysql.blocking.blocker.count` descriptions now match upstream.
+
+- `receiver/nroracledb` (upstream [#53261](https://github.com/open-telemetry/opentelemetry-collector-contrib/pull/53261)):
+  the `datasource` and `password` options are now `configopaque.String`, so they are redacted when
+  the configuration is printed. YAML configurations are unaffected; only Go code that sets or reads
+  `Config.DataSource` or `Config.Password` must convert the type. Ported.
+
+### 💡 Enhancements 💡
+
+- `receiver/nrsqlserver` (upstream [#50294](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/50294)):
+  `db_auth` takes the component ID of an extension that supplies database credentials, such as
+  Microsoft Entra / managed identity for Azure SQL, and is mutually exclusive with `password`.
+  `internal/nrsqlquery` gains the `azuresql` driver, for which `port` is optional. Ported.
+
+- `receiver/nrsqlserver` (upstream [#52529](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/52529)):
+  added the `databases` and `exclude_databases` options to limit the databases that metrics and
+  events report on over a direct connection. A database in both lists is excluded. Ported.
+
+- `receiver/nrsqlserver` (upstream [#52413](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/52413)):
+  added `sqlserver.thread_pool.task.count` (disabled by default), reporting scheduler task-queueing
+  state by the new `sqlserver.thread_pool.task.state` attribute (`current`, `waiting_for_threadpool`).
+  The fork's own `sqlserver.thread_pool.tasks.count` is unchanged. Ported.
+
+- `receiver/nrsqlserver` (upstream [#52460](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/52460)):
+  added the `sqlserver.wait.start_time` attribute to `db.server.query_sample`, the time the current
+  wait started. Ported.
+
+- `receiver/nroracledb` (upstream [#52770](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/52770)):
+  added the `oracledb.wait.start_time` attribute to `db.server.query_sample`, the time the current
+  wait started. Ported.
+
+- `receiver/nrpostgresql` (upstream [#52615](https://github.com/open-telemetry/opentelemetry-collector-contrib/pull/52615)):
+  added the `postgresql.backend.type` attribute to `db.server.query_sample`. Ported.
+
+- `receiver/nrpostgresql` (upstream [#52227](https://github.com/open-telemetry/opentelemetry-collector-contrib/pull/52227)):
+  `db.server.query_sample` records take their trace context from a SQLCommenter `traceparent`
+  comment in the sampled query. Ported.
+
+- `receiver/nrmysql` (upstream [#52287](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/52287)):
+  added `mysql.table.auto_increment.limit`, `mysql.table.auto_increment.usage` and
+  `mysql.table.auto_increment.utilization` (all disabled by default), showing how close each table's
+  auto-increment column is to its integer limit, with the new `mysql.column.name` attribute. Ported.
+
+### 🧰 Bug fixes 🧰
+
+- `receiver/nrmysql` and `receiver/nrpostgresql` (upstream [#52539](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/52539)):
+  the receivers derive the UUID v5 `service.instance.id` outside FIPS 140-3 strict enforcement, so
+  they no longer panic under `GODEBUG=fips140=only`. Ported.
+
+- `receiver/nrsqlserver` (upstream [#52699](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/52699)):
+  `sqlserver.memory.page.count` never recorded its `target` data point, because of a `Target pages`
+  counter name casing mismatch. Ported.
+
+- `receiver/nroracledb` (upstream [#49705](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/49705)):
+  errors that occur while reading query results are reported instead of returning partial metrics,
+  and the query results are always closed. Ported.
+
+- `receiver/nrmysql` (upstream [#51307](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/51307)):
+  on MariaDB and MySQL before 8.0.11, which have no `performance_schema.data_lock_waits`, the
+  blockers lookup is skipped, so `db.server.query_sample` no longer fails there. `mysql.blocking.blocker.details`
+  is then `''`, which stays distinguishable from `"[]"` (not blocked), and `mysql.blocking.blocker.count`
+  is 0. Ported.
+
+Confirmed already matched, no fork change needed:
+
+- `receiver/nrmysql`'s `PROCESS`-free blocker query, which avoids the `INNODB_TRX` join
+  (upstream [#51307](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/51307)).
+
+Deliberate divergence from upstream:
+
+- `receiver/nroracledb` keeps `oracledb.pga_memory` as a gauge.
+
 ## v0.164.1
 
 Synced with upstream contrib v0.164.1. Upstream v0.164.x has no breaking changes for these receivers,

@@ -49,10 +49,10 @@ resourceLogs:
               - key: mysql.event_id
                 value:
                   intValue: "17470257762"
-              - key: mysql.wait_event_type
+              - key: mysql.wait_event.type
                 value:
                   stringValue: lock
-              - key: mysql.wait_event
+              - key: mysql.wait_event.name
                 value:
                   stringValue: table/sql/handler
               - key: mysql.wait_type
@@ -97,7 +97,7 @@ resourceLogs:
               - key: mysql.client.name
                 value:
                   stringValue: ""
-              - key: mysql.blocking.blockers
+              - key: mysql.blocking.blocker.details
                 value:
                   stringValue: '[]'
               - key: mysql.blocking.blocker.count

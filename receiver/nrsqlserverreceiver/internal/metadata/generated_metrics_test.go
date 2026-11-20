@@ -746,11 +746,11 @@ func TestMetricsBuilder(t *testing.T) {
 			mb.RecordSqlserverTempdbDataFilesCountDataPoint(ts, "1")
 
 			allMetricsCount++
-			mb.RecordSqlserverTempdbFileSizeDataPoint(ts, "1", "file_type-val", 14)
+			mb.RecordSqlserverTempdbFileSizeDataPoint(ts, "1", "file_type-val", 24)
 			if tt.name == "reaggregate_set" {
-				mb.RecordSqlserverTempdbFileSizeDataPoint(ts, "3", "file_type-val-2", 15)
+				mb.RecordSqlserverTempdbFileSizeDataPoint(ts, "3", "file_type-val-2", 25)
 				// a different timestamp is a different key: must not merge with the above.
-				mb.RecordSqlserverTempdbFileSizeDataPoint(ts+1, "3", "file_type-val-2", 15)
+				mb.RecordSqlserverTempdbFileSizeDataPoint(ts+1, "3", "file_type-val-2", 25)
 				assert.Equal(t, 2, mb.metricSqlserverTempdbFileSize.data.Gauge().DataPoints().Len())
 			}
 
@@ -762,6 +762,9 @@ func TestMetricsBuilder(t *testing.T) {
 				mb.RecordSqlserverTempdbSpaceUsageDataPoint(ts+1, "3", AttributeTempdbSpaceKindInternalObjects)
 				assert.Equal(t, 2, mb.metricSqlserverTempdbSpaceUsage.data.Gauge().DataPoints().Len())
 			}
+
+			allMetricsCount++
+			mb.RecordSqlserverThreadPoolTaskCountDataPoint(ts, 1, AttributeSqlserverThreadPoolTaskStateCurrent)
 
 			allMetricsCount++
 			mb.RecordSqlserverThreadPoolTasksCountDataPoint(ts, "1", AttributeTaskStateCurrent)
@@ -2709,7 +2712,7 @@ func TestMetricsBuilder(t *testing.T) {
 					validatedMetrics["sqlserver.latch.wait_time.avg"] = true
 					assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
 					assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
-					assert.Equal(t, "Average time spent waiting for latches (lighter-weight synchronization).", mi.Description())
+					assert.Equal(t, "Average latch wait time.", mi.Description())
 					assert.Equal(t, "s", mi.Unit())
 					dp := mi.Gauge().DataPoints().At(0)
 					assert.Equal(t, start, dp.StartTimestamp())
@@ -4013,9 +4016,9 @@ func TestMetricsBuilder(t *testing.T) {
 						fileTypeAttrVal, ok := dp.Attributes().Get("file_type")
 						assert.True(t, ok)
 						assert.Equal(t, "file_type-val", fileTypeAttrVal.Str())
-						tempdbFileIDAttrVal, ok := dp.Attributes().Get("tempdb.file.id")
+						sqlserverTempdbFileIDAttrVal, ok := dp.Attributes().Get("sqlserver.tempdb.file.id")
 						assert.True(t, ok)
-						assert.EqualValues(t, 14, tempdbFileIDAttrVal.Int())
+						assert.EqualValues(t, 24, sqlserverTempdbFileIDAttrVal.Int())
 					} else {
 						assert.False(t, validatedMetrics["sqlserver.tempdb.file.size"], "Found a duplicate in the metrics slice: sqlserver.tempdb.file.size")
 						validatedMetrics["sqlserver.tempdb.file.size"] = true
@@ -4041,7 +4044,7 @@ func TestMetricsBuilder(t *testing.T) {
 						}
 						_, ok := dp.Attributes().Get("file_type")
 						assert.False(t, ok)
-						_, ok = dp.Attributes().Get("tempdb.file.id")
+						_, ok = dp.Attributes().Get("sqlserver.tempdb.file.id")
 						assert.False(t, ok)
 					}
 				case "sqlserver.tempdb.space.usage":
@@ -4086,6 +4089,21 @@ func TestMetricsBuilder(t *testing.T) {
 						_, ok := dp.Attributes().Get("tempdb.space_kind")
 						assert.False(t, ok)
 					}
+				case "sqlserver.thread_pool.task.count":
+					assert.False(t, validatedMetrics["sqlserver.thread_pool.task.count"], "Found a duplicate in the metrics slice: sqlserver.thread_pool.task.count")
+					validatedMetrics["sqlserver.thread_pool.task.count"] = true
+					assert.Equal(t, pmetric.MetricTypeGauge, mi.Type())
+					assert.Equal(t, 1, mi.Gauge().DataPoints().Len())
+					assert.Equal(t, "Number of SQL Server tasks tracked by schedulers.", mi.Description())
+					assert.Equal(t, "{task}", mi.Unit())
+					dp := mi.Gauge().DataPoints().At(0)
+					assert.Equal(t, start, dp.StartTimestamp())
+					assert.Equal(t, ts, dp.Timestamp())
+					assert.Equal(t, pmetric.NumberDataPointValueTypeInt, dp.ValueType())
+					assert.Equal(t, int64(1), dp.IntValue())
+					sqlserverThreadPoolTaskStateAttrVal, ok := dp.Attributes().Get("sqlserver.thread_pool.task.state")
+					assert.True(t, ok)
+					assert.Equal(t, "current", sqlserverThreadPoolTaskStateAttrVal.Str())
 				case "sqlserver.thread_pool.tasks.count":
 					if tt.name != "reaggregate_set" {
 						assert.False(t, validatedMetrics["sqlserver.thread_pool.tasks.count"], "Found a duplicate in the metrics slice: sqlserver.thread_pool.tasks.count")

@@ -496,6 +496,8 @@ func (mc mockClient) QueryRows(context.Context, ...any) ([]sqlquery.StringMap, e
 		queryResults, err = readFile("cpuMemoryQueryData.txt")
 	case getSQLServerDiskIOQuery(mc.instanceName):
 		queryResults, err = readFile("diskIOQueryData.txt")
+	case getSQLServerWorkerThreadsQuery(mc.instanceName):
+		queryResults, err = readFile("workerThreadsQueryData.txt")
 	case getSQLServerTempDBSpaceQuery():
 		queryResults, err = readFile("tempDBQueryData.txt")
 	case getSQLServerTempDBContentionQuery():
@@ -2360,4 +2362,70 @@ func TestProcedureDefinitionEmptyDefinition(t *testing.T) {
 		}
 	}
 	t.Fatal("expected at least one db.server.procedure_definition event")
+}
+
+func TestRecordWorkerThreadMetrics(t *testing.T) {
+	cfg := createDefaultConfig().(*Config)
+	cfg.Username = "sa"
+	cfg.Password = "password"
+	cfg.Server = "0.0.0.0"
+	cfg.Port = 1433
+	assert.NoError(t, cfg.Validate())
+	cfg.Metrics.SqlserverWorkerThreadCount.Enabled = true
+	cfg.Metrics.SqlserverWorkerRequestCount.Enabled = true
+	cfg.Metrics.SqlserverThreadPoolTaskCount.Enabled = true
+
+	scrapers, provider := setupSQLServerScrapers(receivertest.NewNopSettings(metadata.Type), cfg)
+	assert.NotEmpty(t, scrapers)
+	defer func() { assert.NoError(t, provider.close()) }()
+
+	var workerScraper *sqlServerScraperHelper
+	for _, s := range scrapers {
+		if s.sqlQuery == getSQLServerWorkerThreadsQuery(cfg.InstanceName) {
+			workerScraper = s
+			break
+		}
+	}
+	require.NotNil(t, workerScraper, "worker threads scraper should be present")
+
+	require.NoError(t, workerScraper.Start(t.Context(), componenttest.NewNopHost()))
+	defer func() { assert.NoError(t, workerScraper.Shutdown(t.Context())) }()
+
+	workerScraper.client = mockClient{
+		instanceName: cfg.InstanceName,
+		SQL:          workerScraper.sqlQuery,
+	}
+
+	actualMetrics, err := workerScraper.ScrapeMetrics(t.Context())
+	require.NoError(t, err)
+
+	expectedFile := filepath.Join("testdata", "expectedWorkerThreads.yaml")
+	// Uncomment line below to re-generate expected metrics.
+	// golden.WriteMetrics(t, expectedFile, actualMetrics)
+	expectedMetrics, err := golden.ReadMetrics(expectedFile)
+	require.NoError(t, err)
+
+	assert.NoError(t, pmetrictest.CompareMetrics(expectedMetrics, actualMetrics,
+		pmetrictest.IgnoreMetricDataPointsOrder(),
+		pmetrictest.IgnoreStartTimestamp(),
+		pmetrictest.IgnoreTimestamp(),
+		pmetrictest.IgnoreResourceMetricsOrder()), expectedFile)
+}
+
+func TestIsWorkerThreadsQueryEnabled(t *testing.T) {
+	assert.False(t, isWorkerThreadsQueryEnabled(nil))
+
+	metrics := &metadata.MetricsConfig{}
+	assert.False(t, isWorkerThreadsQueryEnabled(metrics))
+
+	metrics.SqlserverWorkerThreadCount.Enabled = true
+	assert.True(t, isWorkerThreadsQueryEnabled(metrics))
+
+	metrics.SqlserverWorkerThreadCount.Enabled = false
+	metrics.SqlserverWorkerRequestCount.Enabled = true
+	assert.True(t, isWorkerThreadsQueryEnabled(metrics))
+
+	metrics.SqlserverWorkerRequestCount.Enabled = false
+	metrics.SqlserverThreadPoolTaskCount.Enabled = true
+	assert.True(t, isWorkerThreadsQueryEnabled(metrics))
 }

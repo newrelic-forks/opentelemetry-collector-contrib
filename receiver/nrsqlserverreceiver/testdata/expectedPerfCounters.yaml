@@ -926,7 +926,7 @@ resourceMetrics:
             stringValue: 0.0.0.0
     scopeMetrics:
       - metrics:
-          - description: Average time spent waiting for latches (lighter-weight synchronization).
+          - description: Average latch wait time.
             gauge:
               dataPoints:
                 - asDouble: 0.162

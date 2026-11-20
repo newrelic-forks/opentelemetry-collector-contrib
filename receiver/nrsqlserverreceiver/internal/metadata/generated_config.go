@@ -3583,8 +3583,8 @@ func (ms *SqlserverTempdbDataFilesCountMetricConfig) Unmarshal(parser *confmap.C
 type SqlserverTempdbFileSizeMetricAttributeKey string
 
 const (
-	SqlserverTempdbFileSizeMetricAttributeKeyFileType     SqlserverTempdbFileSizeMetricAttributeKey = "file_type"
-	SqlserverTempdbFileSizeMetricAttributeKeyTempdbFileID SqlserverTempdbFileSizeMetricAttributeKey = "tempdb.file.id"
+	SqlserverTempdbFileSizeMetricAttributeKeyFileType              SqlserverTempdbFileSizeMetricAttributeKey = "file_type"
+	SqlserverTempdbFileSizeMetricAttributeKeySqlserverTempdbFileID SqlserverTempdbFileSizeMetricAttributeKey = "sqlserver.tempdb.file.id"
 )
 
 // SqlserverTempdbFileSizeMetricConfig provides config for the sqlserver.tempdb.file.size metric.
@@ -3613,9 +3613,9 @@ func (ms *SqlserverTempdbFileSizeMetricConfig) Unmarshal(parser *confmap.Conf) e
 func (ms *SqlserverTempdbFileSizeMetricConfig) Validate() error {
 	for _, val := range ms.EnabledAttributes {
 		switch val {
-		case SqlserverTempdbFileSizeMetricAttributeKeyFileType, SqlserverTempdbFileSizeMetricAttributeKeyTempdbFileID:
+		case SqlserverTempdbFileSizeMetricAttributeKeyFileType, SqlserverTempdbFileSizeMetricAttributeKeySqlserverTempdbFileID:
 		default:
-			return fmt.Errorf("metric sqlserver.tempdb.file.size doesn't have an attribute %v, valid attributes: [file_type, tempdb.file.id]", val)
+			return fmt.Errorf("metric sqlserver.tempdb.file.size doesn't have an attribute %v, valid attributes: [file_type, sqlserver.tempdb.file.id]", val)
 		}
 	}
 
@@ -3673,6 +3673,26 @@ func (ms *SqlserverTempdbSpaceUsageMetricConfig) Validate() error {
 		return fmt.Errorf("invalid aggregation strategy %q, valid strategies: [%s, %s, %s, %s]", ms.AggregationStrategy, AggregationStrategySum, AggregationStrategyAvg, AggregationStrategyMin, AggregationStrategyMax)
 	}
 
+	return nil
+}
+
+// SqlserverThreadPoolTaskCountMetricConfig provides config for the sqlserver.thread_pool.task.count metric.
+type SqlserverThreadPoolTaskCountMetricConfig struct {
+	Enabled          bool `mapstructure:"enabled"`
+	enabledSetByUser bool
+}
+
+func (ms *SqlserverThreadPoolTaskCountMetricConfig) Unmarshal(parser *confmap.Conf) error {
+	if parser == nil {
+		return nil
+	}
+
+	err := parser.Unmarshal(ms)
+	if err != nil {
+		return err
+	}
+
+	ms.enabledSetByUser = parser.IsSet("enabled")
 	return nil
 }
 
@@ -4321,6 +4341,7 @@ type MetricsConfig struct {
 	SqlserverTempdbDataFilesCount                         SqlserverTempdbDataFilesCountMetricConfig                         `mapstructure:"sqlserver.tempdb.data_files.count"`
 	SqlserverTempdbFileSize                               SqlserverTempdbFileSizeMetricConfig                               `mapstructure:"sqlserver.tempdb.file.size"`
 	SqlserverTempdbSpaceUsage                             SqlserverTempdbSpaceUsageMetricConfig                             `mapstructure:"sqlserver.tempdb.space.usage"`
+	SqlserverThreadPoolTaskCount                          SqlserverThreadPoolTaskCountMetricConfig                          `mapstructure:"sqlserver.thread_pool.task.count"`
 	SqlserverThreadPoolTasksCount                         SqlserverThreadPoolTasksCountMetricConfig                         `mapstructure:"sqlserver.thread_pool.tasks.count"`
 	SqlserverThreadPoolWorkersCount                       SqlserverThreadPoolWorkersCountMetricConfig                       `mapstructure:"sqlserver.thread_pool.workers.count"`
 	SqlserverThreadPoolWorkersMax                         SqlserverThreadPoolWorkersMaxMetricConfig                         `mapstructure:"sqlserver.thread_pool.workers.max"`
@@ -4772,12 +4793,15 @@ func DefaultMetricsConfig() MetricsConfig {
 		SqlserverTempdbFileSize: SqlserverTempdbFileSizeMetricConfig{
 			Enabled:             false,
 			AggregationStrategy: AggregationStrategyAvg,
-			EnabledAttributes:   []SqlserverTempdbFileSizeMetricAttributeKey{SqlserverTempdbFileSizeMetricAttributeKeyFileType, SqlserverTempdbFileSizeMetricAttributeKeyTempdbFileID},
+			EnabledAttributes:   []SqlserverTempdbFileSizeMetricAttributeKey{SqlserverTempdbFileSizeMetricAttributeKeyFileType, SqlserverTempdbFileSizeMetricAttributeKeySqlserverTempdbFileID},
 		},
 		SqlserverTempdbSpaceUsage: SqlserverTempdbSpaceUsageMetricConfig{
 			Enabled:             false,
 			AggregationStrategy: AggregationStrategyAvg,
 			EnabledAttributes:   []SqlserverTempdbSpaceUsageMetricAttributeKey{SqlserverTempdbSpaceUsageMetricAttributeKeyTempdbSpaceKind},
+		},
+		SqlserverThreadPoolTaskCount: SqlserverThreadPoolTaskCountMetricConfig{
+			Enabled: false,
 		},
 		SqlserverThreadPoolTasksCount: SqlserverThreadPoolTasksCountMetricConfig{
 			Enabled:             false,

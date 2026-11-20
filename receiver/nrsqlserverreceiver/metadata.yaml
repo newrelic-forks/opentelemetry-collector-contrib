@@ -440,6 +440,15 @@ attributes:
     type: string
     requirement_level: recommended
     enum: [gam, sgam, pfs, other]
+  sqlserver.tempdb.file.id:
+    description: Numeric identifier of the tempdb file.
+    type: int
+    requirement_level: recommended
+  sqlserver.thread_pool.task.state:
+    description: State of a SQL Server task tracked for thread-pool diagnostics.
+    type: string
+    requirement_level: required
+    enum: [current, waiting_for_threadpool]
   sqlserver.total_elapsed_time:
     description: Total elapsed time for completed executions of this plan, reported in delta seconds.
     type: double
@@ -485,6 +494,10 @@ attributes:
     description: SQL Server type of the locked or waited-on resource, if available.
     type: string
     requirement_level: recommended
+  sqlserver.wait.start_time:
+    description: Timestamp of when the current wait started (ISO 8601 format). Empty if not waiting.
+    type: string
+    requirement_level: recommended
   sqlserver.wait_resource:
     description: The resource for which the session is waiting.
     type: string
@@ -522,14 +535,10 @@ attributes:
     requirement_level: recommended
     enum: [started, aborted]
   task.state:
-    description: SQL Server task state for thread-pool diagnostics.
+    description: The state of the task.
     type: string
     requirement_level: recommended
     enum: [current, queued, waiting_for_threadpool, running, limit_reached]
-  tempdb.file.id:
-    description: Numeric file_id within tempdb (sys.master_files.file_id).
-    type: int
-    requirement_level: recommended
   tempdb.space_kind:
     description: TempDB space usage category.
     type: string
@@ -559,7 +568,7 @@ attributes:
     type: string
     requirement_level: recommended
   worker.state:
-    description: SQL Server worker state.
+    description: The state of the worker thread.
     type: string
     requirement_level: recommended
     enum: [running, suspended_or_sleeping, maximum, active, available, waiting_for_cpu]
@@ -630,6 +639,7 @@ events:
       - sqlserver.transaction_id
       - sqlserver.transaction_isolation_level
       - sqlserver.wait_resource
+      - sqlserver.wait.start_time
       - sqlserver.wait_time
       - sqlserver.wait_type
       - sqlserver.writes
@@ -1208,13 +1218,13 @@ metrics:
     extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.latch.wait_time.avg:
     enabled: false
-    description: Average time spent waiting for latches (lighter-weight synchronization).
+    description: Average latch wait time.
     stability: development
     unit: s
     gauge:
       value_type: double
     attributes: []
-    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server. Latches are lightweight synchronization objects used internally by SQL Server to protect in-memory structures. High latch wait times can indicate memory contention, I/O bottlenecks, or internal resource contention. Available on SQL Server 2005+.
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.latch.wait_time.total:
     enabled: false
     description: Total latch wait time.
@@ -1701,7 +1711,7 @@ metrics:
     gauge:
       value_type: int
       input_type: string
-    attributes: [file_type, tempdb.file.id]
+    attributes: [file_type, sqlserver.tempdb.file.id]
     extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.tempdb.space.usage:
     enabled: false
@@ -1712,6 +1722,15 @@ metrics:
       value_type: int
       input_type: string
     attributes: [tempdb.space_kind]
+    extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
+  sqlserver.thread_pool.task.count:
+    enabled: false
+    description: Number of SQL Server tasks tracked by schedulers.
+    stability: development
+    unit: "{task}"
+    gauge:
+      value_type: int
+    attributes: [sqlserver.thread_pool.task.state]
     extended_documentation: This metric is only available when the receiver is configured to directly connect to SQL Server.
   sqlserver.thread_pool.tasks.count:
     enabled: false

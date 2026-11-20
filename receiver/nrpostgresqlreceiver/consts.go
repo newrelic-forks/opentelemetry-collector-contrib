@@ -21,6 +21,7 @@ const (
 
 const (
 	querySampleColumnApplicationName      = "application_name"
+	querySampleColumnBackendType          = "backend_type"
 	querySampleColumnBackendStart         = "backend_start"
 	querySampleColumnClientAddr           = "client_addr"
 	querySampleColumnClientHostname       = "client_hostname"

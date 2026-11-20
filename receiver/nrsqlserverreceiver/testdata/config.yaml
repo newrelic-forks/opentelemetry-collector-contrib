@@ -32,6 +32,8 @@ nrsqlserver/named:
     allowed_comment_keys:
       - nr_service_guid
       - traceparent
+  databases: [sales, hr]
+  exclude_databases: [hr]
   events:
     db.server.query_sample:
       enabled: true

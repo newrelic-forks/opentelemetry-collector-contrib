@@ -360,32 +360,34 @@ current one on a row lock — a session can have more than one concurrent InnoDB
 (e.g. two transactions each holding a `FOR SHARE` lock on the same row), so this is a list, not a
 single ID:
 
-- `mysql.blocking.blockers` — a JSON array of `{thread_id, session_id}` tuples, one per concurrent
-  blocker, ordered oldest-blocking-transaction-first (element `[0]` is the most likely root cause).
-  This ordering is enforced by the receiver itself in Go, not by SQL — MySQL's `JSON_ARRAYAGG`
-  element order is unspecified and was confirmed live to not reliably reflect the query's
-  `ORDER BY`. `thread_id` is the blocker's `performance_schema.threads.THREAD_ID` (same ID space as
+- `mysql.blocking.blocker.details` — a JSON array of `{thread_id, session_id}` tuples, one per concurrent
+  blocker, in no guaranteed order (whatever the underlying `data_lock_waits` read returns; the
+  oldest-transaction-first ordering was dropped because it required the global `PROCESS`
+  privilege). `thread_id` is the blocker's `performance_schema.threads.THREAD_ID` (same ID space as
   `mysql.threads.thread_id` elsewhere on this event); `session_id` is the blocker's
   `PROCESSLIST_ID` (same ID space as `mysql.session.id` — the connection ID actually visible via
   `SHOW PROCESSLIST` / `information_schema.PROCESSLIST`; prefer it over `thread_id` when displaying
   "blocked by session X" to a user) and is `null` when that blocker's `PROCESSLIST_ID` couldn't be
-  resolved (e.g. it disconnected between reads). `"[]"` when the session is not currently blocked.
+  resolved (e.g. it disconnected between reads). `"[]"` when the session is measured and not
+  currently blocked; empty string when blocking isn't measurable on this engine/version (MariaDB,
+  MySQL <8.0.11), which stays distinguishable from `"[]"`.
 - `mysql.blocking.blocker.count` — the number of concurrent blockers, derived from
-  `mysql.blocking.blockers`'s array length. `0` when the session is not currently blocked. **Use
+  `mysql.blocking.blocker.details`'s array length. `0` when the session is not currently blocked (also `0`
+  where blocking isn't measured — check `mysql.blocking.blocker.details` to tell the two apart). **Use
   this, not a value from the array, for any NRQL-side filter, facet, or alert threshold** — NRQL has
   no native JSON array-length function, so `mysql.blocking.blocker.count > 0` is the "is this
   session blocked" gate.
 
 There are no separate `mysql.blocking.blocker.thread_id`/`.session_id` scalar attributes — an
 earlier iteration of this feature shipped them (sourced from element `[0]`), but they were removed
-as redundant with parsing `mysql.blocking.blockers` directly, which a dashboard/frontend can already
+as redundant with parsing `mysql.blocking.blocker.details` directly, which a dashboard/frontend can already
 do for per-row display. Any dashboard widget still filtering on the old
 `mysql.blocking.blocker.thread_id > 0` pattern needs to be rewritten to
 `mysql.blocking.blocker.count > 0`.
 
 Every blocker is resolved via a single correlated subquery against
-`performance_schema.data_lock_waits` (MySQL 8.0+), joined back to `performance_schema.threads` for
-the `PROCESSLIST_ID` and `information_schema.INNODB_TRX` for the ordering. No additional grants
+`performance_schema.data_lock_waits` (MySQL 8.0.11+ only), joined back to `performance_schema.threads`
+for the `PROCESSLIST_ID`. No additional grants
 beyond the standard `SELECT ON performance_schema.*` are required.
 
 ### Client program name
@@ -442,4 +444,4 @@ Performance Schema uses for "elapsed time of an instrumented event," inherited f
 wait-instrument tables where "wait" did mean blocking; at the statement level it means duration.
 `mysql.events_waits_current.timer_wait` is the one field that *is* a genuine, distinct wait/block
 duration (sourced from `performance_schema.events_waits_current`, not the statement timer) — pair
-it with `mysql.wait_event` (and `mysql.wait_event_type`) if you need to show what a session is currently blocked on.
+it with `mysql.wait_event.name` (and `mysql.wait_event.type`) if you need to show what a session is currently blocked on.

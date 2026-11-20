@@ -908,6 +908,32 @@ var MapAttributeSqlserverTempdbAllocationPageType = map[string]AttributeSqlserve
 	"other": AttributeSqlserverTempdbAllocationPageTypeOther,
 }
 
+// AttributeSqlserverThreadPoolTaskState specifies the value sqlserver.thread_pool.task.state attribute.
+type AttributeSqlserverThreadPoolTaskState int
+
+const (
+	_ AttributeSqlserverThreadPoolTaskState = iota
+	AttributeSqlserverThreadPoolTaskStateCurrent
+	AttributeSqlserverThreadPoolTaskStateWaitingForThreadpool
+)
+
+// String returns the string representation of the AttributeSqlserverThreadPoolTaskState.
+func (av AttributeSqlserverThreadPoolTaskState) String() string {
+	switch av {
+	case AttributeSqlserverThreadPoolTaskStateCurrent:
+		return "current"
+	case AttributeSqlserverThreadPoolTaskStateWaitingForThreadpool:
+		return "waiting_for_threadpool"
+	}
+	return ""
+}
+
+// MapAttributeSqlserverThreadPoolTaskState is a helper map of string to AttributeSqlserverThreadPoolTaskState attribute value.
+var MapAttributeSqlserverThreadPoolTaskState = map[string]AttributeSqlserverThreadPoolTaskState{
+	"current":                AttributeSqlserverThreadPoolTaskStateCurrent,
+	"waiting_for_threadpool": AttributeSqlserverThreadPoolTaskStateWaitingForThreadpool,
+}
+
 // AttributeSystemMemoryState specifies the value system.memory.state attribute.
 type AttributeSystemMemoryState int
 
@@ -1605,11 +1631,15 @@ var MetricsInfo = metricsInfo{
 	},
 	SqlserverTempdbFileSize: metricInfo{
 		Name:       "sqlserver.tempdb.file.size",
-		Attributes: []string{"file_type", "tempdb.file.id"},
+		Attributes: []string{"file_type", "sqlserver.tempdb.file.id"},
 	},
 	SqlserverTempdbSpaceUsage: metricInfo{
 		Name:       "sqlserver.tempdb.space.usage",
 		Attributes: []string{"tempdb.space_kind"},
+	},
+	SqlserverThreadPoolTaskCount: metricInfo{
+		Name:       "sqlserver.thread_pool.task.count",
+		Attributes: []string{"sqlserver.thread_pool.task.state"},
 	},
 	SqlserverThreadPoolTasksCount: metricInfo{
 		Name:       "sqlserver.thread_pool.tasks.count",
@@ -1792,6 +1822,7 @@ type metricsInfo struct {
 	SqlserverTempdbDataFilesCount                         metricInfo
 	SqlserverTempdbFileSize                               metricInfo
 	SqlserverTempdbSpaceUsage                             metricInfo
+	SqlserverThreadPoolTaskCount                          metricInfo
 	SqlserverThreadPoolTasksCount                         metricInfo
 	SqlserverThreadPoolWorkersCount                       metricInfo
 	SqlserverThreadPoolWorkersMax                         metricInfo
@@ -5923,7 +5954,7 @@ type metricSqlserverLatchWaitTimeAvg struct {
 // init fills sqlserver.latch.wait_time.avg metric with initial data.
 func (m *metricSqlserverLatchWaitTimeAvg) init() {
 	m.data.SetName("sqlserver.latch.wait_time.avg")
-	m.data.SetDescription("Average time spent waiting for latches (lighter-weight synchronization).")
+	m.data.SetDescription("Average latch wait time.")
 	m.data.SetUnit("s")
 	m.data.SetEmptyGauge()
 }
@@ -9438,7 +9469,7 @@ func (m *metricSqlserverTempdbFileSize) init() {
 	m.dpIndex = make(map[uint64]int, m.capacity)
 }
 
-func (m *metricSqlserverTempdbFileSize) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, fileTypeAttributeValue string, tempdbFileIDAttributeValue int64) {
+func (m *metricSqlserverTempdbFileSize) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, fileTypeAttributeValue string, sqlserverTempdbFileIDAttributeValue int64) {
 	if !m.config.Enabled {
 		return
 	}
@@ -9449,8 +9480,8 @@ func (m *metricSqlserverTempdbFileSize) recordDataPoint(start pcommon.Timestamp,
 	if slices.Contains(m.config.EnabledAttributes, SqlserverTempdbFileSizeMetricAttributeKeyFileType) {
 		dp.Attributes().PutStr("file_type", fileTypeAttributeValue)
 	}
-	if slices.Contains(m.config.EnabledAttributes, SqlserverTempdbFileSizeMetricAttributeKeyTempdbFileID) {
-		dp.Attributes().PutInt("tempdb.file.id", tempdbFileIDAttributeValue)
+	if slices.Contains(m.config.EnabledAttributes, SqlserverTempdbFileSizeMetricAttributeKeySqlserverTempdbFileID) {
+		dp.Attributes().PutInt("sqlserver.tempdb.file.id", sqlserverTempdbFileIDAttributeValue)
 	}
 
 	var s string
@@ -9596,6 +9627,58 @@ func (m *metricSqlserverTempdbSpaceUsage) emit(metrics pmetric.MetricSlice) {
 
 func newMetricSqlserverTempdbSpaceUsage(cfg SqlserverTempdbSpaceUsageMetricConfig) metricSqlserverTempdbSpaceUsage {
 	m := metricSqlserverTempdbSpaceUsage{config: cfg}
+
+	if cfg.Enabled {
+		m.data = pmetric.NewMetric()
+		m.init()
+	}
+	return m
+}
+
+type metricSqlserverThreadPoolTaskCount struct {
+	data     pmetric.Metric                           // data buffer for generated metric.
+	config   SqlserverThreadPoolTaskCountMetricConfig // metric config provided by user.
+	capacity int                                      // max observed number of data points added to the metric.
+}
+
+// init fills sqlserver.thread_pool.task.count metric with initial data.
+func (m *metricSqlserverThreadPoolTaskCount) init() {
+	m.data.SetName("sqlserver.thread_pool.task.count")
+	m.data.SetDescription("Number of SQL Server tasks tracked by schedulers.")
+	m.data.SetUnit("{task}")
+	m.data.SetEmptyGauge()
+	m.data.Gauge().DataPoints().EnsureCapacity(m.capacity)
+}
+
+func (m *metricSqlserverThreadPoolTaskCount) recordDataPoint(start pcommon.Timestamp, ts pcommon.Timestamp, val int64, sqlserverThreadPoolTaskStateAttributeValue string) {
+	if !m.config.Enabled {
+		return
+	}
+	dp := m.data.Gauge().DataPoints().AppendEmpty()
+	dp.SetStartTimestamp(start)
+	dp.SetTimestamp(ts)
+	dp.SetIntValue(val)
+	dp.Attributes().PutStr("sqlserver.thread_pool.task.state", sqlserverThreadPoolTaskStateAttributeValue)
+}
+
+// updateCapacity saves max length of data point slices that will be used for the slice capacity.
+func (m *metricSqlserverThreadPoolTaskCount) updateCapacity() {
+	if m.data.Gauge().DataPoints().Len() > m.capacity {
+		m.capacity = m.data.Gauge().DataPoints().Len()
+	}
+}
+
+// emit appends recorded metric data to a metrics slice and prepares it for recording another set of data points.
+func (m *metricSqlserverThreadPoolTaskCount) emit(metrics pmetric.MetricSlice) {
+	if m.config.Enabled && m.data.Gauge().DataPoints().Len() > 0 {
+		m.updateCapacity()
+		m.data.MoveTo(metrics.AppendEmpty())
+		m.init()
+	}
+}
+
+func newMetricSqlserverThreadPoolTaskCount(cfg SqlserverThreadPoolTaskCountMetricConfig) metricSqlserverThreadPoolTaskCount {
+	m := metricSqlserverThreadPoolTaskCount{config: cfg}
 
 	if cfg.Enabled {
 		m.data = pmetric.NewMetric()
@@ -10949,6 +11032,7 @@ type MetricsBuilder struct {
 	metricSqlserverTempdbDataFilesCount                         metricSqlserverTempdbDataFilesCount
 	metricSqlserverTempdbFileSize                               metricSqlserverTempdbFileSize
 	metricSqlserverTempdbSpaceUsage                             metricSqlserverTempdbSpaceUsage
+	metricSqlserverThreadPoolTaskCount                          metricSqlserverThreadPoolTaskCount
 	metricSqlserverThreadPoolTasksCount                         metricSqlserverThreadPoolTasksCount
 	metricSqlserverThreadPoolWorkersCount                       metricSqlserverThreadPoolWorkersCount
 	metricSqlserverThreadPoolWorkersMax                         metricSqlserverThreadPoolWorkersMax
@@ -11106,6 +11190,7 @@ func NewMetricsBuilder(mbc MetricsBuilderConfig, settings receiver.Settings, opt
 		metricSqlserverTempdbDataFilesCount:                         newMetricSqlserverTempdbDataFilesCount(mbc.Metrics.SqlserverTempdbDataFilesCount),
 		metricSqlserverTempdbFileSize:                               newMetricSqlserverTempdbFileSize(mbc.Metrics.SqlserverTempdbFileSize),
 		metricSqlserverTempdbSpaceUsage:                             newMetricSqlserverTempdbSpaceUsage(mbc.Metrics.SqlserverTempdbSpaceUsage),
+		metricSqlserverThreadPoolTaskCount:                          newMetricSqlserverThreadPoolTaskCount(mbc.Metrics.SqlserverThreadPoolTaskCount),
 		metricSqlserverThreadPoolTasksCount:                         newMetricSqlserverThreadPoolTasksCount(mbc.Metrics.SqlserverThreadPoolTasksCount),
 		metricSqlserverThreadPoolWorkersCount:                       newMetricSqlserverThreadPoolWorkersCount(mbc.Metrics.SqlserverThreadPoolWorkersCount),
 		metricSqlserverThreadPoolWorkersMax:                         newMetricSqlserverThreadPoolWorkersMax(mbc.Metrics.SqlserverThreadPoolWorkersMax),
@@ -11382,6 +11467,7 @@ func (mb *MetricsBuilder) EmitForResource(options ...ResourceMetricsOption) {
 	mb.metricSqlserverTempdbDataFilesCount.emit(ils.Metrics())
 	mb.metricSqlserverTempdbFileSize.emit(ils.Metrics())
 	mb.metricSqlserverTempdbSpaceUsage.emit(ils.Metrics())
+	mb.metricSqlserverThreadPoolTaskCount.emit(ils.Metrics())
 	mb.metricSqlserverThreadPoolTasksCount.emit(ils.Metrics())
 	mb.metricSqlserverThreadPoolWorkersCount.emit(ils.Metrics())
 	mb.metricSqlserverThreadPoolWorkersMax.emit(ils.Metrics())
@@ -12120,12 +12206,12 @@ func (mb *MetricsBuilder) RecordSqlserverTempdbDataFilesCountDataPoint(ts pcommo
 }
 
 // RecordSqlserverTempdbFileSizeDataPoint adds a data point to sqlserver.tempdb.file.size metric.
-func (mb *MetricsBuilder) RecordSqlserverTempdbFileSizeDataPoint(ts pcommon.Timestamp, inputVal string, fileTypeAttributeValue string, tempdbFileIDAttributeValue int64) error {
+func (mb *MetricsBuilder) RecordSqlserverTempdbFileSizeDataPoint(ts pcommon.Timestamp, inputVal string, fileTypeAttributeValue string, sqlserverTempdbFileIDAttributeValue int64) error {
 	val, err := strconv.ParseInt(inputVal, 10, 64)
 	if err != nil {
 		return fmt.Errorf("failed to parse int64 for SqlserverTempdbFileSize, value was %s: %w", inputVal, err)
 	}
-	mb.metricSqlserverTempdbFileSize.recordDataPoint(mb.startTime, ts, val, fileTypeAttributeValue, tempdbFileIDAttributeValue)
+	mb.metricSqlserverTempdbFileSize.recordDataPoint(mb.startTime, ts, val, fileTypeAttributeValue, sqlserverTempdbFileIDAttributeValue)
 	return nil
 }
 
@@ -12137,6 +12223,11 @@ func (mb *MetricsBuilder) RecordSqlserverTempdbSpaceUsageDataPoint(ts pcommon.Ti
 	}
 	mb.metricSqlserverTempdbSpaceUsage.recordDataPoint(mb.startTime, ts, val, tempdbSpaceKindAttributeValue.String())
 	return nil
+}
+
+// RecordSqlserverThreadPoolTaskCountDataPoint adds a data point to sqlserver.thread_pool.task.count metric.
+func (mb *MetricsBuilder) RecordSqlserverThreadPoolTaskCountDataPoint(ts pcommon.Timestamp, val int64, sqlserverThreadPoolTaskStateAttributeValue AttributeSqlserverThreadPoolTaskState) {
+	mb.metricSqlserverThreadPoolTaskCount.recordDataPoint(mb.startTime, ts, val, sqlserverThreadPoolTaskStateAttributeValue.String())
 }
 
 // RecordSqlserverThreadPoolTasksCountDataPoint adds a data point to sqlserver.thread_pool.tasks.count metric.

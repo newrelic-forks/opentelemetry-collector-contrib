@@ -25,9 +25,7 @@ import (
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrpostgresqlreceiver/internal/metadata"
 	"go.opentelemetry.io/collector/config/confignet"
 	"go.opentelemetry.io/collector/config/configtls"
-	"go.opentelemetry.io/otel/propagation"
 	conventions "go.opentelemetry.io/otel/semconv/v1.43.0"
-	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/multierr"
 	"go.uber.org/zap"
 
@@ -1640,7 +1638,6 @@ func (c *postgreSQLClient) getQuerySamples(ctx context.Context, limit int64, new
 
 	errs := make([]error, 0)
 	finalAttributes := make([]map[string]any, 0)
-	propagator := propagation.TraceContext{}
 	for _, row := range rows {
 		if row[querySampleColumnQuery] == insufficientPrivilegeQuerySampleText {
 			logger.Warn("skipping query sample due to insufficient privileges")
@@ -1648,7 +1645,6 @@ func (c *postgreSQLClient) getQuerySamples(ctx context.Context, limit int64, new
 			continue
 		}
 		currentAttributes := make(map[string]any)
-		var traceCtx context.Context
 		querySampleSimpleColumns := []string{
 			querySampleColumnClientHostname,
 			querySampleColumnBackendStart,
@@ -1658,6 +1654,7 @@ func (c *postgreSQLClient) getQuerySamples(ctx context.Context, limit int64, new
 			querySampleColumnQueryID,
 			querySampleColumnState,
 			querySampleColumnApplicationName,
+			querySampleColumnBackendType,
 			querySampleColumnBlockingPIDs,
 			querySampleColumnBlockingStartTime,
 			querySampleColumnBlockingLockMode,
@@ -1668,20 +1665,9 @@ func (c *postgreSQLClient) getQuerySamples(ctx context.Context, limit int64, new
 
 		for _, col := range querySampleSimpleColumns {
 			currentAttributes[dbAttributePrefix+col] = row[col]
-			if col == querySampleColumnApplicationName && row[col] != "" {
-				// Use a background context so we don't accidentally inherit cancellation or span context
-				// from the scrape context; the only trace linkage should come from the extracted traceparent.
-				ctxFromQuery := propagator.Extract(context.Background(), propagation.MapCarrier{
-					traceparentCarrierKey: row[col],
-				})
-
-				if trace.SpanContextFromContext(ctxFromQuery).IsValid() {
-					traceCtx = ctxFromQuery
-				}
-			}
 		}
 
-		if traceCtx != nil {
+		if traceCtx := querySampleTraceContext(row[querySampleColumnApplicationName], row[querySampleColumnQuery]); traceCtx != nil {
 			currentAttributes[querySampleTraceContextKey] = traceCtx
 		}
 

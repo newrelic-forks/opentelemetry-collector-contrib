@@ -61,6 +61,9 @@ func TestScrape(t *testing.T) {
 		cfg.MetricsBuilderConfig.Metrics.MysqlTableRows.Enabled = true
 		cfg.MetricsBuilderConfig.Metrics.MysqlTableAverageRowLength.Enabled = true
 		cfg.MetricsBuilderConfig.Metrics.MysqlTableSize.Enabled = true
+		cfg.MetricsBuilderConfig.Metrics.MysqlTableAutoIncrementLimit.Enabled = true
+		cfg.MetricsBuilderConfig.Metrics.MysqlTableAutoIncrementUsage.Enabled = true
+		cfg.MetricsBuilderConfig.Metrics.MysqlTableAutoIncrementUtilization.Enabled = true
 
 		cfg.MetricsBuilderConfig.Metrics.MysqlClientNetworkIo.Enabled = true
 		cfg.MetricsBuilderConfig.Metrics.MysqlPreparedStatements.Enabled = true
@@ -94,6 +97,7 @@ func TestScrape(t *testing.T) {
 			tableIoWaitsFile:            "table_io_waits_stats",
 			indexIoWaitsFile:            "index_io_waits_stats",
 			tableStatsFile:              "table_stats",
+			autoIncrementStatsFile:      "auto_increment_stats",
 			statementEventsFile:         "statement_events",
 			tableLockWaitEventStatsFile: "table_lock_wait_event_stats",
 			replicaStatusFile:           "replica_stats",
@@ -168,6 +172,7 @@ func TestScrape(t *testing.T) {
 			tableIoWaitsFile:            "table_io_waits_stats_empty",
 			indexIoWaitsFile:            "index_io_waits_stats_empty",
 			tableStatsFile:              "table_stats_empty",
+			autoIncrementStatsFile:      "auto_increment_stats_empty",
 			statementEventsFile:         "statement_events_empty",
 			tableLockWaitEventStatsFile: "table_lock_wait_event_stats_empty",
 			replicaStatusFile:           "replica_stats_empty",
@@ -206,6 +211,7 @@ func newEmptyMockScraper(t *testing.T, cfg *Config) (*mySQLScraper, *mockClient)
 		tableIoWaitsFile:            "table_io_waits_stats_empty",
 		indexIoWaitsFile:            "index_io_waits_stats_empty",
 		tableStatsFile:              "table_stats_empty",
+		autoIncrementStatsFile:      "auto_increment_stats_empty",
 		statementEventsFile:         "statement_events_empty",
 		tableLockWaitEventStatsFile: "table_lock_wait_event_stats_empty",
 		replicaStatusFile:           "replica_stats_empty",
@@ -426,6 +432,9 @@ type queryGuard struct {
 var queryGuards = []queryGuard{
 	{"tableStatsMetricsEnabled", (*mySQLScraper).tableStatsMetricsEnabled, []string{
 		"MysqlTableRows", "MysqlTableAverageRowLength", "MysqlTableSize",
+	}},
+	{"autoIncrementStatsMetricsEnabled", (*mySQLScraper).autoIncrementStatsMetricsEnabled, []string{
+		"MysqlTableAutoIncrementLimit", "MysqlTableAutoIncrementUsage", "MysqlTableAutoIncrementUtilization",
 	}},
 	{"statementEventsMetricsEnabled", (*mySQLScraper).statementEventsMetricsEnabled, []string{
 		"MysqlStatementEventCount", "MysqlStatementEventWaitTime",
@@ -1192,6 +1201,7 @@ func TestScrapeBufferPoolPagesMiscOutOfBounds(t *testing.T) {
 		tableIoWaitsFile:            "table_io_waits_stats_empty",
 		indexIoWaitsFile:            "index_io_waits_stats_empty",
 		tableStatsFile:              "table_stats_empty",
+		autoIncrementStatsFile:      "auto_increment_stats_empty",
 		statementEventsFile:         "statement_events_empty",
 		tableLockWaitEventStatsFile: "table_lock_wait_event_stats_empty",
 		replicaStatusFile:           "replica_stats_empty",
@@ -1447,15 +1457,33 @@ func TestScrapeQuerySamplesBlockers(t *testing.T) {
 	t.Run("unblocked session reports an empty blockers array and zero count", func(t *testing.T) {
 		scraper, err := newMySQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, nil, newCache[int64](100), newTTLCache[string](0, time.Hour*24*365*10))
 		require.NoError(t, err)
+		scraper.sqlclient = &mockClient{querySamplesFile: "query_samples_unblocked"}
+
+		result, err := scraper.scrapeQuerySampleFunc(t.Context())
+		require.NoError(t, err)
+		record := result.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0)
+
+		blockersVal, ok := record.Attributes().Get("mysql.blocking.blocker.details")
+		require.True(t, ok, "mysql.blocking.blocker.details must be present")
+		assert.Equal(t, "[]", blockersVal.Str())
+
+		countVal, ok := record.Attributes().Get("mysql.blocking.blocker.count")
+		require.True(t, ok, "mysql.blocking.blocker.count must be present")
+		assert.Equal(t, int64(0), countVal.Int())
+	})
+
+	t.Run("engine without data_lock_waits reports not-measured, distinct from measured-and-empty", func(t *testing.T) {
+		scraper, err := newMySQLScraper(receivertest.NewNopSettings(metadata.Type), cfg, nil, newCache[int64](100), newTTLCache[string](0, time.Hour*24*365*10))
+		require.NoError(t, err)
 		scraper.sqlclient = &mockClient{querySamplesFile: "query_samples_no_traceparent"}
 
 		result, err := scraper.scrapeQuerySampleFunc(t.Context())
 		require.NoError(t, err)
 		record := result.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0)
 
-		blockersVal, ok := record.Attributes().Get("mysql.blocking.blockers")
-		require.True(t, ok, "mysql.blocking.blockers must be present")
-		assert.Equal(t, "[]", blockersVal.Str())
+		blockersVal, ok := record.Attributes().Get("mysql.blocking.blocker.details")
+		require.True(t, ok, "mysql.blocking.blocker.details must be present")
+		assert.Empty(t, blockersVal.Str(), "not-measured must stay empty string, not normalize to \"[]\"")
 
 		countVal, ok := record.Attributes().Get("mysql.blocking.blocker.count")
 		require.True(t, ok, "mysql.blocking.blocker.count must be present")
@@ -1471,8 +1499,8 @@ func TestScrapeQuerySamplesBlockers(t *testing.T) {
 		require.NoError(t, err)
 		record := result.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0)
 
-		blockersVal, ok := record.Attributes().Get("mysql.blocking.blockers")
-		require.True(t, ok, "mysql.blocking.blockers must be present")
+		blockersVal, ok := record.Attributes().Get("mysql.blocking.blocker.details")
+		require.True(t, ok, "mysql.blocking.blocker.details must be present")
 		assert.JSONEq(t, `[{"thread_id":42,"session_id":99}]`, blockersVal.Str())
 
 		countVal, ok := record.Attributes().Get("mysql.blocking.blocker.count")
@@ -1496,8 +1524,8 @@ func TestScrapeQuerySamplesBlockers(t *testing.T) {
 		require.NoError(t, err)
 		record := result.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0)
 
-		blockersVal, ok := record.Attributes().Get("mysql.blocking.blockers")
-		require.True(t, ok, "mysql.blocking.blockers must be present")
+		blockersVal, ok := record.Attributes().Get("mysql.blocking.blocker.details")
+		require.True(t, ok, "mysql.blocking.blocker.details must be present")
 		assert.JSONEq(t, `[{"thread_id":58,"session_id":23},{"thread_id":99,"session_id":77},{"thread_id":42,"session_id":17}]`, blockersVal.Str(),
 			"all three blockers must be preserved, in the order the query returned them")
 
@@ -1515,8 +1543,8 @@ func TestScrapeQuerySamplesBlockers(t *testing.T) {
 		require.NoError(t, err)
 		record := result.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords().At(0)
 
-		blockersVal, ok := record.Attributes().Get("mysql.blocking.blockers")
-		require.True(t, ok, "mysql.blocking.blockers must be present")
+		blockersVal, ok := record.Attributes().Get("mysql.blocking.blocker.details")
+		require.True(t, ok, "mysql.blocking.blocker.details must be present")
 		assert.JSONEq(t, `[{"thread_id":42,"session_id":null}]`, blockersVal.Str(), "the unresolved blocker must remain visible, not silently dropped")
 
 		countVal, ok := record.Attributes().Get("mysql.blocking.blocker.count")
@@ -1694,6 +1722,7 @@ type mockClient struct {
 	tableIoWaitsFile             string
 	indexIoWaitsFile             string
 	tableStatsFile               string
+	autoIncrementStatsFile       string
 	statementEventsFile          string
 	tableLockWaitEventStatsFile  string
 	replicaStatusFile            string
@@ -1721,6 +1750,7 @@ type mockClient struct {
 	// every metric it feeds is disabled.
 	innodbStatsCallCount             int
 	tableStatsCallCount              int
+	autoIncrementStatsCallCount      int
 	tableIoWaitsCallCount            int
 	indexIoWaitsCallCount            int
 	statementEventsCallCount         int
@@ -1736,7 +1766,7 @@ type queryPlanSpyClient struct {
 	explainPlan  string
 }
 
-func (c *queryPlanSpyClient) getQuerySamples(uint64, bool) ([]querySample, error) {
+func (c *queryPlanSpyClient) getQuerySamples(uint64, bool, bool) ([]querySample, error) {
 	return c.querySamples, nil
 }
 
@@ -1836,6 +1866,31 @@ func (c *mockClient) getTableStats() ([]tableStats, error) {
 		s.averageRowLength, _ = parseInt(text[3])
 		s.dataLength, _ = parseInt(text[4])
 		s.indexLength, _ = parseInt(text[5])
+
+		stats = append(stats, s)
+	}
+	return stats, nil
+}
+
+func (c *mockClient) getAutoIncrementStats() ([]autoIncrementStats, error) {
+	c.autoIncrementStatsCallCount++
+	var stats []autoIncrementStats
+	file, err := os.Open(filepath.Join("testdata", "scraper", c.autoIncrementStatsFile+".txt"))
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		var s autoIncrementStats
+		text := strings.Split(scanner.Text(), "\t")
+		s.schema = text[0]
+		s.table = text[1]
+		s.column = text[2]
+		s.currentValue, _ = strconv.ParseFloat(text[3], 64)
+		s.maxValue, _ = strconv.ParseFloat(text[4], 64)
+		s.utilizationRatio, _ = strconv.ParseFloat(text[5], 64)
 
 		stats = append(stats, s)
 	}
@@ -2062,7 +2117,7 @@ func (c *mockClient) getReplicaStatusStats(_ bool) ([]replicaStatusStats, error)
 }
 
 // Generate a function for getQuerySamples to read data from a static file
-func (c *mockClient) getQuerySamples(uint64, bool) ([]querySample, error) {
+func (c *mockClient) getQuerySamples(uint64, bool, bool) ([]querySample, error) {
 	var samples []querySample
 	file, err := os.Open(filepath.Join("testdata", "scraper", c.querySamplesFile+".txt"))
 	if err != nil {
@@ -2096,7 +2151,7 @@ func (c *mockClient) getQuerySamples(uint64, bool) ([]querySample, error) {
 			s.traceparent = text[16]
 		}
 		if len(text) > 17 {
-			s.blockers = text[17]
+			s.blockerDetails = text[17]
 		}
 		if len(text) > 18 {
 			s.statementTimerStart, _ = parseInt(text[18])
