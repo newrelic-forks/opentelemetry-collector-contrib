@@ -18,7 +18,23 @@ with qstats as (
 		SUM(qs.total_rows) AS total_rows,
 		SUM(qs.total_grant_kb) as total_grant_kb
 	FROM sys.dm_exec_query_stats AS qs
-	    CROSS APPLY sys.dm_exec_sql_text(qs.plan_handle) AS st1
+	    LEFT JOIN sys.dm_exec_cached_plans AS cp ON cp.plan_handle = qs.plan_handle
+	    -- The plan attributes give the database and object id of a plan without reading the batch text, which
+	    -- dm_exec_sql_text would materialize for every cached statement before the lookback filter applies.
+	    -- objectid is the object id only for plans of objects; for ad hoc and prepared plans it is a hash of the
+	    -- text, and dm_exec_sql_text returns NULL there.
+	    CROSS APPLY (
+	        SELECT
+	            MAX(CASE WHEN a.attribute = 'objectid' THEN CONVERT(int, a.value) END) AS objectid,
+	            MAX(CASE WHEN a.attribute = 'dbid' THEN CONVERT(int, a.value) END) AS dbid
+	        FROM sys.dm_exec_plan_attributes(qs.plan_handle) AS a
+	        WHERE a.attribute IN ('objectid', 'dbid')
+	    ) AS pa
+	    CROSS APPLY (
+	        SELECT
+	            CASE WHEN cp.objtype IS NULL OR cp.objtype IN ('Adhoc', 'Prepared') THEN NULL ELSE pa.objectid END AS objectid,
+	            pa.dbid AS dbid
+	    ) AS st1
 	GROUP BY
 	    st1.objectid,
 		qs.query_hash,
@@ -39,9 +55,15 @@ SELECT qs.*,
 				   WHEN -1 THEN DATALENGTH(st.text)
 				   ELSE stats.statement_end_offset END - stats.statement_start_offset) / 2) + 1) AS query_text,
 	ISNULL(DB_NAME(st.dbid), '') AS database_name,
-	st.text AS full_query_text,
-	stats.statement_start_offset AS statement_start_offset,
-	CASE stats.statement_end_offset WHEN -1 THEN DATALENGTH(st.text) ELSE stats.statement_end_offset END AS statement_end_offset,
+	CASE
+		WHEN @collectFullText = 0 THEN N''
+		WHEN w.win_start < 0 THEN st.text
+		ELSE SUBSTRING(st.text, w.win_start + 1,
+			((CASE stats.statement_end_offset WHEN -1 THEN DATALENGTH(st.text) ELSE stats.statement_end_offset END - w.win_start * 2) / 2) + 1)
+	END AS full_query_text,
+	CASE WHEN @collectFullText = 1 AND w.win_start > 0 THEN SUBSTRING(st.text, 1, @headChars) ELSE N'' END AS full_query_text_head,
+	stats.statement_start_offset - CASE WHEN w.win_start > 0 THEN w.win_start * 2 ELSE 0 END AS statement_start_offset,
+	(CASE stats.statement_end_offset WHEN -1 THEN DATALENGTH(st.text) ELSE stats.statement_end_offset END) - CASE WHEN w.win_start > 0 THEN w.win_start * 2 ELSE 0 END AS statement_end_offset,
 	ISNULL(qp.query_plan, '') AS query_plan,
 	ISNULL(CASE WHEN qs.object_id > 0 THEN qs.object_id END, '') AS procedure_id,
          ISNULL(CASE WHEN qs.object_id > 0
@@ -54,8 +76,22 @@ FROM qstats AS qs
 			ON qs.query_plan_handle = stats.plan_handle
 			AND qs.query_hash = stats.query_hash
 			AND qs.query_plan_hash = stats.query_plan_hash
-		CROSS APPLY sys.dm_exec_query_plan(qs.query_plan_handle) AS qp
+		-- The plan of this statement only. dm_exec_query_plan returns the plan of the whole batch,
+		-- which repeats once per statement row when a batch holds many statements.
+		OUTER APPLY sys.dm_exec_text_query_plan(qs.query_plan_handle, stats.statement_start_offset, stats.statement_end_offset) AS qp
 		CROSS APPLY sys.dm_exec_sql_text(qs.query_plan_handle) AS st
+		-- win_start: -1 returns the whole batch text. Otherwise it is the 0-based character
+		-- where the returned window begins, so a batch larger than @maxFullTextBytes is cut
+		-- to [statement start - @windowChars, statement end]. A statement at offset 0 keeps the
+		-- whole text, because its normalized hash covers the whole batch.
+		CROSS APPLY (
+			SELECT CASE
+				WHEN @maxFullTextBytes > 0 AND DATALENGTH(st.text) > @maxFullTextBytes AND stats.statement_start_offset > 0
+					THEN CASE WHEN CAST(stats.statement_start_offset AS BIGINT) / 2 > @windowChars
+						THEN CAST(stats.statement_start_offset AS BIGINT) / 2 - @windowChars ELSE 0 END
+				ELSE CAST(-1 AS BIGINT)
+			END AS win_start
+		) AS w
 		LEFT JOIN proc_stats AS pst
 			ON qs.object_id = pst.object_id
 			AND st.dbid = pst.database_id

@@ -4,11 +4,14 @@
 package nrsqlserverreceiver
 
 import (
+	"database/sql"
 	"os"
 	"path"
+	"regexp"
 	"strings"
 	"testing"
 
+	"github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon/sqlcomments"
 	"github.com/stretchr/testify/require"
 )
 
@@ -200,4 +203,140 @@ func TestFormatSQLServerSessionIDsParam(t *testing.T) {
 		77: {},
 	})
 	require.Equal(t, "60,77,91", actual)
+}
+
+func TestFullQueryTextArgs(t *testing.T) {
+	tests := []struct {
+		name            string
+		collect         bool
+		maxBytes        uint
+		wantCollectFlag int
+		wantMaxBytes    int64
+	}{
+		{name: "collect with default cap", collect: true, maxBytes: defaultMaxFullQueryTextBytes, wantCollectFlag: 1, wantMaxBytes: defaultMaxFullQueryTextBytes},
+		{name: "collect with cap disabled", collect: true, maxBytes: 0, wantCollectFlag: 1, wantMaxBytes: 0},
+		{name: "text not collected", collect: false, maxBytes: defaultMaxFullQueryTextBytes, wantCollectFlag: 0, wantMaxBytes: defaultMaxFullQueryTextBytes},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := map[string]any{}
+			for _, arg := range fullQueryTextArgs(tt.collect, tt.maxBytes) {
+				named, ok := arg.(sql.NamedArg)
+				require.True(t, ok)
+				got[named.Name] = named.Value
+			}
+			require.Equal(t, map[string]any{
+				"collectFullText":  tt.wantCollectFlag,
+				"maxFullTextBytes": tt.wantMaxBytes,
+				"windowChars":      int64(fullQueryTextWindowChars),
+				"headChars":        int64(fullQueryTextHeadChars),
+			}, got)
+		})
+	}
+}
+
+// TestQueryTemplatesBoundFullQueryText guards the contract between the SQL templates and the Go
+// parameters: every named parameter the templates read must be one fullQueryTextArgs supplies.
+func TestQueryTemplatesBoundFullQueryText(t *testing.T) {
+	for name, query := range map[string]string{
+		"top query":    getSQLServerQueryTextAndPlanQuery(),
+		"query sample": getSQLServerQuerySamplesQuery(),
+	} {
+		t.Run(name, func(t *testing.T) {
+			for _, param := range []string{"@collectFullText", "@maxFullTextBytes", "@windowChars", "@headChars"} {
+				require.Contains(t, query, param)
+			}
+		})
+	}
+}
+
+// windowFullQueryText mirrors the window the SQL templates return for a batch over the cap.
+func windowFullQueryText(text string, startOffset, endOffset int) (window string, newStart, newEnd int) {
+	if startOffset <= 0 {
+		return text, startOffset, endOffset
+	}
+	winStart := 0
+	if startOffset/2 > fullQueryTextWindowChars {
+		winStart = startOffset/2 - fullQueryTextWindowChars
+	}
+	return text[winStart : endOffset/2+1], startOffset - winStart*2, endOffset - winStart*2
+}
+
+func TestWindowedFullQueryTextKeepsCleanText(t *testing.T) {
+	const statement = "SELECT a, b FROM orders WHERE id = 42"
+	build := func(filler string) (text string, start, end int) {
+		preamble := "/* nr_service_guid=GUID-1 */ " + filler
+		trailing := "; " + strings.Repeat("y", 4096)
+		text = preamble + statement + trailing
+		start = len(preamble) * 2
+		end = start + (len(statement)-1)*2
+		return text, start, end
+	}
+	t.Run("comment directly before the statement", func(t *testing.T) {
+		text, start, end := build(strings.Repeat("x", 3*fullQueryTextWindowChars))
+		// The comment sits at the very start; place a second one right before the statement.
+		text = strings.Replace(text, statement, "/* nr_service_guid=GUID-2 */ "+statement, 1)
+		start += len("/* nr_service_guid=GUID-2 */ ") * 2
+		end += len("/* nr_service_guid=GUID-2 */ ") * 2
+		window, ws, we := windowFullQueryText(text, start, end)
+		require.Less(t, len(window), len(text))
+		require.Equal(t, extractCleanText(text, start, end), extractCleanText(window, ws, we))
+		require.Contains(t, extractCleanText(window, ws, we), "GUID-2")
+	})
+	t.Run("batch within the window is unchanged", func(t *testing.T) {
+		text, start, end := build(strings.Repeat("x", 100))
+		window, ws, we := windowFullQueryText(text, start, end)
+		require.Equal(t, extractCleanText(text, start, end), extractCleanText(window, ws, we))
+	})
+	t.Run("statement at offset 0 keeps the whole text", func(t *testing.T) {
+		text := statement + "; " + strings.Repeat("y", 3*fullQueryTextWindowChars)
+		window, ws, we := windowFullQueryText(text, 0, (len(statement)-1)*2)
+		require.Equal(t, text, window)
+		require.Equal(t, extractCleanText(text, 0, (len(statement)-1)*2), extractCleanText(window, ws, we))
+	})
+	t.Run("last comment beyond the window is not carried", func(t *testing.T) {
+		text, start, end := build(strings.Repeat("x", 3*fullQueryTextWindowChars))
+		window, ws, we := windowFullQueryText(text, start, end)
+		require.Contains(t, extractCleanText(text, start, end), "GUID-1")
+		require.NotContains(t, extractCleanText(window, ws, we), "GUID-1")
+	})
+}
+
+func TestCommentSourceTextKeepsTagsForWindowedBatch(t *testing.T) {
+	keys := []string{"nr_service_guid"}
+	const statement = "SELECT total FROM orders WHERE id = 7"
+	// A batch with the APM comment at its very start, a long first statement, then the statement of interest.
+	preamble := "/* nr_service_guid=GUID-9 */ SELECT 1; " + strings.Repeat("x", 3*fullQueryTextWindowChars) + " /* other */ "
+	text := preamble + statement + "; " + strings.Repeat("y", 4096)
+	start := len(preamble) * 2
+	end := start + (len(statement)-1)*2
+
+	whole := sqlcomments.ExtractAndFilterComments(commentSourceText(text, "", start), keys)
+	require.Equal(t, "nr_service_guid=GUID-9", whole)
+
+	window, ws, _ := windowFullQueryText(text, start, end)
+	require.Positive(t, ws)
+	head := text[:fullQueryTextHeadChars]
+
+	t.Run("without the head the tag is lost", func(t *testing.T) {
+		require.Empty(t, sqlcomments.ExtractAndFilterComments(commentSourceText(window, "", ws), keys))
+	})
+	t.Run("with the head the tag is kept", func(t *testing.T) {
+		require.Equal(t, whole, sqlcomments.ExtractAndFilterComments(commentSourceText(window, head, ws), keys))
+	})
+	t.Run("a batch that is not windowed", func(t *testing.T) {
+		require.Equal(t, whole, sqlcomments.ExtractAndFilterComments(commentSourceText(text, "", start), keys))
+	})
+}
+
+// TestTopQueryGroupingStepDoesNotReadBatchText guards the first step of the top-query SQL: it runs for every
+// cached statement before the lookback filter, so it must take the database and object id from the plan
+// attributes and not call dm_exec_sql_text, which materializes the whole batch text of each statement.
+func TestTopQueryGroupingStepDoesNotReadBatchText(t *testing.T) {
+	query := getSQLServerQueryTextAndPlanQuery()
+	end := strings.Index(query, "proc_stats AS")
+	require.Positive(t, end)
+	grouping := regexp.MustCompile(`--[^\n]*`).ReplaceAllString(query[:end], "")
+	require.NotContains(t, grouping, "dm_exec_sql_text")
+	require.Contains(t, grouping, "dm_exec_plan_attributes")
 }

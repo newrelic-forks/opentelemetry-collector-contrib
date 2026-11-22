@@ -22,9 +22,15 @@
         ) + 1),
     ib.event_info,
     '') AS statement_text,
-  COALESCE(o.TEXT, ib.event_info, '') AS full_query_text,
-  r.statement_start_offset AS statement_start_offset,
-  ISNULL(CASE r.statement_end_offset WHEN -1 THEN DATALENGTH(o.TEXT) ELSE r.statement_end_offset END, 0) AS statement_end_offset,
+  CASE
+    WHEN @collectFullText = 0 THEN N''
+    WHEN w.win_start < 0 THEN COALESCE(o.TEXT, ib.event_info, '')
+    ELSE SUBSTRING(o.TEXT, w.win_start + 1,
+      ((CASE r.statement_end_offset WHEN -1 THEN DATALENGTH(o.TEXT) ELSE r.statement_end_offset END - w.win_start * 2) / 2) + 1)
+  END AS full_query_text,
+  CASE WHEN @collectFullText = 1 AND w.win_start > 0 THEN SUBSTRING(o.TEXT, 1, @headChars) ELSE N'' END AS full_query_text_head,
+  r.statement_start_offset - CASE WHEN w.win_start > 0 THEN w.win_start * 2 ELSE 0 END AS statement_start_offset,
+  ISNULL(CASE r.statement_end_offset WHEN -1 THEN DATALENGTH(o.TEXT) ELSE r.statement_end_offset END, 0) - CASE WHEN w.win_start > 0 THEN w.win_start * 2 ELSE 0 END AS statement_end_offset,
   r.blocking_session_id,
   CASE
     WHEN r.blocking_session_id > 0 AND r.wait_time > 0
@@ -71,6 +77,17 @@ FROM sys.dm_exec_requests r
 INNER JOIN sys.dm_exec_sessions s ON r.session_id = s.session_id
 INNER JOIN sys.dm_exec_connections c ON s.session_id = c.session_id
 OUTER APPLY sys.dm_exec_sql_text(r.plan_handle) AS o
+-- win_start: -1 returns the whole text. Otherwise it is the 0-based character where the
+-- returned window begins, so a batch larger than @maxFullTextBytes is cut to
+-- [statement start - @windowChars, statement end]. A statement at offset 0 keeps the whole text.
+CROSS APPLY (
+  SELECT CASE
+    WHEN @maxFullTextBytes > 0 AND o.TEXT IS NOT NULL AND DATALENGTH(o.TEXT) > @maxFullTextBytes AND r.statement_start_offset > 0
+      THEN CASE WHEN CAST(r.statement_start_offset AS BIGINT) / 2 > @windowChars
+        THEN CAST(r.statement_start_offset AS BIGINT) / 2 - @windowChars ELSE 0 END
+    ELSE CAST(-1 AS BIGINT)
+  END AS win_start
+) AS w
 OUTER APPLY sys.dm_exec_input_buffer(r.session_id, r.request_id) AS ib
 WHERE (o.TEXT IS NULL OR o.TEXT NOT LIKE N'/* otel-collector */%')
 	AND (ib.event_info IS NULL OR ib.event_info NOT LIKE N'/* otel-collector */%')

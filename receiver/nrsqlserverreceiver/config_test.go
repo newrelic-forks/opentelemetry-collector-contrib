@@ -346,12 +346,14 @@ func TestLoadConfig(t *testing.T) {
 		expected.TopQueryCollection.MaxQuerySampleCount = 1000
 		expected.TopQueryCollection.CollectionInterval = 80 * time.Second
 		expected.TopQueryCollection.CollectFullQueryText = true
+		expected.TopQueryCollection.MaxFullQueryTextBytes = 524288
 		expected.TopQueryCollection.AllowedCommentKeys = []string{"nr_service_guid"}
 
 		expected.QuerySample = QuerySample{
-			MaxRowsPerQuery:      1450,
-			CollectFullQueryText: true,
-			AllowedCommentKeys:   []string{"nr_service_guid", "traceparent"},
+			MaxRowsPerQuery:       1450,
+			CollectFullQueryText:  true,
+			MaxFullQueryTextBytes: 0,
+			AllowedCommentKeys:    []string{"nr_service_guid", "traceparent"},
 		}
 		expected.Databases = []string{"sales", "hr"}
 		expected.ExcludeDatabases = []string{"hr"}

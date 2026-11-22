@@ -4,6 +4,7 @@
 package nrsqlserverreceiver // import "github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver"
 
 import (
+	"database/sql"
 	_ "embed"
 	"fmt"
 	"slices"
@@ -1902,4 +1903,47 @@ EXEC sp_executesql @SqlStatement
 func getSQLServerDiskIOQuery(_ string) string {
 	r := strings.NewReplacer("{filter_instance_name}", "")
 	return r.Replace(sqlServerDiskIOQuery)
+}
+
+const (
+	// defaultMaxFullQueryTextBytes is the default cap on the batch text fetched per row (1 MiB of UTF-16).
+	defaultMaxFullQueryTextBytes = 1 << 20
+	// fullQueryTextWindowChars is how many characters before the statement a capped batch keeps. The
+	// comment that precedes a statement, which the normalized hash and comment tags use, sits within it.
+	fullQueryTextWindowChars = 65536
+	// fullQueryTextHeadChars is how many leading characters of a capped batch come back with the window. The
+	// comment tags are read from the leading block comments of the batch, which the window can leave out.
+	fullQueryTextHeadChars = 16384
+	// colFullQueryTextHead is the column that carries those leading characters, empty when the window starts at the batch start.
+	colFullQueryTextHead = "full_query_text_head"
+)
+
+// fullQueryTextArgs returns the named parameters the top-query and query-sample templates use to bound
+// the batch text they return.
+func fullQueryTextArgs(collect bool, maxBytes uint) []any {
+	collectFullText := 0
+	if collect {
+		collectFullText = 1
+	}
+	return []any{
+		sql.Named("collectFullText", collectFullText),
+		sql.Named("maxFullTextBytes", int64(maxBytes)),
+		sql.Named("windowChars", int64(fullQueryTextWindowChars)),
+		sql.Named("headChars", int64(fullQueryTextHeadChars)),
+	}
+}
+
+// commentSourceText returns the text whose leading block comments hold the comment tags: the preamble that
+// precedes the statement, or the head of the batch when the text came back as a window that no longer starts at
+// the batch start.
+func commentSourceText(fullText, head string, statementStartOffset int) string {
+	if head != "" {
+		return stripParameterDeclarations(head)
+	}
+	if statementStartOffset > 0 {
+		if startPos := utf16OffsetToBytePos(fullText, statementStartOffset); startPos < len(fullText) {
+			return stripParameterDeclarations(fullText[:startPos])
+		}
+	}
+	return fullText
 }
