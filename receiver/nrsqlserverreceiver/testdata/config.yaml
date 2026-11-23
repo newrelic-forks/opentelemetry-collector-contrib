@@ -24,13 +24,11 @@ nrsqlserver/named:
     top_query_count: 200
     collection_interval: 80s
     collect_full_query_text: true
-    max_full_query_text_bytes: 524288
     allowed_comment_keys:
       - nr_service_guid
   query_sample_collection:
     max_rows_per_query: 1450
     collect_full_query_text: true
-    max_full_query_text_bytes: 0
     allowed_comment_keys:
       - nr_service_guid
       - traceparent

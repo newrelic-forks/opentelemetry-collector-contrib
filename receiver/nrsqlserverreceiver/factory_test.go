@@ -125,14 +125,12 @@ func TestFactory(t *testing.T) {
 						InitialDelay:       time.Second,
 					},
 					TopQueryCollection: TopQueryCollection{
-						MaxQuerySampleCount:   1000,
-						TopQueryCount:         250,
-						CollectionInterval:    time.Minute,
-						MaxFullQueryTextBytes: defaultMaxFullQueryTextBytes,
+						MaxQuerySampleCount: 1000,
+						TopQueryCount:       250,
+						CollectionInterval:  time.Minute,
 					},
 					QuerySample: QuerySample{
-						MaxRowsPerQuery:       100,
-						MaxFullQueryTextBytes: defaultMaxFullQueryTextBytes,
+						MaxRowsPerQuery: 100,
 					},
 					TopProcedureCollection: TopProcedureCollection{
 						MaxProcedureSampleCount: 1000,

@@ -3166,7 +3166,7 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 	topQueryArgs := append([]any{
 		sql.Named("lookbackTime", -int(s.config.EffectiveLookbackTime().Seconds())),
 		sql.Named("maxSampleCount", s.config.TopQueryCollection.MaxQuerySampleCount),
-	}, fullQueryTextArgs(s.config.TopQueryCollection.CollectFullQueryText, s.config.TopQueryCollection.MaxFullQueryTextBytes)...)
+	}, fullQueryTextArgs(s.config.TopQueryCollection.CollectFullQueryText)...)
 	rows, err := s.client.QueryRows(
 		ctx,
 		append(topQueryArgs, s.databaseFilter.args()...)...,
@@ -3549,7 +3549,7 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 
 	querySampleArgs := append(
 		[]any{sql.Named("top", s.config.QuerySample.MaxRowsPerQuery)},
-		fullQueryTextArgs(s.config.QuerySample.CollectFullQueryText, s.config.QuerySample.MaxFullQueryTextBytes)...,
+		fullQueryTextArgs(s.config.QuerySample.CollectFullQueryText)...,
 	)
 	rows, err := s.client.QueryRows(
 		ctx,

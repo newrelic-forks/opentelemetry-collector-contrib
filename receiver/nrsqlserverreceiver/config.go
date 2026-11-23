@@ -22,10 +22,6 @@ type QuerySample struct {
 	// to the statement-level substring already captured in db.query.text.
 	// When enabled, db.query.full_text and query.comments are populated in log records.
 	CollectFullQueryText bool `mapstructure:"collect_full_query_text"`
-	// MaxFullQueryTextBytes caps the batch text fetched per row when
-	// CollectFullQueryText is enabled. A batch larger than the cap is fetched as a window
-	// ending at the statement. 0 disables the cap.
-	MaxFullQueryTextBytes uint `mapstructure:"max_full_query_text_bytes"`
 	// AllowedCommentKeys are SQL comment keys extracted into db.query.comment_tags.
 	AllowedCommentKeys []string `mapstructure:"allowed_comment_keys"`
 
@@ -81,11 +77,6 @@ type TopQueryCollection struct {
 	// to the statement-level substring already captured in db.query.text.
 	// When enabled, db.query.full_text and query.comments are populated in log records.
 	CollectFullQueryText bool `mapstructure:"collect_full_query_text"`
-	// MaxFullQueryTextBytes caps the batch text fetched per row when
-	// CollectFullQueryText is enabled. A batch larger than the cap is fetched as a window
-	// ending at the statement, so the normalized hash and comment tags still derive from
-	// the statement and the comment before it. 0 disables the cap.
-	MaxFullQueryTextBytes uint `mapstructure:"max_full_query_text_bytes"`
 	// AllowedCommentKeys are SQL comment keys extracted into db.query.comment_tags.
 	AllowedCommentKeys []string `mapstructure:"allowed_comment_keys"`
 }

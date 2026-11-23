@@ -60,14 +60,12 @@ func createDefaultConfig() component.Config {
 		MetricsBuilderConfig: metadata.NewDefaultMetricsBuilderConfig(),
 		LogsBuilderConfig:    metadata.DefaultLogsBuilderConfig(),
 		QuerySample: QuerySample{
-			MaxRowsPerQuery:       100,
-			MaxFullQueryTextBytes: defaultMaxFullQueryTextBytes,
+			MaxRowsPerQuery: 100,
 		},
 		TopQueryCollection: TopQueryCollection{
-			MaxQuerySampleCount:   1000,
-			TopQueryCount:         250,
-			CollectionInterval:    time.Minute,
-			MaxFullQueryTextBytes: defaultMaxFullQueryTextBytes,
+			MaxQuerySampleCount: 1000,
+			TopQueryCount:       250,
+			CollectionInterval:  time.Minute,
 		},
 		TopProcedureCollection: TopProcedureCollection{
 			MaxProcedureSampleCount: 1000,

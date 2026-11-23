@@ -1906,12 +1906,10 @@ func getSQLServerDiskIOQuery(_ string) string {
 }
 
 const (
-	// defaultMaxFullQueryTextBytes is the default cap on the batch text fetched per row (1 MiB of UTF-16).
-	defaultMaxFullQueryTextBytes = 1 << 20
-	// fullQueryTextWindowChars is how many characters before the statement a capped batch keeps. The
+	// fullQueryTextWindowChars is how many characters before the statement the returned text keeps. The
 	// comment that precedes a statement, which the normalized hash and comment tags use, sits within it.
 	fullQueryTextWindowChars = 65536
-	// fullQueryTextHeadChars is how many leading characters of a capped batch come back with the window. The
+	// fullQueryTextHeadChars is how many leading characters of the batch come back when the window starts after the batch start. The
 	// comment tags are read from the leading block comments of the batch, which the window can leave out.
 	fullQueryTextHeadChars = 16384
 	// colFullQueryTextHead is the column that carries those leading characters, empty when the window starts at the batch start.
@@ -1920,14 +1918,13 @@ const (
 
 // fullQueryTextArgs returns the named parameters the top-query and query-sample templates use to bound
 // the batch text they return.
-func fullQueryTextArgs(collect bool, maxBytes uint) []any {
+func fullQueryTextArgs(collect bool) []any {
 	collectFullText := 0
 	if collect {
 		collectFullText = 1
 	}
 	return []any{
 		sql.Named("collectFullText", collectFullText),
-		sql.Named("maxFullTextBytes", int64(maxBytes)),
 		sql.Named("windowChars", int64(fullQueryTextWindowChars)),
 		sql.Named("headChars", int64(fullQueryTextHeadChars)),
 	}

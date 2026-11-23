@@ -78,11 +78,11 @@ INNER JOIN sys.dm_exec_sessions s ON r.session_id = s.session_id
 INNER JOIN sys.dm_exec_connections c ON s.session_id = c.session_id
 OUTER APPLY sys.dm_exec_sql_text(r.plan_handle) AS o
 -- win_start: -1 returns the whole text. Otherwise it is the 0-based character where the
--- returned window begins, so a batch larger than @maxFullTextBytes is cut to
+-- returned window begins, so the text is cut to
 -- [statement start - @windowChars, statement end]. A statement at offset 0 keeps the whole text.
 CROSS APPLY (
   SELECT CASE
-    WHEN @maxFullTextBytes > 0 AND o.TEXT IS NOT NULL AND DATALENGTH(o.TEXT) > @maxFullTextBytes AND r.statement_start_offset > 0
+    WHEN o.TEXT IS NOT NULL AND r.statement_start_offset > 0
       THEN CASE WHEN CAST(r.statement_start_offset AS BIGINT) / 2 > @windowChars
         THEN CAST(r.statement_start_offset AS BIGINT) / 2 - @windowChars ELSE 0 END
     ELSE CAST(-1 AS BIGINT)

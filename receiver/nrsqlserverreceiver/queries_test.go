@@ -209,27 +209,23 @@ func TestFullQueryTextArgs(t *testing.T) {
 	tests := []struct {
 		name            string
 		collect         bool
-		maxBytes        uint
 		wantCollectFlag int
-		wantMaxBytes    int64
 	}{
-		{name: "collect with default cap", collect: true, maxBytes: defaultMaxFullQueryTextBytes, wantCollectFlag: 1, wantMaxBytes: defaultMaxFullQueryTextBytes},
-		{name: "collect with cap disabled", collect: true, maxBytes: 0, wantCollectFlag: 1, wantMaxBytes: 0},
-		{name: "text not collected", collect: false, maxBytes: defaultMaxFullQueryTextBytes, wantCollectFlag: 0, wantMaxBytes: defaultMaxFullQueryTextBytes},
+		{name: "collect", collect: true, wantCollectFlag: 1},
+		{name: "text not collected", collect: false, wantCollectFlag: 0},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := map[string]any{}
-			for _, arg := range fullQueryTextArgs(tt.collect, tt.maxBytes) {
+			for _, arg := range fullQueryTextArgs(tt.collect) {
 				named, ok := arg.(sql.NamedArg)
 				require.True(t, ok)
 				got[named.Name] = named.Value
 			}
 			require.Equal(t, map[string]any{
-				"collectFullText":  tt.wantCollectFlag,
-				"maxFullTextBytes": tt.wantMaxBytes,
-				"windowChars":      int64(fullQueryTextWindowChars),
-				"headChars":        int64(fullQueryTextHeadChars),
+				"collectFullText": tt.wantCollectFlag,
+				"windowChars":     int64(fullQueryTextWindowChars),
+				"headChars":       int64(fullQueryTextHeadChars),
 			}, got)
 		})
 	}
@@ -243,14 +239,14 @@ func TestQueryTemplatesBoundFullQueryText(t *testing.T) {
 		"query sample": getSQLServerQuerySamplesQuery(),
 	} {
 		t.Run(name, func(t *testing.T) {
-			for _, param := range []string{"@collectFullText", "@maxFullTextBytes", "@windowChars", "@headChars"} {
+			for _, param := range []string{"@collectFullText", "@windowChars", "@headChars"} {
 				require.Contains(t, query, param)
 			}
 		})
 	}
 }
 
-// windowFullQueryText mirrors the window the SQL templates return for a batch over the cap.
+// windowFullQueryText mirrors the window the SQL templates return for a statement after offset 0.
 func windowFullQueryText(text string, startOffset, endOffset int) (window string, newStart, newEnd int) {
 	if startOffset <= 0 {
 		return text, startOffset, endOffset

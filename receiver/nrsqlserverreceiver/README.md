@@ -113,13 +113,13 @@ Setting them at the top level of the receiver config is not supported.
 - `allowed_comment_keys` (default = empty): Keys to extract from the SQL comments preceding the
   statement into `db.query.comment_tags.*`. Only keys listed here are extracted; all other comment
   content is discarded. Requires `collect_full_query_text` to be enabled on the same collection.
-- `max_full_query_text_bytes` (default = `1048576`): Caps the batch text (`st.text`) the collection
-  fetches per row. A batch larger than the cap is fetched as a window that ends at the statement and
-  starts up to 65,536 characters before it, and the first 16,384 characters of the batch come with it. The
-  normalized hash derives from the statement and the last block comment before it, and the comment tags
-  from the leading block comments of the batch, so both are unchanged while those comments lie within the
-  window and the head. A statement at offset 0 of its batch, and any batch within the cap, is returned whole. `0`
-  removes the cap. The batch text is not fetched when `collect_full_query_text` is `false`.
+
+The batch text fetched per row is bounded. For a statement that does not start at offset 0, the text is the
+65,536 characters before the statement through the statement end, plus the first 16,384 characters of the batch
+when the window starts after the batch start. The normalized hash derives from the statement and the last block
+comment before it, and the comment tags from the block comments before it, so both are unchanged while those
+comments lie within the window and the head. A statement at offset 0 returns the whole batch, because its
+normalized hash covers the whole batch. The batch text is not fetched when `collect_full_query_text` is `false`.
 
 The execution plan on each `db.server.top_query` and `db.server.query_plan` record covers the statement
 that the record describes. A batch that holds many statements no longer repeats the plan of the whole
