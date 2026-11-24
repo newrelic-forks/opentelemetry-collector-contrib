@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon/sqlcomments"
+	"github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon/sqlnormalizer"
 	"github.com/stretchr/testify/require"
 )
 
@@ -224,8 +225,8 @@ func TestFullQueryTextArgs(t *testing.T) {
 			}
 			require.Equal(t, map[string]any{
 				"collectFullText": tt.wantCollectFlag,
-				"windowChars":     int64(fullQueryTextWindowChars),
 				"headChars":       int64(fullQueryTextHeadChars),
+				"prefixChars":     int64(fullQueryTextPrefixChars),
 			}, got)
 		})
 	}
@@ -239,124 +240,180 @@ func TestQueryTemplatesBoundFullQueryText(t *testing.T) {
 		"query sample": getSQLServerQuerySamplesQuery(),
 	} {
 		t.Run(name, func(t *testing.T) {
-			for _, param := range []string{"@collectFullText", "@windowChars", "@headChars"} {
+			for _, param := range []string{"@collectFullText", "@headChars", "@prefixChars"} {
 				require.Contains(t, query, param)
 			}
 		})
 	}
 }
 
-// TestQueryTemplatesWindowArithmetic pins the offset arithmetic that windowFullQueryText mirrors. A change to
-// the window or the offset shift in either template fails here until the mirror and its tests are updated.
-func TestQueryTemplatesWindowArithmetic(t *testing.T) {
+// TestQueryTemplatesStatementTextArithmetic pins the text and offsets the templates return for a statement
+// after offset 0: its own text, the head of the batch, and offsets relative to the returned text.
+func TestQueryTemplatesStatementTextArithmetic(t *testing.T) {
 	for name, tc := range map[string]struct {
 		query string
 		parts []string
 	}{
 		"top query": {getSQLServerQueryTextAndPlanQuery(), []string{
 			"WHEN stats.statement_start_offset > 0",
-			"CAST(stats.statement_start_offset AS BIGINT) / 2 > @windowChars",
-			"CAST(stats.statement_start_offset AS BIGINT) / 2 - @windowChars ELSE 0 END",
-			"SUBSTRING(st.text, w.win_start + 1,",
-			"- w.win_start * 2) / 2) + 1)",
-			"SUBSTRING(st.text, 1, @headChars)",
-			"stats.statement_start_offset - CASE WHEN w.win_start > 0 THEN w.win_start * 2 ELSE 0 END",
+			"THEN SUBSTRING(st.text, (stats.statement_start_offset / 2) + 1,",
+			"ELSE st.text",
+			"ISNULL(SUBSTRING(st.text, 1, @headChars), N'')",
+			"ISNULL(SUBSTRING(st.text, (stats.statement_start_offset / 2) - @prefixChars + 1, @prefixChars), N'') ELSE N'' END AS full_query_text_prefix",
+			"0 AS statement_start_offset",
+			"- stats.statement_start_offset AS statement_end_offset",
 		}},
 		"query sample": {getSQLServerQuerySamplesQuery(), []string{
-			"WHEN o.TEXT IS NOT NULL AND r.statement_start_offset > 0",
-			"CAST(r.statement_start_offset AS BIGINT) / 2 > @windowChars",
-			"CAST(r.statement_start_offset AS BIGINT) / 2 - @windowChars ELSE 0 END",
-			"SUBSTRING(o.TEXT, w.win_start + 1,",
-			"- w.win_start * 2) / 2) + 1)",
-			"SUBSTRING(o.TEXT, 1, @headChars)",
-			"r.statement_start_offset - CASE WHEN w.win_start > 0 THEN w.win_start * 2 ELSE 0 END",
+			"CASE WHEN o.TEXT IS NOT NULL AND r.statement_start_offset > 0 THEN 1 ELSE 0 END AS cut",
+			"THEN SUBSTRING(o.TEXT, (r.statement_start_offset / 2) + 1,",
+			"ELSE COALESCE(o.TEXT, ib.event_info, '')",
+			"ISNULL(SUBSTRING(o.TEXT, 1, @headChars), N'')",
+			"ISNULL(SUBSTRING(o.TEXT, (r.statement_start_offset / 2) - @prefixChars + 1, @prefixChars), N'') ELSE N'' END AS full_query_text_prefix",
+			"CASE WHEN w.cut = 1 THEN 0 ELSE r.statement_start_offset END AS statement_start_offset",
+			"- CASE WHEN w.cut = 1 THEN r.statement_start_offset ELSE 0 END AS statement_end_offset",
 		}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			for _, part := range tc.parts {
 				require.Contains(t, tc.query, part)
 			}
+			require.NotContains(t, tc.query, "@windowChars")
 		})
 	}
 }
 
-// windowFullQueryText mirrors the window the SQL templates return for a statement after offset 0.
-func windowFullQueryText(text string, startOffset, endOffset int) (window string, newStart, newEnd int) {
-	if startOffset <= 0 {
-		return text, startOffset, endOffset
-	}
-	winStart := 0
-	if startOffset/2 > fullQueryTextWindowChars {
-		winStart = startOffset/2 - fullQueryTextWindowChars
-	}
-	return text[winStart : endOffset/2+1], startOffset - winStart*2, endOffset - winStart*2
+// statementOnlyText mirrors the text and offsets the templates return for a statement after offset 0.
+func statementOnlyText(text string, startOffset, endOffset int) (statement string, newStart, newEnd int) {
+	return text[startOffset/2 : endOffset/2+1], 0, endOffset - startOffset
 }
 
-func TestWindowedFullQueryTextKeepsCleanText(t *testing.T) {
+// precedingText mirrors the characters the templates return right before a statement after offset 0.
+func precedingText(text string, startOffset int) string {
+	statementStart := startOffset / 2
+	return text[max(0, statementStart-fullQueryTextPrefixChars):statementStart]
+}
+
+func TestStatementOnlyTextKeepsHashAndTags(t *testing.T) {
 	const statement = "SELECT a, b FROM orders WHERE id = 42"
-	build := func(filler string) (text string, start, end int) {
-		preamble := "/* nr_service_guid=GUID-1 */ " + filler
-		trailing := "; " + strings.Repeat("y", 4096)
-		text = preamble + statement + trailing
-		start = len(preamble) * 2
-		end = start + (len(statement)-1)*2
-		return text, start, end
-	}
-	t.Run("comment directly before the statement", func(t *testing.T) {
-		text, start, end := build(strings.Repeat("x", 3*fullQueryTextWindowChars))
-		// The comment sits at the very start; place a second one right before the statement.
-		text = strings.Replace(text, statement, "/* nr_service_guid=GUID-2 */ "+statement, 1)
-		start += len("/* nr_service_guid=GUID-2 */ ") * 2
-		end += len("/* nr_service_guid=GUID-2 */ ") * 2
-		window, ws, we := windowFullQueryText(text, start, end)
-		require.Less(t, len(window), len(text))
-		require.Equal(t, extractCleanText(text, start, end), extractCleanText(window, ws, we))
-		require.Contains(t, extractCleanText(window, ws, we), "GUID-2")
-	})
-	t.Run("batch within the window is unchanged", func(t *testing.T) {
-		text, start, end := build(strings.Repeat("x", 100))
-		window, ws, we := windowFullQueryText(text, start, end)
-		require.Equal(t, extractCleanText(text, start, end), extractCleanText(window, ws, we))
-	})
-	t.Run("statement at offset 0 keeps the whole text", func(t *testing.T) {
-		text := statement + "; " + strings.Repeat("y", 3*fullQueryTextWindowChars)
-		window, ws, we := windowFullQueryText(text, 0, (len(statement)-1)*2)
-		require.Equal(t, text, window)
-		require.Equal(t, extractCleanText(text, 0, (len(statement)-1)*2), extractCleanText(window, ws, we))
-	})
-	t.Run("last comment beyond the window is not carried", func(t *testing.T) {
-		text, start, end := build(strings.Repeat("x", 3*fullQueryTextWindowChars))
-		window, ws, we := windowFullQueryText(text, start, end)
-		require.Contains(t, extractCleanText(text, start, end), "GUID-1")
-		require.NotContains(t, extractCleanText(window, ws, we), "GUID-1")
-	})
-}
-
-func TestCommentSourceTextKeepsTagsForWindowedBatch(t *testing.T) {
-	keys := []string{"nr_service_guid"}
-	const statement = "SELECT total FROM orders WHERE id = 7"
-	// A batch with the APM comment at its very start, a long first statement, then the statement of interest.
-	preamble := "/* nr_service_guid=GUID-9 */ SELECT 1; " + strings.Repeat("x", 3*fullQueryTextWindowChars) + " /* other */ "
+	preamble := "/* nr_service_guid=GUID-1 */ SELECT 1; " + strings.Repeat("x", 100000) + " /* other */ "
 	text := preamble + statement + "; " + strings.Repeat("y", 4096)
 	start := len(preamble) * 2
 	end := start + (len(statement)-1)*2
+	obf := newObfuscator()
 
-	whole := sqlcomments.ExtractAndFilterComments(commentSourceText(text, "", start), keys)
-	require.Equal(t, "nr_service_guid=GUID-9", whole)
+	whole, err := obf.obfuscateFullSQLString(text, start, end)
+	require.NoError(t, err)
+	only, ws, we := statementOnlyText(text, start, end)
+	require.Equal(t, statement, only)
+	got, err := obf.obfuscateFullSQLString(only, ws, we)
+	require.NoError(t, err)
 
-	window, ws, _ := windowFullQueryText(text, start, end)
-	require.Positive(t, ws)
-	head := text[:fullQueryTextHeadChars]
+	t.Run("the full text is the whole-batch text once the placeholder is restored", func(t *testing.T) {
+		require.Equal(t, whole, withBlockCommentPlaceholder(got, precedingText(text, start)))
+	})
+	t.Run("the hash is the same without the preceding comment", func(t *testing.T) {
+		require.Contains(t, whole, "?")
+		_, wholeHash := sqlnormalizer.NormalizeSQLAndHash(whole)
+		_, gotHash := sqlnormalizer.NormalizeSQLAndHash(got)
+		require.Equal(t, wholeHash, gotHash)
+	})
+	t.Run("the tags come from the head", func(t *testing.T) {
+		keys := []string{"nr_service_guid"}
+		head := text[:fullQueryTextHeadChars]
+		require.Equal(t, "nr_service_guid=GUID-1", sqlcomments.ExtractAndFilterComments(commentSourceText(only, head, ws), keys))
+		require.Empty(t, sqlcomments.ExtractAndFilterComments(commentSourceText(only, "", ws), keys))
+	})
+	t.Run("a leading comment longer than the head is not read", func(t *testing.T) {
+		long := "/* nr_service_guid=GUID-2,filler=" + strings.Repeat("z", 2*fullQueryTextHeadChars) + " */ SELECT 1; "
+		longText := long + statement
+		head := longText[:fullQueryTextHeadChars]
+		require.Empty(t, sqlcomments.ExtractAndFilterComments(commentSourceText(statement, head, 0), []string{"nr_service_guid"}))
+		require.Equal(t, "nr_service_guid=GUID-2", sqlcomments.ExtractAndFilterComments(commentSourceText(longText, "", len(long)*2), []string{"nr_service_guid"}))
+	})
+	t.Run("a statement at offset 0 keeps the whole text", func(t *testing.T) {
+		batch := statement + "; " + strings.Repeat("y", 4096)
+		kept, err := obf.obfuscateFullSQLString(batch, 0, (len(statement)-1)*2)
+		require.NoError(t, err)
+		require.Contains(t, kept, "yyyy")
+	})
+}
 
-	t.Run("without the head the tag is lost", func(t *testing.T) {
-		require.Empty(t, sqlcomments.ExtractAndFilterComments(commentSourceText(window, "", ws), keys))
-	})
-	t.Run("with the head the tag is kept", func(t *testing.T) {
-		require.Equal(t, whole, sqlcomments.ExtractAndFilterComments(commentSourceText(window, head, ws), keys))
-	})
-	t.Run("a batch that is not windowed", func(t *testing.T) {
-		require.Equal(t, whole, sqlcomments.ExtractAndFilterComments(commentSourceText(text, "", start), keys))
-	})
+func TestWithBlockCommentPlaceholder(t *testing.T) {
+	for name, tc := range map[string]struct {
+		prefix string
+		want   string
+	}{
+		"no text before the statement":          {"", "S"},
+		"a statement before it":                 {"SELECT 1; ", "S"},
+		"a comment directly before":             {"/* tag */", "? S"},
+		"a comment and a space":                 {"/* tag */ ", "? S"},
+		"a comment and newlines and tabs":       {"/* tag */\r\n\t\n ", "? S"},
+		"only the end of a comment":             {strings.Repeat("p", 200) + " */ ", "? S"},
+		"a comment followed by text":            {"/* tag */ SELECT 1; ", "S"},
+		"a comment that is not closed":          {"/* tag ", "S"},
+		"a closed comment and an open one":      {"/* a */ /* b ", "S"},
+		"two comments":                          {"/* a */ /* b */ ", "? S"},
+		"a line comment":                        {"-- note\n", "S"},
+		"a star and a slash apart":              {"* /", "S"},
+		"a multiplication before the statement": {"SELECT 2 * 3; ", "S"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			require.Equal(t, tc.want, withBlockCommentPlaceholder("S", tc.prefix))
+		})
+	}
+}
+
+// TestPlaceholderMatchesWholeBatchOutput checks that the statement text, the characters before it and the
+// placeholder rule give the text that obfuscating the whole batch gives, and that the hash never depends on it.
+func TestPlaceholderMatchesWholeBatchOutput(t *testing.T) {
+	const statement = "SELECT a, b FROM orders WHERE id = 42"
+	trailing := "; " + strings.Repeat("y", 1024)
+	obf := newObfuscator()
+
+	for name, tc := range map[string]struct {
+		preamble string
+		// sameAsWholeBatch is false where the comment is not directly before the statement.
+		sameAsWholeBatch bool
+	}{
+		"a comment directly before":                {"/* nr_service_guid=A */ ", true},
+		"a comment and no space":                   {"/* nr_service_guid=A */", true},
+		"newlines after the comment":               {"/* nr_service_guid=A */\r\n\r\n\t ", true},
+		"no comment":                               {"SELECT 1; ", true},
+		"nothing before the statement text":        {"BEGIN ", true},
+		"a 100000 character comment":               {"/* " + strings.Repeat("p", 100000) + " */ ", true},
+		"two comments":                             {"/* a */ /* b */ ", true},
+		"parameters and a comment":                 {"(@p1 int)/* a */ ", true},
+		"a comment inside a procedure":             {"CREATE PROCEDURE p AS BEGIN SET NOCOUNT ON; /* a */ SELECT 1; /* nr_service_guid=B */ ", true},
+		"the comment and the statement are close":  {"/* c */ ", true},
+		"whitespace up to the limit":               {"/* a */" + strings.Repeat(" ", fullQueryTextPrefixChars-len("*/")), true},
+		"a comment far before the statement":       {"/* a */ SELECT 1; " + strings.Repeat("y", 1024) + " ", false},
+		"whitespace beyond the limit":              {"/* a */" + strings.Repeat(" ", fullQueryTextPrefixChars+1), false},
+		"a comment at the start of a longer batch": {"/* a */ SELECT 1; SELECT 2; ", false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			text := tc.preamble + statement + trailing
+			start := len(tc.preamble) * 2
+			end := start + (len(statement)-1)*2
+			whole, err := obf.obfuscateFullSQLString(text, start, end)
+			require.NoError(t, err)
+			only, ws, we := statementOnlyText(text, start, end)
+			stmtOut, err := obf.obfuscateFullSQLString(only, ws, we)
+			require.NoError(t, err)
+			got := withBlockCommentPlaceholder(stmtOut, precedingText(text, start))
+
+			if tc.sameAsWholeBatch {
+				require.Equal(t, whole, got)
+			} else {
+				require.NotEqual(t, whole, got)
+				require.Equal(t, blockCommentPlaceholder+got, whole)
+			}
+			_, wholeHash := sqlnormalizer.NormalizeSQLAndHash(whole)
+			_, gotHash := sqlnormalizer.NormalizeSQLAndHash(got)
+			_, bareHash := sqlnormalizer.NormalizeSQLAndHash(stmtOut)
+			require.Equal(t, wholeHash, gotHash)
+			require.Equal(t, wholeHash, bareHash)
+		})
+	}
 }
 
 // TestTopQueryGroupingStepDoesNotReadBatchText guards the first step of the top-query SQL: it runs for every

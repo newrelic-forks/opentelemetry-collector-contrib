@@ -115,12 +115,12 @@ Setting them at the top level of the receiver config is not supported.
   content is discarded. Requires `collect_full_query_text` to be enabled on the same collection.
 
 The batch text fetched per row is bounded, so the memory a scrape needs does not grow with the size of the batch.
-For a statement that does not start at offset 0, the text is the 65,536 characters before the statement through the
-statement end, plus the first 16,384 characters of the batch when the window starts after the batch start. The
-comment tags come from the block comments in the head and in the window, and the last block comment in the window
-appears as a `?` placeholder at the start of `db.query.full_text`. A tag comment outside both, or a last block
-comment more than 65,536 characters before the statement, is not read. The normalized hash does not depend on that
-comment. A statement at offset 0 returns the whole batch, because its normalized hash covers the whole batch. When
+For a statement that does not start at offset 0, `db.query.full_text` holds the statement text, with a `?` in front
+when a block comment directly precedes the statement, and the first 16,384 characters of the batch are read for the
+comment tags. The `?` is decided from the 256 characters before the statement, which have to span only the whitespace
+after the comment, not the comment itself. The comment tags come from the leading block comments of the batch, so a
+leading comment longer than 16,384 characters is not read. The normalized hash does not depend on the `?`. A
+statement at offset 0 returns the whole batch, because its normalized hash covers the whole batch. When
 `collect_full_query_text` is `false`, the query returns no batch text to the receiver; SQL Server still reads it to
 derive the statement text and the procedure name.
 

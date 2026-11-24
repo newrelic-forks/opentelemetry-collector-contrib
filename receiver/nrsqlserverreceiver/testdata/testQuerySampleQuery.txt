@@ -22,15 +22,21 @@
         ) + 1),
     ib.event_info,
     '') AS statement_text,
+  -- A statement after offset 0 returns its own text, the head of the batch where the comment tags are, and the
+  -- characters right before it. Its offsets are relative to that text. A statement at offset 0 keeps the whole text.
   CASE
     WHEN @collectFullText = 0 THEN N''
-    WHEN w.win_start < 0 THEN COALESCE(o.TEXT, ib.event_info, '')
-    ELSE SUBSTRING(o.TEXT, w.win_start + 1,
-      ((CASE r.statement_end_offset WHEN -1 THEN DATALENGTH(o.TEXT) ELSE r.statement_end_offset END - w.win_start * 2) / 2) + 1)
+    WHEN w.cut = 1
+      THEN SUBSTRING(o.TEXT, (r.statement_start_offset / 2) + 1,
+        ((CASE r.statement_end_offset WHEN -1 THEN DATALENGTH(o.TEXT) ELSE r.statement_end_offset END - r.statement_start_offset) / 2) + 1)
+    ELSE COALESCE(o.TEXT, ib.event_info, '')
   END AS full_query_text,
-  CASE WHEN @collectFullText = 1 AND w.win_start > 0 THEN SUBSTRING(o.TEXT, 1, @headChars) ELSE N'' END AS full_query_text_head,
-  r.statement_start_offset - CASE WHEN w.win_start > 0 THEN w.win_start * 2 ELSE 0 END AS statement_start_offset,
-  ISNULL(CASE r.statement_end_offset WHEN -1 THEN DATALENGTH(o.TEXT) ELSE r.statement_end_offset END, 0) - CASE WHEN w.win_start > 0 THEN w.win_start * 2 ELSE 0 END AS statement_end_offset,
+  CASE WHEN @collectFullText = 1 AND w.cut = 1 THEN ISNULL(SUBSTRING(o.TEXT, 1, @headChars), N'') ELSE N'' END AS full_query_text_head,
+  -- The characters right before the statement. They show whether a block comment directly precedes it. A start
+  -- before position 1 returns only the characters up to the statement.
+  CASE WHEN @collectFullText = 1 AND w.cut = 1 THEN ISNULL(SUBSTRING(o.TEXT, (r.statement_start_offset / 2) - @prefixChars + 1, @prefixChars), N'') ELSE N'' END AS full_query_text_prefix,
+  CASE WHEN w.cut = 1 THEN 0 ELSE r.statement_start_offset END AS statement_start_offset,
+  ISNULL(CASE r.statement_end_offset WHEN -1 THEN DATALENGTH(o.TEXT) ELSE r.statement_end_offset END, 0) - CASE WHEN w.cut = 1 THEN r.statement_start_offset ELSE 0 END AS statement_end_offset,
   r.blocking_session_id,
   CASE
     WHEN r.blocking_session_id > 0 AND r.wait_time > 0
@@ -77,16 +83,10 @@ FROM sys.dm_exec_requests r
 INNER JOIN sys.dm_exec_sessions s ON r.session_id = s.session_id
 INNER JOIN sys.dm_exec_connections c ON s.session_id = c.session_id
 OUTER APPLY sys.dm_exec_sql_text(r.plan_handle) AS o
--- win_start: -1 returns the whole text. Otherwise it is the 0-based character where the
--- returned window begins, so the text is cut to
--- [statement start - @windowChars, statement end]. A statement at offset 0 keeps the whole text.
+-- cut is 1 for a statement after offset 0 whose batch text is available. Without batch text the input
+-- buffer is returned whole.
 CROSS APPLY (
-  SELECT CASE
-    WHEN o.TEXT IS NOT NULL AND r.statement_start_offset > 0
-      THEN CASE WHEN CAST(r.statement_start_offset AS BIGINT) / 2 > @windowChars
-        THEN CAST(r.statement_start_offset AS BIGINT) / 2 - @windowChars ELSE 0 END
-    ELSE CAST(-1 AS BIGINT)
-  END AS win_start
+  SELECT CASE WHEN o.TEXT IS NOT NULL AND r.statement_start_offset > 0 THEN 1 ELSE 0 END AS cut
 ) AS w
 OUTER APPLY sys.dm_exec_input_buffer(r.session_id, r.request_id) AS ib
 WHERE (o.TEXT IS NULL OR o.TEXT NOT LIKE N'/* otel-collector */%')

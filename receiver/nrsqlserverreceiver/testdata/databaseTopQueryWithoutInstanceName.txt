@@ -55,15 +55,22 @@ SELECT qs.*,
 				   WHEN -1 THEN DATALENGTH(st.text)
 				   ELSE stats.statement_end_offset END - stats.statement_start_offset) / 2) + 1) AS query_text,
 	ISNULL(DB_NAME(st.dbid), '') AS database_name,
+	-- A statement after offset 0 returns its own text, the head of the batch where the comment tags are, and the
+	-- characters right before it. Its offsets are relative to that text. A statement at offset 0 keeps the whole batch text, because its
+	-- normalized hash covers the whole batch.
 	CASE
 		WHEN @collectFullText = 0 THEN N''
-		WHEN w.win_start < 0 THEN st.text
-		ELSE SUBSTRING(st.text, w.win_start + 1,
-			((CASE stats.statement_end_offset WHEN -1 THEN DATALENGTH(st.text) ELSE stats.statement_end_offset END - w.win_start * 2) / 2) + 1)
+		WHEN stats.statement_start_offset > 0
+			THEN SUBSTRING(st.text, (stats.statement_start_offset / 2) + 1,
+				((CASE stats.statement_end_offset WHEN -1 THEN DATALENGTH(st.text) ELSE stats.statement_end_offset END - stats.statement_start_offset) / 2) + 1)
+		ELSE st.text
 	END AS full_query_text,
-	CASE WHEN @collectFullText = 1 AND w.win_start > 0 THEN SUBSTRING(st.text, 1, @headChars) ELSE N'' END AS full_query_text_head,
-	stats.statement_start_offset - CASE WHEN w.win_start > 0 THEN w.win_start * 2 ELSE 0 END AS statement_start_offset,
-	(CASE stats.statement_end_offset WHEN -1 THEN DATALENGTH(st.text) ELSE stats.statement_end_offset END) - CASE WHEN w.win_start > 0 THEN w.win_start * 2 ELSE 0 END AS statement_end_offset,
+	CASE WHEN @collectFullText = 1 AND stats.statement_start_offset > 0 THEN ISNULL(SUBSTRING(st.text, 1, @headChars), N'') ELSE N'' END AS full_query_text_head,
+	-- The characters right before the statement. They show whether a block comment directly precedes it. A start
+	-- before position 1 returns only the characters up to the statement.
+	CASE WHEN @collectFullText = 1 AND stats.statement_start_offset > 0 THEN ISNULL(SUBSTRING(st.text, (stats.statement_start_offset / 2) - @prefixChars + 1, @prefixChars), N'') ELSE N'' END AS full_query_text_prefix,
+	0 AS statement_start_offset,
+	(CASE stats.statement_end_offset WHEN -1 THEN DATALENGTH(st.text) ELSE stats.statement_end_offset END) - stats.statement_start_offset AS statement_end_offset,
 	ISNULL(qp.query_plan, '') AS query_plan,
 	ISNULL(CASE WHEN qs.object_id > 0 THEN qs.object_id END, '') AS procedure_id,
          ISNULL(CASE WHEN qs.object_id > 0
@@ -80,18 +87,6 @@ FROM qstats AS qs
 		-- which repeats once per statement row when a batch holds many statements.
 		OUTER APPLY sys.dm_exec_text_query_plan(qs.query_plan_handle, stats.statement_start_offset, stats.statement_end_offset) AS qp
 		CROSS APPLY sys.dm_exec_sql_text(qs.query_plan_handle) AS st
-		-- win_start: -1 returns the whole batch text. Otherwise it is the 0-based character
-		-- where the returned window begins, so the text is cut to
-		-- [statement start - @windowChars, statement end]. A statement at offset 0 keeps the
-		-- whole text, because its normalized hash covers the whole batch.
-		CROSS APPLY (
-			SELECT CASE
-				WHEN stats.statement_start_offset > 0
-					THEN CASE WHEN CAST(stats.statement_start_offset AS BIGINT) / 2 > @windowChars
-						THEN CAST(stats.statement_start_offset AS BIGINT) / 2 - @windowChars ELSE 0 END
-				ELSE CAST(-1 AS BIGINT)
-			END AS win_start
-		) AS w
 		LEFT JOIN proc_stats AS pst
 			ON qs.object_id = pst.object_id
 			AND st.dbid = pst.database_id

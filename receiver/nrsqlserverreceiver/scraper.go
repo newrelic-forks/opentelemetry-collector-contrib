@@ -3251,8 +3251,8 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 				if err != nil {
 					s.logger.Error(fmt.Sprintf("failed to obfuscate full SQL text: %v", err))
 				} else {
-					fullQueryTextVal = obfuscated
-					_, dbQueryTextNormalizedHashVal = sqlnormalizer.NormalizeSQLAndHash(obfuscated)
+					fullQueryTextVal = withBlockCommentPlaceholder(obfuscated, row[colFullQueryTextPrefix])
+					_, dbQueryTextNormalizedHashVal = sqlnormalizer.NormalizeSQLAndHash(fullQueryTextVal)
 				}
 			}
 		}
@@ -3666,8 +3666,8 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 				if err != nil {
 					s.logger.Error(fmt.Sprintf("failed to obfuscate full SQL text: %v", err))
 				} else {
-					fullQueryTextVal = obfuscated
-					_, dbQueryTextNormalizedHashVal = sqlnormalizer.NormalizeSQLAndHash(obfuscated)
+					fullQueryTextVal = withBlockCommentPlaceholder(obfuscated, row[colFullQueryTextPrefix])
+					_, dbQueryTextNormalizedHashVal = sqlnormalizer.NormalizeSQLAndHash(fullQueryTextVal)
 				}
 			}
 		}

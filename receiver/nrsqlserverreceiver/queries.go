@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"unicode"
 )
 
 // Direct access to queries is not recommended: The receiver allows filtering based on
@@ -1906,19 +1907,22 @@ func getSQLServerDiskIOQuery(_ string) string {
 }
 
 const (
-	// fullQueryTextWindowChars is how many characters before the statement the returned text keeps. It bounds the
-	// batch text per row, so the worst case per scrape is about max_query_sample_count * (window + head + statement)
-	// characters, about 82 MB at 1,000 rows for ASCII text, whatever the size of the batch. The comment that
-	// precedes a statement and the tags next to it sit within it; the normalized hash does not depend on them. In
-	// observed workloads the nearest comment was at most 28,670 characters before its statement.
-	fullQueryTextWindowChars = 65536
-	// fullQueryTextHeadChars is how many leading characters of the batch come back when the window starts after the
-	// batch start. The comment tags are read from the leading block comments of the batch, which the window can leave
-	// out; observed leading comments start at the first characters of the batch. A quarter of the window is a sizing
-	// choice, not a measured ratio.
+	// fullQueryTextHeadChars is how many leading characters of the batch come back for a statement after offset 0.
+	// The comment tags are read from the leading block comments of the batch, which the statement text does not
+	// contain. It bounds the batch text per row, so the worst case per scrape is about
+	// max_query_sample_count * (head + statement) characters, about 17 MB at 1,000 rows for ASCII text, whatever
+	// the size of the batch. The leading comment of the customer's largest batch is 683 characters.
 	fullQueryTextHeadChars = 16384
-	// colFullQueryTextHead is the column that carries those leading characters, empty when the window starts at the batch start.
+	// colFullQueryTextHead is the column that carries those leading characters, empty for a statement at offset 0.
 	colFullQueryTextHead = "full_query_text_head"
+	// fullQueryTextPrefixChars is how many characters right before a statement after offset 0 come back. They only
+	// have to span the whitespace between the closing */ of a block comment and the statement; the comment itself
+	// can be any length.
+	fullQueryTextPrefixChars = 256
+	// colFullQueryTextPrefix is the column that carries those characters, empty for a statement at offset 0.
+	colFullQueryTextPrefix = "full_query_text_prefix"
+	// blockCommentPlaceholder starts the obfuscated text of a statement that a block comment directly precedes.
+	blockCommentPlaceholder = "? "
 )
 
 // fullQueryTextArgs returns the named parameters the top-query and query-sample templates use to bound
@@ -1930,14 +1934,13 @@ func fullQueryTextArgs(collect bool) []any {
 	}
 	return []any{
 		sql.Named("collectFullText", collectFullText),
-		sql.Named("windowChars", int64(fullQueryTextWindowChars)),
 		sql.Named("headChars", int64(fullQueryTextHeadChars)),
+		sql.Named("prefixChars", int64(fullQueryTextPrefixChars)),
 	}
 }
 
-// commentSourceText returns the text whose leading block comments hold the comment tags: the preamble that
-// precedes the statement, or the head of the batch when the text came back as a window that no longer starts at
-// the batch start.
+// commentSourceText returns the text whose leading block comments hold the comment tags: the head of the batch
+// when the query returned one, otherwise the preamble that precedes the statement.
 func commentSourceText(fullText, head string, statementStartOffset int) string {
 	if head != "" {
 		return stripParameterDeclarations(head)
@@ -1948,4 +1951,13 @@ func commentSourceText(fullText, head string, statementStartOffset int) string {
 		}
 	}
 	return fullText
+}
+
+// withBlockCommentPlaceholder puts the placeholder in front of the obfuscated statement when the text right before
+// the statement ends in a block comment, which obfuscation turns into the placeholder when it reads the whole batch.
+func withBlockCommentPlaceholder(obfuscated, prefix string) string {
+	if strings.HasSuffix(strings.TrimRightFunc(prefix, unicode.IsSpace), "*/") {
+		return blockCommentPlaceholder + obfuscated
+	}
+	return obfuscated
 }
