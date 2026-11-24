@@ -1906,11 +1906,16 @@ func getSQLServerDiskIOQuery(_ string) string {
 }
 
 const (
-	// fullQueryTextWindowChars is how many characters before the statement the returned text keeps. The
-	// comment that precedes a statement, which the normalized hash and comment tags use, sits within it.
+	// fullQueryTextWindowChars is how many characters before the statement the returned text keeps. It bounds the
+	// batch text per row, so the worst case per scrape is about max_query_sample_count * (window + head + statement)
+	// characters, about 82 MB at 1,000 rows for ASCII text, whatever the size of the batch. The comment that
+	// precedes a statement and the tags next to it sit within it; the normalized hash does not depend on them. In
+	// observed workloads the nearest comment was at most 28,670 characters before its statement.
 	fullQueryTextWindowChars = 65536
-	// fullQueryTextHeadChars is how many leading characters of the batch come back when the window starts after the batch start. The
-	// comment tags are read from the leading block comments of the batch, which the window can leave out.
+	// fullQueryTextHeadChars is how many leading characters of the batch come back when the window starts after the
+	// batch start. The comment tags are read from the leading block comments of the batch, which the window can leave
+	// out; observed leading comments start at the first characters of the batch. A quarter of the window is a sizing
+	// choice, not a measured ratio.
 	fullQueryTextHeadChars = 16384
 	// colFullQueryTextHead is the column that carries those leading characters, empty when the window starts at the batch start.
 	colFullQueryTextHead = "full_query_text_head"
