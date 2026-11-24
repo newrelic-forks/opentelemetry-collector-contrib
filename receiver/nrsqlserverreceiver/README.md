@@ -119,7 +119,7 @@ The batch text fetched per row is bounded. For a statement that does not start a
 when the window starts after the batch start. The normalized hash derives from the statement and the last block
 comment before it, and the comment tags from the block comments before it, so both are unchanged while those
 comments lie within the window and the head. A statement at offset 0 returns the whole batch, because its
-normalized hash covers the whole batch. The batch text is not fetched when `collect_full_query_text` is `false`.
+normalized hash covers the whole batch. When `collect_full_query_text` is `false`, the query returns no batch text to the receiver; SQL Server still reads it to derive the statement text and the procedure name.
 
 The execution plan on each `db.server.top_query` and `db.server.query_plan` record covers the statement
 that the record describes. A batch that holds many statements no longer repeats the plan of the whole

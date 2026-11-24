@@ -246,6 +246,40 @@ func TestQueryTemplatesBoundFullQueryText(t *testing.T) {
 	}
 }
 
+// TestQueryTemplatesWindowArithmetic pins the offset arithmetic that windowFullQueryText mirrors. A change to
+// the window or the offset shift in either template fails here until the mirror and its tests are updated.
+func TestQueryTemplatesWindowArithmetic(t *testing.T) {
+	for name, tc := range map[string]struct {
+		query string
+		parts []string
+	}{
+		"top query": {getSQLServerQueryTextAndPlanQuery(), []string{
+			"WHEN stats.statement_start_offset > 0",
+			"CAST(stats.statement_start_offset AS BIGINT) / 2 > @windowChars",
+			"CAST(stats.statement_start_offset AS BIGINT) / 2 - @windowChars ELSE 0 END",
+			"SUBSTRING(st.text, w.win_start + 1,",
+			"- w.win_start * 2) / 2) + 1)",
+			"SUBSTRING(st.text, 1, @headChars)",
+			"stats.statement_start_offset - CASE WHEN w.win_start > 0 THEN w.win_start * 2 ELSE 0 END",
+		}},
+		"query sample": {getSQLServerQuerySamplesQuery(), []string{
+			"WHEN o.TEXT IS NOT NULL AND r.statement_start_offset > 0",
+			"CAST(r.statement_start_offset AS BIGINT) / 2 > @windowChars",
+			"CAST(r.statement_start_offset AS BIGINT) / 2 - @windowChars ELSE 0 END",
+			"SUBSTRING(o.TEXT, w.win_start + 1,",
+			"- w.win_start * 2) / 2) + 1)",
+			"SUBSTRING(o.TEXT, 1, @headChars)",
+			"r.statement_start_offset - CASE WHEN w.win_start > 0 THEN w.win_start * 2 ELSE 0 END",
+		}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			for _, part := range tc.parts {
+				require.Contains(t, tc.query, part)
+			}
+		})
+	}
+}
+
 // windowFullQueryText mirrors the window the SQL templates return for a statement after offset 0.
 func windowFullQueryText(text string, startOffset, endOffset int) (window string, newStart, newEnd int) {
 	if startOffset <= 0 {
