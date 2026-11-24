@@ -5,11 +5,13 @@ package nrsqlserverreceiver
 
 import (
 	"database/sql"
+	"fmt"
 	"os"
 	"path"
 	"regexp"
 	"strings"
 	"testing"
+	"unicode/utf16"
 
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon/sqlcomments"
 	"github.com/stretchr/testify/require"
@@ -289,7 +291,23 @@ func windowFullQueryText(text string, startOffset, endOffset int) (window string
 	if startOffset/2 > fullQueryTextWindowChars {
 		winStart = startOffset/2 - fullQueryTextWindowChars
 	}
-	return text[winStart : endOffset/2+1], startOffset - winStart*2, endOffset - winStart*2
+	return text[winStart:min(endOffset/2+1, len(text))], startOffset - winStart*2, endOffset - winStart*2
+}
+
+// windowFullQueryTextUTF16 is windowFullQueryText for text that is not ASCII: SQL Server counts characters and
+// offsets in UTF-16 code units, and a character outside the basic plane takes two.
+func windowFullQueryTextUTF16(text string, startOffset, endOffset int) (window string, newStart, newEnd int) {
+	units := utf16.Encode([]rune(text))
+	winStart := 0
+	if startOffset/2 > fullQueryTextWindowChars {
+		winStart = startOffset/2 - fullQueryTextWindowChars
+	}
+	return string(utf16.Decode(units[winStart:min(endOffset/2+1, len(units))])), startOffset - winStart*2, endOffset - winStart*2
+}
+
+// utf16Bytes is how many bytes SQL Server uses for text, which is what statement offsets count.
+func utf16Bytes(text string) int {
+	return len(utf16.Encode([]rune(text))) * 2
 }
 
 func TestWindowedFullQueryTextKeepsCleanText(t *testing.T) {
@@ -357,6 +375,201 @@ func TestCommentSourceTextKeepsTagsForWindowedBatch(t *testing.T) {
 	t.Run("a batch that is not windowed", func(t *testing.T) {
 		require.Equal(t, whole, sqlcomments.ExtractAndFilterComments(commentSourceText(text, "", start), keys))
 	})
+}
+
+// TestQueryTemplatesStatementOffsetsPlanAndFallback pins the parts of the two templates that the arithmetic
+// test does not reach: an end offset of -1, the plan of the statement, the plan attribute rule of the
+// grouping step, and the text returned when there is no batch text to window.
+func TestQueryTemplatesStatementOffsetsPlanAndFallback(t *testing.T) {
+	for name, tc := range map[string]struct {
+		query    string
+		parts    []string
+		notParts []string
+	}{
+		"top query": {
+			query: getSQLServerQueryTextAndPlanQuery(),
+			parts: []string{
+				// an end offset of -1 is the end of the batch, in the window length and in the returned offset
+				"WHEN -1 THEN DATALENGTH(st.text) ELSE stats.statement_end_offset END - w.win_start * 2) / 2) + 1)",
+				"stats.statement_end_offset END) - CASE WHEN w.win_start > 0 THEN w.win_start * 2 ELSE 0 END AS statement_end_offset",
+				// the plan of the statement
+				"OUTER APPLY sys.dm_exec_text_query_plan(qs.query_plan_handle, stats.statement_start_offset, stats.statement_end_offset)",
+				// the object id is only the object id for plans of objects
+				"CASE WHEN cp.objtype IS NULL OR cp.objtype IN ('Adhoc', 'Prepared') THEN NULL ELSE pa.objectid END",
+				"WHERE a.attribute IN ('objectid', 'dbid')",
+				"DB_NAME(st1.dbid)",
+				"WHERE st.text IS NOT NULL",
+				// nothing is returned unless the text is collected
+				"WHEN @collectFullText = 0 THEN N''",
+				"CASE WHEN @collectFullText = 1 AND w.win_start > 0 THEN SUBSTRING(st.text, 1, @headChars) ELSE N'' END",
+			},
+			notParts: []string{"dm_exec_query_plan("},
+		},
+		"query sample": {
+			query: getSQLServerQuerySamplesQuery(),
+			parts: []string{
+				"WHEN @collectFullText = 0 THEN N''",
+				"CASE WHEN @collectFullText = 1 AND w.win_start > 0 THEN SUBSTRING(o.TEXT, 1, @headChars) ELSE N'' END",
+				// without batch text the input buffer is returned whole, with the offsets as they are
+				"ELSE CAST(-1 AS BIGINT)",
+				"WHEN w.win_start < 0 THEN COALESCE(o.TEXT, ib.event_info, '')",
+				"WHEN -1 THEN DATALENGTH(o.TEXT) ELSE r.statement_end_offset END - w.win_start * 2) / 2) + 1)",
+				"ISNULL(CASE r.statement_end_offset WHEN -1 THEN DATALENGTH(o.TEXT) ELSE r.statement_end_offset END, 0) - CASE WHEN w.win_start > 0 THEN w.win_start * 2 ELSE 0 END",
+			},
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			for _, part := range tc.parts {
+				require.Contains(t, tc.query, part)
+			}
+			for _, part := range tc.notParts {
+				require.NotContains(t, tc.query, part)
+			}
+		})
+	}
+}
+
+func TestWindowedFullQueryTextBoundaries(t *testing.T) {
+	const statement = "SELECT a FROM orders WHERE id = 42"
+	trailing := "; " + strings.Repeat("y", 64)
+	build := func(preambleChars int) (text string, start, end int) {
+		preamble := "/* c */" + strings.Repeat("x", preambleChars-len("/* c */"))
+		text = preamble + statement + trailing
+		return text, len(preamble) * 2, len(preamble)*2 + (len(statement)-1)*2
+	}
+	for name, tc := range map[string]struct {
+		preambleChars int
+		wantWinStart  int
+	}{
+		"the statement starts inside the window":      {fullQueryTextWindowChars - 1, 0},
+		"the statement starts at the window size":     {fullQueryTextWindowChars, 0},
+		"the statement starts one past the window":    {fullQueryTextWindowChars + 1, 1},
+		"the statement starts two past the window":    {fullQueryTextWindowChars + 2, 2},
+		"the statement starts far past the window":    {10 * fullQueryTextWindowChars, 9 * fullQueryTextWindowChars},
+		"the statement starts right after one letter": {len("/* c */") + 1, 0},
+	} {
+		t.Run(name, func(t *testing.T) {
+			text, start, end := build(tc.preambleChars)
+			window, ws, we := windowFullQueryText(text, start, end)
+			require.Len(t, window, tc.preambleChars-tc.wantWinStart+len(statement))
+			require.Equal(t, start-tc.wantWinStart*2, ws)
+			require.Equal(t, end-tc.wantWinStart*2, we)
+			require.True(t, strings.HasSuffix(window, statement))
+			require.Equal(t, statement, window[ws/2:we/2+1])
+		})
+	}
+
+	t.Run("an end offset of -1 resolved to the length of the text", func(t *testing.T) {
+		preamble := "/* c */" + strings.Repeat("x", 3*fullQueryTextWindowChars) + "/* near */ "
+		text := preamble + statement
+		start := len(preamble) * 2
+		end := len(text) * 2 // DATALENGTH, what the query returns in place of -1
+		window, ws, we := windowFullQueryText(text, start, end)
+		require.Len(t, window, fullQueryTextWindowChars+len(statement))
+		require.Equal(t, extractCleanText(text, start, end), extractCleanText(window, ws, we))
+		require.True(t, strings.HasPrefix(extractCleanText(window, ws, we), "/* near */"))
+	})
+}
+
+func TestWindowedFullQueryTextWithNonASCIIText(t *testing.T) {
+	const statement = "SELECT n FROM orders WHERE note = N'caf\u00e9 \U0001F600' AND id = 42"
+	emoji := "\U0001F600"
+	keys := []string{"nr_service_guid"}
+
+	for name, tc := range map[string]struct {
+		before string
+		// commentInWindow is false when the only comment before the statement is too far back for the window.
+		commentInWindow bool
+	}{
+		"a comment with accents and Japanese text": {"/* nr_service_guid=A, note=caf\u00e9 \u65e5\u672c\u8a9e */ ", true},
+		"a comment with an emoji":                  {"/* nr_service_guid=A " + emoji + " */ ", true},
+		"emoji before the comment":                 {strings.Repeat(emoji, 200) + "; /* c */ ", true},
+		"emoji and no comment in the window":       {strings.Repeat(emoji, 300) + "; ", false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			// Enough text before the statement that the window starts after the start of the batch.
+			filler := strings.Repeat("\u00e9", fullQueryTextWindowChars+500)
+			preamble := "/* nr_service_guid=GUID-1 */ " + filler + "; " + tc.before
+			text := preamble + statement + "; " + strings.Repeat("y", 128)
+			start := utf16Bytes(preamble)
+			end := start + utf16Bytes(statement) - 2
+
+			window, ws, we := windowFullQueryTextUTF16(text, start, end)
+			require.Positive(t, start/2-ws/2, "the window must start after the start of the batch")
+			require.Less(t, len(window), len(text))
+			require.Equal(t, statement, string(utf16.Decode(utf16.Encode([]rune(window))[ws/2:we/2+1])))
+
+			whole := extractCleanText(text, start, end)
+			got := extractCleanText(window, ws, we)
+			if tc.commentInWindow {
+				require.Equal(t, whole, got)
+				require.True(t, strings.HasPrefix(got, "/*"))
+			} else {
+				// The comment at the start of the batch is out of the window, so the text is the statement alone.
+				require.NotEqual(t, whole, got)
+				require.Equal(t, statement, got)
+			}
+
+			// The tag comes from the head, which holds characters from the start of the batch.
+			head := string(utf16.Decode(utf16.Encode([]rune(text))[:fullQueryTextHeadChars]))
+			require.Equal(t, "nr_service_guid=GUID-1", sqlcomments.ExtractAndFilterComments(commentSourceText(window, head, ws), keys))
+		})
+	}
+}
+
+func TestCommentSourceTextCases(t *testing.T) {
+	keys := []string{"nr_service_guid"}
+	const statement = "SELECT 1"
+	tag := func(g string) string { return "/* nr_service_guid=" + g + " */ " }
+
+	for name, tc := range map[string]struct {
+		fullText, head string
+		startOffset    int
+		wantTag        string
+	}{
+		"the head holds the tag":                           {fullText: "x; " + statement, head: tag("H") + "SELECT 0; ", startOffset: 6, wantTag: "nr_service_guid=H"},
+		"the head wins over the text before the statement": {fullText: tag("W") + statement, head: tag("H") + "SELECT 0; ", startOffset: 2 * len(tag("W")), wantTag: "nr_service_guid=H"},
+		"parameter declarations before the head tag":       {fullText: "x; " + statement, head: "(@p1 int)" + tag("P") + "SELECT 0; ", startOffset: 6, wantTag: "nr_service_guid=P"},
+		"no head and a tag before the statement":           {fullText: tag("T") + "SELECT 0; " + statement, startOffset: 2 * len(tag("T")+"SELECT 0; "), wantTag: "nr_service_guid=T"},
+		"no head and parameter declarations":               {fullText: "(@p1 int)" + tag("Q") + "SELECT 0; " + statement, startOffset: 2 * len("(@p1 int)"+tag("Q")+"SELECT 0; "), wantTag: "nr_service_guid=Q"},
+		"no head and no comment":                           {fullText: "SELECT 0; " + statement, startOffset: 2 * len("SELECT 0; "), wantTag: ""},
+		"no head and a start offset of 0":                  {fullText: tag("Z") + statement, startOffset: 0, wantTag: "nr_service_guid=Z"},
+		"a start offset past the end of the text":          {fullText: tag("E") + statement, startOffset: 10000, wantTag: "nr_service_guid=E"},
+		"the head has no tag":                              {fullText: "x; " + statement, head: "SELECT 0; ", startOffset: 6, wantTag: ""},
+		"a head that is only a comment":                    {fullText: "x; " + statement, head: tag("O"), startOffset: 6, wantTag: "nr_service_guid=O"},
+		"an empty text":                                    {fullText: "", head: "", startOffset: 0, wantTag: ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			got := sqlcomments.ExtractAndFilterComments(commentSourceText(tc.fullText, tc.head, tc.startOffset), keys)
+			require.Equal(t, tc.wantTag, got)
+		})
+	}
+
+	t.Run("a leading comment longer than the head is not read", func(t *testing.T) {
+		long := "/* nr_service_guid=L,filler=" + strings.Repeat("z", 2*fullQueryTextHeadChars) + " */ SELECT 0; "
+		text := long + statement
+		head := text[:fullQueryTextHeadChars]
+		require.Empty(t, sqlcomments.ExtractAndFilterComments(commentSourceText(statement, head, 0), keys))
+		require.Equal(t, "nr_service_guid=L", sqlcomments.ExtractAndFilterComments(commentSourceText(text, "", 2*len(long)), keys))
+	})
+	t.Run("a leading comment that ends exactly at the end of the head is read", func(t *testing.T) {
+		comment := "/* nr_service_guid=X,filler="
+		comment += strings.Repeat("z", fullQueryTextHeadChars-len(comment)-len(" */")) + " */"
+		require.Len(t, comment, fullQueryTextHeadChars)
+		head := (comment + "SELECT 0; " + statement)[:fullQueryTextHeadChars]
+		require.Equal(t, "nr_service_guid=X", sqlcomments.ExtractAndFilterComments(commentSourceText("", head, 0), keys))
+	})
+}
+
+// TestREADMEDocumentsTheWindowAndHeadSizes keeps the sizes in the README the sizes the receiver uses.
+func TestREADMEDocumentsTheWindowAndHeadSizes(t *testing.T) {
+	readme, err := os.ReadFile("README.md")
+	require.NoError(t, err)
+	withComma := func(n int) string { return fmt.Sprintf("%d,%03d", n/1000, n%1000) }
+	require.Equal(t, 65536, fullQueryTextWindowChars)
+	require.Equal(t, 16384, fullQueryTextHeadChars)
+	require.Contains(t, string(readme), withComma(fullQueryTextWindowChars)+" characters before the statement")
+	require.Contains(t, string(readme), withComma(fullQueryTextHeadChars)+" characters of the batch")
 }
 
 // TestTopQueryGroupingStepDoesNotReadBatchText guards the first step of the top-query SQL: it runs for every

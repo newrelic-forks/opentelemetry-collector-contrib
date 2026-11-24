@@ -5,6 +5,16 @@ including confirmation of which breaking changes from [CHANGELOG.md](./CHANGELOG
 
 <!-- next version -->
 
+## v0.165.2
+
+### 🧰 Bug fixes 🧰
+
+- `receiver/nrsqlserver`: fixed high memory use, `memory_limiter` refusals and a slow, hanging service
+  stop on SQL Server instances with large stored procedures. Top query and query sample events no
+  longer load the full text and plan of the whole batch for every statement. For these statements,
+  `query_plan` is now the plan of the statement, and `db.query.full_text` holds the statement with
+  only the text just before it. `db.query.text.normalized.hash` and `nr_service_guid` do not change.
+
 ## v0.165.1
 
 Synced with upstream contrib v0.165.1, which also covers v0.165.0 and the changes merged to `main`
