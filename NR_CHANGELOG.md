@@ -7,16 +7,6 @@ including confirmation of which breaking changes from [CHANGELOG.md](./CHANGELOG
 
 ## v0.165.2
 
-### 🧰 Bug fixes 🧰
-
-- `receiver/nrsqlserver`: fixed high memory use, `memory_limiter` refusals and a slow, hanging service
-  stop on SQL Server instances with large stored procedures. Top query and query sample events no
-  longer load the full text and plan of the whole batch for every statement. For these statements,
-  `query_plan` is now the plan of the statement, and `db.query.full_text` holds the statement with
-  only the text just before it. `db.query.text.normalized.hash` and `nr_service_guid` do not change.
-
-## v0.165.1
-
 Synced with upstream contrib v0.165.1, which also covers v0.165.0 and the changes merged to `main`
 after the v0.165.1 release. Upstream v0.165.0 and v0.165.1 have no breaking changes for the YAML
 configuration of these receivers; the breaking changes below are one Go API change and
@@ -78,6 +68,12 @@ attribute renames made to match upstream.
   auto-increment column is to its integer limit, with the new `mysql.column.name` attribute. Ported.
 
 ### 🧰 Bug fixes 🧰
+
+- `receiver/nrsqlserver`: fixed high memory use, `memory_limiter` refusals and a slow, hanging service
+  stop on SQL Server instances with large stored procedures. Top query and query sample events no
+  longer load the full text and plan of the whole batch for every statement. For these statements,
+  `query_plan` is now the plan of the statement, and `db.query.full_text` holds the statement with
+  only the text just before it. `db.query.text.normalized.hash` and `nr_service_guid` do not change.
 
 - `receiver/nrmysql` and `receiver/nrpostgresql` (upstream [#52539](https://github.com/open-telemetry/opentelemetry-collector-contrib/issues/52539)):
   the receivers derive the UUID v5 `service.instance.id` outside FIPS 140-3 strict enforcement, so
