@@ -3354,6 +3354,7 @@ func (s *sqlServerScraperHelper) recordTableMetadata(ctx context.Context) (pcomm
 	const (
 		colDatabaseName    = "database_name"
 		colSchemaName      = "schema_name"
+		colSchemaOwner     = "owner_name"
 		colTableID         = "table_id"
 		colTableName       = "table_name"
 		colRowCount        = "row_count"
@@ -3442,6 +3443,7 @@ func (s *sqlServerScraperHelper) recordTableMetadata(ctx context.Context) (pcomm
 			tableID.(int64),
 			row[colTableName],
 			row[colSchemaName],
+			row[colSchemaOwner],
 			columns,
 			foreignKeys,
 			indexes,
@@ -3470,6 +3472,8 @@ func (s *sqlServerScraperHelper) recordViewMetadata(ctx context.Context) (pcommo
 		colViewName     = "view_name"
 		colDefinition   = "definition"
 		colColumnsJSON  = "columns_json"
+		colCreateDate   = "create_date"
+		colModifyDate   = "modify_date"
 
 		dbSystemNameVal = "microsoft.sql_server"
 	)
@@ -3513,7 +3517,9 @@ func (s *sqlServerScraperHelper) recordViewMetadata(ctx context.Context) (pcommo
 			row[colViewName],
 			row[colSchemaName],
 			columns,
+			row[colCreateDate],
 			row[colDefinition],
+			row[colModifyDate],
 		)
 	}
 

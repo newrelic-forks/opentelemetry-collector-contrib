@@ -49,15 +49,6 @@ resourceLogs:
                     values:
                       - kvlistValue:
                           values:
-                            - key: scale
-                              value:
-                                intValue: "0"
-                            - key: nullable
-                              value:
-                                boolValue: false
-                            - key: ordinal_position
-                              value:
-                                stringValue: "1"
                             - key: name
                               value:
                                 stringValue: customer_id
@@ -70,14 +61,17 @@ resourceLogs:
                             - key: precision
                               value:
                                 intValue: "10"
+                            - key: scale
+                              value:
+                                intValue: "0"
+                            - key: nullable
+                              value:
+                                boolValue: false
+                            - key: ordinal_position
+                              value:
+                                stringValue: "1"
                       - kvlistValue:
                           values:
-                            - key: max_length
-                              value:
-                                intValue: "4"
-                            - key: precision
-                              value:
-                                intValue: "10"
                             - key: scale
                               value:
                                 intValue: "0"
@@ -93,12 +87,24 @@ resourceLogs:
                             - key: data_type
                               value:
                                 stringValue: int
+                            - key: max_length
+                              value:
+                                intValue: "4"
+                            - key: precision
+                              value:
+                                intValue: "10"
+              - key: sqlserver.view.create_time
+                value:
+                  stringValue: "2026-01-01T00:00:00.0000000+00:00"
               - key: sqlserver.view.definition
                 value:
                   stringValue: CREATE VIEW dbo.CustomerOrderSummary AS SELECT c.customer_id, COUNT(o.order_id) AS order_count FROM Customers c JOIN Orders o ON o.customer_id = c.customer_id GROUP BY c.customer_id
+              - key: sqlserver.view.modify_time
+                value:
+                  stringValue: "2026-01-02T00:00:00.0000000+00:00"
             body: {}
             eventName: db.server.view_metadata
-            timeUnixNano: "1794560103303157000"
+            timeUnixNano: "1795600161375232000"
         scope:
           name: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/sqlserverreceiver
           version: latest

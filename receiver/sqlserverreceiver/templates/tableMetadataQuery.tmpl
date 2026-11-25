@@ -10,8 +10,9 @@ END;
 -- every catalog view below is implicitly scoped to "the current database" — there is
 -- no cross-database join, dynamic SQL, or per-database cursor here.
 WITH schemas AS (
-	SELECT s.name AS schema_name, s.schema_id
+	SELECT s.name AS schema_name, s.schema_id, dp.name AS owner_name
 	FROM sys.schemas AS s
+	LEFT JOIN sys.database_principals dp ON dp.principal_id = s.principal_id
 	WHERE s.name NOT IN ('sys', 'information_schema')
 ),
 tables AS (
@@ -20,7 +21,7 @@ tables AS (
 	WHERE is_ms_shipped = 0
 ),
 schema_tables AS (
-	SELECT TOP (@maxTables) t.table_id, t.table_name, s.schema_name, s.schema_id
+	SELECT TOP (@maxTables) t.table_id, t.table_name, s.schema_name, s.schema_id, s.owner_name
 	FROM tables t
 	JOIN schemas s ON t.schema_id = s.schema_id
 	ORDER BY s.schema_name, t.table_name
@@ -117,7 +118,7 @@ size_stats AS (
 )
 SELECT
 	DB_NAME() AS database_name,
-	st.schema_name, st.table_id, st.table_name,
+	st.schema_name, st.owner_name, st.table_id, st.table_name,
 	ISNULL(ss.row_count, 0) AS row_count,
 	ISNULL(ss.total_size_kb, 0) AS total_size_kb,
 	ISNULL(ss.used_size_kb, 0) AS used_size_kb,

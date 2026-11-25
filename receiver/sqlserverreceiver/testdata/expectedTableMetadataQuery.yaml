@@ -43,32 +43,38 @@ resourceLogs:
               - key: sqlserver.schema.name
                 value:
                   stringValue: dbo
+              - key: sqlserver.schema.owner
+                value:
+                  stringValue: db_owner_role
               - key: sqlserver.table.columns
                 value:
                   arrayValue:
                     values:
                       - kvlistValue:
                           values:
+                            - key: data_type
+                              value:
+                                stringValue: int
+                            - key: max_length
+                              value:
+                                intValue: "4"
+                            - key: precision
+                              value:
+                                intValue: "10"
+                            - key: scale
+                              value:
+                                intValue: "0"
                             - key: nullable
                               value:
                                 boolValue: false
                             - key: name
                               value:
                                 stringValue: order_id
-                            - key: data_type
-                              value:
-                                stringValue: int
-                            - key: max_length
-                              value:
-                                intValue: "4"
-                            - key: precision
-                              value:
-                                intValue: "10"
-                            - key: scale
-                              value:
-                                intValue: "0"
                       - kvlistValue:
                           values:
+                            - key: name
+                              value:
+                                stringValue: customer_id
                             - key: data_type
                               value:
                                 stringValue: int
@@ -84,11 +90,17 @@ resourceLogs:
                             - key: nullable
                               value:
                                 boolValue: false
-                            - key: name
-                              value:
-                                stringValue: customer_id
                       - kvlistValue:
                           values:
+                            - key: max_length
+                              value:
+                                intValue: "20"
+                            - key: precision
+                              value:
+                                intValue: "0"
+                            - key: scale
+                              value:
+                                intValue: "0"
                             - key: nullable
                               value:
                                 boolValue: true
@@ -101,33 +113,12 @@ resourceLogs:
                             - key: data_type
                               value:
                                 stringValue: varchar
-                            - key: max_length
-                              value:
-                                intValue: "20"
-                            - key: precision
-                              value:
-                                intValue: "0"
-                            - key: scale
-                              value:
-                                intValue: "0"
               - key: sqlserver.table.foreign_keys
                 value:
                   arrayValue:
                     values:
                       - kvlistValue:
                           values:
-                            - key: foreign_key_name
-                              value:
-                                stringValue: fk_order_customer
-                            - key: referencing_table
-                              value:
-                                stringValue: Orders
-                            - key: referencing_column
-                              value:
-                                stringValue: customer_id
-                            - key: referenced_schema
-                              value:
-                                stringValue: dbo
                             - key: referenced_table
                               value:
                                 stringValue: Customers
@@ -140,39 +131,51 @@ resourceLogs:
                             - key: update_action
                               value:
                                 stringValue: NO_ACTION
+                            - key: foreign_key_name
+                              value:
+                                stringValue: fk_order_customer
+                            - key: referencing_table
+                              value:
+                                stringValue: Orders
+                            - key: referencing_column
+                              value:
+                                stringValue: customer_id
+                            - key: referenced_schema
+                              value:
+                                stringValue: dbo
               - key: sqlserver.table.indexes
                 value:
                   arrayValue:
                     values:
                       - kvlistValue:
                           values:
-                            - key: type
+                            - key: included_columns
                               value:
-                                intValue: "1"
+                                stringValue: ""
                             - key: is_unique
                               value:
                                 boolValue: true
+                            - key: is_primary_key
+                              value:
+                                boolValue: true
+                            - key: name
+                              value:
+                                stringValue: PK_Orders
+                            - key: type
+                              value:
+                                intValue: "1"
                             - key: is_unique_constraint
                               value:
                                 boolValue: false
                             - key: is_disabled
                               value:
                                 boolValue: false
-                            - key: is_primary_key
-                              value:
-                                boolValue: true
                             - key: filter_definition
                               value:
                                 stringValue: ""
                             - key: key_columns
                               value:
                                 stringValue: order_id
-                            - key: included_columns
-                              value:
-                                stringValue: ""
-                            - key: name
-                              value:
-                                stringValue: PK_Orders
               - key: sqlserver.table.partition_count
                 value:
                   intValue: "1"
@@ -190,7 +193,7 @@ resourceLogs:
                   doubleValue: 60000
             body: {}
             eventName: db.server.table_metadata
-            timeUnixNano: "1794560103300762000"
+            timeUnixNano: "1795600161372200000"
           - attributes:
               - key: db.namespace
                 value:
@@ -207,6 +210,9 @@ resourceLogs:
               - key: sqlserver.schema.name
                 value:
                   stringValue: dbo
+              - key: sqlserver.schema.owner
+                value:
+                  stringValue: db_owner_role
               - key: sqlserver.table.columns
                 value:
                   arrayValue:
@@ -254,7 +260,7 @@ resourceLogs:
                   doubleValue: 700
             body: {}
             eventName: db.server.table_metadata
-            timeUnixNano: "1794560103300762000"
+            timeUnixNano: "1795600161372200000"
         scope:
           name: github.com/open-telemetry/opentelemetry-collector-contrib/receiver/sqlserverreceiver
           version: latest

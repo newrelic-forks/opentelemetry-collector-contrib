@@ -364,6 +364,10 @@ attributes:
     description: The name of the database schema.
     type: string
     requirement_level: recommended
+  sqlserver.schema.owner:
+    description: The database principal (user or role) that owns the schema.
+    type: string
+    requirement_level: recommended
   sqlserver.session.duration:
     description: Total elapsed time in seconds since the session was established (login time).
     type: double
@@ -460,8 +464,16 @@ attributes:
     description: Transaction isolation level used in the session. Represented as numeric constant.
     type: int
     requirement_level: recommended
+  sqlserver.view.create_time:
+    description: Timestamp when the view was created (ISO 8601 format).
+    type: string
+    requirement_level: recommended
   sqlserver.view.definition:
     description: The SQL source text of the view, as stored in sys.sql_modules.
+    type: string
+    requirement_level: recommended
+  sqlserver.view.modify_time:
+    description: Timestamp when the view was last altered (ISO 8601 format).
     type: string
     requirement_level: recommended
   sqlserver.wait.resource.id:
@@ -624,6 +636,7 @@ events:
       - sqlserver.object.id
       - sqlserver.object.name
       - sqlserver.schema.name
+      - sqlserver.schema.owner
       - sqlserver.table.columns
       - sqlserver.table.foreign_keys
       - sqlserver.table.indexes
@@ -687,7 +700,9 @@ events:
       - sqlserver.object.name
       - sqlserver.schema.name
       - sqlserver.table.columns
+      - sqlserver.view.create_time
       - sqlserver.view.definition
+      - sqlserver.view.modify_time
 
 metrics:
   sqlserver.access.scan.rate:

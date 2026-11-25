@@ -175,7 +175,7 @@ type eventDbServerTableMetadata struct {
 	config EventConfig         // event config provided by user.
 }
 
-func (e *eventDbServerTableMetadata) recordEvent(ctx context.Context, timestamp pcommon.Timestamp, dbNamespaceAttributeValue string, dbSystemNameAttributeValue string, sqlserverObjectIDAttributeValue int64, sqlserverObjectNameAttributeValue string, sqlserverSchemaNameAttributeValue string, sqlserverTableColumnsAttributeValue []any, sqlserverTableForeignKeysAttributeValue []any, sqlserverTableIndexesAttributeValue []any, sqlserverTablePartitionCountAttributeValue int64, sqlserverRowCountAttributeValue int64, sqlserverTableSizeTotalKbAttributeValue float64, sqlserverTableSizeUsedKbAttributeValue float64, sqlserverTableSizeDataKbAttributeValue float64) {
+func (e *eventDbServerTableMetadata) recordEvent(ctx context.Context, timestamp pcommon.Timestamp, dbNamespaceAttributeValue string, dbSystemNameAttributeValue string, sqlserverObjectIDAttributeValue int64, sqlserverObjectNameAttributeValue string, sqlserverSchemaNameAttributeValue string, sqlserverSchemaOwnerAttributeValue string, sqlserverTableColumnsAttributeValue []any, sqlserverTableForeignKeysAttributeValue []any, sqlserverTableIndexesAttributeValue []any, sqlserverTablePartitionCountAttributeValue int64, sqlserverRowCountAttributeValue int64, sqlserverTableSizeTotalKbAttributeValue float64, sqlserverTableSizeUsedKbAttributeValue float64, sqlserverTableSizeDataKbAttributeValue float64) {
 	if !e.config.Enabled {
 		return
 	}
@@ -192,6 +192,7 @@ func (e *eventDbServerTableMetadata) recordEvent(ctx context.Context, timestamp 
 	dp.Attributes().PutInt("sqlserver.object.id", sqlserverObjectIDAttributeValue)
 	dp.Attributes().PutStr("sqlserver.object.name", sqlserverObjectNameAttributeValue)
 	dp.Attributes().PutStr("sqlserver.schema.name", sqlserverSchemaNameAttributeValue)
+	dp.Attributes().PutStr("sqlserver.schema.owner", sqlserverSchemaOwnerAttributeValue)
 	dp.Attributes().PutEmptySlice("sqlserver.table.columns").FromRaw(sqlserverTableColumnsAttributeValue)
 	dp.Attributes().PutEmptySlice("sqlserver.table.foreign_keys").FromRaw(sqlserverTableForeignKeysAttributeValue)
 	dp.Attributes().PutEmptySlice("sqlserver.table.indexes").FromRaw(sqlserverTableIndexesAttributeValue)
@@ -327,7 +328,7 @@ type eventDbServerViewMetadata struct {
 	config EventConfig         // event config provided by user.
 }
 
-func (e *eventDbServerViewMetadata) recordEvent(ctx context.Context, timestamp pcommon.Timestamp, dbNamespaceAttributeValue string, dbSystemNameAttributeValue string, sqlserverObjectIDAttributeValue int64, sqlserverObjectNameAttributeValue string, sqlserverSchemaNameAttributeValue string, sqlserverTableColumnsAttributeValue []any, sqlserverViewDefinitionAttributeValue string) {
+func (e *eventDbServerViewMetadata) recordEvent(ctx context.Context, timestamp pcommon.Timestamp, dbNamespaceAttributeValue string, dbSystemNameAttributeValue string, sqlserverObjectIDAttributeValue int64, sqlserverObjectNameAttributeValue string, sqlserverSchemaNameAttributeValue string, sqlserverTableColumnsAttributeValue []any, sqlserverViewCreateTimeAttributeValue string, sqlserverViewDefinitionAttributeValue string, sqlserverViewModifyTimeAttributeValue string) {
 	if !e.config.Enabled {
 		return
 	}
@@ -345,7 +346,9 @@ func (e *eventDbServerViewMetadata) recordEvent(ctx context.Context, timestamp p
 	dp.Attributes().PutStr("sqlserver.object.name", sqlserverObjectNameAttributeValue)
 	dp.Attributes().PutStr("sqlserver.schema.name", sqlserverSchemaNameAttributeValue)
 	dp.Attributes().PutEmptySlice("sqlserver.table.columns").FromRaw(sqlserverTableColumnsAttributeValue)
+	dp.Attributes().PutStr("sqlserver.view.create_time", sqlserverViewCreateTimeAttributeValue)
 	dp.Attributes().PutStr("sqlserver.view.definition", sqlserverViewDefinitionAttributeValue)
+	dp.Attributes().PutStr("sqlserver.view.modify_time", sqlserverViewModifyTimeAttributeValue)
 
 }
 
@@ -571,8 +574,8 @@ func (lb *LogsBuilder) RecordDbServerQuerySampleEvent(ctx context.Context, times
 }
 
 // RecordDbServerTableMetadataEvent adds a log record of db.server.table_metadata event.
-func (lb *LogsBuilder) RecordDbServerTableMetadataEvent(ctx context.Context, timestamp pcommon.Timestamp, dbNamespaceAttributeValue string, dbSystemNameAttributeValue string, sqlserverObjectIDAttributeValue int64, sqlserverObjectNameAttributeValue string, sqlserverSchemaNameAttributeValue string, sqlserverTableColumnsAttributeValue []any, sqlserverTableForeignKeysAttributeValue []any, sqlserverTableIndexesAttributeValue []any, sqlserverTablePartitionCountAttributeValue int64, sqlserverRowCountAttributeValue int64, sqlserverTableSizeTotalKbAttributeValue float64, sqlserverTableSizeUsedKbAttributeValue float64, sqlserverTableSizeDataKbAttributeValue float64) {
-	lb.eventDbServerTableMetadata.recordEvent(ctx, timestamp, dbNamespaceAttributeValue, dbSystemNameAttributeValue, sqlserverObjectIDAttributeValue, sqlserverObjectNameAttributeValue, sqlserverSchemaNameAttributeValue, sqlserverTableColumnsAttributeValue, sqlserverTableForeignKeysAttributeValue, sqlserverTableIndexesAttributeValue, sqlserverTablePartitionCountAttributeValue, sqlserverRowCountAttributeValue, sqlserverTableSizeTotalKbAttributeValue, sqlserverTableSizeUsedKbAttributeValue, sqlserverTableSizeDataKbAttributeValue)
+func (lb *LogsBuilder) RecordDbServerTableMetadataEvent(ctx context.Context, timestamp pcommon.Timestamp, dbNamespaceAttributeValue string, dbSystemNameAttributeValue string, sqlserverObjectIDAttributeValue int64, sqlserverObjectNameAttributeValue string, sqlserverSchemaNameAttributeValue string, sqlserverSchemaOwnerAttributeValue string, sqlserverTableColumnsAttributeValue []any, sqlserverTableForeignKeysAttributeValue []any, sqlserverTableIndexesAttributeValue []any, sqlserverTablePartitionCountAttributeValue int64, sqlserverRowCountAttributeValue int64, sqlserverTableSizeTotalKbAttributeValue float64, sqlserverTableSizeUsedKbAttributeValue float64, sqlserverTableSizeDataKbAttributeValue float64) {
+	lb.eventDbServerTableMetadata.recordEvent(ctx, timestamp, dbNamespaceAttributeValue, dbSystemNameAttributeValue, sqlserverObjectIDAttributeValue, sqlserverObjectNameAttributeValue, sqlserverSchemaNameAttributeValue, sqlserverSchemaOwnerAttributeValue, sqlserverTableColumnsAttributeValue, sqlserverTableForeignKeysAttributeValue, sqlserverTableIndexesAttributeValue, sqlserverTablePartitionCountAttributeValue, sqlserverRowCountAttributeValue, sqlserverTableSizeTotalKbAttributeValue, sqlserverTableSizeUsedKbAttributeValue, sqlserverTableSizeDataKbAttributeValue)
 }
 
 // RecordDbServerTopProcedureEvent adds a log record of db.server.top_procedure event.
@@ -586,6 +589,6 @@ func (lb *LogsBuilder) RecordDbServerTopQueryEvent(ctx context.Context, timestam
 }
 
 // RecordDbServerViewMetadataEvent adds a log record of db.server.view_metadata event.
-func (lb *LogsBuilder) RecordDbServerViewMetadataEvent(ctx context.Context, timestamp pcommon.Timestamp, dbNamespaceAttributeValue string, dbSystemNameAttributeValue string, sqlserverObjectIDAttributeValue int64, sqlserverObjectNameAttributeValue string, sqlserverSchemaNameAttributeValue string, sqlserverTableColumnsAttributeValue []any, sqlserverViewDefinitionAttributeValue string) {
-	lb.eventDbServerViewMetadata.recordEvent(ctx, timestamp, dbNamespaceAttributeValue, dbSystemNameAttributeValue, sqlserverObjectIDAttributeValue, sqlserverObjectNameAttributeValue, sqlserverSchemaNameAttributeValue, sqlserverTableColumnsAttributeValue, sqlserverViewDefinitionAttributeValue)
+func (lb *LogsBuilder) RecordDbServerViewMetadataEvent(ctx context.Context, timestamp pcommon.Timestamp, dbNamespaceAttributeValue string, dbSystemNameAttributeValue string, sqlserverObjectIDAttributeValue int64, sqlserverObjectNameAttributeValue string, sqlserverSchemaNameAttributeValue string, sqlserverTableColumnsAttributeValue []any, sqlserverViewCreateTimeAttributeValue string, sqlserverViewDefinitionAttributeValue string, sqlserverViewModifyTimeAttributeValue string) {
+	lb.eventDbServerViewMetadata.recordEvent(ctx, timestamp, dbNamespaceAttributeValue, dbSystemNameAttributeValue, sqlserverObjectIDAttributeValue, sqlserverObjectNameAttributeValue, sqlserverSchemaNameAttributeValue, sqlserverTableColumnsAttributeValue, sqlserverViewCreateTimeAttributeValue, sqlserverViewDefinitionAttributeValue, sqlserverViewModifyTimeAttributeValue)
 }

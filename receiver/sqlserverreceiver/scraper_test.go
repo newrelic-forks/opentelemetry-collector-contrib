@@ -3420,6 +3420,10 @@ func TestTableMetadataQuery(t *testing.T) {
 
 	records := actualLogs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords()
 	assert.Equal(t, "db.server.table_metadata", records.At(0).EventName())
+
+	owner, ok := records.At(0).Attributes().Get("sqlserver.schema.owner")
+	require.True(t, ok, "sqlserver.schema.owner should be set from sys.database_principals")
+	assert.Equal(t, "db_owner_role", owner.Str())
 }
 
 // A table with no indexes or foreign keys has those sub-selects come back as SQL NULL
@@ -3519,6 +3523,14 @@ func TestViewMetadataQuery(t *testing.T) {
 
 	records := actualLogs.ResourceLogs().At(0).ScopeLogs().At(0).LogRecords()
 	assert.Equal(t, "db.server.view_metadata", records.At(0).EventName())
+
+	createTime, ok := records.At(0).Attributes().Get("sqlserver.view.create_time")
+	require.True(t, ok, "sqlserver.view.create_time should be set from sys.views.create_date")
+	assert.Equal(t, "2026-01-01T00:00:00.0000000+00:00", createTime.Str())
+
+	modifyTime, ok := records.At(0).Attributes().Get("sqlserver.view.modify_time")
+	require.True(t, ok, "sqlserver.view.modify_time should be set from sys.views.modify_date")
+	assert.Equal(t, "2026-01-02T00:00:00.0000000+00:00", modifyTime.Str())
 }
 
 func TestViewMetadataRespectsCollectionInterval(t *testing.T) {

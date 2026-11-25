@@ -1396,6 +1396,7 @@ Structural inventory and size of a table, including its columns, indexes, foreig
 | sqlserver.object.id | The SQL Server object_id of the table or view. | Any Int | - |
 | sqlserver.object.name | The name of the database object. | Any Str | - |
 | sqlserver.schema.name | The name of the database schema. | Any Str | - |
+| sqlserver.schema.owner | The database principal (user or role) that owns the schema. | Any Str | - |
 | sqlserver.table.columns | The columns defined on the table, each with name, data_type, max_length, precision, scale, nullable, and default. | Any Slice | - |
 | sqlserver.table.foreign_keys | The foreign keys defined on the table, each with name, referencing_column, referenced_schema, referenced_table, referenced_column, delete_action, and update_action. | Any Slice | - |
 | sqlserver.table.indexes | The indexes defined on the table, each with name, type, is_unique, is_primary_key, key_columns, and included_columns. | Any Slice | - |
@@ -1471,7 +1472,9 @@ Structural inventory of a view, including its columns and SQL definition. Off by
 | sqlserver.object.name | The name of the database object. | Any Str | - |
 | sqlserver.schema.name | The name of the database schema. | Any Str | - |
 | sqlserver.table.columns | The columns defined on the table, each with name, data_type, max_length, precision, scale, nullable, and default. | Any Slice | - |
+| sqlserver.view.create_time | Timestamp when the view was created (ISO 8601 format). | Any Str | - |
 | sqlserver.view.definition | The SQL source text of the view, as stored in sys.sql_modules. | Any Str | - |
+| sqlserver.view.modify_time | Timestamp when the view was last altered (ISO 8601 format). | Any Str | - |
 
 ## Resource Attributes
 
