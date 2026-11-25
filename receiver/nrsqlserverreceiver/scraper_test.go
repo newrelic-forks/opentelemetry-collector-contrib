@@ -10,14 +10,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrcommon/sqlnormalizer"
 	sqlquery "github.com/newrelic-forks/opentelemetry-collector-contrib/internal/nrsqlquery"
 	"github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver/internal/metadata"
 	"github.com/stretchr/testify/assert"
@@ -1923,6 +1926,149 @@ func TestCommentKeysAreScopedPerEventCollection(t *testing.T) {
 				"db.server.top_query must read allowed_comment_keys from top_query_collection only")
 			assert.Equal(t, tc.wantQuerySampleID, gotQuerySampleGUID,
 				"db.server.query_sample must read allowed_comment_keys from query_sample_collection only")
+		})
+	}
+}
+
+// fullTextRowsClient returns the fixture rows of the wrapped client with the given columns replaced.
+type fullTextRowsClient struct {
+	mockClient
+	override map[string]string
+}
+
+func (c fullTextRowsClient) QueryRows(ctx context.Context, args ...any) ([]sqlquery.StringMap, error) {
+	rows, err := c.mockClient.QueryRows(ctx, args...)
+	for _, row := range rows {
+		maps.Copy(row, c.override)
+	}
+	return rows, err
+}
+
+// TestFullQueryTextOfWindowedRows feeds rows shaped like the SQL output for a statement after offset 0 (the text
+// from the window start to the statement end, offsets relative to it, and the head of the batch) through both
+// event collections, and checks the text, the comment tag and the hash that reach the log record.
+func TestFullQueryTextOfWindowedRows(t *testing.T) {
+	const (
+		statement = "SELECT a FROM t WHERE id = 5"
+		textAttr  = "db.query.full_text"
+		guidAttr  = "db.query.comment_tags.nr_service_guid"
+		hashAttr  = "db.query.text.normalized.hash"
+	)
+	_, wantHash := sqlnormalizer.NormalizeSQLAndHash("SELECT a FROM t WHERE id = ?")
+
+	// windowRow is the row for a window that is the given text before the statement, then the statement.
+	windowRow := func(beforeStatement, head string) map[string]string {
+		start := utf16Bytes(beforeStatement)
+		return map[string]string{
+			"full_query_text":        beforeStatement + statement,
+			"statement_start_offset": strconv.Itoa(start),
+			"statement_end_offset":   strconv.Itoa(start + (len(statement)-1)*2),
+			"full_query_text_head":   head,
+		}
+	}
+	longHead := ("/* nr_service_guid=G-LONG,filler=" + strings.Repeat("z", 2*fullQueryTextHeadChars) + " */ SELECT 1; ")[:fullQueryTextHeadChars]
+	batchHead := "/* nr_service_guid=G-1 */ SELECT 1; "
+
+	tests := map[string]struct {
+		row      map[string]string
+		wantText string
+		wantGUID string
+	}{
+		"a window with a comment directly before the statement": {
+			row:      windowRow("x; /* note */ ", batchHead),
+			wantText: "? SELECT a FROM t WHERE id = ?", wantGUID: "G-1",
+		},
+		"a window with no comment": {
+			row:      windowRow("x; ", batchHead),
+			wantText: "SELECT a FROM t WHERE id = ?", wantGUID: "G-1",
+		},
+		"a window in a batch shorter than the window": {
+			// The text starts at the start of the batch, so there is no head and the tag is read from the text.
+			row:      windowRow("/* nr_service_guid=G-2 */ SELECT 1; /* note */ ", ""),
+			wantText: "? SELECT a FROM t WHERE id = ?", wantGUID: "G-2",
+		},
+		"parameter declarations before the leading comment of the head": {
+			row:      windowRow("x; ", "(@p1 int)/* nr_service_guid=G-3 */ SELECT 1; "),
+			wantText: "SELECT a FROM t WHERE id = ?", wantGUID: "G-3",
+		},
+		"a statement at offset 0 keeps the whole batch": {
+			row: map[string]string{
+				"full_query_text":        "/* nr_service_guid=G-4 */ " + statement,
+				"statement_start_offset": "0",
+				"statement_end_offset":   strconv.Itoa((len("/* nr_service_guid=G-4 */ "+statement) - 1) * 2),
+				"full_query_text_head":   "",
+			},
+			wantText: "? SELECT a FROM t WHERE id = ?", wantGUID: "G-4",
+		},
+		"text that is not ASCII in the window": {
+			row:      windowRow("caf\u00e9 \U0001F600; /* note */ ", batchHead),
+			wantText: "? SELECT a FROM t WHERE id = ?", wantGUID: "G-1",
+		},
+		"a window after the batch start and no head": {
+			row:      windowRow("x; ", ""),
+			wantText: "SELECT a FROM t WHERE id = ?", wantGUID: "",
+		},
+		"a leading comment longer than the head": {
+			row:      windowRow("x; ", longHead),
+			wantText: "SELECT a FROM t WHERE id = ?", wantGUID: "",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			cfg := createDefaultConfig().(*Config)
+			cfg.Username = "sa"
+			cfg.Password = "password"
+			cfg.Port = 1433
+			cfg.Server = "0.0.0.0"
+			enableSQLServerResourceAttributesForTests(&cfg.LogsBuilderConfig.ResourceAttributes)
+			require.NoError(t, cfg.Validate())
+			configureAllScraperMetricsAndEvents(cfg, false)
+			cfg.Events.DbServerTopQuery.Enabled = true
+			cfg.Events.DbServerQuerySample.Enabled = true
+			cfg.TopQueryCollection.CollectionInterval = cfg.CollectionInterval
+			cfg.TopQueryCollection.CollectFullQueryText = true
+			cfg.TopQueryCollection.AllowedCommentKeys = []string{"nr_service_guid"}
+			cfg.QuerySample.CollectFullQueryText = true
+			cfg.QuerySample.AllowedCommentKeys = []string{"nr_service_guid"}
+
+			scrapers, _ := setupSQLServerLogsScrapers(receivertest.NewNopSettings(metadata.Type), cfg)
+			require.NotEmpty(t, scrapers)
+
+			got := map[string]map[string]string{}
+			for _, scraper := range scrapers {
+				scraper.client = fullTextRowsClient{
+					mockClient: mockClient{
+						instanceName:        scraper.config.InstanceName,
+						SQL:                 scraper.sqlQuery,
+						maxQuerySampleCount: 1000,
+						lookbackTime:        20,
+						topQueryCount:       200,
+						maxRowsPerQuery:     100,
+					},
+					override: tc.row,
+				}
+				seedTopQueryCacheForTests(scraper)
+				logs, err := scraper.ScrapeLogs(t.Context())
+				require.NoError(t, err)
+				for _, event := range []string{"db.server.top_query", "db.server.query_sample"} {
+					for _, attr := range []string{textAttr, guidAttr, hashAttr} {
+						if val, ok := findLogAttr(logs, event, attr); ok {
+							if got[event] == nil {
+								got[event] = map[string]string{}
+							}
+							got[event][attr] = val
+						}
+					}
+				}
+			}
+
+			for _, event := range []string{"db.server.top_query", "db.server.query_sample"} {
+				require.Contains(t, got, event, "no %s record was produced", event)
+				assert.Equal(t, tc.wantText, got[event][textAttr], "%s %s", event, textAttr)
+				assert.Equal(t, tc.wantGUID, got[event][guidAttr], "%s %s", event, guidAttr)
+				assert.Equal(t, wantHash, got[event][hashAttr], "%s %s must not depend on the comment before the statement", event, hashAttr)
+			}
 		})
 	}
 }

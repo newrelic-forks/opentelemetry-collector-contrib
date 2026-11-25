@@ -114,6 +114,20 @@ Setting them at the top level of the receiver config is not supported.
   statement into `db.query.comment_tags.*`. Only keys listed here are extracted; all other comment
   content is discarded. Requires `collect_full_query_text` to be enabled on the same collection.
 
+The batch text fetched per row is bounded, so the memory a scrape needs does not grow with the size of the batch.
+For a statement that does not start at offset 0, the text is the 65,536 characters before the statement through the
+statement end, plus the first 16,384 characters of the batch when the window starts after the batch start. The
+comment tags come from the block comments in the head and in the window, and the last block comment in the window
+appears as a `?` placeholder at the start of `db.query.full_text`. A tag comment outside both, or a last block
+comment more than 65,536 characters before the statement, is not read. The normalized hash does not depend on that
+comment. A statement at offset 0 returns the whole batch, because its normalized hash covers the whole batch. When
+`collect_full_query_text` is `false`, the query returns no batch text to the receiver; SQL Server still reads it to
+derive the statement text and the procedure name.
+
+The execution plan on each `db.server.top_query` and `db.server.query_plan` record covers the statement
+that the record describes. A batch that holds many statements no longer repeats the plan of the whole
+batch on every one of them.
+
 The following settings are optional:
 - `collection_interval` (default = `10s`): The interval at which metrics should be emitted by this receiver.
 - `instance_name` (optional): The instance name identifies the specific SQL Server instance being monitored.

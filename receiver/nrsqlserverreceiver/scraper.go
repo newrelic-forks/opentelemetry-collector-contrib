@@ -3163,12 +3163,13 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 
 	resources := pcommon.NewResource()
 
+	topQueryArgs := append([]any{
+		sql.Named("lookbackTime", -int(s.config.EffectiveLookbackTime().Seconds())),
+		sql.Named("maxSampleCount", s.config.TopQueryCollection.MaxQuerySampleCount),
+	}, fullQueryTextArgs(s.config.TopQueryCollection.CollectFullQueryText)...)
 	rows, err := s.client.QueryRows(
 		ctx,
-		append([]any{
-			sql.Named("lookbackTime", -int(s.config.EffectiveLookbackTime().Seconds())),
-			sql.Named("maxSampleCount", s.config.TopQueryCollection.MaxQuerySampleCount),
-		}, s.databaseFilter.args()...)...,
+		append(topQueryArgs, s.databaseFilter.args()...)...,
 	)
 	if err != nil {
 		if !errors.Is(err, sqlquery.ErrNullValueWarning) {
@@ -3243,13 +3244,7 @@ func (s *sqlServerScraperHelper) recordDatabaseQueryTextAndPlan(ctx context.Cont
 			if rawFullText != "" {
 				stmtStartOff, _ := strconv.Atoi(row[statementStartOffset])
 				stmtEndOff, _ := strconv.Atoi(row[statementEndOffset])
-				commentText := rawFullText
-				if stmtStartOff > 0 {
-					startPos := utf16OffsetToBytePos(rawFullText, stmtStartOff)
-					if startPos < len(rawFullText) {
-						commentText = stripParameterDeclarations(rawFullText[:startPos])
-					}
-				}
+				commentText := commentSourceText(rawFullText, row[colFullQueryTextHead], stmtStartOff)
 				dbSQLCommentsVal = sqlcomments.ExtractAndFilterComments(commentText, s.config.TopQueryCollection.AllowedCommentKeys)
 				nrServiceGUIDVal = sqlcomments.ExtractValueForKey(dbSQLCommentsVal, "nr_service_guid")
 				obfuscated, err := s.obfuscator.obfuscateFullSQLString(rawFullText, stmtStartOff, stmtEndOff)
@@ -3552,9 +3547,13 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 	const storedProcedureID = "procedure_id"
 	const storedProcedureName = "procedure_name"
 
+	querySampleArgs := append(
+		[]any{sql.Named("top", s.config.QuerySample.MaxRowsPerQuery)},
+		fullQueryTextArgs(s.config.QuerySample.CollectFullQueryText)...,
+	)
 	rows, err := s.client.QueryRows(
 		ctx,
-		append([]any{sql.Named("top", s.config.QuerySample.MaxRowsPerQuery)}, s.databaseFilter.args()...)...,
+		append(querySampleArgs, s.databaseFilter.args()...)...,
 	)
 	resources := pcommon.NewResource()
 	if err != nil {
@@ -3660,13 +3659,7 @@ func (s *sqlServerScraperHelper) recordDatabaseSampleQuery(ctx context.Context) 
 			if rawFullText != "" {
 				stmtStartOff, _ := strconv.Atoi(row[stmtStartOffsetCol])
 				stmtEndOff, _ := strconv.Atoi(row[stmtEndOffsetCol])
-				commentText := rawFullText
-				if stmtStartOff > 0 {
-					startPos := utf16OffsetToBytePos(rawFullText, stmtStartOff)
-					if startPos < len(rawFullText) {
-						commentText = stripParameterDeclarations(rawFullText[:startPos])
-					}
-				}
+				commentText := commentSourceText(rawFullText, row[colFullQueryTextHead], stmtStartOff)
 				dbSQLCommentsVal = sqlcomments.ExtractAndFilterComments(commentText, s.config.QuerySample.AllowedCommentKeys)
 				nrServiceGUIDVal = sqlcomments.ExtractValueForKey(dbSQLCommentsVal, "nr_service_guid")
 				obfuscated, err := s.obfuscator.obfuscateFullSQLString(rawFullText, stmtStartOff, stmtEndOff)

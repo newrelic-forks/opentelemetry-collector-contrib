@@ -4,6 +4,7 @@
 package nrsqlserverreceiver // import "github.com/newrelic-forks/opentelemetry-collector-contrib/receiver/nrsqlserverreceiver"
 
 import (
+	"database/sql"
 	_ "embed"
 	"fmt"
 	"slices"
@@ -1902,4 +1903,49 @@ EXEC sp_executesql @SqlStatement
 func getSQLServerDiskIOQuery(_ string) string {
 	r := strings.NewReplacer("{filter_instance_name}", "")
 	return r.Replace(sqlServerDiskIOQuery)
+}
+
+const (
+	// fullQueryTextWindowChars is how many characters before the statement the returned text keeps. It bounds the
+	// batch text per row, so the worst case per scrape is about max_query_sample_count * (window + head + statement)
+	// characters, about 82 MB at 1,000 rows for ASCII text, whatever the size of the batch. The comment that
+	// precedes a statement and the tags next to it sit within it; the normalized hash does not depend on them. In
+	// observed workloads the nearest comment was at most 28,670 characters before its statement.
+	fullQueryTextWindowChars = 65536
+	// fullQueryTextHeadChars is how many leading characters of the batch come back when the window starts after the
+	// batch start. The comment tags are read from the leading block comments of the batch, which the window can leave
+	// out; observed leading comments start at the first characters of the batch. A quarter of the window is a sizing
+	// choice, not a measured ratio.
+	fullQueryTextHeadChars = 16384
+	// colFullQueryTextHead is the column that carries those leading characters, empty when the window starts at the batch start.
+	colFullQueryTextHead = "full_query_text_head"
+)
+
+// fullQueryTextArgs returns the named parameters the top-query and query-sample templates use to bound
+// the batch text they return.
+func fullQueryTextArgs(collect bool) []any {
+	collectFullText := 0
+	if collect {
+		collectFullText = 1
+	}
+	return []any{
+		sql.Named("collectFullText", collectFullText),
+		sql.Named("windowChars", int64(fullQueryTextWindowChars)),
+		sql.Named("headChars", int64(fullQueryTextHeadChars)),
+	}
+}
+
+// commentSourceText returns the text whose leading block comments hold the comment tags: the preamble that
+// precedes the statement, or the head of the batch when the text came back as a window that no longer starts at
+// the batch start.
+func commentSourceText(fullText, head string, statementStartOffset int) string {
+	if head != "" {
+		return stripParameterDeclarations(head)
+	}
+	if statementStartOffset > 0 {
+		if startPos := utf16OffsetToBytePos(fullText, statementStartOffset); startPos < len(fullText) {
+			return stripParameterDeclarations(fullText[:startPos])
+		}
+	}
+	return fullText
 }
